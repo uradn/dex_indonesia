@@ -1,0 +1,186 @@
+import type { CrisisEvent, CrisisValidation, BacktestResult, ModuleSignalAtDate } from './types.js';
+import { daysBetween, isInCrisisWindow, INDONESIA_CRISIS_CALENDAR } from './crisis-calendar.js';
+import type { AlertLevel } from '../types.js';
+
+/**
+ * Validate signals against a single crisis event.
+ */
+export function validateCrisis(
+  crisis: CrisisEvent,
+  signals: ModuleSignalAtDate[],
+): CrisisValidation {
+  const precrisisSignals = signals.filter(
+    (s) => s.date >= new Date(new Date(crisis.startDate).getTime() - 90 * 86400_000).toISOString().slice(0, 10)
+         && s.date <= crisis.startDate,
+  );
+
+  let firstAlertDate: string | null = null;
+  let firstOrangeDate: string | null = null;
+  let firstRedDate: string | null = null;
+
+  for (const s of precrisisSignals.sort((a, b) => a.date.localeCompare(b.date))) {
+    if (!firstAlertDate && (s.overallAlert === 'yellow' || s.overallAlert === 'orange' || s.overallAlert === 'red')) {
+      firstAlertDate = s.date;
+    }
+    if (!firstOrangeDate && (s.overallAlert === 'orange' || s.overallAlert === 'red')) {
+      firstOrangeDate = s.date;
+    }
+    if (!firstRedDate && s.overallAlert === 'red') {
+      firstRedDate = s.date;
+    }
+  }
+
+  const leadTimeYellow = firstAlertDate ? daysBetween(firstAlertDate, crisis.startDate) : null;
+  const leadTimeOrange = firstOrangeDate ? daysBetween(firstOrangeDate, crisis.startDate) : null;
+  const leadTimeRed = firstRedDate ? daysBetween(firstRedDate, crisis.startDate) : null;
+
+  const signalAtStart = signals.find((s) => s.date === crisis.startDate)?.overallAlert ?? 'green';
+  const signalAtPeak = signals.find((s) => s.date === crisis.peakDate)?.overallAlert ?? 'green';
+
+  const crisisSignals = signals.filter((s) => isInCrisisWindow(s.date, crisis, 0));
+  const peakScore = crisisSignals.reduce((max, s) => Math.max(max, s.compositeScore), 0);
+  const alertOrder: AlertLevel[] = ['green', 'yellow', 'orange', 'red'];
+  const peakAlertLevel = crisisSignals.reduce<AlertLevel>(
+    (max, s) => alertOrder.indexOf(s.overallAlert) > alertOrder.indexOf(max) ? s.overallAlert : max,
+    'green',
+  );
+
+  return {
+    crisis,
+    firstAlertDate,
+    firstOrangeDate,
+    firstRedDate,
+    leadTimeDaysYellow: leadTimeYellow,
+    leadTimeDaysOrange: leadTimeOrange,
+    leadTimeDaysRed: leadTimeRed,
+    peakScore,
+    peakAlertLevel,
+    signalAtCrisisStart: signalAtStart,
+    signalAtCrisisPeak: signalAtPeak,
+    caught: firstAlertDate !== null,
+  };
+}
+
+/**
+ * Compute false positive rate: ORANGE+ days outside all crisis windows.
+ */
+export function computeFalsePositiveRate(
+  signals: ModuleSignalAtDate[],
+  crises: CrisisEvent[],
+): { falsePositiveRate: number; totalAlertDays: number; totalDays: number } {
+  const totalDays = signals.length;
+  let alertDaysOutsideCrisis = 0;
+
+  for (const s of signals) {
+    if (s.overallAlert !== 'orange' && s.overallAlert !== 'red') continue;
+    const inAnyCrisis = crises.some((c) => isInCrisisWindow(s.date, c, 60));
+    if (!inAnyCrisis) alertDaysOutsideCrisis++;
+  }
+
+  const totalAlertDays = signals.filter(
+    (s) => s.overallAlert === 'orange' || s.overallAlert === 'red',
+  ).length;
+
+  return {
+    falsePositiveRate: totalDays > 0 ? (alertDaysOutsideCrisis / totalDays) * 100 : 0,
+    totalAlertDays,
+    totalDays,
+  };
+}
+
+/**
+ * Aggregate all validations into a BacktestResult summary.
+ */
+export function buildBacktestResult(
+  validations: CrisisValidation[],
+  signals: ModuleSignalAtDate[],
+  dataRange: { start: string; end: string },
+  indicatorsBacktested: string[],
+): BacktestResult {
+  const hitRate = validations.filter((v) => v.caught).length / validations.length * 100;
+  const caughtLeadTimes = validations
+    .filter((v) => v.leadTimeDaysYellow !== null)
+    .map((v) => v.leadTimeDaysYellow!);
+  const avgLeadTime = caughtLeadTimes.length > 0
+    ? caughtLeadTimes.reduce((a, b) => a + b, 0) / caughtLeadTimes.length
+    : 0;
+
+  const { falsePositiveRate, totalAlertDays, totalDays } = computeFalsePositiveRate(
+    signals,
+    INDONESIA_CRISIS_CALENDAR,
+  );
+
+  const summary = buildSummary(validations, hitRate, avgLeadTime, falsePositiveRate);
+
+  return {
+    runDate: new Date().toISOString().slice(0, 10),
+    dataRange,
+    indicatorsBacktested,
+    crisisValidations: validations,
+    overallHitRate: hitRate,
+    avgLeadTimeDays: avgLeadTime,
+    falsePositiveRate,
+    totalAlertDays,
+    totalDays,
+    summary,
+  };
+}
+
+function buildSummary(
+  validations: CrisisValidation[],
+  hitRate: number,
+  avgLeadTime: number,
+  falsePositiveRate: number,
+): string {
+  const caught = validations.filter((v) => v.caught);
+  const missed = validations.filter((v) => !v.caught);
+  const parts: string[] = [];
+  parts.push(`System caught ${caught.length}/${validations.length} crises (${hitRate.toFixed(0)}% hit rate).`);
+  if (avgLeadTime > 0) parts.push(`Average advance warning: ${avgLeadTime.toFixed(0)} days before crisis start.`);
+  if (missed.length > 0) parts.push(`Missed: ${missed.map((v) => v.crisis.name).join(', ')}.`);
+  const fpQuality = falsePositiveRate <= 3 ? 'excellent' : falsePositiveRate <= 7 ? 'acceptable' : 'high — potential alert fatigue';
+  parts.push(`False positive rate: ${falsePositiveRate.toFixed(1)}% of non-crisis trading days flagged ORANGE+ (${fpQuality}; lower is better — target <5%).`);
+  return parts.join(' ');
+}
+
+export function formatBacktestReport(result: BacktestResult): string {
+  const lines: string[] = [
+    `# Macro System Backtest Report — Indonesia`,
+    `**Run Date:** ${result.runDate}`,
+    `**Data Range:** ${result.dataRange.start} → ${result.dataRange.end}`,
+    `**Indicators:** ${result.indicatorsBacktested.join(', ')}`,
+    ``,
+    `## Performance Summary`,
+    `| Metric | Value |`,
+    `|--------|-------|`,
+    `| Crisis Hit Rate | ${result.overallHitRate.toFixed(0)}% (${result.crisisValidations.filter(v => v.caught).length}/${result.crisisValidations.length} crises) |`,
+    `| Avg Lead Time (YELLOW) | ${result.avgLeadTimeDays.toFixed(0)} days before crisis start |`,
+    `| False Positive Rate | ${result.falsePositiveRate.toFixed(1)}% ← lower is better; <5% target; measures phantom alerts on non-crisis days |`,
+    `| Total Alert Days (ORANGE+) | ${result.totalAlertDays} of ${result.totalDays} days (${(result.totalAlertDays/result.totalDays*100).toFixed(1)}%) |`,
+    ``,
+    `## Summary`,
+    result.summary,
+    ``,
+    `## Crisis-by-Crisis Validation`,
+    `| Crisis | Lead YELLOW | Lead ORANGE | Signal@Start | Signal@Peak | Caught |`,
+    `|--------|-------------|-------------|-------------|-------------|--------|`,
+    ...result.crisisValidations.map((v) =>
+      `| ${v.crisis.name} | ${v.leadTimeDaysYellow !== null ? `${v.leadTimeDaysYellow}d` : 'n/a'} | ${v.leadTimeDaysOrange !== null ? `${v.leadTimeDaysOrange}d` : 'n/a'} | ${v.signalAtCrisisStart.toUpperCase()} | ${v.signalAtCrisisPeak.toUpperCase()} | ${v.caught ? '✅' : '❌'} |`,
+    ),
+    ``,
+    `## Crisis Detail`,
+    ...result.crisisValidations.map((v) => [
+      `### ${v.crisis.name} (${v.crisis.startDate} → ${v.crisis.endDate})`,
+      `- **IDR Depreciation:** ${v.crisis.idrDepreciationPct}% peak`,
+      `- **Root Cause:** ${v.crisis.rootCause}`,
+      `- **First YELLOW signal:** ${v.firstAlertDate ?? 'none in 90d window'}${v.leadTimeDaysYellow !== null ? ` (${v.leadTimeDaysYellow} days before start)` : ''}`,
+      `- **First ORANGE signal:** ${v.firstOrangeDate ?? 'none'}${v.leadTimeDaysOrange !== null ? ` (${v.leadTimeDaysOrange} days before start)` : ''}`,
+      `- **Peak score:** ${v.peakScore}/100 [${v.peakAlertLevel.toUpperCase()}]`,
+    ].join('\n')),
+    ``,
+    `_Note: Sovereign module (CDS, SBN yield) excluded from backtest — no free historical CDS data._`,
+    `_Configure Bloomberg (BLOOMBERG_API_URL) to include sovereign signals in future backtests._`,
+  ];
+
+  return lines.filter((l) => l !== '').join('\n');
+}

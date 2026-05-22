@@ -18,6 +18,19 @@ import { heartbeatTool, HEARTBEAT_TOOL_DESCRIPTION } from './heartbeat/heartbeat
 import { cronTool, CRON_TOOL_DESCRIPTION } from './cron/cron-tool.js';
 import { memoryGetTool, MEMORY_GET_DESCRIPTION, memorySearchTool, MEMORY_SEARCH_DESCRIPTION, memoryUpdateTool, MEMORY_UPDATE_DESCRIPTION } from './memory/index.js';
 import { discoverSkills } from '../skills/index.js';
+import { createGetAseanData, GET_ASEAN_DATA_DESCRIPTION } from './finance/get-asean-data.js';
+import { fxDefenseEngine, FX_DEFENSE_DESCRIPTION } from './macro/fx-defense-engine.js';
+import { bopEngine, BOP_DESCRIPTION } from './macro/bop-engine.js';
+import { regimeEngine, REGIME_DESCRIPTION } from './macro/regime-engine.js';
+import { sovereignRiskEngine, SOVEREIGN_RISK_DESCRIPTION } from './macro/sovereign-risk-engine.js';
+import { commodityEngine, COMMODITY_DESCRIPTION } from './macro/commodity-engine.js';
+import { foreignFlowEngine, FOREIGN_FLOW_DESCRIPTION } from './macro/foreign-flow-engine.js';
+import { narrativeDivergenceEngine, NARRATIVE_DIVERGENCE_DESCRIPTION } from './macro/narrative-divergence-engine.js';
+import { aseanRelativeValueEngine, ASEAN_RELATIVE_VALUE_DESCRIPTION } from './macro/asean-relative-value-engine.js';
+import { silentCrisisDetector, SILENT_CRISIS_DESCRIPTION } from './macro/silent-crisis-detector.js';
+import { backtestEngine, BACKTEST_DESCRIPTION } from './macro/backtest-tool.js';
+import { stressSimulator, STRESS_SIMULATOR_DESCRIPTION } from './macro/stress-simulator.js';
+import { macroThresholdMonitor, THRESHOLD_MONITOR_DESCRIPTION } from './macro/macro-threshold-monitor.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -70,6 +83,97 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: createScreenStocks(model),
       description: SCREEN_STOCKS_DESCRIPTION,
       compactDescription: 'Screen stocks by financial criteria (P/E, growth, margins, etc.).',
+      concurrencySafe: true,
+    },
+    {
+      name: 'get_asean_data',
+      tool: createGetAseanData(model),
+      description: GET_ASEAN_DATA_DESCRIPTION,
+      compactDescription: 'ASEAN market data: stock quotes, indices (IHSG, KLCI, STI, SET, PSEi), historical prices, and fundamentals for IDX, Bursa, SGX, SET, PSE. No API key needed.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'fx_defense_engine',
+      tool: fxDefenseEngine,
+      description: FX_DEFENSE_DESCRIPTION,
+      compactDescription: 'FX Defense Engine: IDR stress, reserve trajectory, BI intervention proxy, pseudo-stability detection. Outputs institutional FX stress memo.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'bop_engine',
+      tool: bopEngine,
+      description: BOP_DESCRIPTION,
+      compactDescription: 'Balance of Payments Engine: trade balance, current account, FX reserves, import growth, synthetic CAD risk. Indonesia external vulnerability assessment.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'regime_engine',
+      tool: regimeEngine,
+      description: REGIME_DESCRIPTION,
+      compactDescription: 'Quad Regime Engine: classifies Indonesia macro regime (Q1–Q4) using Growth ROC × Inflation ROC. Shift probability + historical analogs.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'sovereign_risk_engine',
+      tool: sovereignRiskEngine,
+      description: SOVEREIGN_RISK_DESCRIPTION,
+      compactDescription: 'Sovereign Risk Engine: CDS 5Y, SBN yield, EMBI spread, foreign SBN ownership. Detects repricing cycles and fiscal credibility breakdown.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'commodity_engine',
+      tool: commodityEngine,
+      description: COMMODITY_DESCRIPTION,
+      compactDescription: 'Commodity Engine: tracks Indonesia export basket (coal, CPO, nickel, ferro-alloys, LNG, copper) and oil import vulnerability. Commodity Cushion Score + Oil Vulnerability Index.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'foreign_flow_engine',
+      tool: foreignFlowEngine,
+      description: FOREIGN_FLOW_DESCRIPTION,
+      compactDescription: 'Foreign Flow Engine: detects silent foreign exit via EIDO ETF and SBN ownership trend. Identifies domestic absorption masking.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'narrative_divergence_engine',
+      tool: narrativeDivergenceEngine,
+      description: NARRATIVE_DIVERGENCE_DESCRIPTION,
+      compactDescription: 'Narrative Divergence Engine: compares official BI/government guidance vs market pricing. Generates Narrative Credibility Score.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'asean_relative_value_engine',
+      tool: aseanRelativeValueEngine,
+      description: ASEAN_RELATIVE_VALUE_DESCRIPTION,
+      compactDescription: 'ASEAN Relative Value Engine: compares Indonesia vs ASEAN peers on FX depreciation. Decomposes IDR weakness into DXY story vs ID-specific repricing.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'silent_crisis_detector',
+      tool: silentCrisisDetector,
+      description: SILENT_CRISIS_DESCRIPTION,
+      compactDescription: 'Big Short Mode: aggregates all 7 macro modules into Silent Crisis Probability. Detects fake stability, cross-confirmed stress, and systemic fragility.',
+      concurrencySafe: false,
+    },
+    {
+      name: 'backtest_engine',
+      tool: backtestEngine,
+      description: BACKTEST_DESCRIPTION,
+      compactDescription: 'Walk-forward backtest: validates macro stress signals against 6 Indonesia crisis events (2013–2023). Outputs hit rate, lead time, false positive rate.',
+      concurrencySafe: false,
+    },
+    {
+      name: 'stress_simulator',
+      tool: stressSimulator,
+      description: STRESS_SIMULATOR_DESCRIPTION,
+      compactDescription: 'Stress scenario simulator: what-if analysis (IDR 18500, VIX 45, commodity crash -30%). Shows baseline vs stressed composite scores and alert level transition.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'macro_threshold_monitor',
+      tool: macroThresholdMonitor,
+      description: THRESHOLD_MONITOR_DESCRIPTION,
+      compactDescription: 'Fast threshold tripwire: checks USDIDR, VIX, DXY, Brent against fixed alert thresholds in seconds. Returns all-clear or breach list. Use for cron intraday checks.',
       concurrencySafe: true,
     },
     {
