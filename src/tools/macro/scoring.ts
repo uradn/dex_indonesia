@@ -56,9 +56,10 @@ export async function buildSnapshot(
   const z30 = vals30.length >= 5 ? rollingZScore(vals30.slice(0, -1), current.value) : undefined;
   const z90 = vals90.length >= 10 ? rollingZScore(vals90.slice(0, -1), current.value) : undefined;
 
-  const alertLevel = z30 !== undefined
-    ? alertFromZScore(z30)
-    : z90 !== undefined ? alertFromZScore(z90) : 'green';
+  const ORDER: AlertLevel[] = ['green', 'yellow', 'orange', 'red'];
+  const a30 = z30 !== undefined ? alertFromZScore(z30) : 'green';
+  const a90 = z90 !== undefined ? alertFromZScore(z90) : 'green';
+  const alertLevel: AlertLevel = ORDER.indexOf(a30) >= ORDER.indexOf(a90) ? a30 : a90;
 
   return {
     indicator,
@@ -87,7 +88,8 @@ export function detectFlags(snapshots: IndicatorSnapshot[]): string[] {
   const flags: string[] = [];
   for (const s of snapshots) {
     if (s.alertLevel === 'red') {
-      flags.push(`${s.indicator} at extreme (z=${s.zScore30d?.toFixed(2) ?? 'n/a'})`);
+      const z = s.zScore90d ?? s.zScore30d;
+      flags.push(`${s.indicator} at extreme (z=${z?.toFixed(2) ?? 'n/a'})`);
     }
     if (s.roc < -10 && (s.indicator.includes('reserve') || s.indicator.includes('fx_reserve'))) {
       flags.push(`Rapid reserve drawdown: ${s.roc.toFixed(1)}% MoM`);
