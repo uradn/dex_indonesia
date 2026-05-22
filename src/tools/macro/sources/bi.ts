@@ -6,8 +6,12 @@
  * - BI Rate endpoint (7-Day Reverse Repo Rate)
  *
  * Monthly data — expect 4-6 week lag from reference period.
+ *
+ * FX reserves fallback: World Bank GEM API (fetchBiFxReservesWorldBank)
+ * which provides monthly data with ~1-2 month lag, free, no auth.
  */
 import type { MacroDataPoint } from '../types.js';
+import { fetchBiFxReservesWorldBank } from './worldbank.js';
 
 const NOW = () => new Date().toISOString();
 const TODAY = () => new Date().toISOString().slice(0, 10);
@@ -37,36 +41,47 @@ async function fetchText(url: string, timeoutMs = 10_000): Promise<string | null
 }
 
 /**
- * Fetch FX reserves from BI website.
+ * Fetch FX reserves — BI website scraper with World Bank GEM API fallback.
  * Returns the latest available monthly figure (bn USD).
+ *
+ * Priority:
+ *   1. BI website scraper (real-time, but breaks when site changes)
+ *   2. World Bank GEM API (monthly JSON, ~1-2 month lag, always works)
  */
 export async function fetchBiFxReserves(): Promise<MacroDataPoint | null> {
   // Try BI's SEKI table I1 (international reserves)
   const html = await fetchText(BI_RESERVES_URL);
-  if (!html) return null;
-
-  // BI table typically shows values in millions USD — we convert to bn
-  // Pattern: find decimal numbers near "reserve" context
-  const matches = html.match(/(\d{1,3}(?:[,\.]\d{3})*(?:[,\.]\d+)?)\s*(?:million|juta)/gi);
-  if (!matches || matches.length === 0) return null;
-
-  // Extract first large number (reserves are typically 100,000-200,000 million USD)
-  for (const m of matches) {
-    const numStr = m.replace(/[^\d.]/g, '');
-    const value = parseFloat(numStr);
-    if (value > 50_000 && value < 500_000) {
-      // Plausible reserve value in million USD
-      return {
-        indicator: 'bi_fx_reserves_bn',
-        category: 'fx',
-        date: TODAY(),
-        value: value / 1000, // convert to bn USD
-        unit: 'bn_USD',
-        source: 'bi_website',
-        fetchedAt: NOW(),
-      };
+  if (html) {
+    const matches = html.match(/(\d{1,3}(?:[,\.]\d{3})*(?:[,\.]\d+)?)\s*(?:million|juta)/gi);
+    if (matches) {
+      for (const m of matches) {
+        const numStr = m.replace(/[^\d.]/g, '');
+        const value = parseFloat(numStr);
+        if (value > 50_000 && value < 500_000) {
+          return {
+            indicator: 'bi_fx_reserves_bn',
+            category: 'bop' as MacroDataPoint['category'],
+            date: TODAY(),
+            value: value / 1000,
+            unit: 'bn_USD',
+            source: 'bi_website',
+            fetchedAt: NOW(),
+          };
+        }
+      }
     }
   }
+
+  // Fallback: World Bank GEM API (free, monthly, confirmed working)
+  try {
+    const wbPoints = await fetchBiFxReservesWorldBank(3);
+    if (wbPoints.length > 0) {
+      return wbPoints[wbPoints.length - 1]; // most recent
+    }
+  } catch {
+    // ignore
+  }
+
   return null;
 }
 

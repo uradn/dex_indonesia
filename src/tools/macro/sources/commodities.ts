@@ -28,8 +28,9 @@ interface CommoditySpec {
 // Yahoo Finance tickers mapped to Indonesia commodity exposure
 export const INDONESIA_COMMODITIES: CommoditySpec[] = [
   // ─── Major exports ────────────────────────────────────────────────
-  // CPO — FCPO.KL unavailable on Yahoo; soybean oil (BO=F) as competing veg-oil proxy
-  { ticker: 'BO=F',     indicator: 'cpo_price_myr',         unit: 'USc/lb',  role: 'export', exportValueBnUsd: 24.4 },
+  // CPO — FCPO.KL unavailable on Yahoo; World Bank Pink Sheet used via fetchCpoPriceWorldBank()
+  // Ticker placeholder — never actually queried; fallback populates cpo_price_myr via worldbank.ts
+  { ticker: '_CPO_WB',  indicator: 'cpo_price_myr',         unit: 'USD/MT',  role: 'export', exportValueBnUsd: 24.4 },
   // Nickel — NI=F (LME) unavailable on Yahoo; Vale S.A. ADR as directional proxy
   { ticker: 'VALE',     indicator: 'nickel_price_usd',      unit: 'USD',     role: 'export', exportValueBnUsd: 8.4  },
   { ticker: 'HG=F',     indicator: 'copper_price_usd',      unit: 'USD/lb',  role: 'export', exportValueBnUsd: 5.0  },
@@ -69,6 +70,18 @@ export async function fetchCommodityPrices(): Promise<MacroDataPoint[]> {
       } catch { /* skip unavailable tickers */ }
     }),
   );
+
+  // CPO fallback: World Bank Pink Sheet (if BO=F proxy didn't populate)
+  const hasCpo = results.some((r) => r.indicator === 'cpo_price_myr');
+  if (!hasCpo) {
+    try {
+      const { fetchCpoPriceWorldBank } = await import('./worldbank.js');
+      const cpoPoints = await fetchCpoPriceWorldBank(3);
+      if (cpoPoints.length > 0) {
+        results.push(cpoPoints[cpoPoints.length - 1]); // latest month
+      }
+    } catch { /* ignore */ }
+  }
 
   return results;
 }

@@ -19,7 +19,8 @@ export const BACKTEST_INDICATORS: Array<{
   { ticker: 'IDR=X',   indicator: 'usdidr_spot',      unit: 'IDR/USD',  category: 'fx'        },
   { ticker: 'EIDO',    indicator: 'eido_price',        unit: 'USD',      category: 'flow'      },
   { ticker: '^JKSE',   indicator: 'ihsg_level',        unit: 'IDX',      category: 'flow'      },
-  { ticker: 'BO=F',    indicator: 'cpo_price_myr',     unit: 'USc/lb',   category: 'commodity' }, // soybean oil as CPO proxy (FCPO.KL unavailable on Yahoo)
+  // CPO excluded from backtest — World Bank data is monthly only, not compatible with daily replay
+  // cpo_price_myr is available in live engines via World Bank Pink Sheet (worldbank.ts)
   { ticker: 'VALE',    indicator: 'nickel_price_usd',  unit: 'USD',      category: 'commodity' }, // Vale S.A. ADR as nickel proxy (NI=F unavailable)
   { ticker: 'HG=F',    indicator: 'copper_price_usd',  unit: 'USD/lb',   category: 'commodity' },
   { ticker: 'BZ=F',    indicator: 'brent_price_usd',   unit: 'USD/bbl',  category: 'commodity' },

@@ -7,6 +7,7 @@
  */
 import { fetchFullHistory, BACKTEST_INDICATORS } from '../src/tools/macro/backtest/historical-loader.js';
 import { upsertPoints } from '../src/tools/macro/time-series-db.js';
+import { fetchBiFxReservesWorldBank, fetchCpoPriceWorldBank } from '../src/tools/macro/sources/worldbank.js';
 import type { MacroDataPoint } from '../src/tools/macro/types.js';
 
 // ASEAN FX peers not in BACKTEST_INDICATORS
@@ -93,6 +94,41 @@ async function main() {
         totalPoints += r.count;
       }
     }
+  }
+
+  // ── World Bank sources (CPO + FX Reserves) ──────────────────────────
+  console.log('\nSeeding World Bank data...');
+
+  // CPO price from Pink Sheet
+  try {
+    const cpoPoints = await fetchCpoPriceWorldBank(Math.ceil(DAYS_BACK / 30));
+    if (cpoPoints.length > 0) {
+      await upsertPoints(cpoPoints);
+      console.log(`  ✅ cpo_price_myr (World Bank Pink Sheet): ${cpoPoints.length} monthly rows`);
+      totalPoints += cpoPoints.length;
+    } else {
+      console.log(`  ❌ cpo_price_myr: no data from Pink Sheet`);
+      failed++;
+    }
+  } catch (err) {
+    console.log(`  ❌ cpo_price_myr: ${err instanceof Error ? err.message : String(err)}`);
+    failed++;
+  }
+
+  // FX reserves from World Bank GEM API
+  try {
+    const reservePoints = await fetchBiFxReservesWorldBank(Math.ceil(DAYS_BACK / 30));
+    if (reservePoints.length > 0) {
+      await upsertPoints(reservePoints);
+      console.log(`  ✅ bi_fx_reserves_bn (World Bank GEM): ${reservePoints.length} monthly rows`);
+      totalPoints += reservePoints.length;
+    } else {
+      console.log(`  ❌ bi_fx_reserves_bn: no data`);
+      failed++;
+    }
+  } catch (err) {
+    console.log(`  ❌ bi_fx_reserves_bn: ${err instanceof Error ? err.message : String(err)}`);
+    failed++;
   }
 
   console.log(DIVIDER);
