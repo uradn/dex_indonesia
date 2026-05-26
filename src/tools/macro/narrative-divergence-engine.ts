@@ -1,8 +1,9 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
-import { getLatestPoint } from './time-series-db.js';
+import { getLatestPoint, upsertPoints } from './time-series-db.js';
 import { alertFromScore, alertLabel } from './scoring.js';
+import { fetchSbn10yTradingEconomics, fetchBiRateTradingEconomics } from './sources/sovereign-scraper.js';
 import type { AlertLevel } from './types.js';
 
 export const NARRATIVE_DIVERGENCE_DESCRIPTION = `
@@ -58,11 +59,22 @@ const APBN_ASSUMPTIONS = {
   oilPrice: 82,         // APBN oil price assumption USD/bbl
   gdpGrowth: 5.2,       // APBN GDP growth target %
   inflation: 2.5,       // APBN CPI target %
-  biRate: 5.5,          // Implied BI 7DRR assumed in APBN
+  biRate: 5.25,         // BI 7DRR as of May 2026 (cut from 5.5% in 2025)
 };
 
 export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenceOutput> {
   const checks: DivergenceCheck[] = [];
+
+  // Seed SBN 10Y and BI Rate from Trading Economics if not already in DB
+  const [sbnFresh, biRateFresh] = await Promise.allSettled([
+    fetchSbn10yTradingEconomics(),
+    fetchBiRateTradingEconomics(),
+  ]);
+  const toUpsert = [
+    sbnFresh.status === 'fulfilled' ? sbnFresh.value : null,
+    biRateFresh.status === 'fulfilled' ? biRateFresh.value : null,
+  ].filter((p): p is NonNullable<typeof p> => p !== null);
+  if (toUpsert.length > 0) await upsertPoints(toUpsert);
 
   // 1. USDIDR: official assumption vs market
   const usdIdrSpot = await getLatestPoint('usdidr_spot');

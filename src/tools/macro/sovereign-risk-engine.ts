@@ -6,6 +6,7 @@ import { buildSnapshot, compositeScore, detectFlags, alertFromScore, alertLabel 
 import { fetchIndonesiaCds5y, fetchSbn10yYield, fetchEmbiSpread, bloombergAvailable } from './sources/bloomberg.js';
 import { fetchSbn10yRdp, fetchCds5yRdp, refinitivAvailable } from './sources/refinitiv.js';
 import { fetchSbnForeignOwnership } from './sources/bi.js';
+import { fetchSbn10yTradingEconomics, fetchBiRateTradingEconomics, computeTermPremium } from './sources/sovereign-scraper.js';
 import type { AlertLevel, IndicatorSnapshot, ModuleScoreCard } from './types.js';
 
 export const SOVEREIGN_RISK_DESCRIPTION = `
@@ -49,19 +50,25 @@ interface SovereignOutput {
   refinancingStressScore: number;
   fiscalCredibilityIndex: number;
   foreignExitRisk: AlertLevel;
+  termPremium: ReturnType<typeof computeTermPremium> | null;
   narrative: string;
 }
 
 export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
-  // 1. CDS data — Bloomberg preferred, Refinitiv fallback
+  // 1. CDS data — Bloomberg preferred, Refinitiv fallback (no free source available)
   let cdsPoint = bloombergAvailable() ? await fetchIndonesiaCds5y() : null;
   cdsPoint ??= refinitivAvailable() ? await fetchCds5yRdp() : null;
   if (cdsPoint) await upsertPoints([cdsPoint]);
 
-  // 2. SBN 10Y yield
+  // 2. SBN 10Y yield — Bloomberg → Refinitiv → Trading Economics scrape (free)
   let sbnPoint = bloombergAvailable() ? await fetchSbn10yYield() : null;
   sbnPoint ??= refinitivAvailable() ? await fetchSbn10yRdp() : null;
+  sbnPoint ??= await fetchSbn10yTradingEconomics();
   if (sbnPoint) await upsertPoints([sbnPoint]);
+
+  // 2b. BI Rate — Trading Economics scrape (free); stored for term premium computation
+  const biRatePoint = await fetchBiRateTradingEconomics();
+  if (biRatePoint) await upsertPoints([biRatePoint]);
 
   // 3. EMBI spread
   const embiPoint = bloombergAvailable() ? await fetchEmbiSpread() : null;
@@ -84,11 +91,18 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
   const currentForeign = await getLatestPoint('sbn_foreign_ownership_pct');
   const prevForeign = (await getLastN('sbn_foreign_ownership_pct', 6)).slice(-2)[0] ?? null;
 
+  const currentBiRate = await getLatestPoint('bi_rate_pct');
+
   // Build snapshots
   const cdsSnapshot = currentCds ? await buildSnapshot('indonesia_cds_5y_bps', currentCds, prevCds) : null;
   const sbnSnapshot = currentSbn ? await buildSnapshot('sbn_10y_yield_pct', currentSbn, prevSbn) : null;
   const embiSnapshot = currentEmbi ? await buildSnapshot('embi_indonesia_spread_bps', currentEmbi, prevEmbi) : null;
   const foreignSnapshot = currentForeign ? await buildSnapshot('sbn_foreign_ownership_pct', currentForeign, prevForeign) : null;
+
+  // Term premium: SBN 10Y − BI Rate (free CDS proxy; stress if >3%)
+  const termPremium = (currentSbn && currentBiRate)
+    ? computeTermPremium(currentSbn.value, currentBiRate.value)
+    : null;
 
   const validSnapshots = [cdsSnapshot, sbnSnapshot, embiSnapshot, foreignSnapshot].filter(
     (s): s is IndicatorSnapshot => s !== null,
@@ -97,22 +111,32 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
   // Foreign exit risk: ownership falling + CDS rising = exit confirmed
   const foreignFalling = (foreignSnapshot?.roc ?? 0) < -5;
   const cdaRising = (cdsSnapshot?.roc ?? 0) > 10;
+  // Also flag if term premium is elevated (>3%) as a sovereign stress proxy
+  const termPremiumStress = termPremium?.stressSignal ?? false;
   const foreignExitRisk: AlertLevel =
     foreignFalling && cdaRising ? 'red' :
     foreignFalling ? 'orange' :
     cdaRising ? 'yellow' : 'green';
 
-  // Scores
-  const sovereignRiskScore = compositeScore(validSnapshots);
+  // Scores — when no Bloomberg/Refinitiv, use term premium as stress proxy
+  let sovereignRiskScore = compositeScore(validSnapshots);
+  if (validSnapshots.length === 0 && termPremium) {
+    // Term premium >3% = 50 score (ORANGE), >3.5% = 75 (RED), <3% = low score
+    sovereignRiskScore = termPremium.termPremium > 3.5 ? 75
+      : termPremium.termPremium > 3.0 ? 50
+      : termPremium.termPremium > 2.5 ? 25
+      : 10;
+  }
 
   // Refinancing stress: proxy using SBN yield level vs historical
-  const sbnYieldZ = sbnSnapshot?.zScore30d ?? 0;
+  const sbnYieldZ = sbnSnapshot?.zScore30d ?? sbnSnapshot?.zScore90d ?? 0;
   const refinancingStressScore = Math.min(100, Math.round(Math.abs(sbnYieldZ) * 40));
 
   // Fiscal credibility: inverse of divergence between official guidance and market pricing
-  // Proxy: if CDS >200bps and growing, credibility is impaired
   const cdsLevel = currentCds?.value ?? 0;
-  const fiscalCredibilityIndex = Math.max(0, Math.round(100 - (cdsLevel / 5)));
+  const fiscalCredibilityIndex = cdsLevel > 0
+    ? Math.max(0, Math.round(100 - (cdsLevel / 5)))
+    : termPremium ? Math.max(0, Math.round(100 - termPremium.termPremium * 15)) : 100;
 
   const alertLevel = alertFromScore(sovereignRiskScore);
   const flags = detectFlags(validSnapshots);
@@ -120,8 +144,9 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
   if (foreignExitRisk === 'orange') flags.push('Foreign SBN ownership declining — monitor for acceleration');
   if (cdsLevel > 200) flags.push(`CDS 5Y at ${cdsLevel}bps — above 200bps stress threshold`);
   if (fiscalCredibilityIndex < 30) flags.push('Fiscal credibility severely impaired — market pricing systemic risk');
+  if (termPremiumStress) flags.push(`⚠️ Term premium elevated: SBN 10Y−BI Rate = ${termPremium!.termPremium.toFixed(2)}% — ${termPremium!.label}`);
 
-  const narrative = buildNarrative({ cdsSnapshot, sbnSnapshot, embiSnapshot, foreignSnapshot, foreignExitRisk, alertLevel });
+  const narrative = buildNarrative({ cdsSnapshot, sbnSnapshot, embiSnapshot, foreignSnapshot, foreignExitRisk, alertLevel, termPremium });
 
   return {
     scoreCard: {
@@ -141,6 +166,7 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
     refinancingStressScore,
     fiscalCredibilityIndex,
     foreignExitRisk,
+    termPremium,
     narrative,
   };
 }
@@ -152,17 +178,19 @@ function buildNarrative(ctx: {
   foreignSnapshot: IndicatorSnapshot | null;
   foreignExitRisk: AlertLevel;
   alertLevel: AlertLevel;
+  termPremium: ReturnType<typeof computeTermPremium> | null;
 }): string {
   const parts: string[] = [];
   if (ctx.cdsSnapshot) parts.push(`Indonesia CDS 5Y: ${ctx.cdsSnapshot.current.toFixed(0)}bps (${ctx.cdsSnapshot.roc >= 0 ? '+' : ''}${ctx.cdsSnapshot.roc.toFixed(1)}% MoM).`);
   if (ctx.sbnSnapshot) parts.push(`SBN 10Y yield: ${ctx.sbnSnapshot.current.toFixed(2)}% (${ctx.sbnSnapshot.roc >= 0 ? '+' : ''}${ctx.sbnSnapshot.roc.toFixed(2)}% MoM).`);
+  if (ctx.termPremium) parts.push(`Term premium (SBN10Y−BI Rate): ${ctx.termPremium.termPremium.toFixed(2)}% — ${ctx.termPremium.label}.`);
   if (ctx.embiSnapshot) parts.push(`EMBI spread: ${ctx.embiSnapshot.current.toFixed(0)}bps.`);
   if (ctx.foreignSnapshot) parts.push(`Foreign SBN ownership: ${ctx.foreignSnapshot.current.toFixed(1)}% (${ctx.foreignSnapshot.roc >= 0 ? '+' : ''}${ctx.foreignSnapshot.roc.toFixed(1)}% MoM).`);
   if (ctx.foreignExitRisk === 'red') parts.push('Combined CDS + foreign exit signal: sovereign repricing cycle likely.');
-  return parts.join(' ') || 'Limited data — configure Bloomberg or Refinitiv for real-time sovereign signals.';
+  return parts.join(' ') || 'Limited data — configure Bloomberg or Refinitiv for CDS/EMBI. SBN 10Y + BI Rate sourced from Trading Economics.';
 }
 
-function formatOutput(output: SovereignOutput): string {
+function formatOutput(output: SovereignOutput & { termPremium: ReturnType<typeof computeTermPremium> | null }): string {
   return [
     `# Sovereign Risk Engine — Indonesia`,
     `**Date:** ${output.scoreCard.scoreDate}`,
@@ -177,6 +205,9 @@ function formatOutput(output: SovereignOutput): string {
     ...(output.scoreCard.indicators.map((s) =>
       `| ${s.indicator} | ${s.current.toFixed(2)} ${s.unit} | ${s.roc >= 0 ? '+' : ''}${s.roc.toFixed(2)}% | ${s.zScore30d?.toFixed(2) ?? 'n/a'} | ${s.alertLevel.toUpperCase()} |`,
     )),
+    output.termPremium
+      ? `| term_premium_pct | ${output.termPremium.termPremium.toFixed(2)} % | n/a | n/a | ${output.termPremium.stressSignal ? 'ORANGE' : 'GREEN'} |`
+      : '',
     ``,
     `## Sovereign Scores`,
     `| Score | Value |`,
@@ -185,14 +216,17 @@ function formatOutput(output: SovereignOutput): string {
     `| Refinancing Stress Score | ${output.refinancingStressScore}/100 |`,
     `| Fiscal Credibility Index | ${output.fiscalCredibilityIndex}/100 |`,
     `| Foreign SBN Exit Risk | ${output.foreignExitRisk.toUpperCase()} |`,
+    output.termPremium ? `| Term Premium (CDS proxy) | ${output.termPremium.termPremium.toFixed(2)}% — ${output.termPremium.label} |` : '',
     ``,
     output.scoreCard.flags.length > 0 ? `## Flags\n${output.scoreCard.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '',
     ``,
     `## Data Quality`,
-    bloombergAvailable() ? '- Bloomberg: CONNECTED (CDS, SBN yield, EMBI)' : '- Bloomberg: not configured — sovereign data limited',
+    bloombergAvailable() ? '- Bloomberg: CONNECTED (CDS, SBN yield, EMBI)' : '- Bloomberg: not configured — CDS/EMBI unavailable',
     refinitivAvailable() ? '- Refinitiv: CONNECTED (CDS, SBN yield)' : '- Refinitiv: not configured',
-    `- Foreign SBN ownership: DJPPR website (daily)`,
-    (!bloombergAvailable() && !refinitivAvailable()) ? '\n⚠️  Configure BLOOMBERG_API_URL or REFINITIV_APP_KEY for full sovereign monitoring.' : '',
+    '- SBN 10Y yield: Trading Economics scrape (free, near real-time)',
+    '- BI Rate: Trading Economics scrape (free, daily)',
+    '- Foreign SBN ownership: DJPPR website (currently unreachable — site blocks curl)',
+    '- CDS 5Y: No free source available without JS engine — using term premium as proxy',
   ]
     .filter((l) => l !== '')
     .join('\n');
