@@ -23,6 +23,7 @@ import { runNarrativeDivergenceEngine } from './narrative-divergence-engine.js';
 import { runBankingStressEngine } from './banking-stress-engine.js';
 import { runMarketStressEngine } from './market-stress-engine.js';
 import { runFiscalEngine } from './fiscal-engine.js';
+import { runDomesticPressureEngine } from './domestic-pressure-engine.js';
 import type { AlertLevel } from './types.js';
 
 export const SILENT_CRISIS_DESCRIPTION = `
@@ -77,19 +78,19 @@ const ALERT_WEIGHTS: Record<AlertLevel, number> = {
   green: 0, yellow: 25, orange: 60, red: 100,
 };
 
-// Module importance weights (sum to 1.0)
+// Module importance weights (normalised in composite calculation)
 const MODULE_WEIGHTS: Record<string, number> = {
-  fx_defense:         0.18,
-  bop:                0.18,
-  sovereign_risk:     0.14,
-  foreign_flow:       0.14,
-  banking:            0.10,  // NPL/LDR/CAR/JIBOR + IHPR + sector NPL
-  commodity:          0.09,
-  fiscal:             0.08,  // APBN realisasi vs target — revenue shortfall + deficit risk
-  market:             0.07,  // IHSG P/E + breadth — valuation disconnect signal
-  regime:             0.05,
-  narrative:          0.05,
-  // sum = 1.08 → normalised in composite calculation
+  fx_defense:          0.18,
+  bop:                 0.18,
+  sovereign_risk:      0.14,
+  foreign_flow:        0.14,
+  banking:             0.10,  // NPL/LDR/CAR/JIBOR + IHPR + sector NPL
+  commodity:           0.09,
+  fiscal:              0.08,  // APBN realisasi vs target — revenue shortfall + deficit risk
+  market:              0.07,  // IHSG P/E + breadth — valuation disconnect signal
+  domestic_pressure:   0.08,  // food CPI early warning — upstream feed for CPI/BI rate chain
+  regime:              0.04,
+  narrative:           0.03,
 };
 
 async function getModuleScores(): Promise<ModuleScore[]> {
@@ -103,9 +104,10 @@ async function getModuleScores(): Promise<ModuleScore[]> {
     { module: 'commodity',  run: async () => { const r = await runCommodityEngine();  return { score: r.scoreCard.score, alertLevel: r.scoreCard.alertLevel }; } },
     { module: 'regime',     run: async () => { const r = await runRegimeEngine();     const s = r.currentRegime === 'Q3' ? 80 : r.currentRegime === 'Q4' ? 55 : r.currentRegime === 'Q2' ? 30 : 10; return { score: s, alertLevel: r.alertLevel }; } },
     { module: 'narrative',  run: async () => { const r = await runNarrativeDivergenceEngine(); return { score: 100 - r.narrativeCredibilityScore, alertLevel: r.alertLevel }; } },
-    { module: 'banking',    run: async () => { const r = await runBankingStressEngine(); return { score: r.stressScore, alertLevel: r.alert }; } },
-    { module: 'market',     run: async () => { const r = await runMarketStressEngine(); return { score: r.stressScore, alertLevel: r.alert }; } },
-    { module: 'fiscal',     run: async () => { const r = await runFiscalEngine(); return { score: r.stressScore, alertLevel: r.alert }; } },
+    { module: 'banking',            run: async () => { const r = await runBankingStressEngine(); return { score: r.stressScore, alertLevel: r.alert }; } },
+    { module: 'market',             run: async () => { const r = await runMarketStressEngine(); return { score: r.stressScore, alertLevel: r.alert }; } },
+    { module: 'fiscal',             run: async () => { const r = await runFiscalEngine(); return { score: r.stressScore, alertLevel: r.alert }; } },
+    { module: 'domestic_pressure',  run: async () => { const r = await runDomesticPressureEngine(); return { score: r.stressScore, alertLevel: r.alert }; } },
   ];
 
   await Promise.allSettled(
@@ -120,7 +122,7 @@ async function getModuleScores(): Promise<ModuleScore[]> {
   );
 
   // Ensure consistent ordering
-  const order = ['fx_defense', 'bop', 'sovereign_risk', 'foreign_flow', 'banking', 'commodity', 'fiscal', 'market', 'regime', 'narrative'];
+  const order = ['fx_defense', 'bop', 'sovereign_risk', 'foreign_flow', 'banking', 'commodity', 'fiscal', 'market', 'domestic_pressure', 'regime', 'narrative'];
   scores.sort((a, b) => order.indexOf(a.module) - order.indexOf(b.module));
 
   return scores;
@@ -142,7 +144,7 @@ async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
 
   // Cross-confirmation amplifier: non-linear boost when multiple modules stressed
   const stressedCount = moduleScores.filter((m) => m.alertLevel === 'orange' || m.alertLevel === 'red').length;
-  const crossConfirmationMultiplier = stressedCount >= 4 ? 1.4 : stressedCount >= 3 ? 1.25 : stressedCount >= 2 ? 1.1 : 1.0;
+  const crossConfirmationMultiplier = stressedCount >= 5 ? 1.4 : stressedCount >= 4 ? 1.3 : stressedCount >= 3 ? 1.2 : stressedCount >= 2 ? 1.1 : 1.0;
   const silentCrisisProbability = Math.min(100, Math.round(baseScore * crossConfirmationMultiplier));
 
   // Synthetic Stability Score: how much surface calm contradicts underlying stress
@@ -164,7 +166,7 @@ async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
     .map((m) => `${m.module.replace('_', ' ')} [${m.alertLevel.toUpperCase()} ${m.score}/100]`);
 
   const keyFlags: string[] = [];
-  if (stressedCount >= 3) keyFlags.push(`CROSS-CONFIRMATION: ${stressedCount} modules signaling stress simultaneously — non-linear risk elevated`);
+  if (stressedCount >= 3) keyFlags.push(`CROSS-CONFIRMATION: ${stressedCount}/11 modules signaling stress simultaneously — non-linear risk elevated`);
   if (syntheticStabilityScore > 60) keyFlags.push('SYNTHETIC STABILITY: surface indicators calm while structural deterioration accelerates underneath');
   if (silentCrisisProbability > 70) keyFlags.push('SYSTEMIC FRAGILITY: silent crisis probability critical — institutional positioning review warranted');
 
@@ -214,7 +216,7 @@ function formatOutput(output: SilentCrisisOutput): string {
     `|--------|-------|`,
     `| **Silent Crisis Probability** | **${output.silentCrisisProbability}%** |`,
     `| Synthetic Stability Score | ${output.syntheticStabilityScore}/100 |`,
-    `| Cross-Confirmed Stress Modules | ${output.crossConfirmationCount}/10 |`,
+    `| Cross-Confirmed Stress Modules | ${output.crossConfirmationCount}/11 |`,
     ``,
     `## Module Scorecard`,
     `| Module | Score | Alert | Available |`,

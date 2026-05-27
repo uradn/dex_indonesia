@@ -63,6 +63,9 @@ Dexter is a CLI-based autonomous financial research agent. Runtime is **Bun**. U
 
 Dexter has a sovereign macro monitoring system under `src/tools/macro/`. Currently implemented modules:
 
+**Module 11 — Domestic Inflation Pressure Engine** (`domestic_pressure_engine` tool):
+Tracks 10 PIHPS strategic food commodities (beras medium, cabai merah/rawit, bawang merah/putih, daging sapi/ayam, telur, minyak goreng curah, gula pasir). Food basket = ~30% of CPI — leading indicator for headline inflation and BI rate pressure. Computes Food Stress Index (0-100) via 90d z-score per commodity. Fires `DOMESTIC PRESSURE ALERT` when ≥2 commodities spike (z > 1.5) simultaneously. Also tracks aggregate food CPI YoY % vs APBN implied food CPI (~3.75% = 1.5× headline 2.5% target). Transmission chain: food spike → CPI overshoot → BI forced hike → SBN yield → foreign outflow. Sources: `hargapangan.id` Playwright scrape (primary, daily), Trading Economics food inflation meta scrape (fallback). Role in system: upstream early-warning feed for Regime Engine and Narrative Divergence Engine (food CPI check added as check #6). Silent Crisis Detector weight: 0.08.
+
 **Module 8 — Banking Stress Engine** (`banking_stress_engine` tool):
 Tracks NPL gross %, LDR, CAR, JIBOR-BI Rate spread, external debt, IHPR property price index (YoY), and sector NPL (real estat, konstruksi, perdagangan, konsumsi). Big Short early warning: detects credit cycle stress before it's visible in headline data. NPL data from OJK SPI Excel (Playwright + OJK cookies, ~11mo lag); JIBOR/external debt/IHPR from Trading Economics. IHPR added to detect collateral deflation risk in KPR portfolios. Sector NPL populated alongside aggregate when OJK Excel available. Sources: `src/tools/macro/sources/ojk.ts`, `src/tools/macro/sources/sovereign-scraper.ts`.
 

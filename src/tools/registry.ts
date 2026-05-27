@@ -35,6 +35,7 @@ import { backtestEngine, BACKTEST_DESCRIPTION } from './macro/backtest-tool.js';
 import { stressSimulator, STRESS_SIMULATOR_DESCRIPTION } from './macro/stress-simulator.js';
 import { macroThresholdMonitor, THRESHOLD_MONITOR_DESCRIPTION } from './macro/macro-threshold-monitor.js';
 import { fxRateRefreshTool, FX_RATE_REFRESH_DESCRIPTION } from './macro/fx-rate-refresh-tool.js';
+import { domesticPressureEngine, DOMESTIC_PRESSURE_DESCRIPTION } from './macro/domestic-pressure-engine.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -206,6 +207,13 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: fxRateRefreshTool,
       description: FX_RATE_REFRESH_DESCRIPTION,
       compactDescription: 'Fetch and persist latest IDR/USD + ASEAN FX spots into macro DB. Lightweight spot-only refresh. Call before any analysis quoting IDR/USD levels.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'domestic_pressure_engine',
+      tool: domesticPressureEngine,
+      description: DOMESTIC_PRESSURE_DESCRIPTION,
+      compactDescription: 'Domestic Inflation Pressure Engine: tracks 10 PIHPS sembako prices (beras, cabai, bawang, daging, telur, minyak, gula). Food Stress Index + DOMESTIC PRESSURE ALERT when ≥2 commodities spike. CPI early warning feed for BI rate chain.',
       concurrencySafe: true,
     },
     {

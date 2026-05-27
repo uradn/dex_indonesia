@@ -4,6 +4,7 @@ import { formatToolResult } from '../types.js';
 import { getLatestPoint, upsertPoints } from './time-series-db.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchSbn10yTradingEconomics, fetchBiRateTradingEconomics } from './sources/sovereign-scraper.js';
+import { fetchFoodInflationTe } from './sources/pihps.js';
 import type { AlertLevel } from './types.js';
 
 export const NARRATIVE_DIVERGENCE_DESCRIPTION = `
@@ -65,14 +66,16 @@ const APBN_ASSUMPTIONS = {
 export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenceOutput> {
   const checks: DivergenceCheck[] = [];
 
-  // Seed SBN 10Y and BI Rate from Trading Economics if not already in DB
-  const [sbnFresh, biRateFresh] = await Promise.allSettled([
+  // Seed fresh data from Trading Economics
+  const [sbnFresh, biRateFresh, foodInflFresh] = await Promise.allSettled([
     fetchSbn10yTradingEconomics(),
     fetchBiRateTradingEconomics(),
+    fetchFoodInflationTe(),
   ]);
   const toUpsert = [
     sbnFresh.status === 'fulfilled' ? sbnFresh.value : null,
     biRateFresh.status === 'fulfilled' ? biRateFresh.value : null,
+    foodInflFresh.status === 'fulfilled' ? foodInflFresh.value : null,
   ].filter((p): p is NonNullable<typeof p> => p !== null);
   if (toUpsert.length > 0) await upsertPoints(toUpsert);
 
@@ -148,7 +151,25 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     });
   }
 
-  // 6. Compound IDR + Oil double-whammy: both diverge simultaneously = APBN under max stress
+  // 6. Food CPI vs APBN general inflation assumption
+  // APBN 2026 targets 2.5% general CPI — food typically 1.5x, implying ~3.75% food CPI
+  // Food inflation >6% = subsidi pangan bengkak; <0% = deflation / farmer income stress
+  const APBN_IMPLIED_FOOD_CPI = 3.75;
+  const foodInflationPoint = await getLatestPoint('food_inflation_yoy_pct');
+  if (foodInflationPoint) {
+    const foodDev = foodInflationPoint.value - APBN_IMPLIED_FOOD_CPI;
+    const divergenceScore = Math.min(100, Math.max(0, Math.abs(foodDev) * 10));
+    const flagged = foodInflationPoint.value > 6.0 || foodInflationPoint.value < 0;
+    checks.push({
+      dimension: 'Food CPI vs APBN Inflation Assumption',
+      officialClaim: `APBN general CPI target: ${APBN_ASSUMPTIONS.inflation}% (implied food CPI ~${APBN_IMPLIED_FOOD_CPI}%)`,
+      marketSignal: `Food inflation: ${foodInflationPoint.value.toFixed(1)}% YoY (${foodDev >= 0 ? '+' : ''}${foodDev.toFixed(1)}pp vs implied food CPI)${foodInflationPoint.value > 6 ? ' — subsidi pangan overrun risk' : foodInflationPoint.value < 0 ? ' — deflation / farmer income stress' : ''}`,
+      divergenceScore,
+      flagged,
+    });
+  }
+
+  // 7. Compound IDR + Oil double-whammy: both diverge simultaneously = APBN under max stress
   // IDR weakness inflates subsidy cost in IDR terms ON TOP of higher USD oil price
   const idrCheck = checks.find((c) => c.dimension.includes('USDIDR'));
   const oilCheck = checks.find((c) => c.dimension.includes('Oil'));
