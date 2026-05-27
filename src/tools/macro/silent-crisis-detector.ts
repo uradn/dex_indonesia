@@ -150,14 +150,29 @@ async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
   const crossConfirmationMultiplier = stressedCount >= 5 ? 1.4 : stressedCount >= 4 ? 1.3 : stressedCount >= 3 ? 1.2 : stressedCount >= 2 ? 1.1 : 1.0;
   const silentCrisisProbability = Math.min(100, Math.round(baseScore * crossConfirmationMultiplier));
 
-  // Synthetic Stability Score: how much surface calm contradicts underlying stress
-  // High score = official narrative stable but market signals deteriorating
+  // Synthetic Stability Score: surface calm contradicting underlying stress
+  // Two triggers:
+  //   A) Traditional: official narrative spin (narrative>50) + financial stress underneath
+  //   B) NEW: political/social stress (political_risk>50) while financial markets calm
+  //      — political leads financial by 2-3 quarters historically
   const narrativeModule = moduleScores.find((m) => m.module === 'narrative');
   const fxModule = moduleScores.find((m) => m.module === 'fx_defense');
+  const politicalModule = moduleScores.find((m) => m.module === 'political_risk');
+
+  const FINANCIAL_MODULE_SET = new Set(['fx_defense', 'bop', 'sovereign_risk', 'foreign_flow', 'banking', 'commodity', 'fiscal', 'market']);
+  const financialScores = moduleScores.filter((m) => FINANCIAL_MODULE_SET.has(m.module) && m.available);
+  const financialAvg = financialScores.length > 0
+    ? financialScores.reduce((s, m) => s + m.score, 0) / financialScores.length
+    : 50;
+
+  const politicalScore = politicalModule?.score ?? 0;
+  const politicalLeadingFinancial = politicalScore > 50 && financialAvg < 35;
   const highNarrativeScore = (narrativeModule?.score ?? 0) > 50;
   const stressUnderneath = (fxModule?.score ?? 0) > 40 || stressedCount >= 2;
-  const syntheticStabilityScore = highNarrativeScore && stressUnderneath
-    ? Math.min(100, Math.round(silentCrisisProbability * 1.2))
+  const traditionalSynthetic = highNarrativeScore && stressUnderneath;
+
+  const syntheticStabilityScore = (politicalLeadingFinancial || traditionalSynthetic)
+    ? Math.min(100, Math.round(silentCrisisProbability * 1.3 + politicalScore * 0.25))
     : Math.round(silentCrisisProbability * 0.5);
 
   const alertLevel = alertFromScore(silentCrisisProbability);
@@ -170,7 +185,8 @@ async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
 
   const keyFlags: string[] = [];
   if (stressedCount >= 3) keyFlags.push(`CROSS-CONFIRMATION: ${stressedCount}/12 modules signaling stress simultaneously — non-linear risk elevated`);
-  if (syntheticStabilityScore > 60) keyFlags.push('SYNTHETIC STABILITY: surface indicators calm while structural deterioration accelerates underneath');
+  if (politicalLeadingFinancial) keyFlags.push(`POLITICAL-FINANCIAL DIVERGENCE: political risk ${politicalScore}/100 ORANGE while financial modules avg ${Math.round(financialAvg)}/100 — social contract stress not yet priced by markets (typically leads financial repricing by 2-3 quarters)`);
+  if (syntheticStabilityScore > 40) keyFlags.push(`SYNTHETIC STABILITY (${syntheticStabilityScore}/100): surface calm contradicts structural stress — watch for political → financial transmission`);
   if (silentCrisisProbability > 70) keyFlags.push('SYSTEMIC FRAGILITY: silent crisis probability critical — institutional positioning review warranted');
 
   const narrative = buildNarrative({ silentCrisisProbability, syntheticStabilityScore, stressedCount, stressVectors, alertLevel });
@@ -202,8 +218,8 @@ function buildNarrative(ctx: {
   } else {
     parts.push('No modules currently in stress zone — macro environment stable.');
   }
-  if (ctx.syntheticStabilityScore > 50) {
-    parts.push(`Synthetic Stability Score elevated (${ctx.syntheticStabilityScore}) — surface calm may be deceptive.`);
+  if (ctx.syntheticStabilityScore > 40) {
+    parts.push(`Synthetic Stability Score ${ctx.syntheticStabilityScore}/100 — surface calm may be deceptive; political stress not yet transmitted to financial markets.`);
   }
   return parts.join(' ');
 }

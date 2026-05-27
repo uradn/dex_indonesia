@@ -165,6 +165,24 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
   //   Debt/GDP(20%): IMF WEO. score = max(0, 100 - debt_pct * 1.25). 40%→50, 60%→25.
   // Falls back gracefully if any component missing (redistributes weights).
   const cdsLevel = currentCds?.value ?? 0;
+
+  // Absolute level floor — z-score captures deviation from recent history but misses
+  // structural risk embedded in absolute levels. Indonesia pre-COVID normal: CDS ~70bps.
+  // CDS 91bps and term premium 1.46% are not crisis levels but not zero risk either.
+  const cdsLevelFloor = cdsLevel > 60
+    ? Math.min(30, Math.round((cdsLevel - 60) * 0.4))  // 91bps → 12; 150bps → 30 (cap)
+    : 0;
+  const termPremiumFloor = termPremium
+    ? termPremium.termPremium > 3.0 ? 25
+      : termPremium.termPremium > 2.0 ? 15
+      : termPremium.termPremium > 1.5 ? 8
+      : termPremium.termPremium > 1.0 ? 4
+      : 0
+    : 0;
+  // SBN-UST below 200bps = carry trade unwind territory → structural risk
+  const spreadCompressionFloor = sbnUstSpread !== null && sbnUstSpread < 200 ? 10 : 0;
+  const absoluteFloor = cdsLevelFloor + termPremiumFloor + spreadCompressionFloor;
+  sovereignRiskScore = Math.max(sovereignRiskScore, absoluteFloor);
   const ratingScore = currentRating?.value ?? null;
   const debtGdp = currentDebtGdp?.value ?? null;
 
