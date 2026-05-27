@@ -24,6 +24,7 @@ import { runBankingStressEngine } from './banking-stress-engine.js';
 import { runMarketStressEngine } from './market-stress-engine.js';
 import { runFiscalEngine } from './fiscal-engine.js';
 import { runDomesticPressureEngine } from './domestic-pressure-engine.js';
+import { runPoliticalRiskEngine } from './political-risk-engine.js';
 import type { AlertLevel } from './types.js';
 
 export const SILENT_CRISIS_DESCRIPTION = `
@@ -89,8 +90,9 @@ const MODULE_WEIGHTS: Record<string, number> = {
   fiscal:              0.08,  // APBN realisasi vs target — revenue shortfall + deficit risk
   market:              0.07,  // IHSG P/E + breadth — valuation disconnect signal
   domestic_pressure:   0.08,  // food CPI early warning — upstream feed for CPI/BI rate chain
-  regime:              0.04,
-  narrative:           0.03,
+  political_risk:      0.06,  // unemployment + social unrest + governance stability
+  regime:              0.03,
+  narrative:           0.02,
 };
 
 async function getModuleScores(): Promise<ModuleScore[]> {
@@ -108,6 +110,7 @@ async function getModuleScores(): Promise<ModuleScore[]> {
     { module: 'market',             run: async () => { const r = await runMarketStressEngine(); return { score: r.stressScore, alertLevel: r.alert }; } },
     { module: 'fiscal',             run: async () => { const r = await runFiscalEngine(); return { score: r.stressScore, alertLevel: r.alert }; } },
     { module: 'domestic_pressure',  run: async () => { const r = await runDomesticPressureEngine(); return { score: r.stressScore, alertLevel: r.alert }; } },
+    { module: 'political_risk',     run: async () => { const r = await runPoliticalRiskEngine();   return { score: r.stressScore, alertLevel: r.alert }; } },
   ];
 
   await Promise.allSettled(
@@ -122,7 +125,7 @@ async function getModuleScores(): Promise<ModuleScore[]> {
   );
 
   // Ensure consistent ordering
-  const order = ['fx_defense', 'bop', 'sovereign_risk', 'foreign_flow', 'banking', 'commodity', 'fiscal', 'market', 'domestic_pressure', 'regime', 'narrative'];
+  const order = ['fx_defense', 'bop', 'sovereign_risk', 'foreign_flow', 'banking', 'commodity', 'fiscal', 'market', 'domestic_pressure', 'political_risk', 'regime', 'narrative'];
   scores.sort((a, b) => order.indexOf(a.module) - order.indexOf(b.module));
 
   return scores;
@@ -166,7 +169,7 @@ async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
     .map((m) => `${m.module.replace('_', ' ')} [${m.alertLevel.toUpperCase()} ${m.score}/100]`);
 
   const keyFlags: string[] = [];
-  if (stressedCount >= 3) keyFlags.push(`CROSS-CONFIRMATION: ${stressedCount}/11 modules signaling stress simultaneously — non-linear risk elevated`);
+  if (stressedCount >= 3) keyFlags.push(`CROSS-CONFIRMATION: ${stressedCount}/12 modules signaling stress simultaneously — non-linear risk elevated`);
   if (syntheticStabilityScore > 60) keyFlags.push('SYNTHETIC STABILITY: surface indicators calm while structural deterioration accelerates underneath');
   if (silentCrisisProbability > 70) keyFlags.push('SYSTEMIC FRAGILITY: silent crisis probability critical — institutional positioning review warranted');
 
@@ -216,7 +219,7 @@ function formatOutput(output: SilentCrisisOutput): string {
     `|--------|-------|`,
     `| **Silent Crisis Probability** | **${output.silentCrisisProbability}%** |`,
     `| Synthetic Stability Score | ${output.syntheticStabilityScore}/100 |`,
-    `| Cross-Confirmed Stress Modules | ${output.crossConfirmationCount}/11 |`,
+    `| Cross-Confirmed Stress Modules | ${output.crossConfirmationCount}/12 |`,
     ``,
     `## Module Scorecard`,
     `| Module | Score | Alert | Available |`,

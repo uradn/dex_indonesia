@@ -36,6 +36,7 @@ import { stressSimulator, STRESS_SIMULATOR_DESCRIPTION } from './macro/stress-si
 import { macroThresholdMonitor, THRESHOLD_MONITOR_DESCRIPTION } from './macro/macro-threshold-monitor.js';
 import { fxRateRefreshTool, FX_RATE_REFRESH_DESCRIPTION } from './macro/fx-rate-refresh-tool.js';
 import { domesticPressureEngine, DOMESTIC_PRESSURE_DESCRIPTION } from './macro/domestic-pressure-engine.js';
+import { politicalRiskEngine, POLITICAL_RISK_DESCRIPTION } from './macro/political-risk-engine.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -214,6 +215,13 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: domesticPressureEngine,
       description: DOMESTIC_PRESSURE_DESCRIPTION,
       compactDescription: 'Domestic Inflation Pressure Engine: tracks 10 PIHPS sembako prices (beras, cabai, bawang, daging, telur, minyak, gula). Food Stress Index + DOMESTIC PRESSURE ALERT when ≥2 commodities spike. CPI early warning feed for BI rate chain.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'political_risk_engine',
+      tool: politicalRiskEngine,
+      description: POLITICAL_RISK_DESCRIPTION,
+      compactDescription: 'Political Risk Engine: BPS unemployment + Exa news sentiment (food pressure, labor protests, governance). Political Risk Index 0-100. Detects social contract stress before it reprices into sovereign spreads.',
       concurrencySafe: true,
     },
     {
