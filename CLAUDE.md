@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Fork Identity
+
+**Owner:** Victor (victor@sadasa.id)
+**Forked from:** `virattt/dexter` (upstream — read-only reference, do NOT push there)
+**Purpose:** Custom Indonesia sovereign macro intelligence system — "Big Short Mode" / Silent Crisis Detector for ASEAN/IDR/IDX monitoring. Not a general-purpose financial agent fork.
+**Remote:** No `origin` configured intentionally. Add your own GitHub remote before pushing: `git remote add origin https://github.com/<your-username>/dexter.git`
+
 ## Commands
 
 ```bash
