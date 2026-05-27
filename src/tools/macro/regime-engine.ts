@@ -4,6 +4,7 @@ import { formatToolResult } from '../types.js';
 import { upsertPoints, getLastN, getLatestPoint } from './time-series-db.js';
 import { rollingZScore, alertFromZScore } from './scoring.js';
 import { fetchGdpGrowth, fetchInflation } from './sources/imf.js';
+import { fetchPmiManufacturingTe } from './sources/sovereign-scraper.js';
 import type { MacroRegime, AlertLevel, MacroDataPoint } from './types.js';
 
 export const REGIME_DESCRIPTION = `
@@ -27,6 +28,7 @@ export interface RegimeOutput {
   inflationRoc: number;
   growthTrend: 'accelerating' | 'decelerating' | 'stable';
   inflationTrend: 'accelerating' | 'decelerating' | 'stable';
+  latestPmi: number | null;
   shiftProbability: number;
   mostLikelyShift: MacroRegime | null;
   historicalAnalogs: string[];
@@ -118,15 +120,18 @@ function computeShiftProbability(
 }
 
 export async function runRegimeEngine(): Promise<RegimeOutput> {
-  const [gdpSeries, inflSeries] = await Promise.all([
+  const [gdpSeries, inflSeries, pmiPoint] = await Promise.all([
     fetchGdpGrowth(),
     fetchInflation(),
+    fetchPmiManufacturingTe(),
   ]);
   if (gdpSeries.length > 0) await upsertPoints(gdpSeries);
   if (inflSeries.length > 0) await upsertPoints(inflSeries);
+  if (pmiPoint) await upsertPoints([pmiPoint]);
 
   const gdpHistory = await getLastN('gdp_growth_pct', 10);
   const inflHistory = await getLastN('inflation_cpi_pct', 10);
+  const pmiHistory = await getLastN('indonesia_pmi_manufacturing', 3);
 
   const gdpValues = gdpHistory.map((p) => p.value);
   const inflValues = inflHistory.map((p) => p.value);
@@ -134,8 +139,19 @@ export async function runRegimeEngine(): Promise<RegimeOutput> {
   const growthResult = classifyTrend(gdpValues);
   const inflResult = classifyTrend(inflValues);
 
-  // Classify regime
-  const growthUp = growthResult.trend === 'accelerating' || growthResult.roc > 0;
+  // PMI signal: monthly leading indicator vs annual IMF GDP (1-2Q lag)
+  // PMI < 48 for 2+ months = growth contraction signal regardless of IMF annual
+  // PMI > 52 = confirms expansion
+  const latestPmi = pmiHistory.length > 0 ? pmiHistory[pmiHistory.length - 1]!.value : null;
+  const pmiContraction = pmiHistory.length >= 2 && pmiHistory.every((p) => p.value < 50);
+  // Single PMI <50 is a leading warning even without sustained contraction
+  const pmiContractionWarning = latestPmi !== null && latestPmi < 50;
+  const pmiExpansion = latestPmi !== null && latestPmi > 52;
+
+  // Classify regime — PMI can override/adjust annual GDP signal
+  let growthUp = growthResult.trend === 'accelerating' || growthResult.roc > 0;
+  if (pmiContraction) growthUp = false;   // PMI sustained contraction overrides annual lag
+  else if (pmiExpansion) growthUp = true; // PMI strong expansion confirms growth
   const inflUp = inflResult.trend === 'accelerating' || inflResult.roc > 0;
 
   let currentRegime: MacroRegime;
@@ -149,23 +165,33 @@ export async function runRegimeEngine(): Promise<RegimeOutput> {
     currentRegime === 'Q4' ? 'orange' :
     currentRegime === 'Q2' ? 'yellow' : 'green';
 
-  const { prob: shiftProbability, mostLikely: mostLikelyShift } = computeShiftProbability(
+  let { prob: shiftProbability, mostLikely: mostLikelyShift } = computeShiftProbability(
     growthResult.trend,
     inflResult.trend,
     currentRegime,
   );
+  // PMI contraction warning boosts shift probability: leading indicator disagrees with lagged GDP
+  if (pmiContractionWarning && !pmiContraction) {
+    shiftProbability = Math.min(0.95, shiftProbability + 0.15);
+    if (!mostLikelyShift) mostLikelyShift = inflUp ? 'Q3' : 'Q4';
+  }
 
   const latestGdp = gdpHistory[gdpHistory.length - 1];
   const latestInfl = inflHistory[inflHistory.length - 1];
+
+  const pmiNote = latestPmi !== null
+    ? ` PMI ${latestPmi.toFixed(1)} (${latestPmi >= 50 ? 'expansion' : 'contraction'})${pmiContraction ? ' — sustained contraction overrides GDP lag signal' : pmiContractionWarning ? ' — manufacturing contraction; leads GDP by 1-2Q' : ''}.`
+    : '';
 
   const narrative = [
     `Indonesia in ${REGIME_LABELS[currentRegime]}.`,
     `GDP growth ${latestGdp?.value.toFixed(1) ?? 'n/a'}% (${growthResult.trend}).`,
     `CPI inflation ${latestInfl?.value.toFixed(1) ?? 'n/a'}% (${inflResult.trend}).`,
+    pmiNote,
     mostLikelyShift
       ? `Regime shift probability ${(shiftProbability * 100).toFixed(0)}% toward ${REGIME_LABELS[mostLikelyShift]}.`
       : `Regime stable — shift probability ${(shiftProbability * 100).toFixed(0)}%.`,
-  ].join(' ');
+  ].filter(Boolean).join(' ');
 
   return {
     currentRegime,
@@ -174,6 +200,7 @@ export async function runRegimeEngine(): Promise<RegimeOutput> {
     inflationRoc: inflResult.roc,
     growthTrend: growthResult.trend,
     inflationTrend: inflResult.trend,
+    latestPmi,
     shiftProbability,
     mostLikelyShift,
     historicalAnalogs: HISTORICAL_ANALOGS[currentRegime],
@@ -194,6 +221,7 @@ function formatRegimeOutput(output: RegimeOutput): string {
     `|-----------|-----|-------|`,
     `| GDP Growth | ${output.growthRoc >= 0 ? '+' : ''}${output.growthRoc.toFixed(2)}% | ${output.growthTrend} |`,
     `| CPI Inflation | ${output.inflationRoc >= 0 ? '+' : ''}${output.inflationRoc.toFixed(2)}% | ${output.inflationTrend} |`,
+    output.latestPmi !== null ? `| PMI Manufacturing | ${output.latestPmi.toFixed(1)} | ${output.latestPmi >= 50 ? 'expansion' : 'contraction'} (monthly leading) |` : '',
     ``,
     `## Regime Shift Risk`,
     `- **Probability:** ${(output.shiftProbability * 100).toFixed(0)}%`,
@@ -204,11 +232,14 @@ function formatRegimeOutput(output: RegimeOutput): string {
     ``,
     `## Asset Implications (${output.currentRegime})`,
     Object.entries(output.assetImplications).map(([k, v]) => `- **${k}:** ${v}`).join('\n'),
+    output.latestPmi !== null && output.latestPmi < 50
+      ? `\n> ⚠️ **PMI Caveat:** Manufacturing PMI ${output.latestPmi.toFixed(1)} signals contraction. Annual GDP (IMF) lags by 1-2 quarters. Equity/IDR implications above may deteriorate if PMI stays <50.`
+      : '',
     ``,
     `## Summary`,
     output.narrative,
     ``,
-    `_Source: IMF WEO — annual data, ~1-2Q lag. For monthly signals, combine with BPS CPI and PMI data._`,
+    `_Growth: IMF WEO annual (~1-2Q lag) + S&P Global Manufacturing PMI monthly (leading, real-time). PMI sustained <50 overrides annual GDP signal._`,
   ]
     .filter((l) => l !== '')
     .join('\n');

@@ -171,11 +171,16 @@ export async function executeCronJob(
 
     // Deliver via WhatsApp
     const cleaned = cleanMarkdownForWhatsApp(suppResult.cleanedText);
-    await sendMessageWhatsApp({
-      to: session.lastTo,
-      body: cleaned,
-      accountId: session.lastAccountId,
-    });
+    try {
+      await sendMessageWhatsApp({
+        to: session.lastTo,
+        body: cleaned,
+        accountId: session.lastAccountId,
+      });
+    } catch (deliveryErr) {
+      handleJobError(job, store, deliveryErr, startedAt);
+      return;
+    }
     debugLog(`[cron] job ${job.id}: delivered to ${session.lastTo}`);
 
     // Update suppression state for duplicate detection

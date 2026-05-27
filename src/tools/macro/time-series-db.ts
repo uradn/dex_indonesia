@@ -131,3 +131,11 @@ function rowToPoint(row: SeriesRow): MacroDataPoint {
     fetchedAt: row.fetched_at,
   };
 }
+
+/** Latest stored USDIDR rate + staleness in days. Returns null if no data in DB. */
+export async function getLatestUsdIdr(): Promise<{ rate: number; date: string; staleDays: number } | null> {
+  const point = await getLatestPoint('usdidr_spot');
+  if (!point) return null;
+  const staleDays = Math.floor((Date.now() - new Date(point.date).getTime()) / 86_400_000);
+  return { rate: point.value, date: point.date, staleDays };
+}

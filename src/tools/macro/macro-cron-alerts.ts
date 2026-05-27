@@ -42,6 +42,13 @@ export const MACRO_ALERT_THRESHOLDS = {
   BRENT_VS_APBN_DEVIATION:     25,    // Alert if Brent >25% above APBN assumption
   NICKEL_PRICE_FALL_90D:      -20,    // Alert if nickel falls >20% in 90 days
 
+  // Banking Stress (Module 8)
+  NPL_GROSS_PCT:                5.0,  // Alert if NPL gross > 5%
+  LDR_PCT:                    100.0,  // Alert if LDR > 100% (credit > deposits)
+  CAR_PCT:                     15.0,  // Alert if CAR < 15% (thinning buffer)
+  JIBOR_SPREAD_BPS:           100,    // Alert if JIBOR-BI spread > 100bps
+  BANKING_STRESS_SCORE:        50,    // Alert if banking stress score > 50/100
+
   // Silent Crisis
   SILENT_CRISIS_PROBABILITY:   50,    // Alert if silent crisis prob > 50%
   CROSS_CONFIRMED_MODULES:      3,    // Alert if 3+ modules in stress simultaneously

@@ -106,6 +106,26 @@ export async function fetchEidoProxy(days = 90): Promise<MacroDataPoint[]> {
   }
 }
 
+// US 10Y Treasury yield (^TNX) — for SBN-UST spread context
+export async function fetchUst10y(): Promise<MacroDataPoint | null> {
+  try {
+    const q = await yf.quote('^TNX');
+    const price = q.regularMarketPrice;
+    if (!price || price < 0.5 || price > 20) return null;
+    return {
+      indicator: 'ust_10y_yield_pct',
+      category: 'sovereign' as const,
+      date: TODAY(),
+      value: parseFloat(price.toFixed(3)),
+      unit: '%',
+      source: 'yahoo_finance',
+      fetchedAt: NOW(),
+    };
+  } catch {
+    return null;
+  }
+}
+
 // Compute 30-day realized volatility from daily returns (annualized %)
 export function computeRealizedVol(prices: number[], windowDays = 30): number | null {
   if (prices.length < windowDays + 1) return null;

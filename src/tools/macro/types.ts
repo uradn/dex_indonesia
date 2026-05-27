@@ -8,7 +8,7 @@ export type MacroRegime = 'Q1' | 'Q2' | 'Q3' | 'Q4';
 
 export interface MacroDataPoint {
   indicator: string;
-  category: 'fx' | 'bop' | 'sovereign' | 'commodity' | 'flow' | 'regime';
+  category: 'fx' | 'bop' | 'sovereign' | 'commodity' | 'flow' | 'regime' | 'banking';
   date: string;          // ISO date YYYY-MM-DD
   value: number;
   unit: string;
@@ -57,9 +57,10 @@ export interface FxDefenseEngineOutput {
   usdIdr: IndicatorSnapshot;
   usdIdrVol30d: IndicatorSnapshot;
   fxReserves: IndicatorSnapshot;
-  reserveBurnRate: number | null;     // months remaining at current pace
+  reserveBurnRate: number | null;
   srbiOutstanding: IndicatorSnapshot | null;
-  biInterventionProxy: string;        // 'active' | 'passive' | 'unknown'
+  srbiSterilizationRatio: number | null;  // SRBI outstanding / FX reserves in IDR — >0.5 = stretched
+  biInterventionProxy: string;
   pseudoStabilityFlag: boolean;
   interventionSustainability: AlertLevel;
 }

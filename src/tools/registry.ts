@@ -27,10 +27,14 @@ import { commodityEngine, COMMODITY_DESCRIPTION } from './macro/commodity-engine
 import { foreignFlowEngine, FOREIGN_FLOW_DESCRIPTION } from './macro/foreign-flow-engine.js';
 import { narrativeDivergenceEngine, NARRATIVE_DIVERGENCE_DESCRIPTION } from './macro/narrative-divergence-engine.js';
 import { aseanRelativeValueEngine, ASEAN_RELATIVE_VALUE_DESCRIPTION } from './macro/asean-relative-value-engine.js';
+import { bankingStressEngine, BANKING_STRESS_DESCRIPTION } from './macro/banking-stress-engine.js';
+import { marketStressEngine, MARKET_STRESS_DESCRIPTION } from './macro/market-stress-engine.js';
+import { fiscalEngine, FISCAL_DESCRIPTION } from './macro/fiscal-engine.js';
 import { silentCrisisDetector, SILENT_CRISIS_DESCRIPTION } from './macro/silent-crisis-detector.js';
 import { backtestEngine, BACKTEST_DESCRIPTION } from './macro/backtest-tool.js';
 import { stressSimulator, STRESS_SIMULATOR_DESCRIPTION } from './macro/stress-simulator.js';
 import { macroThresholdMonitor, THRESHOLD_MONITOR_DESCRIPTION } from './macro/macro-threshold-monitor.js';
+import { fxRateRefreshTool, FX_RATE_REFRESH_DESCRIPTION } from './macro/fx-rate-refresh-tool.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -149,10 +153,31 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       concurrencySafe: true,
     },
     {
+      name: 'banking_stress_engine',
+      tool: bankingStressEngine,
+      description: BANKING_STRESS_DESCRIPTION,
+      compactDescription: 'Banking Stress Engine: NPL ratio, LDR, CAR, JIBOR-BI spread, external debt, IHPR property index, sector NPL. The Big Short early warning — detects hidden credit cycle stress before consensus.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'market_stress_engine',
+      tool: marketStressEngine,
+      description: MARKET_STRESS_DESCRIPTION,
+      compactDescription: 'Market Stress Engine: IHSG P/E ratio vs historical, IDX advance/decline breadth. Detects valuation disconnect and narrow leadership risk.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'fiscal_engine',
+      tool: fiscalEngine,
+      description: FISCAL_DESCRIPTION,
+      compactDescription: 'Fiscal Engine: APBN 2026 realisasi vs target. Revenue/spending absorption rate, deficit trajectory vs 3% GDP limit. Monthly monitoring.',
+      concurrencySafe: true,
+    },
+    {
       name: 'silent_crisis_detector',
       tool: silentCrisisDetector,
       description: SILENT_CRISIS_DESCRIPTION,
-      compactDescription: 'Big Short Mode: aggregates all 7 macro modules into Silent Crisis Probability. Detects fake stability, cross-confirmed stress, and systemic fragility.',
+      compactDescription: 'Big Short Mode: aggregates all 10 macro modules into Silent Crisis Probability. Detects fake stability, cross-confirmed stress, and systemic fragility.',
       concurrencySafe: false,
     },
     {
@@ -174,6 +199,13 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: macroThresholdMonitor,
       description: THRESHOLD_MONITOR_DESCRIPTION,
       compactDescription: 'Fast threshold tripwire: checks USDIDR, VIX, DXY, Brent against fixed alert thresholds in seconds. Returns all-clear or breach list. Use for cron intraday checks.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'fx_rate_refresh',
+      tool: fxRateRefreshTool,
+      description: FX_RATE_REFRESH_DESCRIPTION,
+      compactDescription: 'Fetch and persist latest IDR/USD + ASEAN FX spots into macro DB. Lightweight spot-only refresh. Call before any analysis quoting IDR/USD levels.',
       concurrencySafe: true,
     },
     {

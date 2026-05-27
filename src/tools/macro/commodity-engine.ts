@@ -28,7 +28,7 @@ Indonesia export basket (tracked):
 
 Oil Import Risk (net importer ~245M bbl/yr):
 - Brent — BZ=F
-- APBN assumption baseline: $65-75/bbl
+- APBN assumption baseline: $82/bbl (APBN 2026 — update annually in sources/commodities.ts)
 
 Scores:
 - Commodity Cushion Score (0-100): 0 = max cushion, 100 = prices below trend
@@ -180,9 +180,11 @@ function formatOutput(output: CommodityEngineOutput): string {
     `## Export Commodities (Stress Ranking — worst first)`,
     `| Commodity | Price | Unit | 90d Z-Score | Stress |`,
     `|-----------|-------|------|-------------|--------|`,
-    ...output.topExportsByStress.map((c) =>
-      `| ${c.indicator} | ${c.price.toFixed(2)} | ${c.unit} | ${c.zScore?.toFixed(2) ?? 'n/a'} | ${c.stress.toUpperCase()} |`,
-    ),
+    ...output.topExportsByStress.map((c) => {
+      // Rename cpo_price_myr → Palm Oil (CPO) for clarity; indicator has misleading "myr" suffix
+      const displayName = c.indicator === 'cpo_price_myr' ? 'palm_oil_cpo_usd' : c.indicator;
+      return `| ${displayName} | ${c.price.toFixed(2)} | ${c.unit} | ${c.zScore?.toFixed(2) ?? 'n/a'} | ${c.stress.toUpperCase()} |`;
+    }),
     ``,
     `## Oil Import Risk`,
     `| Metric | Value |`,

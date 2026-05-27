@@ -63,6 +63,15 @@ Dexter is a CLI-based autonomous financial research agent. Runtime is **Bun**. U
 
 Dexter has a sovereign macro monitoring system under `src/tools/macro/`. Currently implemented modules:
 
+**Module 8 — Banking Stress Engine** (`banking_stress_engine` tool):
+Tracks NPL gross %, LDR, CAR, JIBOR-BI Rate spread, external debt, IHPR property price index (YoY), and sector NPL (real estat, konstruksi, perdagangan, konsumsi). Big Short early warning: detects credit cycle stress before it's visible in headline data. NPL data from OJK SPI Excel (Playwright + OJK cookies, ~11mo lag); JIBOR/external debt/IHPR from Trading Economics. IHPR added to detect collateral deflation risk in KPR portfolios. Sector NPL populated alongside aggregate when OJK Excel available. Sources: `src/tools/macro/sources/ojk.ts`, `src/tools/macro/sources/sovereign-scraper.ts`.
+
+**Module 9 — Market Stress Engine** (`market_stress_engine` tool):
+IHSG valuation + IDX breadth. Tracks IHSG P/E ratio (historical avg 14-16x; >22x = elevated) and advance/decline ratio. Detects valuation disconnect (elevated P/E while breadth collapses = narrow leadership before broad selloff). Sources: `src/tools/macro/sources/ihsg.ts` (Trading Economics P/E + IDX market summary breadth).
+
+**Module 10 — Fiscal Engine** (`fiscal_engine` tool):
+APBN 2026 realisasi vs annual targets. Revenue IDR 2,997T | Spending IDR 3,621T | Deficit IDR 624T (2.56% GDP). Tracks monthly realization from Trading Economics, accumulates YTD in DB, computes absorption rate vs pro-rata target. Flags revenue shortfall (<85% pace), spending overrun (>110% pace), deficit trajectory >3% GDP constitutional limit. Sources: `src/tools/macro/sources/kemenkeu.ts`.
+
 **Module 1 — BoP Engine** (`bop_engine` tool):
 Tracks trade balance, import growth, FX reserves, current account, external funding dependency. Detects synthetic CAD risk (trade surplus + falling reserves = hidden capital outflow).
 
@@ -78,6 +87,8 @@ Tracks USDIDR spot + 30d realized vol, FX reserves trajectory, SRBI outstanding 
 - `src/skills/macro/fx-defense/SKILL.md` — FX Defense workflow
 
 **Alert levels:** GREEN (z<1.5) → YELLOW (z≥1.5) → ORANGE (z≥2.0) → RED (z≥2.5)
+
+**Silent Crisis Detector** (`silent_crisis_detector` tool): aggregates all 10 modules with weighted scoring. fx_defense 0.18, bop 0.18, sovereign_risk 0.14, foreign_flow 0.14, banking 0.10, commodity 0.09, fiscal 0.08, market 0.07, regime 0.05, narrative 0.05. Non-linear amplification when 3+ modules stressed.
 
 **Adding new modules:** create `src/tools/macro/{module}-engine.ts`, register in `registry.ts`, optionally add `src/skills/macro/{module}/SKILL.md`.
 

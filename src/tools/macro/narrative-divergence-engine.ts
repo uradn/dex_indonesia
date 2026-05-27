@@ -100,7 +100,7 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
       officialClaim: `APBN baseline: $${APBN_ASSUMPTIONS.oilPrice}/bbl`,
       marketSignal: `Market: $${brentSpot.value.toFixed(1)}/bbl (${marketVsApbn >= 0 ? '+' : ''}${marketVsApbn.toFixed(1)}% vs APBN)`,
       divergenceScore,
-      flagged: Math.abs(marketVsApbn) > 20,
+      flagged: Math.abs(marketVsApbn) > 10,  // >10% = subsidy budget risk
     });
   }
 
@@ -145,6 +145,25 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
       marketSignal: `Reserves: ${fxReserves.value.toFixed(1)} bn USD | SRBI outstanding: ${srbi.value.toFixed(0)} trn IDR${pseudoStability ? ' — sterilization pressure elevated' : ''}`,
       divergenceScore: pseudoStability ? 70 : 20,
       flagged: pseudoStability,
+    });
+  }
+
+  // 6. Compound IDR + Oil double-whammy: both diverge simultaneously = APBN under max stress
+  // IDR weakness inflates subsidy cost in IDR terms ON TOP of higher USD oil price
+  const idrCheck = checks.find((c) => c.dimension.includes('USDIDR'));
+  const oilCheck = checks.find((c) => c.dimension.includes('Oil'));
+  if (idrCheck && oilCheck && idrCheck.flagged && oilCheck.flagged) {
+    const usdIdrVal = usdIdrSpot?.value ?? APBN_ASSUMPTIONS.usdIdr;
+    const brentVal = brentSpot?.value ?? APBN_ASSUMPTIONS.oilPrice;
+    const idrDeviation = (usdIdrVal - APBN_ASSUMPTIONS.usdIdr) / APBN_ASSUMPTIONS.usdIdr;
+    const oilDeviation = (brentVal - APBN_ASSUMPTIONS.oilPrice) / APBN_ASSUMPTIONS.oilPrice;
+    const combinedImpact = ((1 + idrDeviation) * (1 + oilDeviation) - 1) * 100;
+    checks.push({
+      dimension: 'Compound IDR+Oil vs APBN (Double-Whammy)',
+      officialClaim: `APBN oil subsidy cost: USDIDR ${APBN_ASSUMPTIONS.usdIdr} × $${APBN_ASSUMPTIONS.oilPrice}/bbl`,
+      marketSignal: `Market USDIDR ${usdIdrVal.toLocaleString()} × $${brentVal.toFixed(1)}/bbl = +${combinedImpact.toFixed(1)}% real cost overshoot`,
+      divergenceScore: Math.min(100, combinedImpact * 2),
+      flagged: combinedImpact > 20,
     });
   }
 
@@ -196,7 +215,7 @@ function formatOutput(output: NarrativeDivergenceOutput): string {
     ``,
     output.flags.length > 0 ? `## Active Divergences\n${output.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '## No Critical Divergences Detected',
     ``,
-    `_APBN 2026 assumptions used for comparison. Update \`APBN_ASSUMPTIONS\` in narrative-divergence-engine.ts annually._`,
+    `_APBN 2026 assumptions: Perpres 201/2024 (Revenue 2,997T | Spending 3,621T | Deficit 2.56% GDP). Prabowo efisiensi cuts (early 2026) may have revised spending target — verify APBN-P 2026 before interpreting fiscal divergence._`,
   ]
     .filter((l) => l !== '')
     .join('\n');

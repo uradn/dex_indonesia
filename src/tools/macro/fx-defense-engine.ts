@@ -131,6 +131,16 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     ? 'active_direct'
     : 'passive_unknown';
 
+  // SRBI sterilization capacity ratio
+  // SRBI outstanding (IDR trn) / equivalent IDR value of FX reserves
+  // >35% = elevated burden; >50% = BI balance sheet stretched, limited future sterilization room
+  const reservesInIdrTrn = currentReserve && currentSpot
+    ? (currentReserve.value * currentSpot.value) / 1_000  // bn_USD * IDR/USD / 1000 = trn IDR
+    : null;
+  const srbiSterilizationRatio = currentSrbi && reservesInIdrTrn && reservesInIdrTrn > 0
+    ? currentSrbi.value / reservesInIdrTrn
+    : null;
+
   // Pseudo-stability: IDR volatility low but reserves depleting fast
   const pseudoStabilityFlag =
     (volSnapshot?.current ?? 10) < 8 &&
@@ -155,6 +165,8 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   if (pseudoStabilityFlag) flags.push('PSEUDO-STABILITY: Low vol but reserves depleting — surface calm may be deceptive');
   if (biInterventionProxy === 'active_sterilized') flags.push('BI active sterilized intervention detected (reserves↓ + SRBI↑)');
   if (reserveBurnRate !== null && reserveBurnRate < 6) flags.push(`Reserve runway <6 months at current burn rate: ${reserveBurnRate.toFixed(1)} months`);
+  if (srbiSterilizationRatio !== null && srbiSterilizationRatio > 0.50) flags.push(`SRBI sterilization burden critical: ${(srbiSterilizationRatio * 100).toFixed(1)}% of FX reserves — BI balance sheet stretched`);
+  else if (srbiSterilizationRatio !== null && srbiSterilizationRatio > 0.35) flags.push(`SRBI sterilization burden elevated: ${(srbiSterilizationRatio * 100).toFixed(1)}% of FX reserves — watch for capacity constraint`);
 
   const interventionSustainability: AlertLevel =
     reserveBurnRate !== null
@@ -188,6 +200,7 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     fxReserves: reserveSnapshot ?? placeholderSnapshot('bi_fx_reserves_bn', 'bn_USD'),
     reserveBurnRate,
     srbiOutstanding: srbiSnapshot,
+    srbiSterilizationRatio,
     biInterventionProxy,
     pseudoStabilityFlag,
     interventionSustainability,
@@ -243,7 +256,10 @@ function placeholderSnapshot(indicator: string, unit: string): IndicatorSnapshot
 }
 
 function formatOutput(output: FxDefenseEngineOutput): string {
-  const { scoreCard, reserveBurnRate, biInterventionProxy, pseudoStabilityFlag, interventionSustainability } = output;
+  const { scoreCard, reserveBurnRate, biInterventionProxy, pseudoStabilityFlag, interventionSustainability, srbiSterilizationRatio } = output;
+  const srbiRatioStr = srbiSterilizationRatio !== null
+    ? `${(srbiSterilizationRatio * 100).toFixed(1)}% ${srbiSterilizationRatio > 0.50 ? '⚠️ CRITICAL' : srbiSterilizationRatio > 0.35 ? '— elevated' : '— normal'}`
+    : 'n/a';
   return [
     `# FX Defense Engine — Indonesia`,
     `**Date:** ${scoreCard.scoreDate}`,
@@ -263,6 +279,7 @@ function formatOutput(output: FxDefenseEngineOutput): string {
     `- **BI Intervention Proxy:** ${biInterventionProxy}`,
     `- **Intervention Sustainability:** ${interventionSustainability.toUpperCase()}`,
     `- **Reserve Burn Rate:** ${reserveBurnRate !== null ? `${reserveBurnRate.toFixed(1)} months` : 'n/a'}`,
+    `- **SRBI/Reserve Ratio:** ${srbiRatioStr}`,
     `- **Pseudo-Stability Flag:** ${pseudoStabilityFlag ? '⚠️ YES — covert reserve depletion detected' : 'No'}`,
     ``,
     scoreCard.flags.length > 0 ? `## Flags\n${scoreCard.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '',

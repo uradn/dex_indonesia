@@ -5,6 +5,7 @@ import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
 import { buildSnapshot, compositeScore, detectFlags, alertFromScore, alertLabel, rateOfChange } from './scoring.js';
 import { fetchBiFxReserves } from './sources/bi.js';
 import { fetchTradeBalance, fetchImports, fetchExports, bpsAvailable } from './sources/bps.js';
+import { fetchTradeBalanceTe, fetchExportsTe, fetchImportsTe } from './sources/sovereign-scraper.js';
 import { fetchCurrentAccount, fetchFxReservesMonths, fetchCurrentAccountBn } from './sources/imf.js';
 import { fetchBbgFxReserves, bloombergAvailable } from './sources/bloomberg.js';
 import type { BoPEngineOutput, IndicatorSnapshot } from './types.js';
@@ -37,14 +38,13 @@ Tracks Indonesia's BoP position and external sector vulnerability. Detects:
 
 ## Data Sources
 
-- Trade balance: BPS WebAPI (BPS_API_KEY) or web scraping fallback
+- Trade balance/exports/imports: Trading Economics scraper (Playwright, free, monthly current)
 - Current account: IMF Data API (annual/quarterly, free, ~1 quarter lag)
 - FX reserves: BI website (monthly) → Bloomberg if configured
-- Coverage note: IMF data has ~1-2 quarter lag; BPS monthly trade is more current
 `.trim();
 
 export async function runBoPEngine(): Promise<BoPEngineOutput> {
-  // 1. Fetch trade data
+  // 1. Fetch trade data — BPS (Playwright, bypasses Cloudflare) → TE scrape fallback
   const [tradeSeries, importSeries, exportSeries] = await Promise.all([
     fetchTradeBalance(24),
     fetchImports(24),
@@ -53,6 +53,20 @@ export async function runBoPEngine(): Promise<BoPEngineOutput> {
   if (tradeSeries.length > 0) await upsertPoints(tradeSeries);
   if (importSeries.length > 0) await upsertPoints(importSeries);
   if (exportSeries.length > 0) await upsertPoints(exportSeries);
+
+  // TE Playwright fallback: seed current month if BPS returned nothing
+  if (tradeSeries.length === 0) {
+    const [tbTe, expTe, impTe] = await Promise.allSettled([
+      fetchTradeBalanceTe(),
+      fetchExportsTe(),
+      fetchImportsTe(),
+    ]);
+    const tePoints = [tbTe, expTe, impTe]
+      .filter((r): r is PromiseFulfilledResult<NonNullable<Awaited<ReturnType<typeof fetchTradeBalanceTe>>>> =>
+        r.status === 'fulfilled' && r.value !== null)
+      .map((r) => r.value);
+    if (tePoints.length > 0) await upsertPoints(tePoints);
+  }
 
   // 2. FX reserves
   const reservePoint = bloombergAvailable()
@@ -265,7 +279,7 @@ function formatOutput(output: BoPEngineOutput): string {
     scoreCard.flags.length > 0 ? `## Flags\n${scoreCard.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '',
     ``,
     `## Data Quality`,
-    bpsAvailable() ? '- Trade data: BPS WebAPI (monthly)' : '- Trade data: BPS not configured (set BPS_API_KEY) — limited coverage',
+    '- Trade data: Trading Economics Playwright scrape (BPS var IDs 200/201/202 confirmed unavailable in domain 0000)',
     `- Current account: IMF Data API (annual, ~1-2Q lag)`,
     `- Reserves: ${bloombergAvailable() ? 'Bloomberg' : 'BI website (monthly, ~4wk lag)'}`,
   ]

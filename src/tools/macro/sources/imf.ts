@@ -19,6 +19,7 @@ const IMF_INDICATORS = {
   EXTERNAL_DEBT_PCT_GDP: 'D',              // External Debt (% GDP)
   GDP_GROWTH: 'NGDP_RPCH',               // Real GDP growth %
   INFLATION_CPI: 'PCPIPCH',              // CPI inflation %
+  GOVT_DEBT_PCT_GDP: 'GGXWDG_NGDP',     // General Government Gross Debt (% GDP)
 };
 
 interface ImfApiResponse {
@@ -46,8 +47,11 @@ function latestYearData(data: Record<string, number>, yearsBack = 8): MacroDataP
 export async function fetchCurrentAccount(): Promise<MacroDataPoint[]> {
   try {
     const data = await imfFetch(IMF_INDICATORS.CURRENT_ACCOUNT_PCT_GDP);
+    const currentYear = new Date().getFullYear();
+    // Use currentYear-1: IMF marks current year as forecast; latest actual = prior year
     return Object.entries(data)
-      .filter(([y, v]) => !isNaN(Number(y)) && !isNaN(v))
+      .filter(([y, v]) => !isNaN(Number(y)) && !isNaN(v) && Number(y) <= currentYear - 1)
+      .sort(([a], [b]) => Number(a) - Number(b))
       .slice(-10)
       .map(([year, value]) => ({
         indicator: 'current_account_pct_gdp',
@@ -86,8 +90,10 @@ export async function fetchFxReservesMonths(): Promise<MacroDataPoint[]> {
 export async function fetchGdpGrowth(): Promise<MacroDataPoint[]> {
   try {
     const data = await imfFetch(IMF_INDICATORS.GDP_GROWTH);
+    const currentYear = new Date().getFullYear();
     return Object.entries(data)
-      .filter(([y, v]) => !isNaN(Number(y)) && !isNaN(v))
+      .filter(([y, v]) => !isNaN(Number(y)) && !isNaN(v) && Number(y) <= currentYear - 1)
+      .sort(([a], [b]) => Number(a) - Number(b))
       .slice(-10)
       .map(([year, value]) => ({
         indicator: 'gdp_growth_pct',
@@ -106,8 +112,10 @@ export async function fetchGdpGrowth(): Promise<MacroDataPoint[]> {
 export async function fetchInflation(): Promise<MacroDataPoint[]> {
   try {
     const data = await imfFetch(IMF_INDICATORS.INFLATION_CPI);
+    const currentYear = new Date().getFullYear();
     return Object.entries(data)
-      .filter(([y, v]) => !isNaN(Number(y)) && !isNaN(v))
+      .filter(([y, v]) => !isNaN(Number(y)) && !isNaN(v) && Number(y) <= currentYear - 1)
+      .sort(([a], [b]) => Number(a) - Number(b))
       .slice(-10)
       .map(([year, value]) => ({
         indicator: 'inflation_cpi_pct',
@@ -141,5 +149,36 @@ export async function fetchCurrentAccountBn(): Promise<MacroDataPoint[]> {
       }));
   } catch {
     return [];
+  }
+}
+
+/**
+ * Fetch Indonesia general government gross debt (% GDP) from IMF WEO.
+ * Returns most recent actual year (not projection) — IMF publishes annual, ~1yr lag.
+ * Indonesia 2024: ~40.2% GDP.
+ */
+export async function fetchDebtGdpImf(): Promise<MacroDataPoint | null> {
+  try {
+    const data = await imfFetch(IMF_INDICATORS.GOVT_DEBT_PCT_GDP);
+    const currentYear = new Date().getFullYear();
+    // Walk back from current year to find most recent actual (not forecast) value
+    // IMF marks forecasts with future years; treat current year - 1 as latest reliable
+    for (let y = currentYear - 1; y >= currentYear - 5; y--) {
+      const val = data[String(y)];
+      if (val !== undefined && !isNaN(val)) {
+        return {
+          indicator: 'indonesia_debt_gdp_pct',
+          category: 'sovereign',
+          date: `${y}-12-31`,
+          value: val,
+          unit: '%_GDP',
+          source: 'imf_weo',
+          fetchedAt: NOW(),
+        };
+      }
+    }
+    return null;
+  } catch {
+    return null;
   }
 }

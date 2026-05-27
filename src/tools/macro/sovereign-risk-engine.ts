@@ -6,8 +6,10 @@ import { buildSnapshot, compositeScore, detectFlags, alertFromScore, alertLabel 
 import { fetchIndonesiaCds5y, fetchSbn10yYield, fetchEmbiSpread, bloombergAvailable } from './sources/bloomberg.js';
 import { fetchSbn10yRdp, fetchCds5yRdp, refinitivAvailable } from './sources/refinitiv.js';
 import { fetchSbnForeignOwnership } from './sources/bi.js';
-import { fetchSbn10yTradingEconomics, fetchBiRateTradingEconomics, computeTermPremium } from './sources/sovereign-scraper.js';
-import type { AlertLevel, IndicatorSnapshot, ModuleScoreCard } from './types.js';
+import { fetchSbn10yTradingEconomics, fetchBiRateTradingEconomics, fetchIndonesiaCdsAndRatingWgb, computeTermPremium } from './sources/sovereign-scraper.js';
+import { fetchDebtGdpImf } from './sources/imf.js';
+import { fetchUst10y } from './sources/yahoo-macro.js';
+import type { AlertLevel, IndicatorSnapshot, ModuleScoreCard, MacroDataPoint } from './types.js';
 
 export const SOVEREIGN_RISK_DESCRIPTION = `
 MACRO INTELLIGENCE — Sovereign Risk Engine (Module 2)
@@ -51,14 +53,27 @@ interface SovereignOutput {
   fiscalCredibilityIndex: number;
   foreignExitRisk: AlertLevel;
   termPremium: ReturnType<typeof computeTermPremium> | null;
+  sbnUstSpread: number | null;  // SBN 10Y − UST 10Y; narrowing = outflow risk
+  ust10y: number | null;
   narrative: string;
 }
 
 export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
-  // 1. CDS data — Bloomberg preferred, Refinitiv fallback (no free source available)
+  // 1. CDS + rating — Bloomberg → Refinitiv → WorldGovernmentBonds.com (free, Playwright, ~daily)
   let cdsPoint = bloombergAvailable() ? await fetchIndonesiaCds5y() : null;
   cdsPoint ??= refinitivAvailable() ? await fetchCds5yRdp() : null;
+  let ratingPoint: MacroDataPoint | null = null;
+  if (!cdsPoint) {
+    const [wgbCds, wgbRating] = await fetchIndonesiaCdsAndRatingWgb();
+    cdsPoint = wgbCds;
+    ratingPoint = wgbRating;
+  }
   if (cdsPoint) await upsertPoints([cdsPoint]);
+  if (ratingPoint) await upsertPoints([ratingPoint]);
+
+  // 1b. Government debt/GDP from IMF WEO (annual, ~1yr lag; used for FCI)
+  const debtGdpPoint = await fetchDebtGdpImf();
+  if (debtGdpPoint) await upsertPoints([debtGdpPoint]);
 
   // 2. SBN 10Y yield — Bloomberg → Refinitiv → Trading Economics scrape (free)
   let sbnPoint = bloombergAvailable() ? await fetchSbn10yYield() : null;
@@ -69,6 +84,10 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
   // 2b. BI Rate — Trading Economics scrape (free); stored for term premium computation
   const biRatePoint = await fetchBiRateTradingEconomics();
   if (biRatePoint) await upsertPoints([biRatePoint]);
+
+  // 2c. UST 10Y — Yahoo Finance ^TNX; used for SBN-UST spread (carry/flow context)
+  const ust10yPoint = await fetchUst10y();
+  if (ust10yPoint) await upsertPoints([ust10yPoint]);
 
   // 3. EMBI spread
   const embiPoint = bloombergAvailable() ? await fetchEmbiSpread() : null;
@@ -92,6 +111,8 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
   const prevForeign = (await getLastN('sbn_foreign_ownership_pct', 6)).slice(-2)[0] ?? null;
 
   const currentBiRate = await getLatestPoint('bi_rate_pct');
+  const currentRating = await getLatestPoint('indonesia_credit_rating_score');
+  const currentDebtGdp = await getLatestPoint('indonesia_debt_gdp_pct');
 
   // Build snapshots
   const cdsSnapshot = currentCds ? await buildSnapshot('indonesia_cds_5y_bps', currentCds, prevCds) : null;
@@ -102,6 +123,12 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
   // Term premium: SBN 10Y − BI Rate (free CDS proxy; stress if >3%)
   const termPremium = (currentSbn && currentBiRate)
     ? computeTermPremium(currentSbn.value, currentBiRate.value)
+    : null;
+
+  // SBN-UST spread: SBN 10Y − UST 10Y in basis points — carry trade attractiveness / outflow risk
+  const currentUst10y = await getLatestPoint('ust_10y_yield_pct');
+  const sbnUstSpread = (currentSbn && currentUst10y)
+    ? Math.round((currentSbn.value - currentUst10y.value) * 100)  // % → bps
     : null;
 
   const validSnapshots = [cdsSnapshot, sbnSnapshot, embiSnapshot, foreignSnapshot].filter(
@@ -132,11 +159,37 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
   const sbnYieldZ = sbnSnapshot?.zScore30d ?? sbnSnapshot?.zScore90d ?? 0;
   const refinancingStressScore = Math.min(100, Math.round(Math.abs(sbnYieldZ) * 40));
 
-  // Fiscal credibility: inverse of divergence between official guidance and market pricing
+  // Fiscal Credibility Index — composite of three independent sources:
+  //   Rating  (50%): S&P/Fitch via WorldGovernmentBonds. BBB=73, AAA=100, D=0.
+  //   CDS     (30%): market risk premium. score = max(0, 100 - cds_bps * 0.20). 90bps→82, 200bps→60.
+  //   Debt/GDP(20%): IMF WEO. score = max(0, 100 - debt_pct * 1.25). 40%→50, 60%→25.
+  // Falls back gracefully if any component missing (redistributes weights).
   const cdsLevel = currentCds?.value ?? 0;
-  const fiscalCredibilityIndex = cdsLevel > 0
-    ? Math.max(0, Math.round(100 - (cdsLevel / 5)))
-    : termPremium ? Math.max(0, Math.round(100 - termPremium.termPremium * 15)) : 100;
+  const ratingScore = currentRating?.value ?? null;
+  const debtGdp = currentDebtGdp?.value ?? null;
+
+  const cdsScore = cdsLevel > 0 ? Math.max(0, 100 - cdsLevel * 0.20) : null;
+  const debtScore = debtGdp !== null ? Math.max(0, 100 - debtGdp * 1.25) : null;
+
+  let fiscalCredibilityIndex: number;
+  if (ratingScore !== null && cdsScore !== null && debtScore !== null) {
+    // Full composite: rating 50% + CDS 30% + debt/GDP 20%
+    fiscalCredibilityIndex = Math.round(ratingScore * 0.50 + cdsScore * 0.30 + debtScore * 0.20);
+  } else if (ratingScore !== null && cdsScore !== null) {
+    // No debt/GDP: rating 60% + CDS 40%
+    fiscalCredibilityIndex = Math.round(ratingScore * 0.60 + cdsScore * 0.40);
+  } else if (ratingScore !== null) {
+    // Rating only
+    fiscalCredibilityIndex = Math.round(ratingScore);
+  } else if (cdsScore !== null) {
+    // CDS only (old behaviour)
+    fiscalCredibilityIndex = Math.round(cdsScore);
+  } else if (termPremium) {
+    // Last resort: term premium proxy
+    fiscalCredibilityIndex = Math.max(0, Math.round(100 - termPremium.termPremium * 15));
+  } else {
+    fiscalCredibilityIndex = 50;
+  }
 
   const alertLevel = alertFromScore(sovereignRiskScore);
   const flags = detectFlags(validSnapshots);
@@ -145,6 +198,9 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
   if (cdsLevel > 200) flags.push(`CDS 5Y at ${cdsLevel}bps — above 200bps stress threshold`);
   if (fiscalCredibilityIndex < 30) flags.push('Fiscal credibility severely impaired — market pricing systemic risk');
   if (termPremiumStress) flags.push(`⚠️ Term premium elevated: SBN 10Y−BI Rate = ${termPremium!.termPremium.toFixed(2)}% — ${termPremium!.label}`);
+  // SBN-UST spread compression warning: <200bps = carry trade unwind risk
+  if (sbnUstSpread !== null && sbnUstSpread < 200) flags.push(`SBN-UST spread ${sbnUstSpread}bps — <200bps threshold; carry trade attractiveness declining`);
+  else if (sbnUstSpread !== null && sbnUstSpread > 300) flags.push(`SBN-UST spread ${sbnUstSpread}bps — >300bps; attractive carry but implies high risk premium`);
 
   const narrative = buildNarrative({ cdsSnapshot, sbnSnapshot, embiSnapshot, foreignSnapshot, foreignExitRisk, alertLevel, termPremium });
 
@@ -167,6 +223,8 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
     fiscalCredibilityIndex,
     foreignExitRisk,
     termPremium,
+    sbnUstSpread,
+    ust10y: currentUst10y?.value ?? null,
     narrative,
   };
 }
@@ -216,7 +274,10 @@ function formatOutput(output: SovereignOutput & { termPremium: ReturnType<typeof
     `| Refinancing Stress Score | ${output.refinancingStressScore}/100 |`,
     `| Fiscal Credibility Index | ${output.fiscalCredibilityIndex}/100 |`,
     `| Foreign SBN Exit Risk | ${output.foreignExitRisk.toUpperCase()} |`,
-    output.termPremium ? `| Term Premium (CDS proxy) | ${output.termPremium.termPremium.toFixed(2)}% — ${output.termPremium.label} |` : '',
+    output.termPremium ? `| Term Premium (SBN−BI Rate) | ${output.termPremium.termPremium.toFixed(2)}% — ${output.termPremium.label} |` : '',
+    output.sbnUstSpread !== null && output.ust10y !== null
+      ? `| SBN−UST 10Y Spread | ${output.sbnUstSpread}bps (SBN ${(output.ust10y + output.sbnUstSpread / 100).toFixed(2)}% − UST ${output.ust10y.toFixed(2)}%) |`
+      : `| SBN−UST 10Y Spread | n/a |`,
     ``,
     output.scoreCard.flags.length > 0 ? `## Flags\n${output.scoreCard.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '',
     ``,
@@ -225,8 +286,8 @@ function formatOutput(output: SovereignOutput & { termPremium: ReturnType<typeof
     refinitivAvailable() ? '- Refinitiv: CONNECTED (CDS, SBN yield)' : '- Refinitiv: not configured',
     '- SBN 10Y yield: Trading Economics scrape (free, near real-time)',
     '- BI Rate: Trading Economics scrape (free, daily)',
-    '- Foreign SBN ownership: DJPPR website (currently unreachable — site blocks curl)',
-    '- CDS 5Y: No free source available without JS engine — using term premium as proxy',
+    '- Foreign SBN ownership: DJPPR PDF (Playwright + pdf-parse) ✅',
+    '- CDS 5Y: WorldGovernmentBonds.com scrape (free, Playwright) ✅ | Bloomberg/Refinitiv override if configured',
   ]
     .filter((l) => l !== '')
     .join('\n');

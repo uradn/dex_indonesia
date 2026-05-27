@@ -147,12 +147,12 @@ export function computeCommodityCushionScore(
 
 /**
  * Oil Vulnerability Index.
- * Based on: Brent price deviation from APBN assumption ($65-75/bbl baseline).
+ * Based on: Brent price deviation from APBN assumption ($82/bbl, APBN 2026).
  * Higher oil → higher import bill → BoP pressure.
  */
 export function computeOilVulnerabilityIndex(
   brentPrice: number,
-  apbnOilAssumption = 70,
+  apbnOilAssumption = 82,
 ): { score: number; impliedImportBillBnUsd: number; deviation: number } {
   const deviation = ((brentPrice - apbnOilAssumption) / apbnOilAssumption) * 100;
   // Indonesia imports ~600-700k bbl/day → ~240-255M bbl/year

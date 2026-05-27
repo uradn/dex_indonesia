@@ -16,6 +16,9 @@ import { sovereignRiskEngine } from '../src/tools/macro/sovereign-risk-engine.js
 import { narrativeDivergenceEngine } from '../src/tools/macro/narrative-divergence-engine.js';
 import { aseanRelativeValueEngine } from '../src/tools/macro/asean-relative-value-engine.js';
 import { silentCrisisDetector } from '../src/tools/macro/silent-crisis-detector.js';
+import { bankingStressEngine } from '../src/tools/macro/banking-stress-engine.js';
+import { marketStressEngine } from '../src/tools/macro/market-stress-engine.js';
+import { fiscalEngine } from '../src/tools/macro/fiscal-engine.js';
 import { stressSimulator } from '../src/tools/macro/stress-simulator.js';
 import { macroThresholdMonitor } from '../src/tools/macro/macro-threshold-monitor.js';
 import { backtestEngine } from '../src/tools/macro/backtest-tool.js';
@@ -78,6 +81,18 @@ const TOOLS: Record<string, () => Promise<void>> = {
 
   asean: () => run('ASEAN RELATIVE VALUE ENGINE', () =>
     aseanRelativeValueEngine.invoke({ query: 'Show ASEAN relative value' })
+  ),
+
+  banking: () => run('BANKING STRESS ENGINE — Module 8', () =>
+    bankingStressEngine.invoke({ query: 'Show banking stress indicators' })
+  ),
+
+  market: () => run('MARKET STRESS ENGINE — Module 9', () =>
+    marketStressEngine.invoke({ query: 'Show IHSG valuation and market breadth' })
+  ),
+
+  fiscal: () => run('FISCAL ENGINE — Module 10', () =>
+    fiscalEngine.invoke({ query: 'APBN realisasi check' })
   ),
 
   big_short: () => run('SILENT CRISIS DETECTOR (Big Short)', () =>

@@ -1,7 +1,7 @@
 /**
  * Big Short Mode — Silent Crisis Probability Detector.
  *
- * Aggregates all 7 module scores into a unified Silent Crisis Probability.
+ * Aggregates all 8 module scores into a unified Silent Crisis Probability.
  * Uses Bayesian-inspired weighted combination with non-linear amplification
  * when multiple modules signal stress simultaneously.
  *
@@ -20,12 +20,15 @@ import { runForeignFlowEngine } from './foreign-flow-engine.js';
 import { runCommodityEngine } from './commodity-engine.js';
 import { runRegimeEngine } from './regime-engine.js';
 import { runNarrativeDivergenceEngine } from './narrative-divergence-engine.js';
+import { runBankingStressEngine } from './banking-stress-engine.js';
+import { runMarketStressEngine } from './market-stress-engine.js';
+import { runFiscalEngine } from './fiscal-engine.js';
 import type { AlertLevel } from './types.js';
 
 export const SILENT_CRISIS_DESCRIPTION = `
 MACRO INTELLIGENCE — Big Short Mode / Silent Crisis Detector
 
-Aggregates all macro module scores into a unified Silent Crisis Probability for Indonesia.
+Aggregates all 10 macro module scores into a unified Silent Crisis Probability for Indonesia.
 
 Detects:
 - Delayed repricing: fundamentals deteriorating but markets not yet repriced
@@ -76,13 +79,17 @@ const ALERT_WEIGHTS: Record<AlertLevel, number> = {
 
 // Module importance weights (sum to 1.0)
 const MODULE_WEIGHTS: Record<string, number> = {
-  fx_defense:         0.25,
-  bop:                0.20,
-  sovereign_risk:     0.20,
-  foreign_flow:       0.15,
-  commodity:          0.10,
+  fx_defense:         0.18,
+  bop:                0.18,
+  sovereign_risk:     0.14,
+  foreign_flow:       0.14,
+  banking:            0.10,  // NPL/LDR/CAR/JIBOR + IHPR + sector NPL
+  commodity:          0.09,
+  fiscal:             0.08,  // APBN realisasi vs target — revenue shortfall + deficit risk
+  market:             0.07,  // IHSG P/E + breadth — valuation disconnect signal
   regime:             0.05,
   narrative:          0.05,
+  // sum = 1.08 → normalised in composite calculation
 };
 
 async function getModuleScores(): Promise<ModuleScore[]> {
@@ -96,6 +103,9 @@ async function getModuleScores(): Promise<ModuleScore[]> {
     { module: 'commodity',  run: async () => { const r = await runCommodityEngine();  return { score: r.scoreCard.score, alertLevel: r.scoreCard.alertLevel }; } },
     { module: 'regime',     run: async () => { const r = await runRegimeEngine();     const s = r.currentRegime === 'Q3' ? 80 : r.currentRegime === 'Q4' ? 55 : r.currentRegime === 'Q2' ? 30 : 10; return { score: s, alertLevel: r.alertLevel }; } },
     { module: 'narrative',  run: async () => { const r = await runNarrativeDivergenceEngine(); return { score: 100 - r.narrativeCredibilityScore, alertLevel: r.alertLevel }; } },
+    { module: 'banking',    run: async () => { const r = await runBankingStressEngine(); return { score: r.stressScore, alertLevel: r.alert }; } },
+    { module: 'market',     run: async () => { const r = await runMarketStressEngine(); return { score: r.stressScore, alertLevel: r.alert }; } },
+    { module: 'fiscal',     run: async () => { const r = await runFiscalEngine(); return { score: r.stressScore, alertLevel: r.alert }; } },
   ];
 
   await Promise.allSettled(
@@ -110,7 +120,7 @@ async function getModuleScores(): Promise<ModuleScore[]> {
   );
 
   // Ensure consistent ordering
-  const order = ['fx_defense', 'bop', 'sovereign_risk', 'foreign_flow', 'commodity', 'regime', 'narrative'];
+  const order = ['fx_defense', 'bop', 'sovereign_risk', 'foreign_flow', 'banking', 'commodity', 'fiscal', 'market', 'regime', 'narrative'];
   scores.sort((a, b) => order.indexOf(a.module) - order.indexOf(b.module));
 
   return scores;
@@ -204,7 +214,7 @@ function formatOutput(output: SilentCrisisOutput): string {
     `|--------|-------|`,
     `| **Silent Crisis Probability** | **${output.silentCrisisProbability}%** |`,
     `| Synthetic Stability Score | ${output.syntheticStabilityScore}/100 |`,
-    `| Cross-Confirmed Stress Modules | ${output.crossConfirmationCount}/7 |`,
+    `| Cross-Confirmed Stress Modules | ${output.crossConfirmationCount}/10 |`,
     ``,
     `## Module Scorecard`,
     `| Module | Score | Alert | Available |`,
@@ -231,7 +241,7 @@ function formatOutput(output: SilentCrisisOutput): string {
 export const silentCrisisDetector = new DynamicStructuredTool({
   name: 'silent_crisis_detector',
   description:
-    'Big Short Mode: aggregates all 7 macro module scores into a unified Silent Crisis Probability for Indonesia. Detects fake stability, cross-confirmed stress, and non-linear deterioration acceleration. Outputs institutional sovereign stress report.',
+    'Big Short Mode: aggregates all 8 macro module scores into a unified Silent Crisis Probability for Indonesia. Detects fake stability, cross-confirmed stress, and non-linear deterioration acceleration. Outputs institutional sovereign stress report.',
   schema: z.object({
     query: z.string().describe('e.g. "Run big short analysis" or "Full sovereign stress report" or "Silent crisis check"'),
   }),
