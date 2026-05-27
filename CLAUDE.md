@@ -76,7 +76,7 @@ Tracks NPL gross %, LDR, CAR, JIBOR-BI Rate spread, external debt, IHPR property
 IHSG valuation + IDX breadth. Tracks IHSG P/E ratio (historical avg 14-16x; >22x = elevated) and advance/decline ratio. Detects valuation disconnect (elevated P/E while breadth collapses = narrow leadership before broad selloff). Sources: `src/tools/macro/sources/ihsg.ts` (Trading Economics P/E + IDX market summary breadth).
 
 **Module 10 — Fiscal Engine** (`fiscal_engine` tool):
-APBN 2026 realisasi vs annual targets. Revenue IDR 2,997T | Spending IDR 3,621T | Deficit IDR 624T (2.56% GDP). Tracks monthly realization from Trading Economics, accumulates YTD in DB, computes absorption rate vs pro-rata target. Flags revenue shortfall (<85% pace), spending overrun (>110% pace), deficit trajectory >3% GDP constitutional limit. Sources: `src/tools/macro/sources/kemenkeu.ts`.
+APBN 2026 realisasi vs annual targets. Revenue IDR 3,154T | Spending IDR 3,843T | Deficit IDR 689T (2.68% GDP) per UU No.17/2025 / Perpres No.118/2025. Post-efisiensi Prabowo (Feb 2026): spending ~3,534T. Tracks monthly realization from Trading Economics, accumulates YTD in DB, computes absorption rate vs pro-rata target. Flags revenue shortfall (<85% pace), spending overrun (>110% pace), deficit trajectory >3% GDP constitutional limit. Sources: `src/tools/macro/sources/kemenkeu.ts`.
 
 **Module 1 — BoP Engine** (`bop_engine` tool):
 Tracks trade balance, import growth, FX reserves, current account, external funding dependency. Detects synthetic CAD risk (trade surplus + falling reserves = hidden capital outflow).

@@ -3,13 +3,13 @@
  *
  * Tracks APBN (Indonesia State Budget) realization vs annual targets.
  * Detects revenue shortfall, spending overrun, and deficit trajectory divergence
- * from Perpres 201/2024 (APBN 2026) targets.
+ * from UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025 (APBN 2026) targets.
  *
  * APBN 2026 targets (hardcoded — verify if revised mid-year):
- *   Pendapatan Negara (Revenue): IDR 2,996.9 trillion
- *   Belanja Negara (Spending):   IDR 3,621.3 trillion
- *   Defisit APBN:                IDR 624.4 trillion (~2.56% of GDP)
- *   Nominal GDP assumption:      IDR 24,378.5 trillion
+ *   Pendapatan Negara (Revenue): IDR 3,153.58 trillion
+ *   Belanja Negara (Spending):   IDR 3,842.73 trillion (original); post-efisiensi ~3,534T
+ *   Defisit APBN:                IDR 689.15 trillion (2.68% of GDP)
+ *   Nominal GDP assumption:      IDR 25,714.2 trillion
  *
  * Data source: Trading Economics (monthly IDR trillion).
  * Each month's figure is stored in DB; fiscal engine sums current-year entries
@@ -29,7 +29,8 @@ MACRO INTELLIGENCE — Fiscal Stress Engine (Module 10)
 Tracks Indonesia APBN (State Budget) realization vs 2026 targets.
 Detects revenue shortfall, spending overrun, and deficit trajectory risk.
 
-APBN 2026 targets: Revenue IDR 2,997T | Spending IDR 3,621T | Deficit IDR 624T (2.56% GDP)
+APBN 2026 targets: Revenue IDR 3,154T | Spending IDR 3,843T | Deficit IDR 689T (2.68% GDP)
+Post-efisiensi Prabowo: spending revised ~3,534T. Source: UU No.17/2025 / Perpres No.118/2025
 
 Detects:
 - Revenue shortfall: actual pace below pro-rata target
@@ -46,13 +47,15 @@ Detects:
 - Monthly budget monitoring
 `.trim();
 
-// APBN 2026 annual targets (IDR trillion)
+// APBN 2026 annual targets (IDR trillion) — UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025
+// Post-efisiensi spending: ~3,534T (Prabowo Feb 2026 cut Rp308T). Use original for target comparisons.
 const APBN_2026 = {
-  revenueTrn: 2996.9,
-  spendingTrn: 3621.3,
-  deficitTrn: 624.4,
-  deficitPctGdp: 2.56,
-  gdpTrn: 24378.5,
+  revenueTrn: 3153.58,
+  spendingTrn: 3842.73,
+  deficitTrn: 689.15,
+  deficitPctGdp: 2.68,
+  gdpTrn: 25714.2,
+  spendingPostEfisiensiTrn: 3534.73, // informational — post Prabowo ~Rp308T cut
 };
 
 interface FiscalOutput {
@@ -317,7 +320,7 @@ function formatFiscalOutput(output: FiscalOutput): string {
     ``,
     `_Data: Trading Economics monthly IDR trillion (government-revenues, government-spending)._`,
     `_YTD = sum of all current-year monthly entries in macro DB. Pro-rata = target × (months_elapsed/12)._`,
-    `_Targets: APBN 2026 (Perpres 201/2024). Verify if mid-year revision (APBN-P) issued._`,
+    `_Targets: APBN 2026 (UU No.17/2025 / Perpres No.118/2025). Post-efisiensi spending ~3,534T. YTD April 2026 deficit realization: 0.64% GDP (Rp164.4T)._`,
   ].filter(l => l !== '').join('\n');
 }
 

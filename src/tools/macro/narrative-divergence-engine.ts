@@ -54,11 +54,11 @@ interface NarrativeDivergenceOutput {
   date: string;
 }
 
-// APBN 2026 key assumptions (update annually)
+// APBN 2026 key assumptions — UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025
 const APBN_ASSUMPTIONS = {
-  usdIdr: 16_000,       // APBN USDIDR assumption IDR/USD
-  oilPrice: 82,         // APBN oil price assumption USD/bbl
-  gdpGrowth: 5.2,       // APBN GDP growth target %
+  usdIdr: 16_500,       // APBN USDIDR assumption IDR/USD
+  oilPrice: 70,         // APBN ICP (Indonesian Crude Price) assumption USD/bbl
+  gdpGrowth: 5.4,       // APBN GDP growth target %
   inflation: 2.5,       // APBN CPI target %
   biRate: 5.25,         // BI 7DRR as of May 2026 (cut from 5.5% in 2025)
 };
@@ -99,8 +99,8 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     const marketVsApbn = ((brentSpot.value - APBN_ASSUMPTIONS.oilPrice) / APBN_ASSUMPTIONS.oilPrice) * 100;
     const divergenceScore = Math.min(100, Math.max(0, Math.abs(marketVsApbn) * 2));
     checks.push({
-      dimension: 'Brent Oil vs APBN Assumption',
-      officialClaim: `APBN baseline: $${APBN_ASSUMPTIONS.oilPrice}/bbl`,
+      dimension: 'Oil Price (ICP) vs APBN Assumption',
+      officialClaim: `APBN baseline ICP: $${APBN_ASSUMPTIONS.oilPrice}/bbl`,
       marketSignal: `Market: $${brentSpot.value.toFixed(1)}/bbl (${marketVsApbn >= 0 ? '+' : ''}${marketVsApbn.toFixed(1)}% vs APBN)`,
       divergenceScore,
       flagged: Math.abs(marketVsApbn) > 10,  // >10% = subsidy budget risk
@@ -236,7 +236,7 @@ function formatOutput(output: NarrativeDivergenceOutput): string {
     ``,
     output.flags.length > 0 ? `## Active Divergences\n${output.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '## No Critical Divergences Detected',
     ``,
-    `_APBN 2026 assumptions: Perpres 201/2024 (Revenue 2,997T | Spending 3,621T | Deficit 2.56% GDP). Prabowo efisiensi cuts (early 2026) may have revised spending target — verify APBN-P 2026 before interpreting fiscal divergence._`,
+    `_APBN 2026 assumptions: UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025 (Revenue 3,154T | Spending 3,843T | Deficit 2.68% GDP; post-efisiensi spending ~3,534T). APBN macro: USDIDR 16,500 | ICP $70/bbl | GDP 5.4% | CPI 2.5% | SBN10Y 6.9%._`,
   ]
     .filter((l) => l !== '')
     .join('\n');
