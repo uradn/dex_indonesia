@@ -19,23 +19,19 @@ const yf = new YahooFinance();
 const NOW = () => new Date().toISOString();
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
-const MONTH_MAP: Record<string, string> = {
-  Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
-  Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12',
-};
-
 /**
- * Try Yahoo Finance for IHSG P/E via ^JKSE or EIDO ETF proxy.
- * ^JKSE rarely returns trailingPE; EIDO (holds Indonesian stocks) more likely to.
+ * Fetch EIDO ETF trailing P/E as Indonesia large-cap proxy.
+ * ^JKSE never returns trailingPE via Yahoo Finance.
+ * EIDO (iShares MSCI Indonesia) holds top ~85 stocks by market cap.
+ * Historical EIDO P/E range: ~8-15x (lower than IHSG composite ~14-22x).
+ * TE composite P/E data removed from their platform (returns "no data").
  */
 async function fetchIhsgPeYahoo(): Promise<number | null> {
-  for (const ticker of ['^JKSE', 'EIDO']) {
-    try {
-      const q = await yf.quote(ticker);
-      const pe = (q as Record<string, unknown>)['trailingPE'];
-      if (typeof pe === 'number' && pe > 5 && pe < 100) return pe;
-    } catch { /* try next */ }
-  }
+  try {
+    const q = await yf.quote('EIDO');
+    const pe = (q as Record<string, unknown>)['trailingPE'];
+    if (typeof pe === 'number' && pe > 4 && pe < 60) return pe;
+  } catch { /* ignore */ }
   return null;
 }
 
@@ -84,12 +80,11 @@ async function fetchIdxAdApi(): Promise<{ advance: number; decline: number } | n
 }
 
 /**
- * Fetch IHSG composite P/E ratio.
- * Priority: Yahoo Finance → TE Playwright → generic number extraction.
- * Historical context: IHSG P/E range 10-25x. Stress = divergence from fundamentals.
+ * Fetch IHSG composite P/E ratio via EIDO ETF proxy.
+ * TE removed IHSG composite P/E from their platform (returns "no data").
+ * EIDO is only reliable free source. Label clearly — ~8-15x range, not 14-22x composite.
  */
 export async function fetchIhsgPeRatio(): Promise<MacroDataPoint | null> {
-  // 1. Yahoo Finance (fast, no Playwright needed)
   const yaPe = await fetchIhsgPeYahoo();
   if (yaPe !== null) {
     return {
@@ -98,56 +93,6 @@ export async function fetchIhsgPeRatio(): Promise<MacroDataPoint | null> {
       source: 'yahoo_finance', fetchedAt: NOW(),
     };
   }
-
-  const text = await fetchRenderedTextWithBrowser('https://tradingeconomics.com/indonesia/stock-market-p-e-ratio');
-  if (!text) return null;
-
-  // Primary: table row "Stock Market P/E Ratio  22.27  22.27  ratio  Apr 2026"
-  const tableMatch = text.match(
-    /(?:Stock Market )?P\/E Ratio\s+([\d.]+)\s+[\d.]+\s+(?:ratio|times?|x|-)\s+(\w{3})\s+(\d{4})/i,
-  );
-  if (tableMatch) {
-    const val = parseFloat(tableMatch[1]!);
-    const mon = tableMatch[2]!;
-    const yr = tableMatch[3]!;
-    const mm = MONTH_MAP[mon] ?? '01';
-    const lastDay = new Date(parseInt(yr), parseInt(mm), 0).getDate();
-    if (val > 5 && val < 100) {
-      return {
-        indicator: 'ihsg_pe_ratio', category: 'regime',
-        date: `${yr}-${mm}-${String(lastDay).padStart(2, '0')}`,
-        value: parseFloat(val.toFixed(2)), unit: 'ratio',
-        source: 'trading_economics_scrape', fetchedAt: NOW(),
-      };
-    }
-  }
-
-  // Fallback 1: prose "P/E Ratio in Indonesia ... to XX.XX"
-  const proseMatch = text.match(/P\/E Ratio in Indonesia[^0-9]+([\d.]+)/i);
-  if (proseMatch) {
-    const val = parseFloat(proseMatch[1]!);
-    if (val > 5 && val < 100) {
-      return {
-        indicator: 'ihsg_pe_ratio', category: 'regime',
-        date: TODAY(), value: parseFloat(val.toFixed(2)), unit: 'ratio',
-        source: 'trading_economics_scrape', fetchedAt: NOW(),
-      };
-    }
-  }
-
-  // Fallback 2: any P/E or PER near a reasonable equity multiple (8-50x)
-  const genericMatch = text.match(/\b(?:P\/E|PER)\b[^\d]{0,20}(\d{1,2}\.\d{1,2})/i);
-  if (genericMatch) {
-    const val = parseFloat(genericMatch[1]!);
-    if (val > 8 && val < 60) {
-      return {
-        indicator: 'ihsg_pe_ratio', category: 'regime',
-        date: TODAY(), value: parseFloat(val.toFixed(2)), unit: 'ratio',
-        source: 'trading_economics_scrape', fetchedAt: NOW(),
-      };
-    }
-  }
-
   return null;
 }
 
