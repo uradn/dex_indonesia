@@ -98,10 +98,22 @@ export async function runDomesticPressureEngine(): Promise<DomesticPressureOutpu
   }
 
   // ── 2. Compute per-commodity z-scores ──────────────────────────────────────
+  // Stress override: DEXTER_STRESS_FOOD = JSON map of indicator → price multiplier
+  // Used by stress-test-food.ts — never set in production.
+  let stressFoodOverrides: Record<string, number> = {};
+  try {
+    const raw = process.env.DEXTER_STRESS_FOOD;
+    if (raw) stressFoodOverrides = JSON.parse(raw) as Record<string, number>;
+  } catch { /* invalid JSON — ignore */ }
+
   const commodityScores: CommodityStressEntry[] = [];
 
   for (const spec of PIHPS_COMMODITIES) {
-    const current = await getLatestPoint(spec.indicator);
+    const raw = await getLatestPoint(spec.indicator);
+    const stressMultiplier = stressFoodOverrides[spec.indicator];
+    const current = raw && stressMultiplier
+      ? { ...raw, value: parseFloat((raw.value * stressMultiplier).toFixed(0)) }
+      : raw;
     if (!current) {
       commodityScores.push({
         indicator: spec.indicator,
