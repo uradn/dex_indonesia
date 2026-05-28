@@ -131,7 +131,7 @@ async function getModuleScores(): Promise<ModuleScore[]> {
   return scores;
 }
 
-async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
+export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
   const moduleScores = await getModuleScores();
 
   // Weighted composite score
