@@ -13,6 +13,7 @@
  */
 import type { MacroDataPoint } from '../types.js';
 import { withBrowserPage } from './playwright-browser.js';
+import { fetchInfoPanganJakarta } from './infopangan-jakarta.js';
 import { fetchBpnPanelHarga } from './bpn-panelharga.js';
 import { fetchKemendagEws } from './kemendag.js';
 
@@ -250,10 +251,11 @@ async function fetchPihpsBi(): Promise<MacroDataPoint[]> {
 
 /**
  * Fetch 10 PIHPS commodity prices. Fallback chain:
- *   Tier 1A: hargapangan.id (primary, daily)
- *   Tier 1B: bi.go.id/hargapangan (BI-hosted PIHPS mirror, AJAX)
- *   Tier 2:  panelharga.badanpangan.go.id (BPN Panel Harga retail, AJAX)
- *   Tier 3:  Kemendag EWS SP2KP API (requires KEMENDAG_API_KEY)
+ *   Tier 1A: hargapangan.id (primary, daily — Playwright)
+ *   Tier 1B: bi.go.id/hargapangan (BI mirror — Playwright)
+ *   Tier 2A: infopangan.jakarta.go.id (Jakarta REST API — no auth, fast)
+ *   Tier 2B: panelharga.badanpangan.go.id (BPN Panel Harga — Playwright)
+ *   Tier 3:  ews.kemendag.go.id (Kemendag EWS REST — needs KEMENDAG_API_KEY)
  */
 export async function fetchPihpsCommodities(): Promise<MacroDataPoint[]> {
   const primary = await fetchPihpsHargapangan();
@@ -262,15 +264,18 @@ export async function fetchPihpsCommodities(): Promise<MacroDataPoint[]> {
   const bi = await fetchPihpsBi();
   if (bi.length >= 5) return bi;
 
+  // Fast REST before slow Playwright
+  const jakarta = await fetchInfoPanganJakarta();
+  if (jakarta.length >= 5) return jakarta;
+
   const bpn = await fetchBpnPanelHarga();
   if (bpn.length >= 5) return bpn;
 
-  // All Playwright sources failed — try Kemendag REST API
   const kemendag = await fetchKemendagEws();
   if (kemendag.length > 0) return kemendag;
 
   // Return best partial data available
-  return [primary, bi, bpn].reduce((best, cur) => cur.length > best.length ? cur : best, []);
+  return [primary, bi, jakarta, bpn].reduce((best, cur) => cur.length > best.length ? cur : best, []);
 }
 
 // ─── Trading Economics food inflation fallback ─────────────────────────────
