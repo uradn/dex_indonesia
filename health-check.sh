@@ -36,9 +36,10 @@ skip() { echo -e "  ${DIM}–${NC} $1 ${DIM}(skipped: timeout ${CHECK_TIMEOUT}s)
 section() { echo -e "\n${BOLD}$1${NC}"; }
 vlog()  { [[ "$VERBOSE" == "1" ]] && echo -e "  ${CYAN}…${NC} $1" || true; }
 
-# Per-check timeout: run $@ in background, kill after CHECK_TIMEOUT seconds.
+# Per-check timeout: run $@ in background, kill after $1 seconds.
 # Prints elapsed every 10s in verbose mode. Returns exit code of command.
 run_timed() {
+  local timeout_s="$1"; shift
   local tmpout; tmpout=$(mktemp)
   local tmperr; tmperr=$(mktemp)
 
@@ -53,7 +54,7 @@ run_timed() {
     if [[ "$VERBOSE" == "1" ]] && (( elapsed % 10 == 0 )); then
       echo -ne "\r  ${CYAN}…${NC} ${elapsed}s elapsed...          "
     fi
-    if (( elapsed >= CHECK_TIMEOUT )); then
+    if (( elapsed >= timeout_s )); then
       kill "$pid" 2>/dev/null
       wait "$pid" 2>/dev/null || true
       [[ "$VERBOSE" == "1" ]] && echo -ne "\r"
@@ -74,16 +75,17 @@ run_timed() {
 
 # Run a bun inline script with per-check timeout + verbose progress.
 # Script must print OK:, WARN:, or FAIL: prefix on stdout.
+# Usage: run_bun_check "name" "script" [timeout_override_s]
 run_bun_check() {
-  local name="$1" script="$2"
+  local name="$1" script="$2" per_timeout="${3:-$CHECK_TIMEOUT}"
   vlog "$name"
 
   TIMED_STDOUT=""; TIMED_STDERR=""
-  run_timed bun -e "$script"
+  run_timed "$per_timeout" bun -e "$script"
   local exit_code=$?
 
   if (( exit_code == 124 )); then
-    skip "$name — timed out after ${CHECK_TIMEOUT}s"
+    echo -e "  ${DIM}–${NC} $name ${DIM}(skipped: timeout ${per_timeout}s)${NC}"; SKIP=$((SKIP+1))
     return
   fi
 
@@ -124,6 +126,12 @@ for var in BLOOMBERG_API_KEY BLOOMBERG_API_URL; do
   else warn "$var not set — sovereign risk uses TE fallback"; fi
 done
 
+if [[ -n "${EODHD_API_KEY:-}" ]]; then ok "EODHD_API_KEY set — USDIDR tertiary FX fallback active"
+else warn "EODHD_API_KEY not set — USDIDR fallback chain ends at open.er-api.com"; fi
+
+if [[ -n "${KEMENDAG_API_KEY:-}" ]]; then ok "KEMENDAG_API_KEY set — Kemendag EWS Tier 3 PIHPS active"
+else warn "KEMENDAG_API_KEY not set — Tier 3 PIHPS fallback inactive (register at ews.kemendag.go.id)"; fi
+
 for var in REFINITIV_APP_KEY BPS_API_KEY; do
   if [[ -n "${!var:-}" ]]; then ok "$var set"; else warn "$var not set (optional)"; fi
 done
@@ -142,7 +150,7 @@ section "3. Playwright / Chromium"
 
 vlog "Launching Chromium (headless)..."
 TIMED_STDOUT=""; TIMED_STDERR=""
-run_timed bun -e "
+run_timed "$CHECK_TIMEOUT" bun -e "
 import { chromium } from 'playwright';
 try {
   const b = await chromium.launch({ headless: true });
@@ -191,14 +199,14 @@ fi
 section "5. Network Reachability"
 
 check_url() {
-  local name="$1" url="$2"
+  local name="$1" url="$2" on_fail="${3:-fail}"
   vlog "$name — $url"
   local code
   code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 --connect-timeout 6 "$url" 2>/dev/null || echo "000")
   if [[ "${code:0:1}" == "2" ]] || [[ "${code:0:1}" == "3" ]]; then
     ok "$name (HTTP $code)"
   elif [[ "${code:0:1}" == "0" ]]; then
-    fail "$name — timeout / unreachable ($url)"
+    $on_fail "$name — timeout / unreachable ($url)"
   elif [[ "$code" == "403" ]] || [[ "$code" == "429" ]]; then
     warn "$name — HTTP $code (blocked without auth/JS — expected for curl)"
   else
@@ -206,12 +214,17 @@ check_url() {
   fi
 }
 
-check_url "Yahoo Finance API"      "https://query1.finance.yahoo.com/v8/finance/chart/USDIDR%3DX?interval=1d&range=1d"
-check_url "Trading Economics"      "https://tradingeconomics.com/indonesia/currency"
-check_url "hargapangan.id (PIHPS)" "https://hargapangan.id"
-check_url "BPS Indonesia"          "https://bps.go.id"
-check_url "Bank Indonesia"         "https://bi.go.id"
-check_url "Exa Search API"         "https://api.exa.ai"
+check_url "Yahoo Finance API"            "https://query1.finance.yahoo.com/v8/finance/chart/USDIDR%3DX?interval=1d&range=1d"
+check_url "open.er-api.com (FX T2)"     "https://open.er-api.com/v6/latest/USD"
+check_url "Trading Economics"           "https://tradingeconomics.com/indonesia/currency"
+check_url "hargapangan.id  (PIHPS T1A)" "https://hargapangan.id" warn
+check_url "bi.go.id/hargapangan (T1B)"  "https://www.bi.go.id/hargapangan"
+check_url "panelharga BPN    (PIHPS T2)" "https://panelharga.badanpangan.go.id"
+check_url "panelharga BPN dev (T2 alt)"  "https://dev-panelharga.badanpangan.go.id"
+check_url "ews.kemendag.go.id (PIHPS T3)" "https://ews.kemendag.go.id/api/harga"
+check_url "BPS Indonesia"               "https://bps.go.id"
+check_url "Bank Indonesia"              "https://bi.go.id"
+check_url "Exa Search API"              "https://api.exa.ai"
 [[ -n "${BLOOMBERG_API_URL:-}" ]] && check_url "Bloomberg API" "$BLOOMBERG_API_URL"
 
 # ─── 6. SCRAPER SMOKE TESTS ───────────────────────────────────────────────────
@@ -277,14 +290,21 @@ try {
 } catch(e) { console.log('FAIL: ' + String(e).slice(0,80)); }
 "
 
-run_bun_check "PIHPS commodities (hargapangan.id)" "
+run_bun_check "PIHPS commodities (fallback chain)" "
 import { fetchPihpsCommodities } from './src/tools/macro/sources/pihps.js';
 try {
   const r = await fetchPihpsCommodities();
-  if (r.length > 0) console.log('OK:', r.length, 'commodities fetched');
-  else console.log('WARN: 0 commodities — hargapangan.id offline (TE fallback active)');
+  if (r.length >= 5) {
+    const src = r[0]?.source ?? 'unknown';
+    console.log('OK:', r.length + '/10 commodities — source: ' + src);
+  } else if (r.length > 0) {
+    const src = r[0]?.source ?? 'unknown';
+    console.log('WARN:', r.length + '/10 partial — source: ' + src + ' (other tiers offline)');
+  } else {
+    console.log('WARN: 0 commodities — all PIHPS tiers offline; TE food-inflation aggregate active');
+  }
 } catch(e) { console.log('FAIL: ' + String(e).slice(0,80)); }
-"
+" 240
 
 run_bun_check "OJK banking data (Playwright)" "
 import { fetchBankingRatiosOjk } from './src/tools/macro/sources/ojk.js';

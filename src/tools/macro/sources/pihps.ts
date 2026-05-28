@@ -2,7 +2,8 @@
  * PIHPS — Pusat Informasi Harga Pangan Strategis (BPS/Bappenas)
  * Source: hargapangan.id (daily), Trading Economics food inflation (monthly fallback)
  *
- * Primary: hargapangan.id Playwright scrape → 10 strategic commodity prices in IDR
+ * Primary:  hargapangan.id Playwright scrape → 10 strategic commodity prices in IDR
+ * Tier 1B:  bi.go.id/hargapangan Playwright scrape (BI-hosted mirror, AJAX-loaded)
  * Fallback: Trading Economics meta scrape → aggregate food CPI YoY %
  *
  * hargapangan.id occasionally returns 522 (Cloudflare timeout). Playwright handles
@@ -12,6 +13,8 @@
  */
 import type { MacroDataPoint } from '../types.js';
 import { withBrowserPage } from './playwright-browser.js';
+import { fetchBpnPanelHarga } from './bpn-panelharga.js';
+import { fetchKemendagEws } from './kemendag.js';
 
 const NOW = () => new Date().toISOString();
 const TODAY = () => new Date().toISOString().slice(0, 10);
@@ -154,16 +157,10 @@ function extractPriceNearTerm(text: string, terms: string[], minPrice: number, m
   return null;
 }
 
-/**
- * Scrape 10 PIHPS commodity prices from hargapangan.id via Playwright.
- * Returns empty array if site unavailable (522, timeout, parse failure).
- */
-export async function fetchPihpsCommodities(): Promise<MacroDataPoint[]> {
-  const results: MacroDataPoint[] = [];
-
+/** Scrape hargapangan.id via Playwright. Returns empty array on failure. */
+async function fetchPihpsHargapangan(): Promise<MacroDataPoint[]> {
   const text = await withBrowserPage(async (page) => {
     await page.goto('https://hargapangan.id', { waitUntil: 'networkidle', timeout: 30_000 });
-    // Wait for price table to load
     await page.waitForTimeout(3_000);
     return page.locator('body').innerText();
   });
@@ -172,6 +169,7 @@ export async function fetchPihpsCommodities(): Promise<MacroDataPoint[]> {
 
   const today = TODAY();
   const fetchedAt = NOW();
+  const results: MacroDataPoint[] = [];
 
   for (const spec of PIHPS_COMMODITIES) {
     const price = extractPriceNearTerm(text, spec.searchTerms, spec.minPrice, spec.maxPrice);
@@ -189,6 +187,90 @@ export async function fetchPihpsCommodities(): Promise<MacroDataPoint[]> {
   }
 
   return results;
+}
+
+/**
+ * Tier 1B fallback: scrape BI-hosted PIHPS mirror at bi.go.id/hargapangan.
+ * Page is AJAX-driven (ASP.NET ScriptManager). Strategy:
+ *   1. Intercept any JSON responses from BI domain for price data
+ *   2. Parse rendered page text with extractPriceNearTerm() as safety net
+ * Longer timeout than hargapangan.id — BI AJAX is slower.
+ */
+async function fetchPihpsBi(): Promise<MacroDataPoint[]> {
+  const combined = await withBrowserPage(async (page) => {
+    const captured: string[] = [];
+
+    // Intercept AJAX JSON responses — BI PIHPS loads via ScriptManager endpoints
+    page.on('response', async (response) => {
+      try {
+        if (!response.url().includes('bi.go.id')) return;
+        if (response.status() !== 200) return;
+        const ct = response.headers()['content-type'] ?? '';
+        if (!ct.includes('json') && !ct.includes('text')) return;
+        const body = await response.text().catch(() => '');
+        // Only keep responses that look like they contain price data (IDR numbers)
+        if (body.length > 50 && /\d{4,}/.test(body)) {
+          captured.push(body);
+        }
+      } catch { /* ignore */ }
+    });
+
+    // BI pages can be slow + AJAX may need full network quiet
+    await page.goto('https://www.bi.go.id/hargapangan', { waitUntil: 'networkidle', timeout: 45_000 });
+    await page.waitForTimeout(5_000);
+
+    const pageText = await page.locator('body').innerText().catch(() => '');
+    // Combine AJAX payload text + rendered page text so extractPriceNearTerm hits both
+    return [...captured, pageText].join(' ');
+  });
+
+  if (!combined || combined.trim().length < 50) return [];
+
+  const today = TODAY();
+  const fetchedAt = NOW();
+  const results: MacroDataPoint[] = [];
+
+  for (const spec of PIHPS_COMMODITIES) {
+    const price = extractPriceNearTerm(combined, spec.searchTerms, spec.minPrice, spec.maxPrice);
+    if (price !== null) {
+      results.push({
+        indicator: spec.indicator,
+        category: 'pangan',
+        date: today,
+        value: price,
+        unit: spec.unit,
+        source: 'bi_pihps_scrape',
+        fetchedAt,
+      });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Fetch 10 PIHPS commodity prices. Fallback chain:
+ *   Tier 1A: hargapangan.id (primary, daily)
+ *   Tier 1B: bi.go.id/hargapangan (BI-hosted PIHPS mirror, AJAX)
+ *   Tier 2:  panelharga.badanpangan.go.id (BPN Panel Harga retail, AJAX)
+ *   Tier 3:  Kemendag EWS SP2KP API (requires KEMENDAG_API_KEY)
+ */
+export async function fetchPihpsCommodities(): Promise<MacroDataPoint[]> {
+  const primary = await fetchPihpsHargapangan();
+  if (primary.length >= 5) return primary;
+
+  const bi = await fetchPihpsBi();
+  if (bi.length >= 5) return bi;
+
+  const bpn = await fetchBpnPanelHarga();
+  if (bpn.length >= 5) return bpn;
+
+  // All Playwright sources failed — try Kemendag REST API
+  const kemendag = await fetchKemendagEws();
+  if (kemendag.length > 0) return kemendag;
+
+  // Return best partial data available
+  return [primary, bi, bpn].reduce((best, cur) => cur.length > best.length ? cur : best, []);
 }
 
 // ─── Trading Economics food inflation fallback ─────────────────────────────
