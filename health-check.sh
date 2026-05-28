@@ -10,6 +10,9 @@
 set -uo pipefail
 cd "$(dirname "$0")"
 
+# Auto-load .env if present (so API key checks work without manual export)
+[[ -f .env ]] && { set -a; source .env; set +a; }
+
 # ─── ARGS ─────────────────────────────────────────────────────────────────────
 VERBOSE=${VERBOSE:-0}
 CHECK_TIMEOUT=${CHECK_TIMEOUT:-120}

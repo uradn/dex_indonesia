@@ -280,15 +280,13 @@ ping_api "FinancialDatasets.ai" \
   "GET" \
   "X-API-KEY: ${FINANCIAL_DATASETS_API_KEY:-}"
 
-# BPS WebAPI Indonesia
+# BPS WebAPI Indonesia — hard Cloudflare blocks ALL curl/Playwright pings (confirmed).
+# Key validity cannot be verified via HTTP ping — just check it's set and non-placeholder.
 _BPS_KEY="${BPS_API_KEY:-}"
 if [[ -z "$_BPS_KEY" ]] || is_placeholder "$_BPS_KEY"; then
   skip "BPS WebAPI — NOT SET / placeholder"
 else
-  ping_api "BPS WebAPI Indonesia" \
-    "BPS_API_KEY" \
-    "https://webapi.bps.go.id/v1/api/list/model/data/lang/ind/domain/0000/var/529/key/${_BPS_KEY}" \
-    "GET"
+  warn "BPS WebAPI — key SET ${DIM}(${_BPS_KEY:0:8}…)${NC} — live ping blocked by Cloudflare (expected). Verify at webapi.bps.go.id dashboard."
 fi
 
 # Bloomberg (optional, custom proxy)
