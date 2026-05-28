@@ -58,6 +58,16 @@ async function fetchUsdIdrOpenEr(): Promise<MacroDataPoint | null> {
 }
 
 export async function fetchUsdIdrSpot(): Promise<MacroDataPoint | null> {
+  // Stress test override — set DEXTER_STRESS_FX env var to inject synthetic rate
+  const stressOverride = process.env.DEXTER_STRESS_FX ? parseFloat(process.env.DEXTER_STRESS_FX) : null;
+  if (stressOverride && stressOverride > 10_000 && stressOverride < 30_000) {
+    return {
+      indicator: 'usdidr_spot', category: 'fx',
+      date: TODAY(), value: stressOverride,
+      unit: 'IDR/USD', source: 'stress_override', fetchedAt: NOW(),
+    };
+  }
+
   try {
     const q = await yf.quote('IDR=X');
     if (!q.regularMarketPrice) return fetchUsdIdrOpenEr();

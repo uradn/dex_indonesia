@@ -2,7 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
 import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
-import { buildSnapshot, compositeScore, detectFlags, alertFromScore, alertLabel } from './scoring.js';
+import { buildSnapshot, detectFlags, alertFromScore, alertLabel } from './scoring.js';
 import { fetchUsdIdrHistory, fetchUsdIdrSpot, computeRealizedVol } from './sources/yahoo-macro.js';
 import { fetchBiFxReserves, fetchSrbiOutstanding } from './sources/bi.js';
 import { fetchBbgFxReserves, bloombergAvailable } from './sources/bloomberg.js';
@@ -154,11 +154,24 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     ? ((currentSpot?.value ?? 0) - spot12MoAgo.value) / spot12MoAgo.value * 100
     : null;
 
-  // Composite score
+  // Composite score — FX-specific weighted scoring.
+  // Spot dominates (60%): continuous z-score so 18k vs 19k vs 21k all score differently.
+  // Vol (25%) + reserves (15%) add confirmation signal without diluting extreme spot moves.
   const validSnapshots = [spotSnapshot, volSnapshot, reserveSnapshot].filter(
     (s): s is IndicatorSnapshot => s !== null,
   );
-  const score = compositeScore(validSnapshots);
+
+  function zToRawScore(s: IndicatorSnapshot): number {
+    const z = Math.abs(s.zScore30d ?? s.zScore90d ?? 0);
+    // Continuous: z=1.5→37, z=2.5→62, z=4.0→100
+    return Math.min(100, Math.round(z * 25));
+  }
+
+  const spotScore     = spotSnapshot    ? zToRawScore(spotSnapshot)    : 0;
+  const volScore      = volSnapshot     ? zToRawScore(volSnapshot)     : 0;
+  const reserveScore  = reserveSnapshot ? zToRawScore(reserveSnapshot) : 0;
+
+  const score = Math.round(spotScore * 0.60 + volScore * 0.25 + reserveScore * 0.15);
   const alertLevel = alertFromScore(score);
   const flags = detectFlags(validSnapshots);
 
