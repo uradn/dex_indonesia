@@ -154,7 +154,7 @@ if (banking.status === 'fulfilled') {
 if (market.status === 'fulfilled') {
   const r = market.value;
   console.log(`\n### 9. Market (IHSG)  ${emoji(r.alert)} ${r.stressScore}/100`);
-  console.log(`  P/E: ${r.ihsgPe?.toFixed(1) ?? 'n/a'} | A/D ratio: ${r.advanceDeclineRatio?.toFixed(2) ?? 'n/a'}`);
+  console.log(`  P/E: ${r.peRatio?.toFixed(1) ?? 'n/a'} | A/D ratio: ${r.adRatio?.toFixed(2) ?? 'n/a'}`);
   for (const f of r.flags ?? []) console.log(`  ⚠️  ${f}`);
 } else {
   console.log(`\n### 9. Market  ❌ ${String(market.reason).slice(0, 80)}`);

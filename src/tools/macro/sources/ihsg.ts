@@ -39,49 +39,47 @@ async function fetchIhsgPeYahoo(): Promise<number | null> {
   return null;
 }
 
+interface IdxStockRow {
+  Previous: number;
+  Close: number;
+  Change?: number;
+}
+
+interface IdxStockSummaryResponse {
+  recordsTotal: number;
+  data: IdxStockRow[];
+}
+
 /**
- * Try IDX JSON API for advance/decline data.
+ * Fetch IDX advance/decline from TradingSummary/GetStockSummary.
+ * Computes A/D by comparing Close vs Previous for each listed stock.
+ * Note: old StockData/TradingData prefixes return 503 — TradingSummary is current.
  */
 async function fetchIdxAdApi(): Promise<{ advance: number; decline: number } | null> {
-  const endpoints = [
-    'https://www.idx.co.id/primary/StockData/GetMarketSummary',
-    'https://www.idx.co.id/primary/StockData/GetMarketActivity',
-    'https://www.idx.co.id/umbraco/Surface/StockData/GetMarketSummary',
-    'https://www.idx.co.id/primary/TradingData/GetMarketSummary',
-  ];
   const headers = {
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'application/json',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
     'Referer': 'https://www.idx.co.id/',
   };
-  for (const url of endpoints) {
-    try {
-      const res = await fetch(url, { headers, signal: AbortSignal.timeout(8_000) });
-      if (!res.ok) continue;
-      const data = await res.json() as unknown;
-      if (data && typeof data === 'object') {
-        const obj = data as Record<string, unknown>;
-        // Try common field names
-        const adv = obj['StockAdvance'] ?? obj['advance'] ?? obj['Advance'] ?? obj['stockAdvance'];
-        const dec = obj['StockDecline'] ?? obj['decline'] ?? obj['Decline'] ?? obj['stockDecline'];
-        if (typeof adv === 'number' && typeof dec === 'number' && adv > 0 && dec > 0) {
-          return { advance: adv, decline: dec };
-        }
-        // Nested: data.Result or data.data
-        for (const key of ['Result', 'result', 'data', 'Data']) {
-          const nested = obj[key];
-          if (nested && typeof nested === 'object') {
-            const n = nested as Record<string, unknown>;
-            const na = n['StockAdvance'] ?? n['advance'] ?? n['Advance'];
-            const nd = n['StockDecline'] ?? n['decline'] ?? n['Decline'];
-            if (typeof na === 'number' && typeof nd === 'number' && na > 0 && nd > 0) {
-              return { advance: na, decline: nd };
-            }
-          }
-        }
-      }
-    } catch { /* try next */ }
-  }
+
+  try {
+    const res = await fetch(
+      'https://www.idx.co.id/primary/TradingSummary/GetStockSummary?length=9999&start=0',
+      { headers, signal: AbortSignal.timeout(15_000) },
+    );
+    if (!res.ok) return null;
+    const json = await res.json() as IdxStockSummaryResponse;
+    if (!Array.isArray(json?.data) || json.data.length < 50) return null;
+
+    let advance = 0, decline = 0;
+    for (const s of json.data) {
+      if (!s.Previous || !s.Close) continue;
+      if (s.Close > s.Previous) advance++;
+      else if (s.Close < s.Previous) decline++;
+    }
+    if (advance > 0 && decline > 0) return { advance, decline };
+  } catch { /* fall through to Playwright */ }
+
   return null;
 }
 
@@ -161,7 +159,7 @@ export async function fetchIhsgPeRatio(): Promise<MacroDataPoint | null> {
 export async function fetchIdxAdvanceDecline(): Promise<MacroDataPoint | null> {
   // 1. Try JSON API (fast, no Playwright)
   const apiData = await fetchIdxAdApi();
-  if (apiData && apiData.advance + apiData.decline < 1500) {
+  if (apiData && apiData.advance + apiData.decline > 10) {
     return {
       indicator: 'idx_advance_decline_ratio', category: 'regime',
       date: TODAY(), value: parseFloat((apiData.advance / apiData.decline).toFixed(3)), unit: 'ratio',
