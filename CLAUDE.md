@@ -118,6 +118,7 @@ OLLAMA_BASE_URL          # default: http://127.0.0.1:11434
 
 # Financial data
 FINANCIAL_DATASETS_API_KEY
+EODHD_API_KEY              # EODHD — USDIDR tertiary fallback + IHSG price (IDR.FOREX, JKSE.INDX)
 
 # Web search (Exa preferred, Tavily fallback, LangSearch last resort)
 EXASEARCH_API_KEY

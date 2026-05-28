@@ -4,6 +4,7 @@
  */
 import YahooFinance from 'yahoo-finance2';
 import type { MacroDataPoint } from '../types.js';
+import { fetchUsdIdrEodhd } from './eodhd.js';
 
 const yf = new YahooFinance();
 
@@ -32,10 +33,45 @@ export async function fetchUsdIdrHistory(days = 365): Promise<MacroDataPoint[]> 
     }));
 }
 
+const STALE_THRESHOLD_MS = 5 * 60 * 60 * 1000; // 5 hours
+
+// Fallback chain: open.er-api.com (hourly, free) → EODHD (if key set, EOD)
+async function fetchUsdIdrOpenEr(): Promise<MacroDataPoint | null> {
+  try {
+    const res = await fetch('https://open.er-api.com/v6/latest/USD');
+    if (!res.ok) return null;
+    const data = (await res.json()) as { rates?: Record<string, number> };
+    const idr = data?.rates?.IDR;
+    if (!idr || idr < 10_000 || idr > 30_000) return null;
+    return {
+      indicator: 'usdidr_spot',
+      category: 'fx',
+      date: TODAY(),
+      value: idr,
+      unit: 'IDR/USD',
+      source: 'open_er_api',
+      fetchedAt: NOW(),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchUsdIdrSpot(): Promise<MacroDataPoint | null> {
   try {
     const q = await yf.quote('IDR=X');
-    if (!q.regularMarketPrice) return null;
+    if (!q.regularMarketPrice) return fetchUsdIdrOpenEr();
+
+    // Check data age — Yahoo returns last-close price when market is quiet
+    const marketTime = q.regularMarketTime ? new Date(q.regularMarketTime).getTime() : null;
+    const ageMs = marketTime ? Date.now() - marketTime : null;
+
+    if (ageMs !== null && ageMs > STALE_THRESHOLD_MS) {
+      const fallback = await fetchUsdIdrOpenEr() ?? await fetchUsdIdrEodhd();
+      if (fallback) return fallback;
+      // all fallbacks failed — return Yahoo data (stale > nothing)
+    }
+
     return {
       indicator: 'usdidr_spot',
       category: 'fx',
@@ -46,7 +82,7 @@ export async function fetchUsdIdrSpot(): Promise<MacroDataPoint | null> {
       fetchedAt: NOW(),
     };
   } catch {
-    return null;
+    return await fetchUsdIdrOpenEr() ?? fetchUsdIdrEodhd();
   }
 }
 

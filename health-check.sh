@@ -223,8 +223,21 @@ const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 try {
   const q = await yf.quote('USDIDR=X', {}, { validateResult: false });
   const p = q?.regularMarketPrice;
-  if (p && p > 10000) console.log('OK: USDIDR =', p.toLocaleString());
+  const t = q?.regularMarketTime ? new Date(q.regularMarketTime) : null;
+  const ageH = t ? ((Date.now() - t.getTime()) / 3600000).toFixed(1) : 'unknown';
+  if (p && p > 10000) console.log('OK: USDIDR =', p.toLocaleString(), '| data age:', ageH + 'h');
   else console.log('WARN: price returned =', p);
+} catch(e) { console.log('FAIL: ' + String(e).slice(0,80)); }
+"
+
+run_bun_check "EODHD USDIDR fallback" "
+const key = process.env.EODHD_API_KEY;
+if (!key) { console.log('WARN: EODHD_API_KEY not set — tertiary fallback inactive'); process.exit(0); }
+try {
+  const res = await fetch('https://eodhd.com/api/real-time/IDR.FOREX?api_token=' + key + '&fmt=json', { signal: AbortSignal.timeout(8000) });
+  const d = await res.json();
+  if (d?.close && d.close !== 'NA' && d.close > 10000) console.log('OK: USDIDR (EODHD) =', d.close.toLocaleString());
+  else console.log('WARN: EODHD returned close =', d?.close);
 } catch(e) { console.log('FAIL: ' + String(e).slice(0,80)); }
 "
 

@@ -280,6 +280,17 @@ ping_api "FinancialDatasets.ai" \
   "GET" \
   "X-API-KEY: ${FINANCIAL_DATASETS_API_KEY:-}"
 
+# EODHD — FX + IHSG fallback (IDR.FOREX real-time)
+_EODHD_KEY="${EODHD_API_KEY:-}"
+if [[ -z "$_EODHD_KEY" ]] || is_placeholder "$_EODHD_KEY"; then
+  skip "EODHD — NOT SET / placeholder (USDIDR tertiary fallback inactive)"
+else
+  ping_api "EODHD" \
+    "EODHD_API_KEY" \
+    "https://eodhd.com/api/real-time/IDR.FOREX?api_token=${_EODHD_KEY}&fmt=json" \
+    "GET"
+fi
+
 # BPS WebAPI Indonesia — hard Cloudflare blocks ALL curl/Playwright pings (confirmed).
 # Key validity cannot be verified via HTTP ping — just check it's set and non-placeholder.
 _BPS_KEY="${BPS_API_KEY:-}"

@@ -26,6 +26,7 @@ Lightweight: spot-only, no history pull, no engine scoring.
 
 async function runFxRateRefresh(): Promise<{
   usdidr: number | null;
+  usdidrSource: string | null;
   usdidrBi: number | null;
   aseanFx: Record<string, number>;
   storedDate: string | null;
@@ -49,6 +50,7 @@ async function runFxRateRefresh(): Promise<{
 
   return {
     usdidr: spot?.value ?? null,
+    usdidrSource: spot?.source ?? null,
     usdidrBi: biRate?.value ?? null,
     aseanFx: aseanMap,
     storedDate: spot?.date ?? null,
@@ -65,7 +67,7 @@ export const fxRateRefreshTool = new DynamicStructuredTool({
     try {
       const result = await runFxRateRefresh();
       const lines = [
-        `USDIDR: ${result.usdidr?.toLocaleString('id-ID') ?? 'unavailable'} (Yahoo)`,
+        `USDIDR: ${result.usdidr?.toLocaleString('id-ID') ?? 'unavailable'} (${result.usdidrSource ?? 'unknown'})`,
         result.usdidrBi ? `USDIDR BI official: ${result.usdidrBi.toLocaleString('id-ID')}` : null,
         Object.keys(result.aseanFx).length > 0
           ? `ASEAN FX stored: ${Object.entries(result.aseanFx).map(([k, v]) => `${k}=${v.toFixed(4)}`).join(', ')}`
