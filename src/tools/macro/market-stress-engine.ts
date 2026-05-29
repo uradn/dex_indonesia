@@ -50,15 +50,23 @@ interface MarketStressOutput {
   narrative: string;
 }
 
-/** Score P/E: elevated P/E on deteriorating fundamentals = stress. */
+// EIDO ETF P/E proxy → approximate IHSG composite P/E.
+// EIDO historical range ~8-15x; IHSG composite historical ~14-22x.
+// Factor ~1.65 based on long-run ratio. All scoring/alert thresholds use composite-equiv.
+const EIDO_TO_COMPOSITE_FACTOR = 1.65;
+function compositeEquivPe(rawPe: number): number {
+  return parseFloat((rawPe * EIDO_TO_COMPOSITE_FACTOR).toFixed(1));
+}
+
+/** Score P/E: expects composite-equivalent value. */
 function scorePe(pe: number): number {
-  // IHSG historical avg ~14-16x. Stress = high P/E suggests overshoot before repricing.
-  if (pe < 10) return 20;  // below avg: possible earnings collapse (mild stress signal)
-  if (pe < 16) return 0;   // fair value range
-  if (pe < 20) return 15;
-  if (pe < 24) return 35;
-  if (pe < 28) return 60;
-  return Math.min(100, Math.round(60 + (pe - 28) / 5 * 40));
+  // IHSG composite historical avg ~14-16x. Stress = high P/E vs fundamentals.
+  if (pe < 12) return 10;  // very cheap — possible earnings collapse or deep value
+  if (pe < 18) return 0;   // fair value range
+  if (pe < 22) return 15;
+  if (pe < 26) return 35;
+  if (pe < 30) return 60;
+  return Math.min(100, Math.round(60 + (pe - 30) / 5 * 40));
 }
 
 /** Score advance/decline: low ratio = broad selling = stress. */
@@ -71,9 +79,10 @@ function scoreAd(adRatio: number): number {
 }
 
 function peAlertLevel(pe: number): AlertLevel {
-  if (pe < 16) return 'green';
-  if (pe < 20) return 'yellow';
-  if (pe < 25) return 'orange';
+  // pe is composite-equivalent
+  if (pe < 18) return 'green';
+  if (pe < 22) return 'yellow';
+  if (pe < 27) return 'orange';
   return 'red';
 }
 
@@ -100,9 +109,12 @@ export async function runMarketStressEngine(): Promise<MarketStressOutput> {
   const peRatio = dbPe?.value ?? null;
   const adRatio = dbAd?.value ?? null;
 
+  // Convert EIDO proxy P/E to composite-equivalent before scoring
+  const peForScoring = peRatio !== null ? compositeEquivPe(peRatio) : null;
+
   // 3. Compute stress score
   const components: Array<[number, number]> = [];
-  if (peRatio !== null) components.push([scorePe(peRatio), 0.50]);
+  if (peForScoring !== null) components.push([scorePe(peForScoring), 0.50]);
   if (adRatio !== null) components.push([scoreAd(adRatio), 0.50]);
 
   let stressScore = 15;
@@ -113,13 +125,12 @@ export async function runMarketStressEngine(): Promise<MarketStressOutput> {
 
   const alert = alertFromScore(stressScore) as AlertLevel;
 
-  // 4. Detect valuation disconnect
-  // P/E elevated (>20x) while breadth is negative (<0.8) = market propped by few names
-  const valuationDisconnect = (peRatio !== null && peRatio > 20) && (adRatio !== null && adRatio < 0.8);
+  // 4. Detect valuation disconnect (use composite-equiv for threshold comparison)
+  const valuationDisconnect = (peForScoring !== null && peForScoring > 20) && (adRatio !== null && adRatio < 0.8);
 
   // 5. Flags
   const flags: string[] = [];
-  if (peRatio !== null && peRatio > 24) flags.push(`IHSG P/E ${peRatio.toFixed(1)}x — elevated vs historical avg (14-16x)`);
+  if (peForScoring !== null && peForScoring > 24) flags.push(`IHSG P/E ~${peForScoring}x (composite-equiv) — elevated vs historical avg (14-16x)`);
   if (adRatio !== null && adRatio < 0.67) flags.push(`Breadth bearish: A/D ratio ${adRatio.toFixed(2)} — majority of stocks declining`);
   if (adRatio !== null && adRatio < 0.5) flags.push(`Breadth panic: A/D ratio ${adRatio.toFixed(2)} — broad selling signal`);
   if (valuationDisconnect) flags.push('Valuation disconnect: elevated P/E + negative breadth — narrow leadership risk');
@@ -128,12 +139,14 @@ export async function runMarketStressEngine(): Promise<MarketStressOutput> {
   const dates = [dbPe, dbAd].filter(Boolean).map(p => p!.date).sort().reverse();
   const dataDate = dates[0] ?? 'unknown';
 
-  // 7. Alert levels per indicator
-  const peAlert: AlertLevel = peRatio !== null ? peAlertLevel(peRatio) : 'green';
+  // 7. Alert levels per indicator (use composite-equiv for threshold)
+  const peAlert: AlertLevel = peForScoring !== null ? peAlertLevel(peForScoring) : 'green';
   const breadthAlert: AlertLevel = adRatio !== null ? breadthAlertLevel(adRatio) : 'green';
 
   // 8. Narrative
-  const peStr = peRatio !== null ? `${peRatio.toFixed(1)}x P/E` : 'P/E n/a';
+  const peStr = peRatio !== null
+    ? `EIDO ${peRatio.toFixed(1)}x P/E (~${peForScoring}x composite-equiv)`
+    : 'P/E n/a';
   const adStr = adRatio !== null ? `A/D ratio ${adRatio.toFixed(2)}` : 'breadth n/a';
   const narrative = [
     `IHSG market stress score: ${stressScore}/100 — ${alertLabel(alert).toUpperCase()}.`,
@@ -152,7 +165,7 @@ function formatMarketStressOutput(output: MarketStressOutput): string {
     ``,
     `| Indicator | Value | Alert | Threshold |`,
     `|-----------|-------|-------|-----------|`,
-    `| IHSG P/E Ratio | ${output.peRatio !== null ? output.peRatio.toFixed(1) + 'x' : 'n/a'} | ${output.peAlert.toUpperCase()} | YELLOW >20x, RED >25x |`,
+    `| IHSG P/E (EIDO proxy) | ${output.peRatio !== null ? output.peRatio.toFixed(1) + 'x raw / ~' + compositeEquivPe(output.peRatio) + 'x equiv' : 'n/a'} | ${output.peAlert.toUpperCase()} | YELLOW >22x, RED >27x (composite-equiv) |`,
     `| A/D Ratio | ${output.adRatio !== null ? output.adRatio.toFixed(2) : 'n/a'} | ${output.breadthAlert.toUpperCase()} | YELLOW <0.8, RED <0.5 |`,
     `| Valuation Disconnect | ${output.valuationDisconnect ? 'DETECTED' : 'No'} | — | P/E>20 + A/D<0.8 |`,
     ``,
@@ -160,7 +173,7 @@ function formatMarketStressOutput(output: MarketStressOutput): string {
     ``,
     output.narrative,
     ``,
-    `_P/E: Trading Economics / IDX composite. A/D: IDX daily breadth. Historical IHSG P/E avg ~14-16x._`,
+    `_P/E: EIDO ETF proxy (iShares MSCI Indonesia, top ~85 stocks). Raw EIDO ×1.65 = composite-equiv. TE IHSG composite P/E removed from platform. A/D: IDX daily breadth._`,
     `_Data as of: ${output.dataDate}._`,
   ].join('\n');
 }

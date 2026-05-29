@@ -249,33 +249,51 @@ async function fetchPihpsBi(): Promise<MacroDataPoint[]> {
   return results;
 }
 
+/** Merge PIHPS tiers by indicator — first occurrence wins (higher tier = more authoritative). */
+function mergePihpsTiers(...tiers: MacroDataPoint[][]): MacroDataPoint[] {
+  const seen = new Map<string, MacroDataPoint>();
+  for (const tier of tiers) {
+    for (const p of tier) {
+      if (!seen.has(p.indicator)) seen.set(p.indicator, p);
+    }
+  }
+  return [...seen.values()];
+}
+
 /**
- * Fetch 10 PIHPS commodity prices. Fallback chain:
+ * Fetch 10 PIHPS commodity prices. Merge-fill across tiers so each tier
+ * supplements missing indicators from the previous rather than replacing it.
+ * This ensures daging_ayam (excluded from IPJ Jakarta) is filled by BPN.
+ *
  *   Tier 1A: hargapangan.id (primary, daily — Playwright)
  *   Tier 1B: bi.go.id/hargapangan (BI mirror — Playwright)
- *   Tier 2A: infopangan.jakarta.go.id (Jakarta REST API — no auth, fast)
- *   Tier 2B: panelharga.badanpangan.go.id (BPN Panel Harga — Playwright)
+ *   Tier 2A: infopangan.jakarta.go.id (Jakarta REST API — no auth, fast, 9/10 — no ayam)
+ *   Tier 2B: panelharga.badanpangan.go.id (BPN Panel Harga — Playwright, all 10 incl. ayam)
  *   Tier 3:  ews.kemendag.go.id (Kemendag EWS REST — needs KEMENDAG_API_KEY)
  */
 export async function fetchPihpsCommodities(): Promise<MacroDataPoint[]> {
+  // Tier 1A
   const primary = await fetchPihpsHargapangan();
-  if (primary.length >= 5) return primary;
+  if (primary.length >= 10) return primary;
 
+  // Tier 1B — merge with 1A
   const bi = await fetchPihpsBi();
-  if (bi.length >= 5) return bi;
+  const after1b = mergePihpsTiers(primary, bi);
+  if (after1b.length >= 10) return after1b;
 
-  // Fast REST before slow Playwright
+  // Tier 2A — fast REST, but Jakarta excludes daging_ayam (per-ekor pricing)
   const jakarta = await fetchInfoPanganJakarta();
-  if (jakarta.length >= 5) return jakarta;
+  const after2a = mergePihpsTiers(after1b, jakarta);
+  if (after2a.length >= 10) return after2a;
 
+  // Tier 2B — BPN Panel Harga has all 10 incl. daging_ayam per kg (national)
   const bpn = await fetchBpnPanelHarga();
-  if (bpn.length >= 5) return bpn;
+  const after2b = mergePihpsTiers(after2a, bpn);
+  if (after2b.length >= 9) return after2b; // 9+ acceptable (kemendag needs API key)
 
+  // Tier 3 — government API key required
   const kemendag = await fetchKemendagEws();
-  if (kemendag.length > 0) return kemendag;
-
-  // Return best partial data available
-  return [primary, bi, jakarta, bpn].reduce((best, cur) => cur.length > best.length ? cur : best, []);
+  return mergePihpsTiers(after2b, kemendag);
 }
 
 // ─── Trading Economics food inflation fallback ─────────────────────────────

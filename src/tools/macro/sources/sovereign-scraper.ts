@@ -498,3 +498,109 @@ export async function fetchPmiManufacturingTe(): Promise<MacroDataPoint | null> 
 
   return null;
 }
+
+// ─── OJK Banking KPI fallbacks from Trading Economics ────────────────────────
+
+const TE_MONTH_MAP: Record<string, string> = {
+  Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+  Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12',
+};
+
+/**
+ * Generic TE percent-indicator scraper.
+ * Handles both table-row format ("Indicator  X.XX  X.XX  percent  Mon YYYY")
+ * and prose format ("Indicator in Indonesia ... to X.XX percent").
+ */
+async function fetchTePercent(
+  url: string,
+  indicator: string,
+  category: 'banking' | 'sovereign' | 'regime',
+  titleKeyword: string,
+  proseKeyword: string,
+  minVal: number,
+  maxVal: number,
+): Promise<MacroDataPoint | null> {
+  const text = await fetchRenderedTextWithBrowser(url);
+  if (!text) return null;
+
+  // Primary: table row "Keyword  X.XX  X.XX  percent  Mon YYYY"
+  const tableRe = new RegExp(
+    titleKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
+    '\\s+([\\d.]+)\\s+[\\d.]+\\s+percent\\s+(\\w{3})\\s+(\\d{4})',
+    'i',
+  );
+  const tableMatch = text.match(tableRe);
+  if (tableMatch) {
+    const val = parseFloat(tableMatch[1]!);
+    const mm = TE_MONTH_MAP[tableMatch[2]!] ?? '12';
+    const yr = tableMatch[3]!;
+    const lastDay = new Date(parseInt(yr), parseInt(mm), 0).getDate();
+    if (val >= minVal && val <= maxVal) {
+      return {
+        indicator, category, date: `${yr}-${mm}-${String(lastDay).padStart(2, '0')}`,
+        value: parseFloat(val.toFixed(2)), unit: '%',
+        source: 'trading_economics_scrape', fetchedAt: NOW(),
+      };
+    }
+  }
+
+  // Fallback: prose match
+  const proseRe = new RegExp(
+    proseKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
+    '[^0-9]+(\\d{1,3}\\.\\d{1,2})',
+    'i',
+  );
+  const proseMatch = text.match(proseRe);
+  if (proseMatch) {
+    const val = parseFloat(proseMatch[1]!);
+    if (val >= minVal && val <= maxVal) {
+      return {
+        indicator, category, date: TODAY(),
+        value: parseFloat(val.toFixed(2)), unit: '%',
+        source: 'trading_economics_scrape', fetchedAt: NOW(),
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Fetch Indonesia NPL gross % from Trading Economics.
+ * Source: OJK (Otoritas Jasa Keuangan), monthly. Normal <5%, stress >5%.
+ * Used as fallback when OJK SPI Excel scraper is unavailable.
+ */
+export async function fetchNplTe(): Promise<MacroDataPoint | null> {
+  return fetchTePercent(
+    'https://tradingeconomics.com/indonesia/non-performing-loans',
+    'bank_npl_gross_pct', 'banking',
+    'Non Performing Loans', 'Non Performing Loans in Indonesia',
+    0.5, 20,
+  );
+}
+
+/**
+ * Fetch Indonesia loan-to-deposit ratio (LDR) from Trading Economics.
+ * Source: OJK, monthly. Normal 70-90%, stress >100%.
+ */
+export async function fetchLdrTe(): Promise<MacroDataPoint | null> {
+  return fetchTePercent(
+    'https://tradingeconomics.com/indonesia/loans-to-deposits',
+    'bank_ldr_pct', 'banking',
+    'Loans To Deposits', 'Loan To Deposit',
+    40, 130,
+  );
+}
+
+/**
+ * Fetch Indonesia capital adequacy ratio (CAR) from Trading Economics.
+ * Source: OJK, monthly. Minimum regulatory 8%. Stress <15%.
+ */
+export async function fetchCarTe(): Promise<MacroDataPoint | null> {
+  return fetchTePercent(
+    'https://tradingeconomics.com/indonesia/capital-adequacy-ratio',
+    'bank_car_pct', 'banking',
+    'Capital Adequacy Ratio', 'Capital Adequacy Ratio in Indonesia',
+    8, 35,
+  );
+}

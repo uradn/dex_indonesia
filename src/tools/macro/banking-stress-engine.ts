@@ -4,7 +4,7 @@ import { formatToolResult } from '../types.js';
 import { upsertPoints, getLatestPoint } from './time-series-db.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchBankingRatiosOjk } from './sources/ojk.js';
-import { fetchIndoniaRateTe, fetchExternalDebtTe, fetchIhprTe } from './sources/sovereign-scraper.js';
+import { fetchIndoniaRateTe, fetchExternalDebtTe, fetchIhprTe, fetchNplTe, fetchLdrTe, fetchCarTe } from './sources/sovereign-scraper.js';
 import type { AlertLevel } from './types.js';
 
 export const BANKING_STRESS_DESCRIPTION = `
@@ -105,6 +105,15 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   const indonia = indoniaPoint.status === 'fulfilled' ? indoniaPoint.value : null;
   const extDebt = extDebtPoint.status === 'fulfilled' ? extDebtPoint.value : null;
   const ihpr = ihprPoint.status === 'fulfilled' ? ihprPoint.value : null;
+
+  // OJK scraper fallback: if OJK unavailable, fetch NPL/LDR/CAR from Trading Economics
+  // TE data source is still OJK via their platform; ~1-3mo lag, same underlying data
+  if (!ratios.npl && !ratios.ldr && !ratios.car) {
+    const [teNpl, teLdr, teCar] = await Promise.allSettled([fetchNplTe(), fetchLdrTe(), fetchCarTe()]);
+    if (teNpl.status === 'fulfilled' && teNpl.value) ratios.npl = teNpl.value;
+    if (teLdr.status === 'fulfilled' && teLdr.value) ratios.ldr = teLdr.value;
+    if (teCar.status === 'fulfilled' && teCar.value) ratios.car = teCar.value;
+  }
 
   // 2. Persist to DB
   const pointsToSave = [ratios.npl, ratios.ldr, ratios.car, indonia, extDebt, ihpr].filter(Boolean);
