@@ -42,13 +42,35 @@ Cross-confirmed modules: 1/12
 | 5 | Commodity | Ekspor basket, oil import vulnerability |
 | 6 | Regime | Quad regime Q1–Q4 via Growth ROC × Inflation ROC |
 | 7 | Narrative Divergence | Official guidance vs market — APBN assumptions vs aktual |
-| 8 | Banking Stress | NPL, LDR, CAR, JIBOR spread — Big Short early warning |
+| 8 | Banking Stress | NPL (OJK/World Bank API), LDR, CAR, ~~JIBOR~~ IndONIA corridor (BI Rate ±75bps), FSAP nexus (implied CAR hit), KLR signals, M2/FX reserves ratio |
 | 9 | Market Stress | IHSG P/E + breadth, valuation disconnect |
 | 10 | Fiscal | APBN realisasi vs target, revenue shortfall, deficit trajectory |
 | 11 | Domestic Pressure | PIHPS 10 komoditas pangan, Food Stress Index 0–100 |
 | 12 | Political Risk | Unemployment + Exa news sentiment (social unrest, stabilitas) |
 
 **Logika inti:** Satu modul di RED bisa noise. Dua modul di ORANGE = deteriorasi struktural. Tiga+ = systemic fragility.
+
+### Research Frameworks
+
+**KLR EWS (Kaminsky-Reinhart-Lizondo):**
+18-indicator dual crisis signal matrix (10 currency + 8 banking). Threshold-based early warning kalibrasi untuk EM. Crisis probability: LOW (0–3 sinyal), MODERATE (4–6), HIGH (7–10), CRITICAL (11+). Invoke via skill `klr-ews`.
+
+**IMF FSAP Sovereign-Bank Nexus:**
+SBN yield shock → implied bank CAR erosion: `(sbn_10y − 6.5% baseline) × 6yr duration × 20% SBN/assets`. At +100bps: −1.2pp CAR. Doom loop signal di >1.5pp. Terintegrasi langsung ke Module 8 scoring.
+
+**BI Interest Rate Corridor:**
+IndONIA harus stay dalam corridor DFR (BI Rate −75bps) sampai LF Rate (BI Rate +75bps). Spread >30bps = YELLOW, >50bps = ORANGE, >75bps = RED (BI terpaksa inject liquidity = crisis signal).
+
+### Shock Scenario Simulator
+
+Forward-looking stress test via skill `shock-scenario`. Input: satu atau compound shock (SBN yield, USDIDR, FX reserves, NPL, BI Rate). Output: Before vs After table per modul + transmission chain narrative + recalculated Silent Crisis Probability.
+
+```
+Severity tiers: Mild (+50bps / +1,500 IDR / −$20bn / +1pp NPL)
+               Moderate (+100bps / +3,000 / −$40bn / +3pp)
+               Severe (+150bps / +5,000 / −$60bn / +5pp)
+               Crisis (+250bps / +8,000 / −$80bn / +8pp)
+```
 
 ### APBN 2026 Baseline
 
