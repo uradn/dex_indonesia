@@ -144,7 +144,7 @@ if (narrative.status === 'fulfilled') {
 if (banking.status === 'fulfilled') {
   const r = banking.value;
   console.log(`\n### 8. Banking Stress  ${emoji(r.alert)} ${r.stressScore}/100`);
-  console.log(`  NPL: ${r.nplGrossPct?.toFixed(2) ?? 'n/a'}% | LDR: ${r.ldr?.toFixed(1) ?? 'n/a'}% | CAR: ${r.car?.toFixed(1) ?? 'n/a'}%`);
+  console.log(`  NPL: ${r.nplPct?.toFixed(2) ?? 'n/a'}% | LDR: ${r.ldrPct?.toFixed(1) ?? 'n/a'}% | CAR: ${r.carPct?.toFixed(1) ?? 'n/a'}%`);
   for (const f of r.flags ?? []) console.log(`  ⚠️  ${f}`);
 } else {
   console.log(`\n### 8. Banking  ❌ ${String(banking.reason).slice(0, 80)}`);

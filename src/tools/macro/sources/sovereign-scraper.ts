@@ -566,6 +566,121 @@ async function fetchTePercent(
 }
 
 /**
+ * Fetch Indonesia M2 money supply from Trading Economics.
+ * Source: Bank Indonesia (monthly, IDR Billion).
+ * KLR critical indicator: M2/FX reserves ratio (>5x = elevated capital flight risk).
+ */
+export async function fetchM2MoneySupplyTe(): Promise<MacroDataPoint | null> {
+  const text = await fetchRenderedTextWithBrowser('https://tradingeconomics.com/indonesia/money-supply-m2');
+  if (!text) return null;
+
+  // Table row: "Money Supply M2  9100123.45  9050000.00  IDR Million  Mon YYYY"
+  const tableMatch = text.match(/Money Supply M2\s+([\d,]+\.?\d*)\s+[\d,]+\.?\d*\s+IDR Million\s+(\w{3})\s+(\d{4})/i);
+  if (tableMatch) {
+    const valMillion = parseFloat(tableMatch[1]!.replace(/,/g, ''));
+    const mm = TE_MONTH_MAP[tableMatch[2]!] ?? '12';
+    const yr = tableMatch[3]!;
+    const lastDay = new Date(parseInt(yr), parseInt(mm), 0).getDate();
+    if (!isNaN(valMillion) && valMillion > 1_000_000) {
+      return {
+        indicator: 'm2_money_supply_idr_bn', category: 'banking',
+        date: `${yr}-${mm}-${String(lastDay).padStart(2, '0')}`,
+        value: parseFloat((valMillion / 1000).toFixed(2)), unit: 'bn_IDR',
+        source: 'trading_economics_scrape', fetchedAt: NOW(),
+      };
+    }
+  }
+
+  // Fallback prose: "Money Supply M2 in Indonesia increased to X IDR Million"
+  const prose = text.match(/Money Supply M2 in Indonesia[^0-9]*([\d,]+)\s+IDR Million/i);
+  if (prose) {
+    const valMillion = parseFloat(prose[1]!.replace(/,/g, ''));
+    if (!isNaN(valMillion) && valMillion > 1_000_000) {
+      return {
+        indicator: 'm2_money_supply_idr_bn', category: 'banking',
+        date: TODAY(), value: parseFloat((valMillion / 1000).toFixed(2)), unit: 'bn_IDR',
+        source: 'trading_economics_scrape', fetchedAt: NOW(),
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Fetch Indonesia total bank deposits (DPK - Dana Pihak Ketiga) from Trading Economics.
+ * Source: OJK / Bank Indonesia (monthly, IDR Billion).
+ * KLR indicator: DPK growth decline signals early bank run risk.
+ */
+export async function fetchDpkDepositsTe(): Promise<MacroDataPoint | null> {
+  const text = await fetchRenderedTextWithBrowser('https://tradingeconomics.com/indonesia/deposits');
+  if (!text) return null;
+
+  // Table row: "Deposits  8500000.00  8400000.00  IDR Million  Mon YYYY"
+  const tableMatch = text.match(/Deposits\s+([\d,]+\.?\d*)\s+[\d,]+\.?\d*\s+IDR Million\s+(\w{3})\s+(\d{4})/i);
+  if (tableMatch) {
+    const valMillion = parseFloat(tableMatch[1]!.replace(/,/g, ''));
+    const mm = TE_MONTH_MAP[tableMatch[2]!] ?? '12';
+    const yr = tableMatch[3]!;
+    const lastDay = new Date(parseInt(yr), parseInt(mm), 0).getDate();
+    if (!isNaN(valMillion) && valMillion > 500_000) {
+      return {
+        indicator: 'bank_dpk_idr_bn', category: 'banking',
+        date: `${yr}-${mm}-${String(lastDay).padStart(2, '0')}`,
+        value: parseFloat((valMillion / 1000).toFixed(2)), unit: 'bn_IDR',
+        source: 'trading_economics_scrape', fetchedAt: NOW(),
+      };
+    }
+  }
+
+  // Fallback prose
+  const prose = text.match(/Deposits in Indonesia[^0-9]*([\d,]+)\s+IDR Million/i);
+  if (prose) {
+    const valMillion = parseFloat(prose[1]!.replace(/,/g, ''));
+    if (!isNaN(valMillion) && valMillion > 500_000) {
+      return {
+        indicator: 'bank_dpk_idr_bn', category: 'banking',
+        date: TODAY(), value: parseFloat((valMillion / 1000).toFixed(2)), unit: 'bn_IDR',
+        source: 'trading_economics_scrape', fetchedAt: NOW(),
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Fetch Indonesia NPL gross % from World Bank API.
+ * Source: World Bank FSI (FB.AST.NPER.ZS = Bank NPL to total gross loans %).
+ * Annual data, 2-3 year lag. No auth required. Use as structural baseline.
+ * 2023 value: ~1.96% (Indonesia banking system is low-NPL historically).
+ */
+export async function fetchNplWorldBank(): Promise<MacroDataPoint | null> {
+  try {
+    const res = await fetch(
+      'https://api.worldbank.org/v2/country/IDN/indicator/FB.AST.NPER.ZS?format=json&mrv=1',
+      { signal: AbortSignal.timeout(10_000) },
+    );
+    if (!res.ok) return null;
+    type WBResponse = [unknown, Array<{ date: string; value: number | null }>];
+    const json = await res.json() as WBResponse;
+    const record = json?.[1]?.[0];
+    if (!record || record.value === null || record.value === undefined) return null;
+    const val = record.value;
+    if (isNaN(val) || val < 0 || val > 30) return null;
+    const year = record.date;
+    return {
+      indicator: 'bank_npl_gross_pct', category: 'banking',
+      date: `${year}-12-31`,
+      value: parseFloat(val.toFixed(2)), unit: '%',
+      source: 'world_bank_api', fetchedAt: NOW(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fetch Indonesia NPL gross % from Trading Economics.
  * Source: OJK (Otoritas Jasa Keuangan), monthly. Normal <5%, stress >5%.
  * Used as fallback when OJK SPI Excel scraper is unavailable.

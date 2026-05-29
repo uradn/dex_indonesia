@@ -4,8 +4,8 @@ import { formatToolResult } from '../types.js';
 import { upsertPoints, getLatestPoint } from './time-series-db.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchBankingRatiosOjk } from './sources/ojk.js';
-import { fetchIndoniaRateTe, fetchExternalDebtTe, fetchIhprTe, fetchNplTe, fetchLdrTe, fetchCarTe } from './sources/sovereign-scraper.js';
-import type { AlertLevel } from './types.js';
+import { fetchIndoniaRateTe, fetchExternalDebtTe, fetchIhprTe, fetchNplTe, fetchLdrTe, fetchCarTe, fetchM2MoneySupplyTe, fetchDpkDepositsTe, fetchNplWorldBank } from './sources/sovereign-scraper.js';
+import type { AlertLevel, MacroDataPoint } from './types.js';
 
 export const BANKING_STRESS_DESCRIPTION = `
 MACRO INTELLIGENCE — Banking Stress Engine (Module 8)
@@ -52,6 +52,13 @@ interface BankingStressOutput {
   indoniaSpreadBps: number | null;
   externalDebtBn: number | null;
   ihprYoy: number | null;
+  sbn10yPct: number | null;
+  cpiPct: number | null;
+  realIndoniaPct: number | null;
+  impliedCarHitPp: number | null;
+  srbiOutstandingT: number | null;
+  m2ReservesRatio: number | null;
+  fxReservesBn: number | null;
   sectorNpl: Record<string, number>;
   dataDate: string;
   flags: string[];
@@ -83,40 +90,70 @@ function scoreCar(car: number): number {
   return Math.min(100, Math.round(70 + (8 - car) / 2 * 30));
 }
 
-/** Score IndONIA spread vs BI Rate (bps): 0–50 normal, 50–150 elevated, >200 crisis */
+/** Score IndONIA spread vs BI Rate (bps): BI corridor-calibrated.
+ * LF Rate ceiling = BI Rate + 75bps. IndONIA at ceiling = BI forced to inject liquidity.
+ * Normal: 0–30bps | Tension: 30–50bps | Stressed: 50–75bps | Crisis: >75bps
+ */
 function scoreIndoniaSpread(spreadBps: number): number {
-  if (spreadBps < 0) spreadBps = 0; // negative spread = unusually loose
-  if (spreadBps < 50) return Math.round(spreadBps / 50 * 20);
-  if (spreadBps < 150) return Math.round(20 + (spreadBps - 50) / 100 * 40);
-  if (spreadBps < 250) return Math.round(60 + (spreadBps - 150) / 100 * 30);
-  return 100;
+  if (spreadBps < 0) spreadBps = 0;
+  if (spreadBps < 30) return Math.round(spreadBps / 30 * 15);
+  if (spreadBps < 50) return Math.round(15 + (spreadBps - 30) / 20 * 25);
+  if (spreadBps < 75) return Math.round(40 + (spreadBps - 50) / 25 * 30);
+  if (spreadBps < 150) return Math.round(70 + (spreadBps - 75) / 75 * 20);
+  return Math.min(100, Math.round(90 + (spreadBps - 150) / 50 * 10));
 }
 
 export async function runBankingStressEngine(): Promise<BankingStressOutput> {
-  // 1. Fetch live data
-  const [bankingRatios, indoniaPoint, extDebtPoint, ihprPoint] = await Promise.allSettled([
-    fetchBankingRatiosOjk(),
+  // 1a. Freshness gate: NPL/LDR/CAR are monthly OJK data — skip Playwright re-scrape if < 48h old.
+  // Prevents Playwright browser contention under 12-module parallel morning brief runs.
+  // To force re-seed: run banking_stress_engine standalone (not during morning brief).
+  const [cachedNpl, cachedLdr, cachedCar] = await Promise.all([
+    getLatestPoint('bank_npl_gross_pct'),
+    getLatestPoint('bank_ldr_pct'),
+    getLatestPoint('bank_car_pct'),
+  ]);
+  const BANKING_KPI_TTL_MS = 48 * 3_600_000;
+  const isKpiFresh = (p: { fetchedAt: string } | null) =>
+    p !== null && Date.now() - new Date(p.fetchedAt).getTime() < BANKING_KPI_TTL_MS;
+  const kpisFresh = isKpiFresh(cachedNpl) && isKpiFresh(cachedLdr) && isKpiFresh(cachedCar);
+
+  // 1b. OJK + TE KPI fetch: only when cache is stale (saves 3 Playwright instances under parallel load)
+  let ratios: { npl: MacroDataPoint | null; ldr: MacroDataPoint | null; car: MacroDataPoint | null; sectorNpl: Record<string, number> }
+    = { npl: null, ldr: null, car: null, sectorNpl: {} };
+  if (!kpisFresh) {
+    const ojkResult = await fetchBankingRatiosOjk().catch(() => null);
+    if (ojkResult) ratios = ojkResult;
+    // Tier 2: World Bank API (annual, 2-3yr lag, no Playwright, free) — NPL only
+    if (!ratios.npl) {
+      const wbNpl = await fetchNplWorldBank().catch(() => null);
+      if (wbNpl) ratios.npl = wbNpl;
+    }
+    // Tier 3: TE Playwright (monthly OJK mirror) — only if World Bank also missing
+    // Note: TE Indonesia NPL page currently returns "no data" — kept as future safety net
+    if (!ratios.npl && !ratios.ldr && !ratios.car) {
+      const [teNpl, teLdr, teCar] = await Promise.allSettled([fetchNplTe(), fetchLdrTe(), fetchCarTe()]);
+      if (teNpl.status === 'fulfilled' && teNpl.value) ratios.npl = teNpl.value;
+      if (teLdr.status === 'fulfilled' && teLdr.value) ratios.ldr = teLdr.value;
+      if (teCar.status === 'fulfilled' && teCar.value) ratios.car = teCar.value;
+    }
+  }
+
+  // 1c. Frequently-updated indicators always fetched fresh (IndONIA monthly, ext debt quarterly)
+  const [indoniaPoint, extDebtPoint, ihprPoint, m2Point, dpkPoint] = await Promise.allSettled([
     fetchIndoniaRateTe(),
     fetchExternalDebtTe(),
     fetchIhprTe(),
+    fetchM2MoneySupplyTe(),
+    fetchDpkDepositsTe(),
   ]);
-
-  const ratios = bankingRatios.status === 'fulfilled' ? bankingRatios.value : { npl: null, ldr: null, car: null, sectorNpl: {} };
   const indonia = indoniaPoint.status === 'fulfilled' ? indoniaPoint.value : null;
   const extDebt = extDebtPoint.status === 'fulfilled' ? extDebtPoint.value : null;
   const ihpr = ihprPoint.status === 'fulfilled' ? ihprPoint.value : null;
-
-  // OJK scraper fallback: if OJK unavailable, fetch NPL/LDR/CAR from Trading Economics
-  // TE data source is still OJK via their platform; ~1-3mo lag, same underlying data
-  if (!ratios.npl && !ratios.ldr && !ratios.car) {
-    const [teNpl, teLdr, teCar] = await Promise.allSettled([fetchNplTe(), fetchLdrTe(), fetchCarTe()]);
-    if (teNpl.status === 'fulfilled' && teNpl.value) ratios.npl = teNpl.value;
-    if (teLdr.status === 'fulfilled' && teLdr.value) ratios.ldr = teLdr.value;
-    if (teCar.status === 'fulfilled' && teCar.value) ratios.car = teCar.value;
-  }
+  const m2 = m2Point.status === 'fulfilled' ? m2Point.value : null;
+  const dpk = dpkPoint.status === 'fulfilled' ? dpkPoint.value : null;
 
   // 2. Persist to DB
-  const pointsToSave = [ratios.npl, ratios.ldr, ratios.car, indonia, extDebt, ihpr].filter(Boolean);
+  const pointsToSave = [ratios.npl, ratios.ldr, ratios.car, indonia, extDebt, ihpr, m2, dpk].filter(Boolean);
   if (pointsToSave.length > 0) await upsertPoints(pointsToSave as NonNullable<typeof ratios.npl>[]);
 
   // Persist sector NPL as individual DB points
@@ -132,7 +169,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   if (sectorNplPoints.length > 0) await upsertPoints(sectorNplPoints);
 
   // 3. Read from DB (use cached if live fetch failed)
-  const [dbNpl, dbLdr, dbCar, dbIndonia, dbBiRate, dbExtDebt, dbIhpr] = await Promise.all([
+  const [dbNpl, dbLdr, dbCar, dbIndonia, dbBiRate, dbExtDebt, dbIhpr, dbSbn10y, dbCpi, dbSrbi, dbM2Idr, dbFxReserves, dbUsdidr] = await Promise.all([
     getLatestPoint('bank_npl_gross_pct'),
     getLatestPoint('bank_ldr_pct'),
     getLatestPoint('bank_car_pct'),
@@ -140,6 +177,12 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     getLatestPoint('bi_rate_pct'),
     getLatestPoint('indonesia_external_debt_bn'),
     getLatestPoint('indonesia_ihpr_yoy_pct'),
+    getLatestPoint('sbn_10y_yield_pct'),
+    getLatestPoint('inflation_cpi_pct'),
+    getLatestPoint('srbi_outstanding_trn_idr'),
+    getLatestPoint('m2_money_supply_idr_bn'),
+    getLatestPoint('bi_fx_reserves_bn'),
+    getLatestPoint('usdidr_spot'),
   ]);
 
   const nplPct = dbNpl?.value ?? null;
@@ -149,6 +192,32 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   const biRatePct = dbBiRate?.value ?? null;
   const externalDebtBn = dbExtDebt?.value ?? null;
   const ihprYoy = dbIhpr?.value ?? null;
+  const sbn10yPct = dbSbn10y?.value ?? null;
+  const cpiPct = dbCpi?.value ?? null;
+  const srbiOutstandingT = dbSrbi?.value ?? null;
+  const m2IdrBn = dbM2Idr?.value ?? null;
+  const fxReservesBn = dbFxReserves?.value ?? null;
+  const usdidrSpot = dbUsdidr?.value ?? null;
+
+  // KLR M2/reserves ratio: M2 (USD equiv) / FX reserves — most critical KLR capital flight indicator
+  // M2 in IDR bn ÷ USDIDR = M2 in USD bn; then ÷ FX reserves (USD bn)
+  const m2UsdBn = m2IdrBn !== null && usdidrSpot !== null ? m2IdrBn / usdidrSpot : null;
+  const m2ReservesRatio = m2UsdBn !== null && fxReservesBn !== null && fxReservesBn > 0
+    ? parseFloat((m2UsdBn / fxReservesBn).toFixed(2))
+    : null;
+
+  // Real IndONIA rate (KLR: negative real rate = financial repression + capital flight signal)
+  const realIndoniaPct = indoniaPct !== null && cpiPct !== null
+    ? parseFloat((indoniaPct - cpiPct).toFixed(2))
+    : null;
+
+  // FSAP sovereign-bank nexus: SBN yield elevation → implied bank CAR erosion.
+  // Indonesia banks hold ~20% assets in SBN; portfolio duration ~6yr.
+  // Formula: (sbn_10y - 6.5% baseline) × 6yr × 0.20 = CAR pp hit.
+  const SBN_FSAP_BASELINE_PCT = 6.5;
+  const impliedCarHitPp = sbn10yPct !== null && sbn10yPct > SBN_FSAP_BASELINE_PCT
+    ? parseFloat(((sbn10yPct - SBN_FSAP_BASELINE_PCT) * 6 * 0.20).toFixed(2))
+    : null;
 
   // Sector NPL from DB (read back what was persisted)
   const sectorNpl: Record<string, number> = {};
@@ -176,22 +245,69 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     stressScore = Math.round(components.reduce((s, [score, w]) => s + score * w, 0) / totalWeight);
   }
 
+  // FSAP amplifier: SBN yield shock transmits to banking CAR via sovereign-bank nexus
+  if (impliedCarHitPp !== null && impliedCarHitPp > 0.5) {
+    stressScore = Math.min(100, stressScore + Math.min(15, Math.round(impliedCarHitPp * 5)));
+  }
+
   // 5. Alert level: high stressScore = more stress = higher alert
   const alert = alertFromScore(stressScore) as AlertLevel;
 
   // 6. Flags
   const flags: string[] = [];
-  if (nplPct !== null && nplPct > 5) flags.push(`NPL ${nplPct.toFixed(1)}% — above stress threshold (5%)`);
+
+  // KLR NPL thresholds (Kaminsky-Reinhart EM calibration: 3% early warning, 5% acute)
+  if (nplPct !== null && nplPct > 3 && nplPct <= 5) {
+    flags.push(`NPL ${nplPct.toFixed(1)}% — above KLR early-warning threshold (3%); approaching acute threshold (5%)`);
+  }
+  if (nplPct !== null && nplPct > 5) {
+    flags.push(`NPL ${nplPct.toFixed(1)}% — above KLR acute stress threshold (5%)`);
+  }
+
   if (ldrPct !== null && ldrPct > 100) flags.push(`LDR ${ldrPct.toFixed(1)}% — credit exceeds deposits`);
   if (carPct !== null && carPct < 15) flags.push(`CAR ${carPct.toFixed(1)}% — capital buffer thinning`);
-  if (indoniaSpreadBps !== null && indoniaSpreadBps > 100) flags.push(`IndONIA spread ${indoniaSpreadBps}bps — interbank stress`);
-  if (indoniaSpreadBps !== null && indoniaSpreadBps > 50 && nplPct !== null && nplPct > 3) {
+
+  // IndONIA spread — BI corridor calibrated (LF Rate ceiling = BI Rate + 75bps)
+  if (indoniaSpreadBps !== null && indoniaSpreadBps > 30 && indoniaSpreadBps <= 50) {
+    flags.push(`IndONIA spread ${indoniaSpreadBps}bps — interbank tension (30bps threshold; BI corridor ceiling 75bps)`);
+  }
+  if (indoniaSpreadBps !== null && indoniaSpreadBps > 50) {
+    flags.push(`IndONIA spread ${indoniaSpreadBps}bps — approaching BI corridor ceiling (75bps = BI forced to inject)`);
+  }
+  if (indoniaSpreadBps !== null && indoniaSpreadBps > 30 && nplPct !== null && nplPct > 3) {
     flags.push('IndONIA spread + NPL both elevated — early interbank-credit stress signal');
   }
+
+  // FSAP sovereign-bank nexus
+  if (impliedCarHitPp !== null && impliedCarHitPp > 0.5) {
+    flags.push(`FSAP nexus: SBN 10Y ${sbn10yPct?.toFixed(3)}% implies ~${impliedCarHitPp.toFixed(1)}pp CAR erosion (6yr duration × 20% SBN/assets)`);
+  }
+  if (impliedCarHitPp !== null && impliedCarHitPp > 1.5) {
+    flags.push(`FSAP critical: ${impliedCarHitPp.toFixed(1)}pp implied CAR hit — sovereign-bank doom loop risk if SBN yields spike further`);
+  }
+
+  // SRBI-IndONIA nexus: structural liquidity drain tightening credit
+  if (srbiOutstandingT !== null && srbiOutstandingT > 900 && indoniaSpreadBps !== null && indoniaSpreadBps > 30) {
+    flags.push(`SRBI-IndONIA nexus: SRBI ${srbiOutstandingT.toFixed(0)}T outstanding + spread ${indoniaSpreadBps}bps — structural liquidity drain tightening credit channels`);
+  }
+
+  // Real rate (KLR: negative real rate = financial repression → capital flight signal)
+  if (realIndoniaPct !== null && realIndoniaPct < 0) {
+    flags.push(`Real IndONIA rate ${realIndoniaPct.toFixed(2)}% (IndONIA ${indoniaPct?.toFixed(2)}% − CPI ${cpiPct?.toFixed(1)}%) — financial repression; KLR capital flight signal`);
+  }
+
+  // KLR M2/reserves ratio (most critical capital flight early warning indicator)
+  if (m2ReservesRatio !== null && m2ReservesRatio > 5) {
+    flags.push(`KLR M2/reserves ratio ${m2ReservesRatio.toFixed(1)}x — CRITICAL capital flight risk (>5x threshold)`);
+  } else if (m2ReservesRatio !== null && m2ReservesRatio > 3) {
+    flags.push(`KLR M2/reserves ratio ${m2ReservesRatio.toFixed(1)}x — watch zone (3–5x; Indonesia M2 ~$500bn vs reserves $${fxReservesBn?.toFixed(0)}bn)`);
+  }
+
   if (ihprYoy !== null && ihprYoy < 0) flags.push(`IHPR ${ihprYoy.toFixed(1)}% YoY — property prices falling (KPR collateral risk)`);
   if (ihprYoy !== null && ihprYoy < 0 && nplPct !== null && nplPct > 3) {
     flags.push('Property price decline + elevated NPL — mortgage collateral deflation risk');
   }
+
   // Sector NPL flags
   for (const [sector, npl] of Object.entries(sectorNpl)) {
     if (npl > 5) flags.push(`Sector NPL ${sector}: ${npl.toFixed(1)}% — above 5% threshold`);
@@ -224,7 +340,10 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     alert, stressScore,
     nplPct, ldrPct, carPct,
     indoniaPct, biRatePct, indoniaSpreadBps,
-    externalDebtBn, ihprYoy, sectorNpl, dataDate, flags, summary,
+    externalDebtBn, ihprYoy,
+    sbn10yPct, cpiPct, realIndoniaPct, impliedCarHitPp, srbiOutstandingT,
+    m2ReservesRatio, fxReservesBn,
+    sectorNpl, dataDate, flags, summary,
   };
 }
 
@@ -243,12 +362,17 @@ export const bankingStressEngine = new DynamicStructuredTool({
         ``,
         `| Indicator | Value | Threshold |`,
         `|-----------|-------|-----------|`,
-        `| NPL Gross % | ${output.nplPct?.toFixed(1) ?? 'n/a'} | YELLOW >5%, RED >10% |`,
+        `| NPL Gross % | ${output.nplPct?.toFixed(1) ?? 'n/a'} | KLR EW >3%, Acute >5% |`,
         `| LDR % | ${output.ldrPct?.toFixed(1) ?? 'n/a'} | YELLOW >90%, RED >110% |`,
         `| CAR % | ${output.carPct?.toFixed(1) ?? 'n/a'} | YELLOW <15%, RED <8% |`,
         `| IndONIA 3M % | ${output.indoniaPct?.toFixed(2) ?? 'n/a'} | — |`,
         `| BI Rate % | ${output.biRatePct?.toFixed(2) ?? 'n/a'} | — |`,
-        `| IndONIA-BI Spread | ${output.indoniaSpreadBps !== null ? output.indoniaSpreadBps + 'bps' : 'n/a'} | YELLOW >50bps, RED >200bps |`,
+        `| IndONIA-BI Spread | ${output.indoniaSpreadBps !== null ? output.indoniaSpreadBps + 'bps' : 'n/a'} | YELLOW >30bps, ORANGE >50bps, RED >75bps (BI corridor) |`,
+        `| Real IndONIA Rate | ${output.realIndoniaPct !== null ? output.realIndoniaPct.toFixed(2) + '%' : 'n/a'} | <0% = financial repression (KLR signal) |`,
+        `| SBN 10Y Yield | ${output.sbn10yPct !== null ? output.sbn10yPct.toFixed(3) + '%' : 'n/a'} | FSAP baseline 6.5%; >7.5% = alert |`,
+        `| Implied CAR Hit | ${output.impliedCarHitPp !== null ? output.impliedCarHitPp.toFixed(1) + 'pp' : 'n/a'} | FSAP: 6yr dur × 20% SBN/assets |`,
+        `| SRBI Outstanding | ${output.srbiOutstandingT !== null ? output.srbiOutstandingT.toFixed(0) + 'T IDR' : 'n/a'} | >900T = structural drain |`,
+        `| M2/FX Reserves ratio | ${output.m2ReservesRatio !== null ? output.m2ReservesRatio.toFixed(1) + 'x' : 'n/a'} | KLR: watch >3x, critical >5x |`,
         `| External Debt | ${output.externalDebtBn !== null ? '$' + output.externalDebtBn.toFixed(0) + 'bn' : 'n/a'} | — |`,
         `| IHPR YoY % | ${output.ihprYoy !== null ? output.ihprYoy.toFixed(1) + '%' : 'n/a'} | <0% = collateral risk |`,
         ``,
@@ -259,6 +383,7 @@ export const bankingStressEngine = new DynamicStructuredTool({
         output.flags.length > 0 ? `**Flags:**\n${output.flags.map(f => `- ${f}`).join('\n')}` : '**No active flags.**',
         ``,
         `_Data as of: ${output.dataDate} WIB. OJK SPI lag ~11mo (portal migration); IndONIA/ULN near-real-time. IHPR: BI SHPR quarterly._`,
+        `_Frameworks: KLR EWS (Kaminsky-Reinhart EM calibration) | IMF FSAP sovereign-bank nexus (6yr SBN duration × 20% bank SBN/assets) | BI interest rate corridor (LF Rate = BI Rate + 75bps)._`,
       ];
       return formatToolResult(lines.join('\n'));
     } catch (e) {

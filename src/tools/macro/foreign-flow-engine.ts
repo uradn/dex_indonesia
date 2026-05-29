@@ -124,6 +124,23 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   else if (idxNetSelling) flags.push(`IDX foreign net sell: ${currentIdxFlow?.value.toFixed(0)} IDR bn`);
   if (silentExitProbability > 0.6) flags.push(`Silent exit probability elevated: ${(silentExitProbability * 100).toFixed(0)}%`);
 
+  // Sudden stop absolute level threshold (structural, independent of z-score)
+  // Historical: SBN foreign ownership peaked ~25% (2019), dropped to ~15% post-COVID.
+  // <12% = structural underpinning eroded; <10% = sudden stop risk elevated
+  if (currentSbn) {
+    const lvl = currentSbn.value;
+    if (lvl < 8) {
+      flags.push(`SBN foreign ownership CRITICAL: ${lvl.toFixed(1)}% — sudden stop territory (historical post-GFC floor ~10%)`);
+      silentExitProbability = Math.min(0.95, silentExitProbability + 0.20);
+    } else if (lvl < 10) {
+      flags.push(`SBN foreign ownership ${lvl.toFixed(1)}% — sudden stop risk elevated (threshold: 10%; 2019 peak: ~25%)`);
+      silentExitProbability = Math.min(0.95, silentExitProbability + 0.12);
+    } else if (lvl < 12) {
+      flags.push(`SBN foreign ownership ${lvl.toFixed(1)}% — structural exit from historical base; watch for further decline`);
+      silentExitProbability = Math.min(0.95, silentExitProbability + 0.05);
+    }
+  }
+
   const narrative = buildNarrative({ eidoSnap, sbnSnap, divergenceFlag, domesticAbsorptionFlag, silentExitProbability });
 
   return {

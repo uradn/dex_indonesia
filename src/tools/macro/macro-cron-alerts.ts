@@ -46,7 +46,7 @@ export const MACRO_ALERT_THRESHOLDS = {
   NPL_GROSS_PCT:                5.0,  // Alert if NPL gross > 5%
   LDR_PCT:                    100.0,  // Alert if LDR > 100% (credit > deposits)
   CAR_PCT:                     15.0,  // Alert if CAR < 15% (thinning buffer)
-  INDONIA_SPREAD_BPS:         100,    // Alert if IndONIA-BI spread > 100bps
+  INDONIA_SPREAD_BPS:          50,    // Alert if IndONIA-BI spread > 50bps (approaching BI corridor ceiling 75bps)
   BANKING_STRESS_SCORE:        50,    // Alert if banking stress score > 50/100
 
   // Silent Crisis
