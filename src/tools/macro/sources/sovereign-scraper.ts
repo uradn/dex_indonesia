@@ -288,11 +288,12 @@ export async function fetchIndonesiaCds5yWgb(): Promise<MacroDataPoint | null> {
 }
 
 /**
- * Fetch Indonesia 3-month interbank rate (JIBOR proxy) from Trading Economics.
+ * Fetch Indonesia IndONIA (Indonesia Overnight Index Average) compounded rate from TE.
+ * BI discontinued JIBOR in Dec 2023; TE now reports IndONIA on the same interbank-rate URL.
  * Pattern: "Interbank Rate in Indonesia ... X.XX percent"
  * Typical healthy spread vs BI Rate: 0.1–0.5%. Crisis: >1.5%.
  */
-export async function fetchJiborTe(): Promise<MacroDataPoint | null> {
+export async function fetchIndoniaRateTe(): Promise<MacroDataPoint | null> {
   const text = await fetchRenderedTextWithBrowser('https://tradingeconomics.com/indonesia/interbank-rate');
   if (!text) return null;
 
@@ -309,7 +310,7 @@ export async function fetchJiborTe(): Promise<MacroDataPoint | null> {
     const mm = monthMap[mon] ?? '12';
     const lastDay = new Date(parseInt(yr), parseInt(mm), 0).getDate();
     return {
-      indicator: 'jibor_3m_pct', category: 'banking', date: `${yr}-${mm}-${lastDay}`,
+      indicator: 'indonia_3m_pct', category: 'banking', date: `${yr}-${mm}-${lastDay}`,
       value: val, unit: '%', source: 'trading_economics_scrape', fetchedAt: NOW(),
     };
   }
@@ -318,10 +319,13 @@ export async function fetchJiborTe(): Promise<MacroDataPoint | null> {
   const m = text.match(/Interbank Rate in Indonesia (?:increased to|decreased to|remained unchanged at|averaged)\s+([\d.]+)\s+percent/i);
   if (!m) return null;
   return {
-    indicator: 'jibor_3m_pct', category: 'banking', date: TODAY(),
+    indicator: 'indonia_3m_pct', category: 'banking', date: TODAY(),
     value: parseFloat(m[1]!), unit: '%', source: 'trading_economics_scrape', fetchedAt: NOW(),
   };
 }
+
+/** @deprecated Use fetchIndoniaRateTe — JIBOR discontinued Dec 2023 */
+export const fetchJiborTe = fetchIndoniaRateTe;
 
 /**
  * Fetch Indonesia gross external debt from Trading Economics.

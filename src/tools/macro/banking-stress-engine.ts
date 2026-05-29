@@ -4,7 +4,7 @@ import { formatToolResult } from '../types.js';
 import { upsertPoints, getLatestPoint } from './time-series-db.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchBankingRatiosOjk } from './sources/ojk.js';
-import { fetchJiborTe, fetchExternalDebtTe, fetchIhprTe } from './sources/sovereign-scraper.js';
+import { fetchIndoniaRateTe, fetchExternalDebtTe, fetchIhprTe } from './sources/sovereign-scraper.js';
 import type { AlertLevel } from './types.js';
 
 export const BANKING_STRESS_DESCRIPTION = `
@@ -14,14 +14,14 @@ Tracks Indonesia's banking sector health and hidden credit cycle stress. Detects
 - NPL buildup (the "mortgage delinquency" signal — stress accumulates before it's visible)
 - LDR overextension (credit growth outpacing deposits = liquidity fragility)
 - CAR erosion (capital buffer thinning = reduced shock absorption)
-- JIBOR-BI Rate spread widening (interbank trust deterioration — equivalent to LIBOR-OIS in 2008)
+- IndONIA-BI Rate spread widening (interbank trust deterioration — equivalent to LIBOR-OIS in 2008)
 - External debt accumulation (USD-denominated corporate debt + sovereign)
 
 ## When to Use
 
 - "What is Indonesia's NPL ratio?"
 - "Is the banking sector overleveraged?"
-- "JIBOR spread check"
+- "IndONIA spread check"
 - "Show banking stress indicators"
 - "Indonesia external debt exposure"
 - Monthly banking KPI review
@@ -30,13 +30,13 @@ Tracks Indonesia's banking sector health and hidden credit cycle stress. Detects
 
 - Banking Stress Score (0–100, higher = more stress)
 - GREEN/YELLOW/ORANGE/RED alert level
-- NPL gross %, LDR %, CAR %, JIBOR spread, External Debt
+- NPL gross %, LDR %, CAR %, IndONIA spread, External Debt
 
 ## Data Sources
 
 - NPL / LDR / CAR: OJK SPI Excel (Playwright, monthly, ~11 month lag due to portal migration)
   TODO: new OJK portal (data.ojk.go.id) for July 2025+ data
-- JIBOR 3M: Trading Economics scraper (Playwright, monthly)
+- IndONIA 3M: Trading Economics scraper (Playwright, monthly) — BI discontinued JIBOR Dec 2023
 - BI Rate (for spread): macro DB (from sovereign_risk_engine last run)
 - External Debt: Trading Economics scraper (Playwright, quarterly, source: Bank Indonesia)
 `.trim();
@@ -47,9 +47,9 @@ interface BankingStressOutput {
   nplPct: number | null;
   ldrPct: number | null;
   carPct: number | null;
-  jiborPct: number | null;
+  indoniaPct: number | null;
   biRatePct: number | null;
-  jiborSpreadBps: number | null;
+  indoniaSpreadBps: number | null;
   externalDebtBn: number | null;
   ihprYoy: number | null;
   sectorNpl: Record<string, number>;
@@ -83,8 +83,8 @@ function scoreCar(car: number): number {
   return Math.min(100, Math.round(70 + (8 - car) / 2 * 30));
 }
 
-/** Score JIBOR spread (bps): 0–50 normal, 50–150 elevated, >200 crisis */
-function scoreJiborSpread(spreadBps: number): number {
+/** Score IndONIA spread vs BI Rate (bps): 0–50 normal, 50–150 elevated, >200 crisis */
+function scoreIndoniaSpread(spreadBps: number): number {
   if (spreadBps < 0) spreadBps = 0; // negative spread = unusually loose
   if (spreadBps < 50) return Math.round(spreadBps / 50 * 20);
   if (spreadBps < 150) return Math.round(20 + (spreadBps - 50) / 100 * 40);
@@ -94,20 +94,20 @@ function scoreJiborSpread(spreadBps: number): number {
 
 export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   // 1. Fetch live data
-  const [bankingRatios, jiborPoint, extDebtPoint, ihprPoint] = await Promise.allSettled([
+  const [bankingRatios, indoniaPoint, extDebtPoint, ihprPoint] = await Promise.allSettled([
     fetchBankingRatiosOjk(),
-    fetchJiborTe(),
+    fetchIndoniaRateTe(),
     fetchExternalDebtTe(),
     fetchIhprTe(),
   ]);
 
   const ratios = bankingRatios.status === 'fulfilled' ? bankingRatios.value : { npl: null, ldr: null, car: null, sectorNpl: {} };
-  const jibor = jiborPoint.status === 'fulfilled' ? jiborPoint.value : null;
+  const indonia = indoniaPoint.status === 'fulfilled' ? indoniaPoint.value : null;
   const extDebt = extDebtPoint.status === 'fulfilled' ? extDebtPoint.value : null;
   const ihpr = ihprPoint.status === 'fulfilled' ? ihprPoint.value : null;
 
   // 2. Persist to DB
-  const pointsToSave = [ratios.npl, ratios.ldr, ratios.car, jibor, extDebt, ihpr].filter(Boolean);
+  const pointsToSave = [ratios.npl, ratios.ldr, ratios.car, indonia, extDebt, ihpr].filter(Boolean);
   if (pointsToSave.length > 0) await upsertPoints(pointsToSave as NonNullable<typeof ratios.npl>[]);
 
   // Persist sector NPL as individual DB points
@@ -123,11 +123,11 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   if (sectorNplPoints.length > 0) await upsertPoints(sectorNplPoints);
 
   // 3. Read from DB (use cached if live fetch failed)
-  const [dbNpl, dbLdr, dbCar, dbJibor, dbBiRate, dbExtDebt, dbIhpr] = await Promise.all([
+  const [dbNpl, dbLdr, dbCar, dbIndonia, dbBiRate, dbExtDebt, dbIhpr] = await Promise.all([
     getLatestPoint('bank_npl_gross_pct'),
     getLatestPoint('bank_ldr_pct'),
     getLatestPoint('bank_car_pct'),
-    getLatestPoint('jibor_3m_pct'),
+    getLatestPoint('indonia_3m_pct'),
     getLatestPoint('bi_rate_pct'),
     getLatestPoint('indonesia_external_debt_bn'),
     getLatestPoint('indonesia_ihpr_yoy_pct'),
@@ -136,7 +136,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   const nplPct = dbNpl?.value ?? null;
   const ldrPct = dbLdr?.value ?? null;
   const carPct = dbCar?.value ?? null;
-  const jiborPct = dbJibor?.value ?? null;
+  const indoniaPct = dbIndonia?.value ?? null;
   const biRatePct = dbBiRate?.value ?? null;
   const externalDebtBn = dbExtDebt?.value ?? null;
   const ihprYoy = dbIhpr?.value ?? null;
@@ -150,8 +150,8 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     }),
   );
 
-  const jiborSpreadBps = jiborPct !== null && biRatePct !== null
-    ? Math.round((jiborPct - biRatePct) * 100)
+  const indoniaSpreadBps = indoniaPct !== null && biRatePct !== null
+    ? Math.round((indoniaPct - biRatePct) * 100)
     : null;
 
   // 4. Compute stress score (weighted)
@@ -159,7 +159,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   if (nplPct !== null) components.push([scoreNpl(nplPct), 0.30]);
   if (ldrPct !== null) components.push([scoreLdr(ldrPct), 0.25]);
   if (carPct !== null) components.push([scoreCar(carPct), 0.25]);
-  if (jiborSpreadBps !== null) components.push([scoreJiborSpread(jiborSpreadBps), 0.20]);
+  if (indoniaSpreadBps !== null) components.push([scoreIndoniaSpread(indoniaSpreadBps), 0.20]);
 
   let stressScore = 20; // default neutral if no data
   if (components.length > 0) {
@@ -175,9 +175,9 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   if (nplPct !== null && nplPct > 5) flags.push(`NPL ${nplPct.toFixed(1)}% — above stress threshold (5%)`);
   if (ldrPct !== null && ldrPct > 100) flags.push(`LDR ${ldrPct.toFixed(1)}% — credit exceeds deposits`);
   if (carPct !== null && carPct < 15) flags.push(`CAR ${carPct.toFixed(1)}% — capital buffer thinning`);
-  if (jiborSpreadBps !== null && jiborSpreadBps > 100) flags.push(`JIBOR spread ${jiborSpreadBps}bps — interbank stress`);
-  if (jiborSpreadBps !== null && jiborSpreadBps > 50 && nplPct !== null && nplPct > 3) {
-    flags.push('JIBOR spread + NPL both elevated — early interbank-credit stress signal');
+  if (indoniaSpreadBps !== null && indoniaSpreadBps > 100) flags.push(`IndONIA spread ${indoniaSpreadBps}bps — interbank stress`);
+  if (indoniaSpreadBps !== null && indoniaSpreadBps > 50 && nplPct !== null && nplPct > 3) {
+    flags.push('IndONIA spread + NPL both elevated — early interbank-credit stress signal');
   }
   if (ihprYoy !== null && ihprYoy < 0) flags.push(`IHPR ${ihprYoy.toFixed(1)}% YoY — property prices falling (KPR collateral risk)`);
   if (ihprYoy !== null && ihprYoy < 0 && nplPct !== null && nplPct > 3) {
@@ -189,7 +189,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   }
 
   // 7. Data date (most recent of all fetched points)
-  const dates = [dbNpl, dbLdr, dbCar, dbJibor, dbExtDebt]
+  const dates = [dbNpl, dbLdr, dbCar, dbIndonia, dbExtDebt]
     .filter(Boolean)
     .map(p => p!.date)
     .sort()
@@ -200,7 +200,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   const nplStr = nplPct !== null ? `NPL ${nplPct.toFixed(1)}%` : 'NPL n/a';
   const ldrStr = ldrPct !== null ? `LDR ${ldrPct.toFixed(1)}%` : 'LDR n/a';
   const carStr = carPct !== null ? `CAR ${carPct.toFixed(1)}%` : 'CAR n/a';
-  const spreadStr = jiborSpreadBps !== null ? `JIBOR spread ${jiborSpreadBps}bps` : 'JIBOR n/a';
+  const spreadStr = indoniaSpreadBps !== null ? `IndONIA spread ${indoniaSpreadBps}bps` : 'IndONIA n/a';
   const extDebtStr = externalDebtBn !== null ? `External Debt $${externalDebtBn.toFixed(0)}bn` : '';
 
   const summary = [
@@ -214,7 +214,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   return {
     alert, stressScore,
     nplPct, ldrPct, carPct,
-    jiborPct, biRatePct, jiborSpreadBps,
+    indoniaPct, biRatePct, indoniaSpreadBps,
     externalDebtBn, ihprYoy, sectorNpl, dataDate, flags, summary,
   };
 }
@@ -237,9 +237,9 @@ export const bankingStressEngine = new DynamicStructuredTool({
         `| NPL Gross % | ${output.nplPct?.toFixed(1) ?? 'n/a'} | YELLOW >5%, RED >10% |`,
         `| LDR % | ${output.ldrPct?.toFixed(1) ?? 'n/a'} | YELLOW >90%, RED >110% |`,
         `| CAR % | ${output.carPct?.toFixed(1) ?? 'n/a'} | YELLOW <15%, RED <8% |`,
-        `| JIBOR 3M % | ${output.jiborPct?.toFixed(2) ?? 'n/a'} | — |`,
+        `| IndONIA 3M % | ${output.indoniaPct?.toFixed(2) ?? 'n/a'} | — |`,
         `| BI Rate % | ${output.biRatePct?.toFixed(2) ?? 'n/a'} | — |`,
-        `| JIBOR-BI Spread | ${output.jiborSpreadBps !== null ? output.jiborSpreadBps + 'bps' : 'n/a'} | YELLOW >50bps, RED >200bps |`,
+        `| IndONIA-BI Spread | ${output.indoniaSpreadBps !== null ? output.indoniaSpreadBps + 'bps' : 'n/a'} | YELLOW >50bps, RED >200bps |`,
         `| External Debt | ${output.externalDebtBn !== null ? '$' + output.externalDebtBn.toFixed(0) + 'bn' : 'n/a'} | — |`,
         `| IHPR YoY % | ${output.ihprYoy !== null ? output.ihprYoy.toFixed(1) + '%' : 'n/a'} | <0% = collateral risk |`,
         ``,
@@ -249,7 +249,7 @@ export const bankingStressEngine = new DynamicStructuredTool({
         ``,
         output.flags.length > 0 ? `**Flags:**\n${output.flags.map(f => `- ${f}`).join('\n')}` : '**No active flags.**',
         ``,
-        `_Data as of: ${output.dataDate} WIB. OJK SPI lag ~11mo (portal migration); JIBOR/ULN near-real-time. IHPR: BI SHPR quarterly._`,
+        `_Data as of: ${output.dataDate} WIB. OJK SPI lag ~11mo (portal migration); IndONIA/ULN near-real-time. IHPR: BI SHPR quarterly._`,
       ];
       return formatToolResult(lines.join('\n'));
     } catch (e) {

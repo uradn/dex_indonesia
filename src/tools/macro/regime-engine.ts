@@ -1,11 +1,41 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
+import YahooFinance from 'yahoo-finance2';
 import { formatToolResult } from '../types.js';
 import { upsertPoints, getLastN, getLatestPoint } from './time-series-db.js';
 import { rollingZScore, alertFromZScore } from './scoring.js';
 import { fetchGdpGrowth, fetchInflation } from './sources/imf.js';
 import { fetchPmiManufacturingTe } from './sources/sovereign-scraper.js';
 import type { MacroRegime, AlertLevel, MacroDataPoint } from './types.js';
+
+const _yf = new YahooFinance();
+const _NOW = () => new Date().toISOString();
+const _TODAY = () => new Date().toISOString().slice(0, 10);
+
+/**
+ * Fetch and persist JKSE index level, DXY, VIX daily.
+ * Called as part of regime-engine run to keep global market indicators fresh.
+ */
+async function refreshMarketGlobals(): Promise<void> {
+  const tickers: Array<{ ticker: string; indicator: string; unit: string }> = [
+    { ticker: '^JKSE',    indicator: 'ihsg_level', unit: 'index' },
+    { ticker: 'DX-Y.NYB', indicator: 'dxy_index',  unit: 'index' },
+    { ticker: '^VIX',     indicator: 'vix_level',   unit: 'index' },
+  ];
+  const points: MacroDataPoint[] = [];
+  await Promise.allSettled(
+    tickers.map(async ({ ticker, indicator, unit }) => {
+      try {
+        const q = await _yf.quote(ticker);
+        const price = (q as Record<string, unknown>)['regularMarketPrice'];
+        if (typeof price === 'number' && price > 0) {
+          points.push({ indicator, category: 'regime', date: _TODAY(), value: price, unit, source: 'yahoo_finance', fetchedAt: _NOW() });
+        }
+      } catch { /* skip on error */ }
+    }),
+  );
+  if (points.length > 0) await upsertPoints(points);
+}
 
 export const REGIME_DESCRIPTION = `
 MACRO INTELLIGENCE — Quad Regime Engine
@@ -124,6 +154,7 @@ export async function runRegimeEngine(): Promise<RegimeOutput> {
     fetchGdpGrowth(),
     fetchInflation(),
     fetchPmiManufacturingTe(),
+    refreshMarketGlobals(), // keeps JKSE/DXY/VIX fresh daily
   ]);
   if (gdpSeries.length > 0) await upsertPoints(gdpSeries);
   if (inflSeries.length > 0) await upsertPoints(inflSeries);

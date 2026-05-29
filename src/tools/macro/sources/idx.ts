@@ -27,12 +27,12 @@ const IDX_HEADERS = {
  * Returns net buy in IDR billion (positive = inflow).
  */
 async function fetchIdxForeignFlowApi(): Promise<number | null> {
-  // IDX trading data API — foreign investor net buy summary
+  // IDX TradingSummary API — foreign investor net buy summary
+  // Note: old TradingData/StockData prefixes return 503; TradingSummary is current.
   const urls = [
-    'https://www.idx.co.id/primary/TradingData/GetForeignFlow?periode=1',
-    'https://www.idx.co.id/umbraco/Surface/TradingData/GetForeignFlow?periode=1',
-    'https://www.idx.co.id/primary/TradingData/GetForeignFlow',
-    'https://www.idx.co.id/primary/StockData/GetForeignFlow?periode=1',
+    'https://www.idx.co.id/primary/TradingSummary/GetForeignSummary?length=5&start=0',
+    'https://www.idx.co.id/primary/TradingSummary/GetForeignFlow?length=5&start=0',
+    'https://www.idx.co.id/primary/TradingSummary/GetForeignSummary',
   ];
 
   for (const url of urls) {
@@ -43,22 +43,31 @@ async function fetchIdxForeignFlowApi(): Promise<number | null> {
       });
       if (!res.ok) continue;
       const data = await res.json() as unknown;
-      // API returns array of {Date, Buy, Sell, Net} or similar structure
-      if (Array.isArray(data) && data.length > 0) {
-        const latest = data[data.length - 1] as Record<string, unknown>;
-        // Try common field names: Net, NetBuy, net_buy, Foreign_Net
-        const net = latest['Net'] ?? latest['NetBuy'] ?? latest['net_buy'] ?? latest['Foreign_Net'];
-        if (typeof net === 'number') return net / 1_000_000_000; // assume IDR, convert to IDR bn
+
+      // TradingSummary returns {data: [...], recordsTotal: N}
+      const rows = Array.isArray(data)
+        ? data
+        : (data as Record<string, unknown>)?.['data'] as unknown[] | undefined;
+
+      if (Array.isArray(rows) && rows.length > 0) {
+        const latest = rows[rows.length - 1] as Record<string, unknown>;
+        // Field names: SellValue/BuyValue (IDR), or Net/NetBuy/NetValue
+        const net = latest['Net'] ?? latest['NetBuy'] ?? latest['net_buy'] ?? latest['Foreign_Net'] ?? latest['NetValue'];
+        const buy = latest['BuyValue'] ?? latest['Buy'];
+        const sell = latest['SellValue'] ?? latest['Sell'];
+
+        if (typeof net === 'number' && Math.abs(net) > 0) {
+          // TradingSummary values are in IDR (not already in bn) if >1e9, else already in bn
+          return Math.abs(net) > 1e6 ? net / 1_000_000_000 : net;
+        }
+        if (typeof buy === 'number' && typeof sell === 'number') {
+          const netVal = buy - sell;
+          return Math.abs(netVal) > 1e6 ? netVal / 1_000_000_000 : netVal;
+        }
         if (typeof net === 'string') {
           const parsed = parseFloat(net.replace(/,/g, ''));
-          if (!isNaN(parsed)) return parsed / 1_000_000_000;
+          if (!isNaN(parsed)) return Math.abs(parsed) > 1e6 ? parsed / 1_000_000_000 : parsed;
         }
-      }
-      // Try object with nested data
-      if (data && typeof data === 'object') {
-        const obj = data as Record<string, unknown>;
-        const net = obj['Net'] ?? obj['netBuy'] ?? obj['net'];
-        if (typeof net === 'number') return net / 1_000_000_000;
       }
     } catch { /* try next */ }
   }

@@ -135,8 +135,10 @@ export async function fetchInflation(): Promise<MacroDataPoint[]> {
 export async function fetchCurrentAccountBn(): Promise<MacroDataPoint[]> {
   try {
     const data = await imfFetch('BCA');
+    const currentYear = new Date().getFullYear();
     return Object.entries(data)
-      .filter(([y, v]) => !isNaN(Number(y)) && !isNaN(v))
+      .filter(([y, v]) => !isNaN(Number(y)) && !isNaN(v) && Number(y) <= currentYear - 1)
+      .sort(([a], [b]) => Number(a) - Number(b))
       .slice(-8)
       .map(([year, value]) => ({
         indicator: 'current_account_bn',
