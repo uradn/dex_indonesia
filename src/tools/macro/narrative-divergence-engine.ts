@@ -60,7 +60,7 @@ const APBN_ASSUMPTIONS = {
   oilPrice: 70,         // APBN ICP (Indonesian Crude Price) assumption USD/bbl
   gdpGrowth: 5.4,       // APBN GDP growth target %
   inflation: 2.5,       // APBN CPI target %
-  biRate: 5.25,         // BI 7DRR as of May 2026 (cut from 5.5% in 2025)
+  biRate: 5.25,         // BI 7DRR as of May 2026 (raised +50bps from 4.75% on 20 May 2026)
 };
 
 export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenceOutput> {

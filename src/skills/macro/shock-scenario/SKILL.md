@@ -26,7 +26,7 @@ Run these tools in parallel to get current values:
 Extract these baseline values:
 - `usdidr`: current USDIDR spot (e.g. 17,879)
 - `sbn10y`: current SBN 10Y yield % (e.g. 6.709)
-- `bi_rate`: current BI Rate % (e.g. 5.75)
+- `bi_rate`: current BI Rate % (e.g. 5.25 — raised to 5.25% on 20 May 2026)
 - `fx_reserves`: FX reserves USD bn (e.g. 151.9)
 - `srbi_t`: SRBI outstanding IDR trillion (e.g. 957.9)
 - `npl`: NPL gross % (e.g. 1.96)
