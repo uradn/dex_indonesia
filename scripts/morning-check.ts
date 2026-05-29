@@ -132,9 +132,13 @@ if (regime.status === 'fulfilled') {
 }
 
 // 7 — Narrative Credibility
+// narrativeCredibilityScore = 100 − avgDivergence (higher = more credible = LESS stress).
+// Display stress score = 100 − credibility, consistent with all other modules.
 if (narrative.status === 'fulfilled') {
   const r = narrative.value;
-  console.log(`\n### 7. Narrative Credibility  ${emoji(r.alertLevel)} ${r.narrativeCredibilityScore}/100`);
+  const narrativeStress = 100 - r.narrativeCredibilityScore;
+  console.log(`\n### 7. Narrative Credibility  ${emoji(r.alertLevel)} ${narrativeStress}/100`);
+  console.log(`  Credibility index: ${r.narrativeCredibilityScore}/100`);
   for (const f of r.flags.slice(0, 2)) console.log(`  ⚠️  ${f}`);
 } else {
   console.log(`\n### 7. Narrative  ❌ ${String(narrative.reason).slice(0, 80)}`);
