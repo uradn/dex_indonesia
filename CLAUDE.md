@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Owner:** Victor (victor@sadasa.id)
 **Forked from:** `virattt/dexter` (upstream — read-only reference, do NOT push there)
 **Purpose:** Custom Indonesia sovereign macro intelligence system — "Big Short Mode" / Silent Crisis Detector for ASEAN/IDR/IDX monitoring. Not a general-purpose financial agent fork.
-**Remote:** No `origin` configured intentionally. Add your own GitHub remote before pushing: `git remote add origin https://github.com/<your-username>/dexter.git`
+**Remote:** `origin` → `https://github.com/uradn/dex_indonesia.git`. Push via GITHUB_TOKEN in `.env` (never hardcode): `TOKEN=$(grep GITHUB_TOKEN .env | cut -d= -f2) && git remote set-url origin "https://uradn:${TOKEN}@github.com/uradn/dex_indonesia.git" && git push origin main; git remote set-url origin https://github.com/uradn/dex_indonesia.git`
 
 ## Commands
 
@@ -77,7 +77,7 @@ Tracks Indonesia's domestic political and social stability. Two channels: (A) so
 Tracks 10 PIHPS strategic food commodities (beras medium, cabai merah/rawit, bawang merah/putih, daging sapi/ayam, telur, minyak goreng curah, gula pasir). Food basket = ~30% of CPI — leading indicator for headline inflation and BI rate pressure. Computes Food Stress Index (0-100) via 90d z-score per commodity. Fires `DOMESTIC PRESSURE ALERT` when ≥2 commodities spike (z > 1.5) simultaneously. Also tracks aggregate food CPI YoY % vs APBN implied food CPI (~3.75% = 1.5× headline 2.5% target). Transmission chain: food spike → CPI overshoot → BI forced hike → SBN yield → foreign outflow. Sources: `hargapangan.id` Playwright scrape (primary, daily), Trading Economics food inflation meta scrape (fallback). Role in system: upstream early-warning feed for Regime Engine and Narrative Divergence Engine (food CPI check added as check #6). Silent Crisis Detector weight: 0.08.
 
 **Module 8 — Banking Stress Engine** (`banking_stress_engine` tool):
-Tracks NPL gross %, LDR, CAR, JIBOR-BI Rate spread, external debt, IHPR property price index (YoY), and sector NPL (real estat, konstruksi, perdagangan, konsumsi). Big Short early warning: detects credit cycle stress before it's visible in headline data. NPL data from OJK SPI Excel (Playwright + OJK cookies, ~11mo lag); JIBOR/external debt/IHPR from Trading Economics. IHPR added to detect collateral deflation risk in KPR portfolios. Sector NPL populated alongside aggregate when OJK Excel available. Sources: `src/tools/macro/sources/ojk.ts`, `src/tools/macro/sources/sovereign-scraper.ts`.
+Tracks NPL gross %, LDR, CAR, IndONIA-BI Rate corridor spread, external debt, IHPR property price index (YoY), and sector NPL (real estat, konstruksi, perdagangan, konsumsi). Big Short early warning: detects credit cycle stress before it's visible in headline data. NPL tier hierarchy: OJK SPI Excel (Playwright, ~11mo lag) → World Bank API `FB.AST.NPER.ZS` (free, annual, no Playwright) → Trading Economics Playwright. 48h freshness gate: skips re-scrape if KPIs cached — prevents Playwright contention during 12-module parallel morning brief. FSAP nexus: `(sbn10y − 6.5%) × 6yr × 20% SBN/assets = implied CAR hit pp`. IndONIA corridor: DFR = BI Rate − 100bps, LF = BI Rate + 75bps; spread >30bps=YELLOW, >50bps=ORANGE, >75bps=RED. KLR signals: NPL >3% = early warning, >5% = acute; M2/FX reserves ratio >3x = watch, >5x = critical. Sources: `src/tools/macro/sources/ojk.ts`, `src/tools/macro/sources/sovereign-scraper.ts`.
 
 **Module 9 — Market Stress Engine** (`market_stress_engine` tool):
 IHSG valuation + IDX breadth. Tracks IHSG P/E ratio (historical avg 14-16x; >22x = elevated) and advance/decline ratio. Detects valuation disconnect (elevated P/E while breadth collapses = narrow leadership before broad selloff). Sources: `src/tools/macro/sources/ihsg.ts` (Trading Economics P/E + IDX market summary breadth).
@@ -98,10 +98,19 @@ Tracks USDIDR spot + 30d realized vol, FX reserves trajectory, SRBI outstanding 
 - `src/tools/macro/sources/` — data adapters: yahoo-macro (FX/ETF), bi (BI website scraper), bps (BPS API), imf (IMF Data API), bloomberg (REST proxy), refinitiv (RDP OAuth2)
 - `src/skills/macro/bop/SKILL.md` — BoP analysis workflow
 - `src/skills/macro/fx-defense/SKILL.md` — FX Defense workflow
+- `src/skills/macro/klr-ews/SKILL.md` — KLR EWS 18-indicator dual-crisis signal matrix
+- `src/skills/macro/shock-scenario/SKILL.md` — Forward-looking stress simulator (Before vs After per module)
 
-**Alert levels:** GREEN (z<1.5) → YELLOW (z≥1.5) → ORANGE (z≥2.0) → RED (z≥2.5)
+**Alert levels (z-score based):** GREEN (z<1.5) → YELLOW (z≥1.5) → ORANGE (z≥2.0) → RED (z≥2.5). Score-based thresholds (for shock scenario / module scoring): GREEN <33, YELLOW 33–49, ORANGE 50–69, RED ≥70.
 
-**Silent Crisis Detector** (`silent_crisis_detector` tool): aggregates all 10 modules with weighted scoring. fx_defense 0.18, bop 0.18, sovereign_risk 0.14, foreign_flow 0.14, banking 0.10, commodity 0.09, fiscal 0.08, market 0.07, regime 0.05, narrative 0.05. Non-linear amplification when 3+ modules stressed.
+**Silent Crisis Detector** (`silent_crisis_detector` tool): aggregates all 12 modules with weighted scoring. fx_defense 0.18, bop 0.18, sovereign_risk 0.14, foreign_flow 0.14, banking 0.10, commodity 0.09, domestic_pressure 0.08, fiscal 0.08, political_risk 0.06, market 0.07, regime 0.03, narrative 0.02. Non-linear amplification when 3+ modules stressed (×1.2); 5+ modules (×1.4). Cap 95%.
+
+**Research frameworks (embedded in Module 8 + skills):**
+- **KLR EWS** — 18-indicator dual crisis matrix; invoke via `klr-ews` skill
+- **FSAP sovereign-bank nexus** — SBN yield → implied CAR erosion; live in `banking_stress_engine`
+- **BI IndONIA corridor** — DFR = BI Rate −100bps, LF = BI Rate +75bps; breach = forced BI liquidity injection
+
+**APBN 2026 macro constants** (UU No.17/2025): USDIDR 16,500 | ICP $70/bbl | GDP growth 5.4% | CPI 2.5% | SBN 10Y 6.9% | Revenue 3,153.6T | Spending 3,842.7T | Deficit 2.68% GDP | Post-efisiensi spending ~3,534.7T | GDP 25,714.2T. BI Rate as of 20 May 2026: 5.25% (+50bps from 4.75%).
 
 **Adding new modules:** create `src/tools/macro/{module}-engine.ts`, register in `registry.ts`, optionally add `src/skills/macro/{module}/SKILL.md`.
 
