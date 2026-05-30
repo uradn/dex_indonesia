@@ -1,3 +1,9 @@
+# Claude Code local config
+.claude/
+
+# Smoke test files
+smoke_*.ts
+
 # Environment variables
 .env
 .env.local
