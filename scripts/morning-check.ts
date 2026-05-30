@@ -118,6 +118,16 @@ if (flow.status === 'fulfilled') {
 if (commodity.status === 'fulfilled') {
   const r = commodity.value;
   console.log(`\n### 5. Commodity  ${emoji(r.scoreCard.alertLevel)} ${r.scoreCard.score}/100`);
+  const oilStr = r.brentPrice !== null
+    ? `Brent: $${r.brentPrice.toFixed(1)}/bbl` + (r.oilDeviation !== null ? ` (${r.oilDeviation > 0 ? '+' : ''}${r.oilDeviation.toFixed(0)}% vs APBN)` : '')
+    : null;
+  const cushionStr = `Cushion: ${r.commodityCushionScore}/100 | Oil Vuln: ${r.oilVulnerabilityIndex}/100`;
+  if (oilStr) console.log(`  ${oilStr} | ${cushionStr}`);
+  else console.log(`  ${cushionStr}`);
+  const stressed = r.topExportsByStress.filter((c) => c.stress === 'red' || c.stress === 'orange').slice(0, 3);
+  if (stressed.length > 0) {
+    console.log(`  Stressed exports: ${stressed.map((c) => `${c.indicator.replace('_usd_per_', '($/')}@${c.price.toFixed(0)} z=${c.zScore?.toFixed(1) ?? 'n/a'}`).join(' | ')}`);
+  }
   for (const f of r.scoreCard.flags ?? []) console.log(`  ⚠️  ${f}`);
 } else {
   console.log(`\n### 5. Commodity  ❌ ${String(commodity.reason).slice(0, 80)}`);
@@ -127,6 +137,11 @@ if (commodity.status === 'fulfilled') {
 if (regime.status === 'fulfilled') {
   const r = regime.value;
   console.log(`\n### 6. Regime  ${emoji(r.alertLevel)} | ${r.regimeLabel ?? r.currentRegime}`);
+  const pmiStr = r.latestPmi !== null ? ` | PMI: ${r.latestPmi.toFixed(1)}` : '';
+  console.log(`  Growth ROC: ${r.growthRoc >= 0 ? '+' : ''}${r.growthRoc.toFixed(2)}% (${r.growthTrend}) | Inflation ROC: ${r.inflationRoc >= 0 ? '+' : ''}${r.inflationRoc.toFixed(2)}% (${r.inflationTrend})${pmiStr}`);
+  if (r.shiftProbability > 20) {
+    console.log(`  ⚠️  Regime shift probability: ${r.shiftProbability.toFixed(0)}%${r.mostLikelyShift ? ` → ${r.mostLikelyShift}` : ''}`);
+  }
 } else {
   console.log(`\n### 6. Regime  ❌ ${String(regime.reason).slice(0, 80)}`);
 }

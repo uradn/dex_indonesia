@@ -215,6 +215,13 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     stressScore = Math.round(components.reduce((s, [score, w]) => s + score * w, 0) / totalWeight);
   }
 
+  // Constitutional breach floors: 3% GDP ceiling = YELLOW min; >4% = ORANGE min
+  if (projectedDeficitPctGdp !== null && projectedDeficitPctGdp > 4.0) {
+    stressScore = Math.max(stressScore, 55);
+  } else if (projectedDeficitPctGdp !== null && projectedDeficitPctGdp > 3.0) {
+    stressScore = Math.max(stressScore, 35);
+  }
+
   const alert = alertFromScore(stressScore) as AlertLevel;
 
   // 6. Boolean flags

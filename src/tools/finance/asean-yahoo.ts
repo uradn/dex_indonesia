@@ -2,7 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import YahooFinance from 'yahoo-finance2';
 
-const yf = new YahooFinance();
+const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 import { formatToolResult } from '../types.js';
 import { readCache, writeCache } from '../../utils/cache.js';
 import { TTL_15M, TTL_24H } from './utils.js';

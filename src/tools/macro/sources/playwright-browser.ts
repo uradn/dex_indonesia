@@ -50,6 +50,8 @@ async function getContext(): Promise<BrowserContext> {
         '--no-sandbox',
         '--disable-blink-features=AutomationControlled',
         '--disable-dev-shm-usage',
+        '--disable-logging',
+        '--log-level=3',
       ],
     });
     context = null;

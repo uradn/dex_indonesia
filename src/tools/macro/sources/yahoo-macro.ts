@@ -6,7 +6,7 @@ import YahooFinance from 'yahoo-finance2';
 import type { MacroDataPoint } from '../types.js';
 import { fetchUsdIdrEodhd } from './eodhd.js';
 
-const yf = new YahooFinance();
+const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 const NOW = () => new Date().toISOString();
 const TODAY = () => new Date().toISOString().slice(0, 10);

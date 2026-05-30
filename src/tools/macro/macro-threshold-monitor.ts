@@ -11,7 +11,7 @@ import { fetchUsdIdrSpot } from './sources/yahoo-macro.js';
 import YahooFinance from 'yahoo-finance2';
 import { MACRO_ALERT_THRESHOLDS } from './macro-cron-alerts.js';
 
-const yf = new YahooFinance();
+const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 interface ThresholdBreach {
   indicator: string;

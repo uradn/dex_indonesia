@@ -8,7 +8,7 @@ import { fetchGdpGrowth, fetchInflation } from './sources/imf.js';
 import { fetchPmiManufacturingTe } from './sources/sovereign-scraper.js';
 import type { MacroRegime, AlertLevel, MacroDataPoint } from './types.js';
 
-const _yf = new YahooFinance();
+const _yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 const _NOW = () => new Date().toISOString();
 const _TODAY = () => new Date().toISOString().slice(0, 10);
 
