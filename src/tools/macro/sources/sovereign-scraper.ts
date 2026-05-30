@@ -751,3 +751,61 @@ export async function fetchM2WorldBank(): Promise<MacroDataPoint | null> {
     return null;
   }
 }
+
+/**
+ * Fetch Indonesia total debt service ratio (DSR) from World Bank API.
+ * Indicator: DT.TDS.DECT.EX.ZS — total debt service as % of exports + primary income.
+ * Annual, 2-3yr lag. IMF stress threshold: 25%. Indonesia historical: 22-32%.
+ */
+export async function fetchUlnDsrWorldBank(): Promise<MacroDataPoint | null> {
+  try {
+    const res = await fetch(
+      'https://api.worldbank.org/v2/country/IDN/indicator/DT.TDS.DECT.EX.ZS?format=json&mrv=1',
+      { signal: AbortSignal.timeout(10_000) },
+    );
+    if (!res.ok) return null;
+    type WBResponse = [unknown, Array<{ date: string; value: number | null }>];
+    const json = await res.json() as WBResponse;
+    const record = json?.[1]?.[0];
+    if (!record || record.value === null || record.value === undefined) return null;
+    const val = parseFloat(record.value.toFixed(2));
+    if (isNaN(val) || val < 0 || val > 100) return null;
+    return {
+      indicator: 'uln_dsr_pct', category: 'uln',
+      date: `${record.date}-12-31`,
+      value: val, unit: '%',
+      source: 'world_bank_api', fetchedAt: NOW(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch Indonesia short-term external debt as % of total from World Bank API.
+ * Indicator: DT.DOD.DSTC.ZS — short-term debt stocks (% of total external debt).
+ * Annual, 2-3yr lag. Key input for Greenspan-Guidotti ratio. Indonesia historical: 10-20%.
+ */
+export async function fetchUlnShorttermPctWorldBank(): Promise<MacroDataPoint | null> {
+  try {
+    const res = await fetch(
+      'https://api.worldbank.org/v2/country/IDN/indicator/DT.DOD.DSTC.ZS?format=json&mrv=1',
+      { signal: AbortSignal.timeout(10_000) },
+    );
+    if (!res.ok) return null;
+    type WBResponse = [unknown, Array<{ date: string; value: number | null }>];
+    const json = await res.json() as WBResponse;
+    const record = json?.[1]?.[0];
+    if (!record || record.value === null || record.value === undefined) return null;
+    const val = parseFloat(record.value.toFixed(2));
+    if (isNaN(val) || val < 0 || val > 100) return null;
+    return {
+      indicator: 'uln_shortterm_pct', category: 'uln',
+      date: `${record.date}-12-31`,
+      value: val, unit: '%',
+      source: 'world_bank_api', fetchedAt: NOW(),
+    };
+  } catch {
+    return null;
+  }
+}

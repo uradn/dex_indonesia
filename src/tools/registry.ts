@@ -37,6 +37,7 @@ import { macroThresholdMonitor, THRESHOLD_MONITOR_DESCRIPTION } from './macro/ma
 import { fxRateRefreshTool, FX_RATE_REFRESH_DESCRIPTION } from './macro/fx-rate-refresh-tool.js';
 import { domesticPressureEngine, DOMESTIC_PRESSURE_DESCRIPTION } from './macro/domestic-pressure-engine.js';
 import { politicalRiskEngine, POLITICAL_RISK_DESCRIPTION } from './macro/political-risk-engine.js';
+import { ulnEngine, ULN_DESCRIPTION } from './macro/uln-engine.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -215,6 +216,13 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: domesticPressureEngine,
       description: DOMESTIC_PRESSURE_DESCRIPTION,
       compactDescription: 'Domestic Inflation Pressure Engine: tracks 10 PIHPS sembako prices (beras, cabai, bawang, daging, telur, minyak, gula). Food Stress Index + DOMESTIC PRESSURE ALERT when ≥2 commodities spike. CPI early warning feed for BI rate chain.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'uln_engine',
+      tool: ulnEngine,
+      description: ULN_DESCRIPTION,
+      compactDescription: 'ULN Engine (Module 13): Indonesia external debt stress. Tracks ULN/GDP, DSR, Greenspan-Guidotti ratio, YoY growth, BI hedging compliance. Cross-feeds to BoP, FX Defense, Banking engines.',
       concurrencySafe: true,
     },
     {

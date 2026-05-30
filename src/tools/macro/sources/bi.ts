@@ -237,6 +237,43 @@ export async function fetchSrbiOutstanding(): Promise<MacroDataPoint | null> {
   return parseSrbiZip(result.zipBuf);
 }
 
+/**
+ * Fetch BI macro-prudential hedging compliance rate for non-bank corporates.
+ * Source: BI quarterly ULN press release — "tingkat pemenuhan kewajiban lindung nilai".
+ * PBI 16/21/2014 jo 21/14/2019: min 25% hedge of net ULN maturing within 3 months.
+ * Returns % compliance (0-100). Degrades gracefully to null if page structure changes.
+ */
+export async function fetchHedgingComplianceBi(): Promise<MacroDataPoint | null> {
+  const text = await fetchRenderedTextWithBrowser(
+    'https://www.bi.go.id/id/statistik/statistik-utang-luar-negeri-indonesia/Default.aspx',
+  );
+  if (!text) return null;
+
+  // BI press release pattern: "mencapai XX,X% dari total kewajiban lindung nilai"
+  // or "pemenuhan kewajiban lindung nilai sebesar XX,X%"
+  const patterns = [
+    /pemenuhan\s+kewajiban\s+lindung\s+nilai[^.]*?sebesar\s+([\d]+[,.][\d]+)\s*%/i,
+    /mencapai\s+([\d]+[,.][\d]+)\s*%\s+dari\s+total\s+kewajiban\s+lindung\s+nilai/i,
+    /tingkat\s+pemenuhan[^.]*?([\d]+[,.][\d]+)\s*%/i,
+  ];
+
+  for (const pat of patterns) {
+    const m = text.match(pat);
+    if (m) {
+      const val = parseFloat(m[1]!.replace(',', '.'));
+      if (!isNaN(val) && val >= 0 && val <= 100) {
+        return {
+          indicator: 'uln_hedging_compliance_pct', category: 'uln',
+          date: TODAY(),
+          value: val, unit: '%',
+          source: 'bi_sulni_scrape', fetchedAt: NOW(),
+        };
+      }
+    }
+  }
+  return null;
+}
+
 async function parseSrbiZip(zipBuf: Buffer): Promise<MacroDataPoint | null> {
   const tmpZip = `/tmp/srbi-${Date.now()}.zip`;
   try {

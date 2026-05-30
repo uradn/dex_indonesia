@@ -157,8 +157,10 @@ export async function runBoPEngine(): Promise<BoPEngineOutput> {
   const bopStressScore = compositeScore(validSnapshots);
   const fxFragilityScore = Math.round((bopStressScore + reserveScore) / 2);
 
-  // External Funding Dependency: (external debt service / FX reserves) proxy
-  // Without detailed debt maturity data, proxy as: CA deficit / reserves
+  // External Funding Dependency: prefer Greenspan-Guidotti ratio written by uln-engine.
+  // Fallback: CA deficit / reserves proxy (used before Module 13 populates DB).
+  const ggPoint = await getLatestPoint('greenspan_guidotti');
+  const greenspanGuidotti = ggPoint?.value ?? null;
   const externalFundingDependency =
     currentCaBn && currentReserve && currentReserve.value > 0
       ? Math.abs(Math.min(currentCaBn.value, 0)) / currentReserve.value
@@ -199,6 +201,7 @@ export async function runBoPEngine(): Promise<BoPEngineOutput> {
     bopStressScore,
     fxFragilityScore,
     externalFundingDependency,
+    greenspanGuidotti,
     syntheticCadRisk,
   };
 }
@@ -254,7 +257,7 @@ function placeholderSnapshot(indicator: string, unit: string): IndicatorSnapshot
 }
 
 function formatOutput(output: BoPEngineOutput): string {
-  const { scoreCard, bopStressScore, fxFragilityScore, externalFundingDependency, syntheticCadRisk } = output;
+  const { scoreCard, bopStressScore, fxFragilityScore, externalFundingDependency, greenspanGuidotti, syntheticCadRisk } = output;
   return [
     `# Balance of Payments Engine — Indonesia`,
     `**Date:** ${scoreCard.scoreDate}`,
@@ -274,6 +277,7 @@ function formatOutput(output: BoPEngineOutput): string {
     `- **BoP Stress Score:** ${bopStressScore}/100`,
     `- **FX Fragility Score:** ${fxFragilityScore}/100`,
     `- **External Funding Dependency:** ${(externalFundingDependency * 100).toFixed(1)}%`,
+    greenspanGuidotti !== null ? `- **Greenspan-Guidotti Ratio:** ${greenspanGuidotti.toFixed(2)} (from ULN Engine — FX reserves / short-term ULN; <1.0 = CRITICAL)` : '',
     `- **Synthetic CAD Risk:** ${syntheticCadRisk ? '⚠️ YES' : 'No'}`,
     ``,
     scoreCard.flags.length > 0 ? `## Flags\n${scoreCard.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '',

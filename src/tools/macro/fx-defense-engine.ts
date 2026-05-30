@@ -178,6 +178,20 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   if (pseudoStabilityFlag) flags.push('PSEUDO-STABILITY: Low vol but reserves depleting — surface calm may be deceptive');
   if (biInterventionProxy === 'active_sterilized') flags.push('BI active sterilized intervention detected (reserves↓ + SRBI↑)');
   if (reserveBurnRate !== null && reserveBurnRate < 6) flags.push(`Reserve runway <6 months at current burn rate: ${reserveBurnRate.toFixed(1)} months`);
+
+  // Cross-feed from ULN Engine (Module 13): unhedged corporate USD exposure
+  const hedgingPoint = await getLatestPoint('uln_hedging_compliance_pct');
+  const hedgingCompliance = hedgingPoint?.value ?? null;
+  if (hedgingCompliance !== null && hedgingCompliance < 70) {
+    flags.push(`UNHEDGED EXPOSURE WARNING (ULN M13): corporate hedging compliance ${hedgingCompliance.toFixed(0)}% — forced USD buying risk if IDR weakens (1997 transmission mechanism)`);
+  } else if (hedgingCompliance !== null && hedgingCompliance < 85) {
+    flags.push(`Hedging sub-optimal (ULN M13): ${hedgingCompliance.toFixed(0)}% compliance — IDR shock amplification risk`);
+  }
+  const ggPoint = await getLatestPoint('greenspan_guidotti');
+  const ggRatio = ggPoint?.value ?? null;
+  if (ggRatio !== null && ggRatio < 1.5) {
+    flags.push(`GG RATIO (ULN M13): ${ggRatio.toFixed(2)} — FX reserve buffer vs short-term ULN thinning${ggRatio < 1.0 ? ' — CRITICAL BREACH' : ''}`);
+  }
   if (srbiSterilizationRatio !== null && srbiSterilizationRatio > 0.50) flags.push(`SRBI sterilization burden critical: ${(srbiSterilizationRatio * 100).toFixed(1)}% of FX reserves — BI balance sheet stretched`);
   else if (srbiSterilizationRatio !== null && srbiSterilizationRatio > 0.35) flags.push(`SRBI sterilization burden elevated: ${(srbiSterilizationRatio * 100).toFixed(1)}% of FX reserves — watch for capacity constraint`);
 

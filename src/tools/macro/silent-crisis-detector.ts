@@ -25,6 +25,7 @@ import { runMarketStressEngine } from './market-stress-engine.js';
 import { runFiscalEngine } from './fiscal-engine.js';
 import { runDomesticPressureEngine } from './domestic-pressure-engine.js';
 import { runPoliticalRiskEngine } from './political-risk-engine.js';
+import { runUlnEngine } from './uln-engine.js';
 import type { AlertLevel } from './types.js';
 
 export const SILENT_CRISIS_DESCRIPTION = `
@@ -80,18 +81,23 @@ const ALERT_WEIGHTS: Record<AlertLevel, number> = {
 };
 
 // Module importance weights (normalised in composite calculation)
+// Weights sum exactly to 1.00 (13 modules).
+// ULN (0.09) cross-domain: BoP rollover + fiscal debt service + banking NPL lead.
+// Major trims vs original 1.17 sum: bop 0.18→0.10, sovereign 0.14→0.09,
+// foreign_flow 0.14→0.09, fx_defense 0.18→0.16, banking 0.10→0.08, commodity 0.09→0.07.
 const MODULE_WEIGHTS: Record<string, number> = {
-  fx_defense:          0.18,
-  bop:                 0.18,
-  sovereign_risk:      0.14,
-  foreign_flow:        0.14,
-  banking:             0.10,  // NPL/LDR/CAR/JIBOR + IHPR + sector NPL
-  commodity:           0.09,
-  fiscal:              0.08,  // APBN realisasi vs target — revenue shortfall + deficit risk
-  market:              0.07,  // IHSG P/E + breadth — valuation disconnect signal
-  domestic_pressure:   0.08,  // food CPI early warning — upstream feed for CPI/BI rate chain
-  political_risk:      0.06,  // unemployment + social unrest + governance stability
-  regime:              0.03,
+  fx_defense:          0.16,  // FX is primary crisis transmission
+  uln:                 0.09,  // new — cross-domain: rollover + fiscal + banking NPL lead
+  bop:                 0.10,  // trimmed — GG ratio & external debt moved to ULN
+  sovereign_risk:      0.09,  // trimmed — ULN absorbs external debt sovereign dimension
+  foreign_flow:        0.09,  // trimmed
+  banking:             0.08,  // trimmed — private ULN lead now in ULN module
+  commodity:           0.07,
+  fiscal:              0.09,  // raised — ULN→govt debt service nexus explicit
+  market:              0.05,  // IHSG P/E + breadth
+  domestic_pressure:   0.06,  // food CPI early warning
+  political_risk:      0.05,  // unemployment + social unrest + governance stability
+  regime:              0.05,  // raised — regime shift precedes capital flight
   narrative:           0.02,
 };
 
@@ -111,6 +117,7 @@ async function getModuleScores(): Promise<ModuleScore[]> {
     { module: 'fiscal',             run: async () => { const r = await runFiscalEngine(); return { score: r.stressScore, alertLevel: r.alert }; } },
     { module: 'domestic_pressure',  run: async () => { const r = await runDomesticPressureEngine(); return { score: r.stressScore, alertLevel: r.alert }; } },
     { module: 'political_risk',     run: async () => { const r = await runPoliticalRiskEngine();   return { score: r.stressScore, alertLevel: r.alert }; } },
+    { module: 'uln',                run: async () => { const r = await runUlnEngine(); return { score: r.stressScore, alertLevel: r.alert }; } },
   ];
 
   await Promise.allSettled(
@@ -125,7 +132,7 @@ async function getModuleScores(): Promise<ModuleScore[]> {
   );
 
   // Ensure consistent ordering
-  const order = ['fx_defense', 'bop', 'sovereign_risk', 'foreign_flow', 'banking', 'commodity', 'fiscal', 'market', 'domestic_pressure', 'political_risk', 'regime', 'narrative'];
+  const order = ['fx_defense', 'uln', 'bop', 'sovereign_risk', 'foreign_flow', 'banking', 'commodity', 'fiscal', 'market', 'domestic_pressure', 'political_risk', 'regime', 'narrative'];
   scores.sort((a, b) => order.indexOf(a.module) - order.indexOf(b.module));
 
   return scores;
@@ -159,7 +166,7 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
   const fxModule = moduleScores.find((m) => m.module === 'fx_defense');
   const politicalModule = moduleScores.find((m) => m.module === 'political_risk');
 
-  const FINANCIAL_MODULE_SET = new Set(['fx_defense', 'bop', 'sovereign_risk', 'foreign_flow', 'banking', 'commodity', 'fiscal', 'market']);
+  const FINANCIAL_MODULE_SET = new Set(['fx_defense', 'uln', 'bop', 'sovereign_risk', 'foreign_flow', 'banking', 'commodity', 'fiscal', 'market']);
   const financialScores = moduleScores.filter((m) => FINANCIAL_MODULE_SET.has(m.module) && m.available);
   const financialAvg = financialScores.length > 0
     ? financialScores.reduce((s, m) => s + m.score, 0) / financialScores.length
@@ -184,7 +191,7 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
     .map((m) => `${m.module.replace('_', ' ')} [${m.alertLevel.toUpperCase()} ${m.score}/100]`);
 
   const keyFlags: string[] = [];
-  if (stressedCount >= 3) keyFlags.push(`CROSS-CONFIRMATION: ${stressedCount}/12 modules signaling stress simultaneously — non-linear risk elevated`);
+  if (stressedCount >= 3) keyFlags.push(`CROSS-CONFIRMATION: ${stressedCount}/13 modules signaling stress simultaneously — non-linear risk elevated`);
   if (politicalLeadingFinancial) keyFlags.push(`POLITICAL-FINANCIAL DIVERGENCE: political risk ${politicalScore}/100 ORANGE while financial modules avg ${Math.round(financialAvg)}/100 — social contract stress not yet priced by markets (typically leads financial repricing by 2-3 quarters)`);
   if (syntheticStabilityScore > 40) keyFlags.push(`SYNTHETIC STABILITY (${syntheticStabilityScore}/100): surface calm contradicts structural stress — watch for political → financial transmission`);
   if (silentCrisisProbability > 70) keyFlags.push('SYSTEMIC FRAGILITY: silent crisis probability critical — institutional positioning review warranted');
@@ -235,7 +242,7 @@ function formatOutput(output: SilentCrisisOutput): string {
     `|--------|-------|`,
     `| **Silent Crisis Probability** | **${output.silentCrisisProbability}%** |`,
     `| Synthetic Stability Score | ${output.syntheticStabilityScore}/100 |`,
-    `| Cross-Confirmed Stress Modules | ${output.crossConfirmationCount}/12 |`,
+    `| Cross-Confirmed Stress Modules | ${output.crossConfirmationCount}/13 |`,
     ``,
     `## Module Scorecard`,
     `| Module | Score | Alert | Available |`,

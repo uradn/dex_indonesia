@@ -8,7 +8,7 @@ export type MacroRegime = 'Q1' | 'Q2' | 'Q3' | 'Q4';
 
 export interface MacroDataPoint {
   indicator: string;
-  category: 'fx' | 'bop' | 'sovereign' | 'commodity' | 'flow' | 'regime' | 'banking' | 'pangan';
+  category: 'fx' | 'bop' | 'sovereign' | 'commodity' | 'flow' | 'regime' | 'banking' | 'pangan' | 'uln';
   date: string;          // ISO date YYYY-MM-DD
   value: number;
   unit: string;
@@ -49,6 +49,7 @@ export interface BoPEngineOutput {
   bopStressScore: number;
   fxFragilityScore: number;
   externalFundingDependency: number;
+  greenspanGuidotti: number | null;
   syntheticCadRisk: boolean;
 }
 
