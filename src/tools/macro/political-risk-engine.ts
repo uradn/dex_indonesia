@@ -170,9 +170,18 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     (r): r is SentimentResult => r !== null,
   );
 
-  const topHeadlines = sentimentResults
-    .flatMap((r) => r.headlines)
-    .slice(0, 6);
+  // Merge headlines across 3 signals, de-duplicate by title, keep date label
+  const seenTitles = new Set<string>();
+  const topHeadlines: string[] = [];
+  for (const r of sentimentResults) {
+    for (let i = 0; i < r.headlines.length && topHeadlines.length < 6; i++) {
+      const title = r.headlines[i];
+      if (!title || seenTitles.has(title)) continue;
+      seenTitles.add(title);
+      const date = r.publishedDates?.[i];
+      topHeadlines.push(date ? `[${date}] ${title}` : title);
+    }
+  }
 
   const narrative = buildNarrative({
     politicalRiskIndex, alert, unemploymentRate, foodPressureComponent,

@@ -81,6 +81,7 @@ export interface SentimentResult {
   highSeverityCount: number;
   headlines: string[];
   urls: string[];
+  publishedDates: string[];  // ISO date per headline, parallel to headlines[]
 }
 
 const SIGNAL_QUERIES: Record<NewsSentimentSignal, string> = {
@@ -123,7 +124,7 @@ function scoreTitle(title: string): { negative: number; positive: number; highSe
  * Run a single Exa news search and compute sentiment score.
  * Returns null if EXASEARCH_API_KEY not set or search fails.
  */
-export async function searchNewsSentiment(signal: NewsSentimentSignal, daysBack = 60): Promise<SentimentResult | null> {
+export async function searchNewsSentiment(signal: NewsSentimentSignal, daysBack = 7): Promise<SentimentResult | null> {
   if (!process.env.EXASEARCH_API_KEY) return null;
 
   try {
@@ -154,14 +155,16 @@ export async function searchNewsSentiment(signal: NewsSentimentSignal, daysBack 
     const netStress = Math.max(0, weightedNegative - totalPositive);
     const stressScore = Math.min(100, Math.round((netStress / Math.max(results.length, 1)) * 25));
 
+    const top4 = results.slice(0, 4);
     return {
       signal,
       stressScore,
       negativeCount: totalNegative,
       positiveCount: totalPositive,
       highSeverityCount: totalHighSeverity,
-      headlines: results.slice(0, 4).map((r) => r.title ?? '').filter(Boolean),
-      urls: results.slice(0, 4).map((r) => r.url ?? '').filter(Boolean),
+      headlines: top4.map((r) => r.title ?? '').filter(Boolean),
+      urls: top4.map((r) => r.url ?? '').filter(Boolean),
+      publishedDates: top4.map((r) => (r.publishedDate ?? '').slice(0, 10)),
     };
   } catch {
     return null;
