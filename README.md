@@ -66,13 +66,52 @@ IndONIA harus stay dalam corridor DFR (BI Rate −75bps) sampai LF Rate (BI Rate
 
 ### Shock Scenario Simulator
 
-Forward-looking stress test via skill `shock-scenario`. Input: satu atau compound shock (SBN yield, USDIDR, FX reserves, NPL, BI Rate). Output: Before vs After table per modul + transmission chain narrative + recalculated Silent Crisis Probability.
+Forward-looking stress test — simulasi bagaimana satu atau compound shock mengubah seluruh 12 modul sekaligus. Tersedia sebagai CLI script (`scripts/shock-scenario.ts`) maupun skill agent (`shock-scenario`).
 
+```bash
+bun scripts/shock-scenario.ts --list          # lihat semua preset
+bun scripts/shock-scenario.ts crisis          # 1997/2008 severity analog
+bun scripts/shock-scenario.ts idr-freefall    # sudden stop + forced BI hike
+bun scripts/shock-scenario.ts moderate        # baseline stress test
+# Custom parameter override
+bun scripts/shock-scenario.ts moderate --sbn 8.5 --usdidr 21000 --npl 4.5
 ```
-Severity tiers: Mild (+50bps / +1,500 IDR / −$20bn / +1pp NPL)
-               Moderate (+100bps / +3,000 / −$40bn / +3pp)
-               Severe (+150bps / +5,000 / −$60bn / +5pp)
-               Crisis (+250bps / +8,000 / −$80bn / +8pp)
+
+**10 named presets:**
+
+| Preset | Deskripsi | SBN Δ | USDIDR Δ | Reserves Δ |
+|--------|-----------|-------|----------|------------|
+| `mild` | Early deterioration | +50bps | +1,500 | −$20bn |
+| `moderate` | Standard stress | +100bps | +3,000 | −$40bn |
+| `severe` | Pre-crisis | +150bps | +5,000 | −$60bn |
+| `crisis` | 1997/2008 analog | +250bps | +8,000 | −$80bn |
+| `trump-tariff` | US tariff shock + EM selloff | +75bps | +2,000 | −$15bn |
+| `em-selloff` | Global EM risk-off | +125bps | +4,000 | −$35bn |
+| `oil-spike` | Commodity shock + imported inflation | +50bps | +1,000 | −$10bn |
+| `idr-freefall` | Sudden stop + forced BI hike | +150bps | +5,000 | −$50bn |
+| `bank-crisis` | Credit shock (NPL surge) | +100bps | +2,000 | −$20bn |
+| `bi-hike` | Aggressive rate tightening | +200bps | +1,000 | −$5bn |
+
+**Output per scenario:**
+- Before vs After score tiap modul (GREEN/YELLOW/ORANGE/RED)
+- Transmission chain narrative (doom loop detection, fiscal breach, foreign ownership buffer)
+- Silent Crisis Probability: Before → After
+- Critical thresholds yang terlewati
+
+**Contoh output (Full Crisis):**
+```
+## Shock Scenario: Full Crisis
+Baseline regime: Q3 — Stagflation (Growth↓ Inflation↑)
+
+| Module         | Before       | After        | Alert Δ       |
+|----------------|--------------|--------------|---------------|
+| FX Defense     | 32 🟢 GREEN  | 100 🔴 RED   | GREEN→RED     |
+| Sovereign Risk | 16 🟢 GREEN  |  97 🔴 RED   | GREEN→RED     |
+| Banking Stress |  2 🟢 GREEN  | 100 🔴 RED   | GREEN→RED     |
+| Fiscal         | 33 🟡 YELLOW |  55 🟠 ORANGE| YELLOW→ORANGE |
+
+Silent Crisis Probability: 24% 🟢 → 85% 🔴
+DOOM LOOP TERRITORY: CAR erosion 3.26pp (threshold >1.5pp)
 ```
 
 ### APBN 2026 Baseline
@@ -84,10 +123,13 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 ### Scripts Tambahan
 
 ```bash
-bun scripts/morning-check.ts   # morning brief semua 12 modul
-bash health-check.sh           # cek scraper, DB, Playwright, TypeScript
-bash env-check.sh              # live ping semua API key di .env
-bash git-push.sh               # push ke GitHub pakai GITHUB_TOKEN dari .env
+bun scripts/morning-check.ts              # morning brief semua 12 modul
+bun scripts/shock-scenario.ts --list      # lihat semua preset scenario
+bun scripts/shock-scenario.ts crisis      # full crisis simulation (1997/2008 analog)
+bun scripts/shock-scenario.ts idr-freefall # sudden stop + forced BI hike cycle
+bun scripts/seed-banking-baseline.ts      # seed CAR/LDR dari OJK LSPI (quarterly)
+bash health-check.sh                      # cek scraper, DB, Playwright, TypeScript
+bash env-check.sh                         # live ping semua API key di .env
 ```
 
 ---
