@@ -719,3 +719,35 @@ export async function fetchCarTe(): Promise<MacroDataPoint | null> {
     8, 35,
   );
 }
+
+/**
+ * Fetch Indonesia M2 broad money from World Bank API.
+ * Source: World Bank FM.LBL.BMNY.CN (broad money, current LCU = IDR).
+ * Annual data, 1 year lag. No auth required.
+ * 2024 value: IDR ~9,247T; 2023: ~8,827T.
+ */
+export async function fetchM2WorldBank(): Promise<MacroDataPoint | null> {
+  try {
+    const res = await fetch(
+      'https://api.worldbank.org/v2/country/IDN/indicator/FM.LBL.BMNY.CN?format=json&mrv=1',
+      { signal: AbortSignal.timeout(10_000) },
+    );
+    if (!res.ok) return null;
+    type WBResponse = [unknown, Array<{ date: string; value: number | null }>];
+    const json = await res.json() as WBResponse;
+    const record = json?.[1]?.[0];
+    if (!record || record.value === null || record.value === undefined) return null;
+    const val = record.value;
+    // raw IDR units → convert to bn IDR (÷ 1e9)
+    const bnIdr = parseFloat((val / 1_000_000_000).toFixed(0));
+    if (isNaN(bnIdr) || bnIdr < 1_000_000 || bnIdr > 50_000_000) return null; // sanity: 1,000–50,000 trillion IDR
+    return {
+      indicator: 'm2_money_supply_idr_bn', category: 'banking',
+      date: `${record.date}-12-31`,
+      value: bnIdr, unit: 'bn_IDR',
+      source: 'world_bank_api', fetchedAt: NOW(),
+    };
+  } catch {
+    return null;
+  }
+}

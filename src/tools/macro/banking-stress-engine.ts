@@ -4,7 +4,7 @@ import { formatToolResult } from '../types.js';
 import { upsertPoints, getLatestPoint } from './time-series-db.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchBankingRatiosOjk } from './sources/ojk.js';
-import { fetchIndoniaRateTe, fetchExternalDebtTe, fetchIhprTe, fetchNplTe, fetchLdrTe, fetchCarTe, fetchM2MoneySupplyTe, fetchDpkDepositsTe, fetchNplWorldBank } from './sources/sovereign-scraper.js';
+import { fetchIndoniaRateTe, fetchExternalDebtTe, fetchIhprTe, fetchNplTe, fetchLdrTe, fetchCarTe, fetchM2MoneySupplyTe, fetchDpkDepositsTe, fetchNplWorldBank, fetchM2WorldBank } from './sources/sovereign-scraper.js';
 import type { AlertLevel, MacroDataPoint } from './types.js';
 
 export const BANKING_STRESS_DESCRIPTION = `
@@ -149,7 +149,11 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   const indonia = indoniaPoint.status === 'fulfilled' ? indoniaPoint.value : null;
   const extDebt = extDebtPoint.status === 'fulfilled' ? extDebtPoint.value : null;
   const ihpr = ihprPoint.status === 'fulfilled' ? ihprPoint.value : null;
-  const m2 = m2Point.status === 'fulfilled' ? m2Point.value : null;
+  let m2 = m2Point.status === 'fulfilled' ? m2Point.value : null;
+  if (m2 === null) {
+    // Tier 2: World Bank annual M2 (no Playwright, free API, 1-year lag)
+    m2 = await fetchM2WorldBank();
+  }
   const dpk = dpkPoint.status === 'fulfilled' ? dpkPoint.value : null;
 
   // 2. Persist to DB
