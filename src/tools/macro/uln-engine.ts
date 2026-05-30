@@ -135,26 +135,23 @@ interface UlnEngineOutput {
 }
 
 export async function runUlnEngine(): Promise<UlnEngineOutput> {
-  // 1. Freshness gate — skip Playwright if KPIs cached < 48h
-  const [cachedUln, cachedDsr, cachedSt] = await Promise.all([
-    getLatestPoint('uln_total_bn'),
-    getLatestPoint('uln_dsr_pct'),
-    getLatestPoint('uln_shortterm_pct'),
-  ]);
   const isFresh = (p: { fetchedAt: string } | null) =>
     p !== null && Date.now() - new Date(p.fetchedAt).getTime() < ULN_KPI_TTL_MS;
 
-  const ulnFresh = isFresh(cachedUln);
-  const wbFresh = isFresh(cachedDsr) && isFresh(cachedSt);
-
-  // 2. Fetch ULN total (TE, quarterly Playwright) — only if stale
-  if (!ulnFresh) {
+  // 1. ULN total: prefer indonesia_external_debt_bn written by banking-stress-engine
+  // (both call fetchExternalDebtTe() — avoid double Playwright). Only fetch if stale.
+  const cachedUln = await getLatestPoint('indonesia_external_debt_bn');
+  if (!isFresh(cachedUln)) {
     const ulnPoint = await fetchExternalDebtTe().catch(() => null);
     if (ulnPoint) await upsertPoints([ulnPoint]);
   }
 
-  // 3. Fetch World Bank annual indicators — only if stale (no Playwright)
-  if (!wbFresh) {
+  // 2. World Bank annual indicators — no Playwright, only if stale
+  const [cachedDsr, cachedSt] = await Promise.all([
+    getLatestPoint('uln_dsr_pct'),
+    getLatestPoint('uln_shortterm_pct'),
+  ]);
+  if (!isFresh(cachedDsr) || !isFresh(cachedSt)) {
     const [dsrPoint, stPoint] = await Promise.all([
       fetchUlnDsrWorldBank().catch(() => null),
       fetchUlnShorttermPctWorldBank().catch(() => null),
@@ -163,21 +160,21 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
     if (wbPoints.length > 0) await upsertPoints(wbPoints);
   }
 
-  // 4. Hedging compliance (Playwright, graceful degradation) — always try (quarterly BI data)
+  // 3. Hedging compliance (Playwright, graceful degradation) — always try (quarterly BI data)
   const hedgingPoint = await fetchHedgingComplianceBi().catch(() => null);
   if (hedgingPoint) await upsertPoints([hedgingPoint]);
 
-  // 5. Retrieve from DB
+  // 4. Retrieve from DB
   const [ulnPoint, dsrPoint, stPoint, hedgingFromDb, fxReserves] = await Promise.all([
-    getLatestPoint('uln_total_bn'),
+    getLatestPoint('indonesia_external_debt_bn'),
     getLatestPoint('uln_dsr_pct'),
     getLatestPoint('uln_shortterm_pct'),
     getLatestPoint('uln_hedging_compliance_pct'),
     getLatestPoint('bi_fx_reserves_bn'),
   ]);
 
-  // ULN time series for YoY growth
-  const ulnHistory = await getLastN('uln_total_bn', 8); // ~2 years quarterly
+  // ULN time series for YoY growth (quarterly, ~2 years)
+  const ulnHistory = await getLastN('indonesia_external_debt_bn', 8);
 
   const ulnTotal = ulnPoint?.value ?? null;
   const ulnDsr = dsrPoint?.value ?? null;
