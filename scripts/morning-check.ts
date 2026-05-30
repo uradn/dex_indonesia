@@ -126,7 +126,7 @@ if (commodity.status === 'fulfilled') {
 // 6 — Regime
 if (regime.status === 'fulfilled') {
   const r = regime.value;
-  console.log(`\n### 6. Regime  ${emoji(r.alertLevel)} | ${r.currentRegime} — ${r.regimeLabel ?? ''}`);
+  console.log(`\n### 6. Regime  ${emoji(r.alertLevel)} | ${r.regimeLabel ?? r.currentRegime}`);
 } else {
   console.log(`\n### 6. Regime  ❌ ${String(regime.reason).slice(0, 80)}`);
 }
