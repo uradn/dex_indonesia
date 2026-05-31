@@ -101,7 +101,7 @@ Tracks USDIDR spot + 30d realized vol, FX reserves trajectory, SRBI outstanding 
 - `src/tools/macro/sources/` — data adapters: yahoo-macro (FX/ETF), bi (BI website scraper + hedging compliance), bps (BPS API), imf (IMF Data API), bloomberg (REST proxy), refinitiv (RDP OAuth2)
 - `src/skills/macro/bop/SKILL.md` — BoP analysis workflow
 - `src/skills/macro/fx-defense/SKILL.md` — FX Defense workflow
-- `src/skills/macro/klr-ews/SKILL.md` — KLR EWS 18-indicator dual-crisis signal matrix
+- `src/skills/macro/klr-ews/SKILL.md` — KLR EWS 21-indicator dual-crisis signal matrix (12 currency + 9 banking, includes Module 13 ULN signals)
 - `src/skills/macro/shock-scenario/SKILL.md` — Forward-looking stress simulator (Before vs After per module)
 
 **Alert levels (z-score based):** GREEN (z<1.5) → YELLOW (z≥1.5) → ORANGE (z≥2.0) → RED (z≥2.5). Score-based thresholds (for shock scenario / module scoring): GREEN <33, YELLOW 33–49, ORANGE 50–69, RED ≥70.
@@ -109,7 +109,7 @@ Tracks USDIDR spot + 30d realized vol, FX reserves trajectory, SRBI outstanding 
 **Silent Crisis Detector** (`silent_crisis_detector` tool): aggregates all 13 modules, weights sum exactly 1.00. fx_defense 0.16, uln 0.09, bop 0.10, sovereign_risk 0.09, foreign_flow 0.09, banking 0.08, commodity 0.07, fiscal 0.09, market 0.05, domestic_pressure 0.06, political_risk 0.05, regime 0.05, narrative 0.02. Non-linear amplification when 3+ modules stressed (×1.2); 5+ modules (×1.4). Cap 95%.
 
 **Research frameworks (embedded in Module 8 + skills):**
-- **KLR EWS** — 18-indicator dual crisis matrix; invoke via `klr-ews` skill
+- **KLR EWS** — 21-indicator dual crisis matrix (12 currency + 9 banking); invoke via `klr-ews` skill
 - **FSAP sovereign-bank nexus** — SBN yield → implied CAR erosion; live in `banking_stress_engine`
 - **BI IndONIA corridor** — DFR = BI Rate −100bps, LF = BI Rate +75bps; breach = forced BI liquidity injection
 

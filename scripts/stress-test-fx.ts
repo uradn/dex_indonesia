@@ -1,7 +1,7 @@
 /**
  * FX Stress Test — simulate USDIDR at a hypothetical level.
  * Injects rate via DEXTER_STRESS_FX env var (overrides Yahoo live fetch).
- * Runs all 12 modules + silent crisis detector, then clears override.
+ * Runs all 13 modules + silent crisis detector, then clears override.
  *
  * Usage: bun scripts/stress-test-fx.ts [rate]
  * Example: bun scripts/stress-test-fx.ts 18000
@@ -40,7 +40,7 @@ if (baselineRate) {
 console.log(`  vs APBN 16,500: +${((STRESS_RATE - 16_500) / 16_500 * 100).toFixed(2)}%`);
 console.log(`${BAR}\n`);
 
-console.log('Running all 12 modules with USDIDR override...\n');
+console.log('Running all 13 modules with USDIDR override...\n');
 const crisis = await runSilentCrisisDetector();
 
 // Clear override
@@ -53,7 +53,7 @@ const emojiMain = emoji(lvl);
 console.log(BAR);
 console.log(`SILENT CRISIS PROBABILITY: ${crisis.silentCrisisProbability}%  ${emojiMain} ${lvl.toUpperCase()}`);
 console.log(`SYNTHETIC STABILITY SCORE: ${crisis.syntheticStabilityScore}/100`);
-console.log(`CROSS-CONFIRMED MODULES:   ${crisis.crossConfirmationCount}/12`);
+console.log(`CROSS-CONFIRMED MODULES:   ${crisis.crossConfirmationCount}/13`);
 console.log(BAR);
 
 console.log(`\n## Module Scorecard (stress USDIDR=${STRESS_RATE.toLocaleString('id-ID')})\n`);

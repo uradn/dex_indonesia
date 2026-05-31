@@ -1,6 +1,6 @@
 /**
  * Indonesia Macro Shock Scenario Simulator
- * Fetches live baselines from all 12 modules, applies transmission formulas,
+ * Fetches live baselines from all 13 modules, applies transmission formulas,
  * and outputs a Before vs After stress table per module.
  *
  * Usage:
