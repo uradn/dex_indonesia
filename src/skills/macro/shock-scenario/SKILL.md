@@ -22,6 +22,7 @@ Run these tools in parallel to get current values:
 - `foreign_flow_engine` — SBN foreign ownership, EIDO z-score
 - `fiscal_engine` — revenue absorption, deficit % GDP
 - `regime_engine` — current regime (Q1–Q4)
+- `uln_engine` — total ULN, DSR, GG ratio, short-term %, hedging compliance
 
 Extract these baseline values:
 - `usdidr`: current USDIDR spot (e.g. 17,879)
@@ -39,6 +40,11 @@ Extract these baseline values:
 - `apbn_usdidr`: 16,500 (APBN assumption)
 - `apbn_icp`: 70 USD/bbl (APBN oil price assumption)
 - `deficit_pct_gdp`: current projected deficit (e.g. 4.23%)
+- `uln_total_bn`: total gross external debt USD bn (confirmed Q1 2026: $433.38bn)
+- `uln_dsr_pct`: debt service ratio % of exports (WB 2024: 24.69% — near 25% IMF threshold)
+- `uln_shortterm_pct`: short-term as % of total (WB 2024: 15.47%)
+- `greenspan_guidotti`: FX reserves / short-term ULN (live: 2.27 GREEN)
+- `uln_hedging_compliance_pct`: BI macro-prudential compliance % (null if BI scrape unavailable)
 
 ## Step 2 — Parse Shock Parameters
 
@@ -51,6 +57,7 @@ Identify the shock type(s) from the user's request:
 | FX reserves | "reserves fall to $100bn", "BI burns $30bn", "reserves 80bn" |
 | NPL | "NPL rises to 5%", "NPL shock +3pp" |
 | BI Rate | "BI hikes to 7%", "rate cut to 5%" |
+| ULN/hedging | "corporate hedging compliance drops to 60%", "ULN grows 15% YoY", "DSR crosses 30%" |
 | Compound | Any combination of the above |
 
 For each shock, compute the delta:
@@ -103,9 +110,15 @@ For each shock, compute the delta:
 - Deviation >20%: YELLOW; >40%: ORANGE; >60%: RED
 - Oil subsidy/import cost rises: each 10% IDR depreciation ≈ +0.1% GDP fiscal drag
 
-**External Debt (Module 2 proxy):**
-- Indonesia external debt ≈ $420bn (2025); IDR-equivalent rises by Δusdidr / baseline × external_debt_bn
-- External debt servicing stress if usdidr > 20,000
+**Module 13 — ULN (primary IDR shock transmission):**
+- Depreciation % = Δusdidr / baseline_usdidr × 100
+- ULN/GDP worsens: shocked_gdp_usd = 25,714.2T / shocked_usdidr; new_ratio = uln_total_bn / shocked_gdp_usd × 100
+- DSR worsens: shocked_dsr ≈ baseline_dsr × (shocked_usdidr / baseline_usdidr) — USD debt service heavier in export terms
+- GG ratio: unchanged unless reserves also fall (see 3C); flag if GG drops below 1.5
+- Hedging amplifier fires if compliance < 70%: unhedged corporates forced to buy USD → amplifies IDR depreciation (1997 loop)
+  - Trigger check: depreciation >15% AND compliance <70% → flag FORCED USD BUYING RISK
+  - Score multiplier: compliance 70-85% = ×1.15; 55-70% = ×1.30; <55% = ×1.50
+- Score: recalculate scoreUlnGdp(new_ratio) + scoreDsr(shocked_dsr), apply hedging amplifier
 
 **Module 8 — Banking:**
 - FX loan portfolio (approx 8-10% of total credit): stressed if usdidr > 20,000
@@ -130,9 +143,16 @@ For each shock, compute the delta:
 - At $80bn: ≈ 6.25x → extreme capital flight risk
 - Score amplifier: if ratio > 5: +20 to banking score; if ratio > 7: +35
 
-**Module 2 — BoP:**
+**Module 1 — BoP:**
 - If reserve depletion caused by current account deficit: flag CAD stress
 - If caused by capital account: sudden stop signal
+
+**Module 13 — ULN (Greenspan-Guidotti degradation):**
+- GG ratio = shocked_reserves / (uln_total_bn × uln_shortterm_pct / 100)
+- Baseline GG 2.27 (GREEN). At $120bn reserves: GG = 120 / (433 × 0.1547) = 1.79 (YELLOW)
+- At $100bn: GG = 100 / 67 = 1.49 (ORANGE — approaching <1.5 threshold)
+- At $80bn: GG = 80 / 67 = 1.19 (RED — rollover risk CRITICAL)
+- Score: recalculate scoreGg(new_gg)
 
 ### 3D. NPL Shock (shocked_npl = baseline_npl + Δnpl)
 
@@ -168,8 +188,34 @@ For each shock, compute the delta:
 **Module 1 — FX Defense:**
 - Rate hike: IDR support (positive for FX module); rate cut: IDR pressure
 
+**Module 13 — ULN (BI Rate → corporate USD funding shift):**
+- Higher domestic rates → corporates shift borrowing to offshore USD → ULN growth risk
+- Each +100bps BI Rate sustained >2Q: estimate ULN growth +1-2pp vs baseline trajectory
+- If compliance already <85%: new USD borrowers may not hedge → ratchets hedging risk upward
+- Score: flag if BI Rate shock likely to accelerate ULN growth beyond GDP growth rate
+
 **Regime:**
 - Rate hike in Q3 (stagflation) = forced tightening → worsens growth component → entrenches Q3
+
+### 3F. ULN/Hedging Shock (Δcompliance or ΔDSR or ΔULNgrowth)
+
+**Module 13 — ULN (direct):**
+- Compliance drop: new_amplifier = hedgingAmplifier(shocked_compliance); recalculate ULN score
+- DSR shock: shocked_dsr = new value; if crossing 25% → YELLOW; 30% → ORANGE flag fires
+- ULN growth shock: shocked_yoy > 15% → scoreGrowth() hits ORANGE range
+- Compound: compliance drop + IDR depreciation = 1997 loop; flag explicitly
+
+**Module 3 — FX Defense (secondary):**
+- Compliance <70%: add flag "UNHEDGED EXPOSURE: forced USD buying risk — IDR amplification"
+- Estimate unhedged USD demand: uln_total × private_share × (1 − compliance/100)
+  - private_share ≈ 55% of total ULN historically
+
+**Module 8 — Banking (tertiary, lag 2-3Q):**
+- Compliance drop → eventual NPL: estimate +0.3pp NPL per 10pp compliance drop (historical)
+- Flag as leading indicator: "ULN stress → NPL lag 2-3Q"
+
+**Module 1 — BoP:**
+- Unhedged corporate forced USD buying = capital account outflow proxy → reserve pressure
 
 ## Step 4 — Score Each Module Before vs After
 
@@ -185,10 +231,10 @@ Alert thresholds (consistent with Dexter scoring):
 - ORANGE: 50 ≤ score < 70
 - RED: score ≥ 70
 
-Silent Crisis Probability recalculation (approximate):
-- Apply module weights: fx 0.18, bop 0.18, sovereign 0.14, foreign_flow 0.14, banking 0.10, commodity 0.09, domestic 0.08, fiscal 0.08, political 0.06, regime 0.03, narrative 0.02
-- Weighted avg = Σ(score_after × weight) / Σ(weights)
-- Non-linear amplifier: if ≥3 modules in stress zone (≥50), multiply by 1.2; ≥5 by 1.4
+Silent Crisis Probability recalculation (approximate, 13 modules, weights sum = 1.00):
+- Apply module weights: fx_defense 0.16, uln 0.09, bop 0.10, sovereign_risk 0.09, foreign_flow 0.09, banking 0.08, commodity 0.07, fiscal 0.09, market 0.05, domestic_pressure 0.06, political_risk 0.05, regime 0.05, narrative 0.02
+- Weighted avg = Σ(score_after × weight) / Σ(weights of available modules)
+- Non-linear amplifier: if ≥3 modules in stress zone (≥50), ×1.2; ≥4 modules ×1.3; ≥5 modules ×1.4
 - Cap at 95%
 
 ## Step 5 — Output Format
@@ -211,6 +257,7 @@ Silent Crisis Probability recalculation (approximate):
 | FX Defense | 50 🟡 | 68 🟠 | YELLOW→ORANGE | IDR vol + yield-driven outflow |
 | Foreign Flow | 33 🟢 | 48 🟡 | GREEN→YELLOW | SBN ownership fall expected |
 | Fiscal | 33 🟢 | 50 🟠 | GREEN→ORANGE | SBN interest burden increase |
+| ULN (M13) | 12 🟢 | 38 🟡 | GREEN→YELLOW | ULN/GDP worsens, DSR near threshold |
 | (unchanged modules: omit or show as — ) | | | |
 
 ### Transmission Chain
@@ -235,12 +282,12 @@ Explicitly call out: doom loop risk if present (sovereign ↔ bank), sudden stop
 
 If user doesn't specify exact parameters, use these standard severity tiers:
 
-| Severity | SBN Yield | USDIDR | Reserves | NPL |
-|----------|-----------|--------|----------|-----|
-| Mild | +50bps | +1,500 | −$20bn | +1pp |
-| Moderate | +100bps | +3,000 | −$40bn | +3pp |
-| Severe | +150bps | +5,000 | −$60bn | +5pp |
-| Crisis | +250bps | +8,000 | −$80bn | +8pp |
+| Severity | SBN Yield | USDIDR | Reserves | NPL | Hedging Compliance |
+|----------|-----------|--------|----------|-----|--------------------|
+| Mild | +50bps | +1,500 | −$20bn | +1pp | −5pp |
+| Moderate | +100bps | +3,000 | −$40bn | +3pp | −15pp |
+| Severe | +150bps | +5,000 | −$60bn | +5pp | −25pp |
+| Crisis | +250bps | +8,000 | −$80bn | +8pp | −35pp (→ 1997 zone) |
 
 Default to "Moderate" if user says something like "stress test" without specifics. Always confirm parameters with user before computing.
 
@@ -254,5 +301,5 @@ Default to "Moderate" if user says something like "stress test" without specific
 - Bank SBN/assets ratio: ≈ 20%
 - SBN portfolio duration: ≈ 6 years
 - M2 money supply: ≈ IDR 9,000 trillion (≈ $500bn at 18,000)
-- External debt: ≈ $420bn (2025)
-- BI Rate corridor: DFR = BI Rate − 75bps, LF Rate = BI Rate + 75bps
+- External debt (ULN): $433.38bn (Q1 2026, confirmed live); ULN/GDP 27.8%; DSR 24.69%; GG ratio 2.27; ST% 15.47%
+- BI Rate corridor: DFR = BI Rate − 100bps, LF Rate = BI Rate + 75bps (IndONIA corridor; breach = forced BI liquidity injection)
