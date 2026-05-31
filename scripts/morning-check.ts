@@ -1,5 +1,5 @@
 /**
- * Indonesia Macro Morning Brief — all 12 modules + silent crisis detector.
+ * Indonesia Macro Morning Brief — all 13 modules + silent crisis detector.
  * Run: bun scripts/morning-check.ts
  */
 import { runFxDefenseEngine } from '../src/tools/macro/fx-defense-engine.js';
@@ -14,6 +14,7 @@ import { runMarketStressEngine } from '../src/tools/macro/market-stress-engine.j
 import { runFiscalEngine } from '../src/tools/macro/fiscal-engine.js';
 import { runDomesticPressureEngine } from '../src/tools/macro/domestic-pressure-engine.js';
 import { runPoliticalRiskEngine } from '../src/tools/macro/political-risk-engine.js';
+import { runUlnEngine } from '../src/tools/macro/uln-engine.js';
 import { runSilentCrisisDetector } from '../src/tools/macro/silent-crisis-detector.js';
 
 const DATE = new Date().toISOString().slice(0, 10);
@@ -24,9 +25,9 @@ function emoji(level: string): string {
 }
 
 console.log(`\n# Indonesia Macro Morning Brief — ${DATE}`);
-console.log('Running all 12 modules in parallel...\n');
+console.log('Running all 13 modules in parallel...\n');
 
-const [fx, bop, sov, flow, commodity, regime, narrative, banking, market, fiscal, domestic, political] =
+const [fx, bop, sov, flow, commodity, regime, narrative, banking, market, fiscal, domestic, political, uln] =
   await Promise.allSettled([
     runFxDefenseEngine(),
     runBoPEngine(),
@@ -40,6 +41,7 @@ const [fx, bop, sov, flow, commodity, regime, narrative, banking, market, fiscal
     runFiscalEngine(),
     runDomesticPressureEngine(),
     runPoliticalRiskEngine(),
+    runUlnEngine(),
   ]);
 
 const crisis = await runSilentCrisisDetector();
@@ -48,7 +50,7 @@ const crisis = await runSilentCrisisDetector();
 console.log(BAR);
 console.log(`SILENT CRISIS PROBABILITY: ${crisis.silentCrisisProbability}%  ${emoji(crisis.alertLevel)} ${crisis.alertLevel.toUpperCase()}`);
 console.log(`SYNTHETIC STABILITY SCORE: ${crisis.syntheticStabilityScore}/100`);
-console.log(`CROSS-CONFIRMED MODULES:   ${crisis.crossConfirmationCount}/12`);
+console.log(`CROSS-CONFIRMED MODULES:   ${crisis.crossConfirmationCount}/13`);
 console.log(BAR);
 
 // ─── MODULE SCORECARD ──────────────────────────────────────────────────────
@@ -213,6 +215,17 @@ if (political.status === 'fulfilled') {
   }
 } else {
   console.log(`\n### 12. Political Risk  ❌ ${String(political.reason).slice(0, 80)}`);
+}
+
+// 13 — ULN / External Debt
+if (uln.status === 'fulfilled') {
+  const r = uln.value;
+  console.log(`\n### 13. ULN / External Debt  ${emoji(r.alert)} ${r.stressScore}/100`);
+  console.log(`  ULN: $${r.ulnTotalBn?.toFixed(1) ?? 'n/a'}bn | ULN/GDP: ${r.ulnGdpRatioPct?.toFixed(1) ?? 'n/a'}% | DSR: ${r.ulnDsrPct?.toFixed(2) ?? 'n/a'}% (IMF thr 25%)`);
+  console.log(`  GG ratio: ${r.greenspanGuidotti?.toFixed(2) ?? 'n/a'} | ST%: ${r.ulnShorttermPct?.toFixed(2) ?? 'n/a'}% | Hedging: ${r.hedgingCompliancePct?.toFixed(1) ?? 'n/a (graceful degrade)'}`);
+  for (const f of r.flags) console.log(`  ⚠️  ${f}`);
+} else {
+  console.log(`\n### 13. ULN  ❌ ${String((uln as PromiseRejectedResult).reason).slice(0, 80)}`);
 }
 
 // ─── BOTTOM LINE ───────────────────────────────────────────────────────────

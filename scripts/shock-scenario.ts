@@ -31,6 +31,7 @@ import { runMarketStressEngine } from '../src/tools/macro/market-stress-engine.j
 import { runFiscalEngine } from '../src/tools/macro/fiscal-engine.js';
 import { runDomesticPressureEngine } from '../src/tools/macro/domestic-pressure-engine.js';
 import { runPoliticalRiskEngine } from '../src/tools/macro/political-risk-engine.js';
+import { runUlnEngine } from '../src/tools/macro/uln-engine.js';
 
 const DATE = new Date().toISOString().slice(0, 10);
 const BAR = '━'.repeat(64);
@@ -59,6 +60,9 @@ interface Baseline {
   sbnForeignPct: number | null;
   deficitPctGdp: number;
   regimeLabel: string;
+  greenspanGuidotti: number | null;
+  ulnDsrPct: number | null;
+  hedgingCompliancePct: number | null;
 }
 
 // ── Preset Scenarios ───────────────────────────────────────────────────────
@@ -246,12 +250,42 @@ function fiscalDelta(shock: ShockParams, b: Baseline): number {
   return Math.max(0, scoreDeficit(shocked) - scoreDeficit(baseDeficit));
 }
 
+// ── ULN Transmission ──────────────────────────────────────────────────────
+
+function ulnDelta(shock: ShockParams, b: Baseline): number {
+  let d = 0;
+  const deprPct = shock.usdidr / b.usdidr * 100;
+
+  // IDR depreciation → DSR worsens (USD debt service / IDR GDP: each 10% depr ≈ +0.5pp DSR)
+  if (deprPct > 0 && b.ulnDsrPct !== null) {
+    const shockedDsr = b.ulnDsrPct + (deprPct / 10) * 0.5;
+    if (shockedDsr > 25 && b.ulnDsrPct <= 25) d += 20; // IMF threshold breach
+    else if (shockedDsr > 22 && b.ulnDsrPct <= 22) d += 10;
+  }
+
+  // Reserve depletion → GG ratio deteriorates (FX reserves / short-term ULN)
+  if (shock.reservesBn < 0 && b.greenspanGuidotti !== null && b.fxReserves > 0) {
+    const ggFactor = (b.fxReserves + shock.reservesBn) / b.fxReserves;
+    const shockedGg = b.greenspanGuidotti * ggFactor;
+    if (shockedGg < 1.0 && b.greenspanGuidotti >= 1.0) d += 30; // CRITICAL: FX < short-term ULN
+    else if (shockedGg < 1.5 && b.greenspanGuidotti >= 1.5) d += 15; // ORANGE threshold
+  }
+
+  // Low hedging compliance + large IDR depreciation = 1997 mechanism (forced USD buying loop)
+  const lowHedging = b.hedgingCompliancePct !== null ? b.hedgingCompliancePct < 70 : false;
+  if (deprPct > 10 && lowHedging) d += 12;
+
+  return d;
+}
+
 // ── SCP Calculation ────────────────────────────────────────────────────────
 
+// Weights match silent-crisis-detector.ts (sum = 1.00)
 const MODULE_WEIGHTS: Record<string, number> = {
-  fx_defense: 0.18, bop: 0.18, sovereign_risk: 0.14, foreign_flow: 0.14,
-  banking: 0.10, commodity: 0.09, domestic_pressure: 0.08, fiscal: 0.08,
-  political_risk: 0.06, market: 0.07, regime: 0.03, narrative: 0.02,
+  fx_defense: 0.16, uln: 0.09, bop: 0.10, sovereign_risk: 0.09,
+  foreign_flow: 0.09, banking: 0.08, commodity: 0.07, fiscal: 0.09,
+  market: 0.05, domestic_pressure: 0.06, political_risk: 0.05,
+  regime: 0.05, narrative: 0.02,
 };
 
 function computeScp(scores: Record<string, number>): number {
@@ -331,10 +365,10 @@ if (!shock.description) {
 }
 
 console.log(`\n# Shock Scenario: ${shock.label}`);
-console.log('Fetching live baselines from all 12 modules...\n');
+console.log('Fetching live baselines from all 13 modules...\n');
 
-// Fetch all 12 modules in parallel
-const [fx, bop, sov, flow, commodity, regime, narrative, banking, market, fiscal, domestic, political] =
+// Fetch all 13 modules in parallel
+const [fx, bop, sov, flow, commodity, regime, narrative, banking, market, fiscal, domestic, political, ulnRes] =
   await Promise.allSettled([
     runFxDefenseEngine(),
     runBoPEngine(),
@@ -348,6 +382,7 @@ const [fx, bop, sov, flow, commodity, regime, narrative, banking, market, fiscal
     runFiscalEngine(),
     runDomesticPressureEngine(),
     runPoliticalRiskEngine(),
+    runUlnEngine(),
   ]);
 
 // Extract baseline values (fall back to session-current defaults if engine fails)
@@ -355,6 +390,7 @@ const b: Baseline = {
   usdidr: 17_879, fxReserves: 151.9, sbn10y: 6.71, biRate: 5.25,
   npl: 1.96, impliedCarHitPp: null, m2UsdBn: null,
   sbnForeignPct: 12.68, deficitPctGdp: 2.68, regimeLabel: 'Q1',
+  greenspanGuidotti: 2.27, ulnDsrPct: 24.69, hedgingCompliancePct: null,
 };
 
 if (fx.status === 'fulfilled') {
@@ -383,6 +419,11 @@ if (fiscal.status === 'fulfilled') {
 if (regime.status === 'fulfilled') {
   b.regimeLabel = regime.value.regimeLabel; // already includes Q-label prefix
 }
+if (ulnRes.status === 'fulfilled') {
+  b.greenspanGuidotti   = ulnRes.value.greenspanGuidotti   ?? b.greenspanGuidotti;
+  b.ulnDsrPct           = ulnRes.value.ulnDsrPct           ?? b.ulnDsrPct;
+  b.hedgingCompliancePct = ulnRes.value.hedgingCompliancePct ?? b.hedgingCompliancePct;
+}
 
 // Derived shocked values for display
 const shockedUsdidr   = b.usdidr + shock.usdidr;
@@ -399,6 +440,7 @@ const shockedDeficit  = b.deficitPctGdp
 // Baseline scores from engines
 const scoresBefore: Record<string, number> = {
   fx_defense:       fx.status        === 'fulfilled' ? fx.value.scoreCard.score            : 20,
+  uln:              ulnRes.status    === 'fulfilled' ? ulnRes.value.stressScore             : 12,
   bop:              bop.status       === 'fulfilled' ? bop.value.scoreCard.score            : 20,
   sovereign_risk:   sov.status       === 'fulfilled' ? sov.value.sovereignRiskScore         : 20,
   foreign_flow:     flow.status      === 'fulfilled' ? flow.value.scoreCard.score           : 20,
@@ -417,6 +459,7 @@ const scoresBefore: Record<string, number> = {
 // Apply transmission deltas
 const scoresAfter: Record<string, number> = { ...scoresBefore };
 scoresAfter.fx_defense    = clamp(scoresBefore.fx_defense    + fxDelta(shock, b));
+scoresAfter.uln           = clamp(scoresBefore.uln           + ulnDelta(shock, b));
 scoresAfter.sovereign_risk = clamp(scoresBefore.sovereign_risk + sovereignDelta(shock, b));
 scoresAfter.foreign_flow  = clamp(scoresBefore.foreign_flow  + foreignFlowDelta(shock, b));
 scoresAfter.banking       = clamp(scoresBefore.banking       + bankingDelta(shock, b));
@@ -457,13 +500,13 @@ if (shock.oilPct !== 0) {
 
 // Module impact table
 const LABELS: Record<string, string> = {
-  fx_defense: 'FX Defense', bop: 'BoP', sovereign_risk: 'Sovereign Risk',
+  fx_defense: 'FX Defense', uln: 'ULN / Ext Debt', bop: 'BoP', sovereign_risk: 'Sovereign Risk',
   foreign_flow: 'Foreign Flow', commodity: 'Commodity', banking: 'Banking Stress',
   market: 'Market (IHSG)', fiscal: 'Fiscal', domestic_pressure: 'Domestic',
   political_risk: 'Political Risk', regime: 'Regime', narrative: 'Narrative',
 };
 
-const AFFECTED = new Set(['fx_defense', 'sovereign_risk', 'foreign_flow', 'banking', 'fiscal', 'regime']);
+const AFFECTED = new Set(['fx_defense', 'uln', 'sovereign_risk', 'foreign_flow', 'banking', 'fiscal', 'regime']);
 
 console.log('\n### Module Impact — Before vs After\n');
 console.log('| Module           | Score Before        | Score After         | Alert Δ            | Key Driver                         |');
@@ -489,6 +532,20 @@ for (const mod of allMods) {
 
   let driver = '—';
   switch (mod) {
+    case 'uln': {
+      const deprPct2 = shock.usdidr / b.usdidr * 100;
+      const p: string[] = [];
+      if (b.ulnDsrPct !== null) {
+        const shockedDsr = b.ulnDsrPct + (deprPct2 / 10) * 0.5;
+        p.push(`DSR ${b.ulnDsrPct.toFixed(1)}%→${shockedDsr.toFixed(1)}%`);
+      }
+      if (b.greenspanGuidotti !== null && shock.reservesBn < 0) {
+        const ggF = (b.fxReserves + shock.reservesBn) / b.fxReserves;
+        p.push(`GG ${b.greenspanGuidotti.toFixed(2)}→${(b.greenspanGuidotti * ggF).toFixed(2)}`);
+      }
+      driver = p.join(', ');
+      break;
+    }
     case 'fx_defense': {
       const p: string[] = [];
       if (shock.usdidr) p.push(`IDR ${deprPct > 0 ? '−' : '+'}${Math.abs(deprPct).toFixed(1)}%`);
@@ -557,6 +614,27 @@ console.log('\n### Transmission Chain\n');
   if (deprPct > 15 || shock.biRateBps > 100) {
     lines.push(`Sharp IDR depreciation (${deprPct.toFixed(1)}%) combined with forced BI tightening risks Q3 stagflation regime — growth contraction + sustained inflation + sovereign premium expansion.`);
   }
+  // ULN / Greenspan-Guidotti transmission
+  if (b.greenspanGuidotti !== null && shock.reservesBn < 0) {
+    const ggFactor = (b.fxReserves + shock.reservesBn) / b.fxReserves;
+    const shockedGg = b.greenspanGuidotti * ggFactor;
+    if (shockedGg < 1.5) {
+      const ggSeverity = shockedGg < 1.0
+        ? `CRITICAL — FX reserves no longer cover short-term ULN rollover demand; forced USD buying loop risk`
+        : `ORANGE — reserve adequacy buffer thinning toward Greenspan-Guidotti threshold (1.0)`;
+      lines.push(`GG ratio deteriorates ${b.greenspanGuidotti.toFixed(2)} → ${shockedGg.toFixed(2)}: ${ggSeverity}.`);
+    }
+  }
+  if (b.ulnDsrPct !== null && deprPct > 5) {
+    const shockedDsr = b.ulnDsrPct + (deprPct / 10) * 0.5;
+    if (shockedDsr > 25) {
+      lines.push(`IDR depreciation pushes DSR ${b.ulnDsrPct.toFixed(2)}% → ~${shockedDsr.toFixed(2)}% — breaches IMF 25% threshold; debt service crowding risk on APBN fiscal space.`);
+    }
+  }
+  const lowHedging = b.hedgingCompliancePct !== null ? b.hedgingCompliancePct < 70 : false;
+  if (deprPct > 10 && lowHedging) {
+    lines.push(`Low ULN hedging compliance (${b.hedgingCompliancePct?.toFixed(1)}%) + IDR depreciation ${deprPct.toFixed(1)}% activates 1997 transmission mechanism: unhedged corporate USD demand amplifies IDR depreciation loop.`);
+  }
   for (const l of lines) console.log(l);
 }
 
@@ -587,6 +665,18 @@ console.log('\n### Critical Thresholds to Watch\n');
     triples.push(`NPL at 5.0%: KLR acute signal + CDS +30-50bps expected (currently shocked to ${shockedNpl.toFixed(2)}%).`);
   if (shockedDeficit > 2.5 && shockedDeficit < 5.0)
     triples.push(`Fiscal deficit at 4.0% GDP: constitutional ceiling breach → rating watch (currently ${shockedDeficit.toFixed(2)}%).`);
+  if (b.greenspanGuidotti !== null && shock.reservesBn < 0) {
+    const ggF = (b.fxReserves + shock.reservesBn) / b.fxReserves;
+    const sGg = b.greenspanGuidotti * ggF;
+    if (sGg > 1.0 && sGg < 2.0)
+      triples.push(`GG ratio at 1.0: FX reserves = short-term ULN — forced USD buying loop entry (currently shocked to ${sGg.toFixed(2)}).`);
+  }
+  if (b.ulnDsrPct !== null && shock.usdidr > 0) {
+    const sDepr = shock.usdidr / b.usdidr * 100;
+    const sDsr = b.ulnDsrPct + (sDepr / 10) * 0.5;
+    if (sDsr > 23 && sDsr < 30)
+      triples.push(`DSR at 25% IMF threshold: debt service crowding APBN fiscal space (currently shocked to ${sDsr.toFixed(2)}%).`);
+  }
   if (triples.length === 0)
     triples.push('No immediate critical thresholds breached in this scenario.');
   for (const t of triples) console.log(`- ${t}`);
