@@ -28,12 +28,12 @@ Semua kemampuan asli di atas **tetap ada** di fork ini.
 
 ### Big Short Mode — Silent Crisis Detector
 
-12 modul macro intelligence khusus Indonesia, berjalan paralel, agregat ke satu angka: **Silent Crisis Probability (0–100%)**.
+13 modul macro intelligence khusus Indonesia, berjalan paralel, agregat ke satu angka: **Silent Crisis Probability (0–100%)**.
 
 ```
 Silent Crisis Probability: 21%  🟢 GREEN
 Synthetic Stability Score: 44/100
-Cross-confirmed modules: 1/12
+Cross-confirmed modules: 1/13
 ```
 
 | # | Modul | Signal |
@@ -45,28 +45,29 @@ Cross-confirmed modules: 1/12
 | 5 | Commodity | Ekspor basket, oil import vulnerability |
 | 6 | Regime | Quad regime Q1–Q4 via Growth ROC × Inflation ROC |
 | 7 | Narrative Divergence | Official guidance vs market — APBN assumptions vs aktual |
-| 8 | Banking Stress | NPL (OJK/World Bank API), LDR, CAR, ~~JIBOR~~ IndONIA corridor (BI Rate ±75bps), FSAP nexus (implied CAR hit), KLR signals, M2/FX reserves ratio |
+| 8 | Banking Stress | NPL (OJK/World Bank API), LDR, CAR, ~~JIBOR~~ IndONIA corridor (DFR = BI Rate −100bps / LF = BI Rate +75bps), FSAP nexus (implied CAR hit), KLR signals, M2/FX reserves ratio |
 | 9 | Market Stress | IHSG P/E + breadth, valuation disconnect |
 | 10 | Fiscal | APBN realisasi vs target, revenue shortfall, deficit trajectory |
 | 11 | Domestic Pressure | PIHPS 10 komoditas pangan, Food Stress Index 0–100 |
 | 12 | Political Risk | Unemployment + Exa news sentiment (social unrest, stabilitas) |
+| 13 | ULN / External Debt | DSR (IMF threshold 25%), Greenspan-Guidotti ratio, ULN/GDP, BI hedging compliance (PBI 21/14/2019), 1997 transmission mechanism |
 
 **Logika inti:** Satu modul di RED bisa noise. Dua modul di ORANGE = deteriorasi struktural. Tiga+ = systemic fragility.
 
 ### Research Frameworks
 
 **KLR EWS (Kaminsky-Reinhart-Lizondo):**
-18-indicator dual crisis signal matrix (10 currency + 8 banking). Threshold-based early warning kalibrasi untuk EM. Crisis probability: LOW (0–3 sinyal), MODERATE (4–6), HIGH (7–10), CRITICAL (11+). Invoke via skill `klr-ews`.
+21-indicator dual crisis signal matrix (12 currency + 9 banking). Threshold-based early warning kalibrasi untuk EM. Includes Module 13 ULN signals: Greenspan-Guidotti ratio (<1.0), DSR (>25%), hedging compliance (<70%). Crisis probability: LOW (0–3 sinyal), MODERATE (4–7), HIGH (8–12), CRITICAL (13+). Invoke via skill `klr-ews`.
 
 **IMF FSAP Sovereign-Bank Nexus:**
 SBN yield shock → implied bank CAR erosion: `(sbn_10y − 6.5% baseline) × 6yr duration × 20% SBN/assets`. At +100bps: −1.2pp CAR. Doom loop signal di >1.5pp. Terintegrasi langsung ke Module 8 scoring.
 
 **BI Interest Rate Corridor:**
-IndONIA harus stay dalam corridor DFR (BI Rate −75bps) sampai LF Rate (BI Rate +75bps). Spread >30bps = YELLOW, >50bps = ORANGE, >75bps = RED (BI terpaksa inject liquidity = crisis signal).
+IndONIA harus stay dalam corridor DFR (BI Rate −100bps) sampai LF Rate (BI Rate +75bps). Spread >30bps = YELLOW, >50bps = ORANGE, >75bps = RED (BI terpaksa inject liquidity = crisis signal).
 
 ### Shock Scenario Simulator
 
-Forward-looking stress test — simulasi bagaimana satu atau compound shock mengubah seluruh 12 modul sekaligus. Tersedia sebagai CLI script (`scripts/shock-scenario.ts`) maupun skill agent (`shock-scenario`).
+Forward-looking stress test — simulasi bagaimana satu atau compound shock mengubah seluruh 13 modul sekaligus. Tersedia sebagai CLI script (`scripts/shock-scenario.ts`) maupun skill agent (`shock-scenario`).
 
 ```bash
 bun scripts/shock-scenario.ts --list          # lihat semua preset
@@ -123,7 +124,7 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 ### Scripts Tambahan
 
 ```bash
-bun scripts/morning-check.ts              # morning brief semua 12 modul
+bun scripts/morning-check.ts              # morning brief semua 13 modul
 bun scripts/shock-scenario.ts --list      # lihat semua preset scenario
 bun scripts/shock-scenario.ts crisis      # full crisis simulation (1997/2008 analog)
 bun scripts/shock-scenario.ts idr-freefall # sudden stop + forced BI hike cycle
