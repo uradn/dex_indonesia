@@ -36,12 +36,12 @@ fi
 
 mkdir -p "$LOG_DIR"
 
-echo "=== Morning Brief $DATE $(date +%H:%M:%S %Z) ===" | tee -a "$LOG_FILE"
+echo "=== Morning Brief $DATE $(date +"%H:%M:%S %Z") ===" | tee -a "$LOG_FILE"
 
 cd "$REPO_DIR"
 bun scripts/morning-check.ts 2>&1 | tee -a "$LOG_FILE"
 
-echo "=== Done $(date +%H:%M:%S %Z) ===" | tee -a "$LOG_FILE"
+echo "=== Done $(date +"%H:%M:%S %Z") ===" | tee -a "$LOG_FILE"
 
 # Rotate: keep last 30 days
 find "$LOG_DIR" -name "morning-brief-*.log" -mtime +30 -delete 2>/dev/null || true
