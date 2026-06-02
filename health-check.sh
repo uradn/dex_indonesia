@@ -225,6 +225,8 @@ check_url "panelharga BPN dev (T2 alt)"  "https://dev-panelharga.badanpangan.go.
 check_url "ews.kemendag.go.id (PIHPS T3)" "https://ews.kemendag.go.id/api/harga"
 check_url "BPS Indonesia"               "https://bps.go.id"
 check_url "Bank Indonesia"              "https://bi.go.id"
+check_url "BI SULNI (ULN hedging)"     "https://www.bi.go.id/id/statistik/statistik-utang-luar-negeri-indonesia/Default.aspx" warn
+check_url "World Bank API (ULN DSR)"   "https://api.worldbank.org/v2/country/ID/indicator/DT.TDS.DECT.EX.ZS?format=json&mrv=1"
 check_url "Exa Search API"              "https://api.exa.ai"
 [[ -n "${BLOOMBERG_API_URL:-}" ]] && check_url "Bloomberg API" "$BLOOMBERG_API_URL"
 
@@ -314,6 +316,33 @@ try {
   if (r && (r.nplGrossPct || r.ldr || r.car)) console.log('OK: NPL', r.nplGrossPct, 'LDR', r.ldr, 'CAR', r.car);
   else console.log('WARN: OJK empty — session cookies required (expected)');
 } catch(e) { console.log('WARN: OJK scrape failed (session required): ' + String(e).slice(0,50)); }
+"
+
+run_bun_check "ULN DSR — World Bank API (Module 13)" "
+import { fetchUlnDsrWorldBank } from './src/tools/macro/sources/sovereign-scraper.js';
+try {
+  const r = await fetchUlnDsrWorldBank();
+  if (r && r.value > 0) console.log('OK: DSR =', r.value.toFixed(2) + '% (IMF threshold 25%)');
+  else console.log('WARN: DSR returned null/zero — WB API may be lagged');
+} catch(e) { console.log('FAIL: ' + String(e).slice(0,80)); }
+"
+
+run_bun_check "ULN short-term % — World Bank API (Module 13)" "
+import { fetchUlnShorttermPctWorldBank } from './src/tools/macro/sources/sovereign-scraper.js';
+try {
+  const r = await fetchUlnShorttermPctWorldBank();
+  if (r && r.value > 0) console.log('OK: ST% =', r.value.toFixed(2) + '% of total ULN');
+  else console.log('WARN: ST% returned null/zero — WB API may be lagged');
+} catch(e) { console.log('FAIL: ' + String(e).slice(0,80)); }
+"
+
+run_bun_check "ULN hedging compliance — BI SULNI (Module 13, graceful degrade OK)" "
+import { fetchHedgingComplianceBi } from './src/tools/macro/sources/bi.js';
+try {
+  const r = await fetchHedgingComplianceBi();
+  if (r && r.value > 0) console.log('OK: hedging compliance =', r.value.toFixed(1) + '%');
+  else console.log('WARN: null — BI SULNI regex no match; engine degrades to ×1.10 amplifier (expected)');
+} catch(e) { console.log('WARN: BI SULNI scrape failed (graceful degrade active): ' + String(e).slice(0,60)); }
 "
 
 # ─── 7. EXA API ───────────────────────────────────────────────────────────────
