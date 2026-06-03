@@ -300,6 +300,18 @@ else
   warn "BPS WebAPI — key SET ${DIM}(${_BPS_KEY:0:8}…)${NC} — live ping blocked by Cloudflare (expected). Verify at webapi.bps.go.id dashboard."
 fi
 
+# Kemendag EWS — PIHPS Tier 3 fallback (Module 11 domestic pressure)
+_KEMENDAG_KEY="${KEMENDAG_API_KEY:-}"
+if [[ -z "$_KEMENDAG_KEY" ]] || is_placeholder "$_KEMENDAG_KEY"; then
+  skip "Kemendag EWS — NOT SET / placeholder (PIHPS Tier 3 inactive; register: ews.kemendag.go.id)"
+else
+  ping_api "Kemendag EWS (PIHPS T3)" \
+    "KEMENDAG_API_KEY" \
+    "https://ews.kemendag.go.id/api/harga" \
+    "GET" \
+    "Authorization: Bearer ${_KEMENDAG_KEY}"
+fi
+
 # Bloomberg (optional, custom proxy)
 _BLOOM_URL="${BLOOMBERG_API_URL:-}"
 _BLOOM_KEY="${BLOOMBERG_API_KEY:-}"

@@ -18,6 +18,9 @@ import { aseanRelativeValueEngine } from '../src/tools/macro/asean-relative-valu
 import { silentCrisisDetector } from '../src/tools/macro/silent-crisis-detector.js';
 import { bankingStressEngine } from '../src/tools/macro/banking-stress-engine.js';
 import { marketStressEngine } from '../src/tools/macro/market-stress-engine.js';
+import { domesticPressureEngine } from '../src/tools/macro/domestic-pressure-engine.js';
+import { politicalRiskEngine } from '../src/tools/macro/political-risk-engine.js';
+import { ulnEngine } from '../src/tools/macro/uln-engine.js';
 import { fiscalEngine } from '../src/tools/macro/fiscal-engine.js';
 import { stressSimulator } from '../src/tools/macro/stress-simulator.js';
 import { macroThresholdMonitor } from '../src/tools/macro/macro-threshold-monitor.js';
@@ -93,6 +96,18 @@ const TOOLS: Record<string, () => Promise<void>> = {
 
   fiscal: () => run('FISCAL ENGINE — Module 10', () =>
     fiscalEngine.invoke({ query: 'APBN realisasi check' })
+  ),
+
+  domestic_pressure: () => run('DOMESTIC PRESSURE ENGINE — Module 11', () =>
+    domesticPressureEngine.invoke({ query: 'Show food basket stress and CPI pressure' })
+  ),
+
+  political_risk: () => run('POLITICAL RISK ENGINE — Module 12', () =>
+    politicalRiskEngine.invoke({ query: 'Show political risk and social stability' })
+  ),
+
+  uln: () => run('ULN ENGINE — Module 13', () =>
+    ulnEngine.invoke({ query: 'Show external debt and Greenspan-Guidotti ratio' })
   ),
 
   big_short: () => run('SILENT CRISIS DETECTOR (Big Short)', () =>

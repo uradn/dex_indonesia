@@ -175,15 +175,25 @@ export async function searchNewsSentiment(signal: NewsSentimentSignal, daysBack 
 
 interface SeasonalEvent {
   name: string;
-  window: { month: number; dayStart: number; dayEnd: number };
+  // year: specific year only; undefined = every year (Natal/Tahun Baru are fixed-date)
+  window: { year?: number; month: number; dayStart: number; dayEnd: number };
 }
 
-// Indonesian calendar: Lebaran varies (Islamic), Iduladha ~May/Jun, Natal Dec
+// Iduladha (10 Dzulhijjah) drifts ~11 days earlier each solar year — must be year-specific.
+// Government sets date via rukyat; these are SKB/Kepmen confirmed dates + ±5d window.
+// 2025: Jun 6  → Jun 1-15
+// 2026: Jun 6  → Jun 1-15  (rukyat; hisab est. May 27)
+// 2027: May 27 → May 22-31 + Jun 1-5
+// 2028: May 16 → May 11-25
+// Update each year when SKB 3 Menteri is published (biasanya Feb-Mar).
 const SEASONAL_EVENTS: SeasonalEvent[] = [
-  { name: 'Iduladha', window: { month: 5, dayStart: 20, dayEnd: 30 } },  // ~May-Jun, approx
-  { name: 'Iduladha', window: { month: 6, dayStart: 1, dayEnd: 15 } },
+  { name: 'Iduladha', window: { year: 2025, month: 6, dayStart: 1,  dayEnd: 15 } },
+  { name: 'Iduladha', window: { year: 2026, month: 6, dayStart: 1,  dayEnd: 15 } },
+  { name: 'Iduladha', window: { year: 2027, month: 5, dayStart: 22, dayEnd: 31 } },
+  { name: 'Iduladha', window: { year: 2027, month: 6, dayStart: 1,  dayEnd: 5  } },
+  { name: 'Iduladha', window: { year: 2028, month: 5, dayStart: 11, dayEnd: 25 } },
   { name: 'Natal/Tahun Baru', window: { month: 12, dayStart: 20, dayEnd: 31 } },
-  { name: 'Tahun Baru', window: { month: 1, dayStart: 1, dayEnd: 7 } },
+  { name: 'Tahun Baru',       window: { month: 1,  dayStart: 1,  dayEnd: 7  } },
 ];
 
 /**
@@ -192,9 +202,11 @@ const SEASONAL_EVENTS: SeasonalEvent[] = [
  */
 export function detectSeasonalContext(): string | null {
   const now = new Date();
+  const year  = now.getFullYear();
   const month = now.getMonth() + 1;
-  const day = now.getDate();
+  const day   = now.getDate();
   for (const event of SEASONAL_EVENTS) {
+    if (event.window.year !== undefined && event.window.year !== year) continue;
     if (event.window.month === month && day >= event.window.dayStart && day <= event.window.dayEnd) {
       return event.name;
     }

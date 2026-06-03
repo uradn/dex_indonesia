@@ -345,6 +345,64 @@ try {
 } catch(e) { console.log('WARN: BI SULNI scrape failed (graceful degrade active): ' + String(e).slice(0,60)); }
 "
 
+run_bun_check "CDS 5Y — WorldGovernmentBonds.com (Module 2)" "
+import { fetchIndonesiaCds5yWgb } from './src/tools/macro/sources/sovereign-scraper.js';
+try {
+  const r = await fetchIndonesiaCds5yWgb();
+  if (r && r.value > 0) console.log('OK: CDS 5Y =', r.value.toFixed(1) + 'bps');
+  else console.log('WARN: CDS returned null/zero — WGB scrape may have changed layout');
+} catch(e) { console.log('FAIL: ' + String(e).slice(0,80)); }
+"
+
+run_bun_check "Foreign SBN ownership — DJPPR PDF (Module 2 + 5)" "
+import { fetchSbnForeignOwnership } from './src/tools/macro/sources/bi.js';
+try {
+  const r = await fetchSbnForeignOwnership();
+  if (r && r.value > 0) console.log('OK: SBN foreign ownership =', r.value.toFixed(2) + '%');
+  else console.log('WARN: DJPPR PDF returned null — PDF layout may have changed');
+} catch(e) { console.log('FAIL: ' + String(e).slice(0,80)); }
+"
+
+run_bun_check "BI FX Reserves — BI website scrape (Module 1 + 3)" "
+import { fetchBiFxReserves } from './src/tools/macro/sources/bi.js';
+try {
+  const r = await fetchBiFxReserves();
+  if (r && r.value > 100) console.log('OK: FX reserves =', r.value.toFixed(1) + ' bn USD');
+  else console.log('WARN: reserves returned null/low — BI scrape may have changed layout');
+} catch(e) { console.log('FAIL: ' + String(e).slice(0,80)); }
+"
+
+run_bun_check "SRBI outstanding — BI website scrape (Module 3)" "
+import { fetchSrbiOutstanding } from './src/tools/macro/sources/bi.js';
+try {
+  const r = await fetchSrbiOutstanding();
+  if (r && r.value > 0) console.log('OK: SRBI outstanding =', r.value.toFixed(1) + ' trn IDR');
+  else console.log('WARN: SRBI returned null — BI scrape may have changed; FX defense engine uses cached value');
+} catch(e) { console.log('WARN: SRBI scrape failed (cached value used): ' + String(e).slice(0,60)); }
+"
+
+run_bun_check "EIDO ETF price — Yahoo Finance (Module 5 + 9)" "
+import { fetchEidoProxy } from './src/tools/macro/sources/yahoo-macro.js';
+try {
+  const pts = await fetchEidoProxy(5);
+  const latest = pts.at(-1);
+  if (latest && latest.value > 0) console.log('OK: EIDO =', latest.value.toFixed(2), 'USD');
+  else console.log('WARN: EIDO returned empty — foreign flow engine uses cached value');
+} catch(e) { console.log('FAIL: ' + String(e).slice(0,80)); }
+"
+
+run_bun_check "IHSG market breadth — IDX scrape (Module 9)" "
+import { fetchIhsgMarketData } from './src/tools/macro/sources/ihsg.js';
+try {
+  const r = await fetchIhsgMarketData();
+  if (r && (r.advanceDeclineRatio ?? 0) > 0) {
+    console.log('OK: A/D ratio =', r.advanceDeclineRatio?.toFixed(2), '| advances', r.advances, '/ declines', r.declines);
+  } else {
+    console.log('WARN: IDX breadth null — market stress engine uses P/E proxy only');
+  }
+} catch(e) { console.log('WARN: IHSG breadth scrape failed (P/E proxy active): ' + String(e).slice(0,60)); }
+"
+
 # ─── 7. EXA API ───────────────────────────────────────────────────────────────
 section "7. Exa Search API"
 
