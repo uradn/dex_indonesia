@@ -151,13 +151,17 @@ Default range: 2012-01-01 → today. Crisis IDs: `taper_tantrum_2013`, `china_de
 - `types.ts` — `CrisisEvent`, `BacktestPoint`, `ModuleSignalAtDate`, `CrisisValidation`, `BacktestResult`
 
 **Replay engine composite weights (sum 1.0):**
-FX Defense 0.30 | Commodity Cushion 0.25 | Foreign Flow 0.15 | Sovereign CDS 0.10 | VIX 0.10 | DXY 0.10
+FX Defense 0.30 | Commodity Cushion 0.25 | Foreign Flow 0.15 | Sovereign (CDS+SBN) 0.10 | VIX 0.10 | DXY 0.10
 
-**Sovereign CDS source:** WorldGovernmentBonds.com (`fetchIndonesiaCdsHistoricalWgb` in `sources/sovereign-scraper.ts`). Playwright intercepts the page's POST to `wp-json/common/v1/historical` using `page.waitForResponse()` (created before `goto` — avoids race condition). Returns ~2618 daily bars from 2018-09-20 to present. Pre-2018 dates use neutral baseline (score=30). Cache: `.dexter/cache/backtest/indonesia_cds_5y_bps_wgb` (3d TTL).
+**Sovereign module (weight 0.10):** composite of two sources — CDS 5Y (60%) + SBN 10Y yield (40%). Both z-scored; z>0 = stress. When both available (2018+): `round(cdsStress × 0.6 + sbnStress × 0.4)`. Pre-2018: SBN yield only. Neither: neutral 30.
+
+**Sovereign data sources:**
+- CDS 5Y: WorldGovernmentBonds.com (`fetchIndonesiaCdsHistoricalWgb`). Playwright intercepts POST to `wp-json/common/v1/historical`. ~2618 daily bars from 2018-09-20. Cache: `.dexter/cache/backtest/indonesia_cds_5y_bps_wgb` (3d TTL).
+- SBN 10Y yield: WGB Playwright primary (`fetchSbn10yHistoricalWgb`, `bond-historical-data/indonesia/10-years/`) + FRED fallback (`fetchSbn10yHistoricalFred`, `IRLTLT01IDM156N`, monthly → forward-filled daily, history from 2003). Cache: `.dexter/cache/backtest/indonesia_sbn10y_pct` (3d TTL).
 
 **Alert thresholds in backtest:** composite ≥75 = RED, ≥55 = ORANGE, ≥35 = YELLOW. Pre-crisis validator window: 180d.
 
-**Latest results (2026-06-07):** 100% hit rate (6/6 crises) | 165d avg YELLOW lead time | 4.8% false positive rate | Peak scores: 2013=81, 2015=75, 2018=84, 2020=96, 2022=90, 2023=89.
+**Latest results (2026-06-07):** 100% hit rate (6/6 crises) | 165d avg YELLOW lead time | 4.8% false positive rate | Peak scores: 2013=81, 2015=75, 2018=84, 2020=96, 2022=90, 2023=89. (Pre-SBN yield enhancement; re-run to get updated scores.)
 
 ## Environment variables
 

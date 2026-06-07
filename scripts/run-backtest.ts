@@ -20,7 +20,7 @@ const crises = crisisFilter
 
 console.log(`Backtest: ${start} → ${end}`);
 console.log(`Crises: ${crises.map((c) => c.id).join(', ')}`);
-console.log(`Indicators: ${BACKTEST_INDICATORS.map((s) => s.ticker).join(', ')}, indonesia_cds_5y_bps (WGB)\n`);
+console.log(`Indicators: ${BACKTEST_INDICATORS.map((s) => s.ticker).join(', ')}, indonesia_cds_5y_bps (WGB), indonesia_sbn10y_pct (WGB/FRED)\n`);
 console.log('Loading historical data from Yahoo Finance...');
 
 const historicalData = await loadAllHistoricalData(start, end);
@@ -47,6 +47,7 @@ const indicatorsBacktested = [
     .filter((spec) => historicalData.has(spec.indicator))
     .map((spec) => spec.indicator),
   ...(historicalData.has('indonesia_cds_5y_bps') ? ['indonesia_cds_5y_bps (WGB)'] : []),
+  ...(historicalData.has('indonesia_sbn10y_pct') ? ['indonesia_sbn10y_pct (WGB/FRED)'] : []),
 ];
 
 const result = buildBacktestResult(validations, signals, { start, end }, indicatorsBacktested);

@@ -288,6 +288,100 @@ export async function fetchIndonesiaCds5yWgb(): Promise<MacroDataPoint | null> {
 }
 
 /**
+ * Forward-fill monthly time series to daily bars.
+ * Each monthly data point is repeated for every day until the next monthly point.
+ */
+function forwardFillToDaily(
+  monthly: Array<{ date: string; close: number }>,
+): Array<{ date: string; close: number }> {
+  if (monthly.length === 0) return [];
+  const sorted = [...monthly].sort((a, b) => a.date.localeCompare(b.date));
+  const result: Array<{ date: string; close: number }> = [];
+  const endDate = new Date().toISOString().slice(0, 10);
+  let mIdx = 0;
+  const d = new Date(sorted[0]!.date);
+  while (d.toISOString().slice(0, 10) <= endDate) {
+    const dateStr = d.toISOString().slice(0, 10);
+    while (mIdx + 1 < sorted.length && sorted[mIdx + 1]!.date <= dateStr) mIdx++;
+    result.push({ date: dateStr, close: sorted[mIdx]!.close });
+    d.setDate(d.getDate() + 1);
+  }
+  return result;
+}
+
+/**
+ * Fetch Indonesia 10Y government bond yield historical time series from FRED.
+ * Series: IRLTLT01IDM156N (OECD source, monthly, % per annum).
+ * History: 2003-01 to present. No auth required. Forward-filled to daily.
+ * Used as fallback when WGB Playwright fetch fails or for pre-WGB dates.
+ */
+export async function fetchSbn10yHistoricalFred(): Promise<Array<{ date: string; close: number }>> {
+  try {
+    const res = await fetch(
+      'https://fred.stlouisfed.org/graph/fredgraph.csv?id=IRLTLT01IDM156N',
+      { headers: TE_HEADERS, signal: AbortSignal.timeout(15_000) },
+    );
+    if (!res.ok) return [];
+    const csv = await res.text();
+    const lines = csv.split('\n').filter((l) => l.trim());
+    if (lines.length < 2) return [];
+    const monthly: Array<{ date: string; close: number }> = [];
+    for (const line of lines.slice(1)) {
+      const parts = line.split(',');
+      if (parts.length < 2) continue;
+      const dateStr = parts[0]!.trim();
+      const valueStr = parts[1]!.trim();
+      if (!dateStr || !valueStr || valueStr === '.') continue;
+      const value = parseFloat(valueStr);
+      if (isNaN(value) || value < 3 || value > 25) continue;
+      monthly.push({ date: dateStr, close: value });
+    }
+    return forwardFillToDaily(monthly);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetch Indonesia 10Y government bond yield historical time series from WorldGovernmentBonds.com.
+ *
+ * Same interception pattern as fetchIndonesiaCdsHistoricalWgb — waitForResponse promise
+ * created before page.goto to eliminate the race condition.
+ *
+ * Returns daily bars with yield in % per annum (e.g. 6.71 = 6.71%).
+ * Validation: 3–25% covers Indonesia 10Y historical range (peaked ~20% in 1998; recent ~6-8%).
+ */
+export async function fetchSbn10yHistoricalWgb(): Promise<Array<{ date: string; close: number }>> {
+  const { withBrowserPage } = await import('./playwright-browser.js');
+
+  const WGB_YIELD_URL = 'https://www.worldgovernmentbonds.com/bond-historical-data/indonesia/10-years/';
+  const API_ENDPOINT  = 'https://www.worldgovernmentbonds.com/wp-json/common/v1/historical';
+
+  type WgbQuoteEntry = { CLOSE_VAL: number; DATA_VAL: string };
+  type WgbResponse   = { success: boolean; result: { num: number; quote: Record<string, WgbQuoteEntry> } };
+
+  const bars = await withBrowserPage<Array<{ date: string; close: number }>>(async (page) => {
+    const responsePromise = page.waitForResponse(
+      (res) => res.url().startsWith(API_ENDPOINT) && res.request().method() === 'POST',
+      { timeout: 40_000 },
+    );
+    await page.goto(WGB_YIELD_URL, { waitUntil: 'load', timeout: 35_000 });
+    const wgbRes = await responsePromise;
+    const data = await wgbRes.json() as WgbResponse;
+    if (!data?.success || !data.result?.quote) return [];
+    const result: Array<{ date: string; close: number }> = [];
+    for (const entry of Object.values(data.result.quote)) {
+      const yld = Number(entry.CLOSE_VAL);
+      if (!entry.DATA_VAL || isNaN(yld) || yld < 3 || yld > 25) continue;
+      result.push({ date: entry.DATA_VAL.slice(0, 10), close: yld });
+    }
+    return result.sort((a, b) => a.date.localeCompare(b.date));
+  });
+
+  return bars ?? [];
+}
+
+/**
  * Fetch Indonesia 5Y CDS full historical time series from WorldGovernmentBonds.com.
  *
  * WGB serves data via a WordPress REST API (POST) that enforces CORS — plain fetch

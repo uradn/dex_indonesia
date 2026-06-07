@@ -76,7 +76,7 @@ export function replayRealizedVol(bars: DailyBar[], window = 30): Map<string, nu
  * - FX Defense: USDIDR z-score (weight 0.30)
  * - Commodity Cushion: export commodity basket avg z-score (weight 0.25)
  * - Foreign Flow: EIDO z-score (weight 0.15)
- * - Sovereign: Indonesia 5Y CDS z-score via WGB (weight 0.10; neutral 30 when no data pre-2018)
+ * - Sovereign: CDS 5Y z-score (WGB, daily, from Sep 2018) + SBN 10Y yield z-score (FRED/WGB, from 2012) (weight 0.10; pre-2018 = SBN only; neither = neutral 30)
  * - Regime proxy: VIX z-score (weight 0.10)
  * - Global stress: DXY z-score (weight 0.10)
  */
@@ -143,12 +143,18 @@ export function computeSignals(
     const dxyZ = getZ('dxy_index');
     const dxyStressScore = dxyZ !== null && dxyZ > 0 ? Math.min(100, dxyZ * 35) : 0;
 
-    // Sovereign: Indonesia 5Y CDS (WGB). Positive z = CDS widening = stress.
-    // Falls back to neutral 30 when data unavailable (pre-2018 dates).
+    // Sovereign: CDS 5Y (WGB, daily, Sep 2018+) + SBN 10Y yield (FRED/WGB, daily, 2012+).
+    // CDS z>0 = widening = stress. SBN z>0 = yield rising = stress.
+    // Both available (2018+): CDS 60% + SBN 40% weighted composite.
+    // Pre-2018: SBN yield only. Neither available: neutral 30.
     const cdsZ = getZ('indonesia_cds_5y_bps');
-    const sovereignStressScore = cdsZ !== null
-      ? (cdsZ > 0 ? Math.min(100, cdsZ * 40) : 0)
-      : 30;  // neutral default when no CDS data
+    const sbnZ = getZ('indonesia_sbn10y_pct');
+    const cdsStress = cdsZ !== null ? (cdsZ > 0 ? Math.min(100, cdsZ * 40) : 0) : null;
+    const sbnStress = sbnZ !== null ? (sbnZ > 0 ? Math.min(100, sbnZ * 40) : 0) : null;
+    const sovereignStressScore =
+      cdsStress !== null && sbnStress !== null ? Math.round(cdsStress * 0.6 + sbnStress * 0.4) :
+      cdsStress !== null ? cdsStress :
+      sbnStress ?? 30;
     const sovereignAlert: AlertLevel = sovereignStressScore > 66 ? 'orange' : sovereignStressScore > 33 ? 'yellow' : 'green';
 
     // Composite (weights sum to 1.0)

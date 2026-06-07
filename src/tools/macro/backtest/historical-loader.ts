@@ -6,7 +6,11 @@
 import YahooFinance from 'yahoo-finance2';
 import type { MacroDataPoint } from '../types.js';
 import { readCache, writeCache } from '../../../utils/cache.js';
-import { fetchIndonesiaCdsHistoricalWgb } from '../sources/sovereign-scraper.js';
+import {
+  fetchIndonesiaCdsHistoricalWgb,
+  fetchSbn10yHistoricalWgb,
+  fetchSbn10yHistoricalFred,
+} from '../sources/sovereign-scraper.js';
 
 const yf = new YahooFinance();
 
@@ -92,9 +96,63 @@ export async function loadAllHistoricalData(
       }
     }),
     loadCdsSovereign(startDate, endDate, result),
+    loadSbn10yYield(startDate, endDate, result),
   ]);
 
   return result;
+}
+
+async function loadSbn10yYield(
+  startDate: string,
+  endDate: string,
+  result: Map<string, DailyBar[]>,
+): Promise<void> {
+  const cacheKey = 'backtest/indonesia_sbn10y_pct';
+  const cached = readCache(cacheKey, { from: startDate, to: endDate }, 24 * 60 * 60 * 1000 * 3);
+  let bars: DailyBar[];
+  let fromCache = false;
+
+  if (cached?.data?.bars) {
+    bars = cached.data.bars as DailyBar[];
+    fromCache = true;
+  } else {
+    let raw: Array<{ date: string; close: number }> = [];
+
+    // Primary: WGB Playwright — daily precision
+    try {
+      process.stderr.write('Fetching WGB SBN 10Y yield historical data (Playwright)...\n');
+      raw = await fetchSbn10yHistoricalWgb();
+    } catch (err) {
+      process.stderr.write(`WGB SBN 10Y fetch failed: ${err instanceof Error ? err.message : String(err)}\n`);
+    }
+
+    // Fallback: FRED IRLTLT01IDM156N — monthly, forward-filled, history from 2003
+    if (raw.length === 0) {
+      try {
+        process.stderr.write('Fetching FRED SBN 10Y yield (IRLTLT01IDM156N, monthly → daily)...\n');
+        raw = await fetchSbn10yHistoricalFred();
+      } catch (err) {
+        process.stderr.write(`FRED SBN 10Y fetch failed: ${err instanceof Error ? err.message : String(err)}\n`);
+      }
+    }
+
+    bars = raw
+      .filter((b) => b.date >= startDate && b.date <= endDate)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    if (bars.length > 0) {
+      writeCache(cacheKey, { from: startDate, to: endDate }, { bars }, 'SBN10Y');
+    }
+  }
+
+  if (bars.length > 0) {
+    process.stderr.write(
+      `SBN 10Y yield: ${bars.length} bars loaded${fromCache ? ' (cached)' : ''} [${bars[0]!.date} → ${bars[bars.length - 1]!.date}]\n`,
+    );
+    result.set('indonesia_sbn10y_pct', bars);
+  } else {
+    process.stderr.write('SBN 10Y: no data — sovereign module uses CDS only\n');
+  }
 }
 
 async function loadCdsSovereign(
