@@ -217,6 +217,55 @@ For each shock, compute the delta:
 **Module 1 — BoP:**
 - Unhedged corporate forced USD buying = capital account outflow proxy → reserve pressure
 
+### 3G. MBG Fiscal Overrun (fiscalOverrunIdrT in IDR trillion)
+
+**Context:** MBG (Makan Bergizi Gratis) — Prabowo's free school meals program. Budget: IDR 71T base (2025). Potential expansion IDR 100–450T in 2026 as coverage scales. Transmission follows **Mundell-Fleming (R&R Ch.8)**: ΔG → APBN overrun → term premium rise → SBN yield up → IDR pressure via open capital account.
+
+**Fiscal yield premium (IMF fiscal-yield rule for Indonesia):**
+```
+fiscal_yield_premium_pct = (fiscalOverrunIdrT / 100) × 0.30
+```
+- IDR 100T overrun → +30bps SBN yield
+- IDR 200T overrun → +60bps SBN yield
+- IDR 300T overrun → +90bps SBN yield
+- IDR 450T overrun → +135bps SBN yield
+
+**Step 1 — compute shocked SBN yield, then apply Step 3A in full:**
+```
+shocked_sbn10y = baseline_sbn10y + fiscal_yield_premium_pct
+```
+All Step 3A transmission (sovereign score, FSAP CAR hit, foreign flow, fiscal interest burden) applies.
+
+**Module 10 — Fiscal (direct APBN impact):**
+- Additional deficit: `delta_deficit_pct_gdp = fiscalOverrunIdrT / 25_714 × 100`
+  - 100T overrun → +0.39pp deficit
+  - 200T overrun → +0.78pp (total ~3.46% GDP — approaching constitutional 3% ceiling if already stressed)
+  - 300T overrun → +1.17pp (total ~3.85% GDP — breaches ceiling)
+- Scoring: re-run deficit trajectory with new deficit_pct_gdp
+- Revenue shortfall compound: if revenue running below 85% pace simultaneously, add 10 to fiscal score
+
+**Module 6 — Narrative Divergence:**
+- APBN spending assumption vs realized: fiscal overrun = direct divergence signal
+- Widened gap raises narrative score: +10 per 100T overrun above IDR 100T
+
+**Module 5 — Foreign Flow (Mundell-Fleming capital account channel):**
+- Term premium rise → foreign SBN investors reprice: each 30bps yield premium historically → −0.3pp SBN foreign ownership over one quarter
+- Apply as additional SBN ownership decline on top of any yield shock in 3A
+
+**Dornbusch compound check:**
+- If MBG overrun + existing IDR weakness pushes total IDR depreciation from APBN baseline >15%: fire Dornbusch overshoot note — "structural fiscal shock amplifies short-run overshoot; peak IDR may exceed equilibrium before PPP mean-reversion"
+
+**Standard MBG severity tiers:**
+
+| MBG Tier | fiscalOverrunIdrT | SBN Δ | Deficit Impact | Key Risk |
+|----------|------------------|-------|---------------|----------|
+| Mild | 100T | +30bps | +0.39pp GDP | Sovereign YELLOW |
+| Moderate | 200T | +60bps | +0.78pp GDP | FSAP CAR watch (0.72pp) |
+| Severe | 300T | +90bps | +1.17pp GDP | Deficit >3.85% GDP — breaches ceiling |
+| Max rollout | 450T | +135bps | +1.75pp GDP | FSAP doom loop (CAR hit 1.62pp); sudden stop risk |
+
+**Compound scenario (MBG + revenue shortfall):** most dangerous configuration — fiscal overrun on spending side while pajak shortfall widens on revenue side. When both fire, deficit_pct_gdp can cross 4%+ without BI credibly defending IDR. Check fiscal_engine revenue absorption rate before computing.
+
 ## Step 4 — Score Each Module Before vs After
 
 For each affected module, compute:
