@@ -9,7 +9,6 @@ import { readCache, writeCache } from '../../../utils/cache.js';
 import {
   fetchIndonesiaCdsHistoricalWgb,
   fetchSbn10yHistoricalWgb,
-  fetchSbn10yHistoricalFred,
 } from '../sources/sovereign-scraper.js';
 
 const yf = new YahooFinance();
@@ -116,24 +115,16 @@ async function loadSbn10yYield(
     bars = cached.data.bars as DailyBar[];
     fromCache = true;
   } else {
+    // WGB Playwright — daily precision. Coverage from ~Sep 2016 to present.
+    // Pre-2016 gap: no free API covers Indonesia 10Y historical (not OECD member).
+    // Crises affected: 2013 Taper Tantrum + 2015 China Devaluation pre-crisis window
+    // use neutral 30 sovereign baseline; still caught via FX/commodity/flow modules.
     let raw: Array<{ date: string; close: number }> = [];
-
-    // Primary: WGB Playwright — daily precision
     try {
       process.stderr.write('Fetching WGB SBN 10Y yield historical data (Playwright)...\n');
       raw = await fetchSbn10yHistoricalWgb();
     } catch (err) {
       process.stderr.write(`WGB SBN 10Y fetch failed: ${err instanceof Error ? err.message : String(err)}\n`);
-    }
-
-    // Fallback: FRED IRLTLT01IDM156N — monthly, forward-filled, history from 2003
-    if (raw.length === 0) {
-      try {
-        process.stderr.write('Fetching FRED SBN 10Y yield (IRLTLT01IDM156N, monthly → daily)...\n');
-        raw = await fetchSbn10yHistoricalFred();
-      } catch (err) {
-        process.stderr.write(`FRED SBN 10Y fetch failed: ${err instanceof Error ? err.message : String(err)}\n`);
-      }
     }
 
     bars = raw

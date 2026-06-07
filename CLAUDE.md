@@ -157,7 +157,7 @@ FX Defense 0.30 | Commodity Cushion 0.25 | Foreign Flow 0.15 | Sovereign (CDS+SB
 
 **Sovereign data sources:**
 - CDS 5Y: WorldGovernmentBonds.com (`fetchIndonesiaCdsHistoricalWgb`). Playwright intercepts POST to `wp-json/common/v1/historical`. ~2618 daily bars from 2018-09-20. Cache: `.dexter/cache/backtest/indonesia_cds_5y_bps_wgb` (3d TTL).
-- SBN 10Y yield: WGB Playwright primary (`fetchSbn10yHistoricalWgb`, `bond-historical-data/indonesia/10-years/`) + FRED fallback (`fetchSbn10yHistoricalFred`, `IRLTLT01IDM156N`, monthly → forward-filled daily, history from 2003). Cache: `.dexter/cache/backtest/indonesia_sbn10y_pct` (3d TTL).
+- SBN 10Y yield: WGB Playwright (`fetchSbn10yHistoricalWgb`, `bond-historical-data/indonesia/10-years/`), coverage from ~Sep 2016. Pre-2016 gap: no free API covers Indonesia 10Y historical (Indonesia is not OECD full member — FRED/World Bank lack the series; Stooq/Investing.com require JS bot-protection bypass). Crises 2013/2015 pre-crisis periods use neutral sovereign baseline (30) — still caught via FX/commodity/flow modules. Cache: `.dexter/cache/backtest/indonesia_sbn10y_pct` (3d TTL).
 
 **Alert thresholds in backtest:** composite ≥75 = RED, ≥55 = ORANGE, ≥35 = YELLOW. Pre-crisis validator window: 180d.
 

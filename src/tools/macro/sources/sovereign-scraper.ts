@@ -288,61 +288,6 @@ export async function fetchIndonesiaCds5yWgb(): Promise<MacroDataPoint | null> {
 }
 
 /**
- * Forward-fill monthly time series to daily bars.
- * Each monthly data point is repeated for every day until the next monthly point.
- */
-function forwardFillToDaily(
-  monthly: Array<{ date: string; close: number }>,
-): Array<{ date: string; close: number }> {
-  if (monthly.length === 0) return [];
-  const sorted = [...monthly].sort((a, b) => a.date.localeCompare(b.date));
-  const result: Array<{ date: string; close: number }> = [];
-  const endDate = new Date().toISOString().slice(0, 10);
-  let mIdx = 0;
-  const d = new Date(sorted[0]!.date);
-  while (d.toISOString().slice(0, 10) <= endDate) {
-    const dateStr = d.toISOString().slice(0, 10);
-    while (mIdx + 1 < sorted.length && sorted[mIdx + 1]!.date <= dateStr) mIdx++;
-    result.push({ date: dateStr, close: sorted[mIdx]!.close });
-    d.setDate(d.getDate() + 1);
-  }
-  return result;
-}
-
-/**
- * Fetch Indonesia 10Y government bond yield historical time series from FRED.
- * Series: IRLTLT01IDM156N (OECD source, monthly, % per annum).
- * History: 2003-01 to present. No auth required. Forward-filled to daily.
- * Used as fallback when WGB Playwright fetch fails or for pre-WGB dates.
- */
-export async function fetchSbn10yHistoricalFred(): Promise<Array<{ date: string; close: number }>> {
-  try {
-    const res = await fetch(
-      'https://fred.stlouisfed.org/graph/fredgraph.csv?id=IRLTLT01IDM156N',
-      { headers: TE_HEADERS, signal: AbortSignal.timeout(15_000) },
-    );
-    if (!res.ok) return [];
-    const csv = await res.text();
-    const lines = csv.split('\n').filter((l) => l.trim());
-    if (lines.length < 2) return [];
-    const monthly: Array<{ date: string; close: number }> = [];
-    for (const line of lines.slice(1)) {
-      const parts = line.split(',');
-      if (parts.length < 2) continue;
-      const dateStr = parts[0]!.trim();
-      const valueStr = parts[1]!.trim();
-      if (!dateStr || !valueStr || valueStr === '.') continue;
-      const value = parseFloat(valueStr);
-      if (isNaN(value) || value < 3 || value > 25) continue;
-      monthly.push({ date: dateStr, close: value });
-    }
-    return forwardFillToDaily(monthly);
-  } catch {
-    return [];
-  }
-}
-
-/**
  * Fetch Indonesia 10Y government bond yield historical time series from WorldGovernmentBonds.com.
  *
  * Same interception pattern as fetchIndonesiaCdsHistoricalWgb — waitForResponse promise
