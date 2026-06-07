@@ -11,6 +11,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { fetchFullHistory } from './backtest/historical-loader.js';
 import { rollingZScore, alertFromZScore } from './scoring.js';
+import { getLatestPoint, getLastN } from './time-series-db.js';
 import type { AlertLevel } from './types.js';
 
 const EXPORT_TICKERS: Array<{ ticker: string; indicator: string }> = [
@@ -31,6 +32,7 @@ const STRESS_TICKERS: Array<{ ticker: string; indicator: string }> = [
 
 interface ModuleBreakdown {
   fxStress: number;
+  sovereignStress: number;
   commodityStress: number;
   foreignFlowStress: number;
   vixStress: number;
@@ -73,6 +75,7 @@ function computeZ(series: number[], value: number): number | null {
 
 function scoreModules(
   idrZ: number | null,
+  sbnZ: number | null,
   avgExportZ: number | null,
   eidoZ: number | null,
   vixZ: number | null,
@@ -80,6 +83,11 @@ function scoreModules(
 ): ModuleBreakdown {
   const fxScore = idrZ !== null ? Math.min(100, Math.abs(idrZ) * 40) : 0;
   const fxStress = idrZ !== null && idrZ > 0 ? fxScore : fxScore * 0.3;
+
+  // SBN yield: higher yield = sovereign repricing stress (z > 0 = yield above historical norm)
+  const sovereignStress = sbnZ !== null
+    ? sbnZ > 0 ? Math.min(100, Math.round(sbnZ * 45)) : 0
+    : 20; // no data → conservative baseline (sovereign repricing always latent risk)
 
   const commodityStress = avgExportZ !== null
     ? Math.min(100, Math.max(0, 50 - avgExportZ * 25))
@@ -92,12 +100,15 @@ function scoreModules(
   const vixStress = vixZ !== null && vixZ > 0 ? Math.min(100, vixZ * 35) : 0;
   const dxyStress = dxyZ !== null && dxyZ > 0 ? Math.min(100, dxyZ * 35) : 0;
 
+  // Weights updated: sovereign added (0.20), FX reduced (0.35→0.30), commodity (0.25→0.20),
+  // foreign flow (0.20→0.15), VIX (0.10), DXY (0.10→0.05). Sum = 1.00.
   const composite = Math.round(
-    fxStress * 0.35 +
-    commodityStress * 0.25 +
-    foreignFlowStress * 0.20 +
-    vixStress * 0.10 +
-    dxyStress * 0.10,
+    fxStress        * 0.30 +
+    sovereignStress * 0.20 +
+    commodityStress * 0.20 +
+    foreignFlowStress * 0.15 +
+    vixStress       * 0.10 +
+    dxyStress       * 0.05,
   );
 
   const alertLevel: AlertLevel =
@@ -107,6 +118,7 @@ function scoreModules(
 
   return {
     fxStress: Math.round(fxStress),
+    sovereignStress: Math.round(sovereignStress),
     commodityStress: Math.round(commodityStress),
     foreignFlowStress: Math.round(foreignFlowStress),
     vixStress: Math.round(vixStress),
@@ -122,11 +134,12 @@ function alertLabel(level: AlertLevel): string {
 
 function formatBreakdown(b: ModuleBreakdown): string {
   return [
-    `  FX Defense:     ${b.fxStress}/100`,
-    `  Commodity:      ${b.commodityStress}/100`,
-    `  Foreign Flow:   ${b.foreignFlowStress}/100`,
-    `  Global Stress:  ${Math.round((b.vixStress + b.dxyStress) / 2)}/100 (VIX ${b.vixStress} / DXY ${b.dxyStress})`,
-    `  ─────────────────────────`,
+    `  FX Defense:     ${b.fxStress}/100  (w=0.30)`,
+    `  Sovereign:      ${b.sovereignStress}/100  (w=0.20) — SBN yield stress`,
+    `  Commodity:      ${b.commodityStress}/100  (w=0.20)`,
+    `  Foreign Flow:   ${b.foreignFlowStress}/100  (w=0.15)`,
+    `  Global Stress:  ${Math.round((b.vixStress + b.dxyStress) / 2)}/100  (w=0.15) — VIX ${b.vixStress} / DXY ${b.dxyStress}`,
+    `  ─────────────────────────────────────`,
     `  COMPOSITE:      ${b.composite}/100  [${alertLabel(b.alertLevel)}]`,
   ].join('\n');
 }
@@ -160,6 +173,8 @@ export const stressSimulator = new DynamicStructuredTool({
     coalShockPct: z.number().optional().describe('% change to coal price specifically'),
     cpoShockPct: z.number().optional().describe('% change to CPO price specifically'),
     nickelShockPct: z.number().optional().describe('% change to nickel price specifically'),
+    sbn10yLevel: z.number().optional().describe('Hypothetical SBN 10Y yield %, e.g. 8.5 for Taper Tantrum analog'),
+    fiscalOverrunIdrT: z.number().optional().describe('Fiscal overrun above APBN target in IDR trillion (adds ~30bps/100T to SBN yield stress)'),
   }),
   func: async (input) => {
     const {
@@ -172,9 +187,19 @@ export const stressSimulator = new DynamicStructuredTool({
       coalShockPct,
       cpoShockPct,
       nickelShockPct,
+      sbn10yLevel,
+      fiscalOverrunIdrT,
     } = input;
 
     const label = scenarioName ?? 'Custom Stress Scenario';
+
+    // Sovereign module: SBN 10Y yield from macro DB (written by sovereign_risk_engine)
+    const [sbnLatest, sbnHistory] = await Promise.all([
+      getLatestPoint('sbn_10y_yield_pct'),
+      getLastN('sbn_10y_yield_pct', 90),
+    ]);
+    const baseSbn = sbnLatest?.value ?? 6.71; // fallback: approx current SBN 10Y
+    const sbnHistValues = sbnHistory.map((p) => p.value);
 
     const series = await fetchSeries(150);
 
@@ -196,6 +221,7 @@ export const stressSimulator = new DynamicStructuredTool({
     const baselineVixZ = vixData ? computeZ(vixData.series90d, vixData.currentValue) : null;
     const baselineDxyZ = dxyData ? computeZ(dxyData.series90d, dxyData.currentValue) : null;
     const baselineEidoZ = eidoData ? computeZ(eidoData.series90d, eidoData.currentValue) : null;
+    const baselineSbnZ = sbnHistValues.length >= 10 ? computeZ(sbnHistValues.slice(0, -1), baseSbn) : null;
 
     const baselineExportZs = exportIndicators
       .map((ind) => {
@@ -208,6 +234,11 @@ export const stressSimulator = new DynamicStructuredTool({
       : null;
 
     // ── Stressed values ────────────────────────────────────────────────
+    // Fiscal overrun → SBN yield premium: ~30bps per IDR 100T above APBN target (IMF rule)
+    const fiscalYieldPremium = fiscalOverrunIdrT !== undefined ? (fiscalOverrunIdrT / 100) * 0.30 : 0;
+    const stressedSbnValue = (sbn10yLevel ?? baseSbn) + fiscalYieldPremium;
+    const stressedSbnZ = sbnHistValues.length >= 10 ? computeZ(sbnHistValues.slice(0, -1), stressedSbnValue) : null;
+
     const stressedIdrValue  = idrLevel ?? idrData?.currentValue ?? null;
     const stressedVixValue  = vixLevel ?? vixData?.currentValue ?? null;
     const stressedDxyValue  = dxyLevel ?? dxyData?.currentValue ?? null;
@@ -244,8 +275,8 @@ export const stressSimulator = new DynamicStructuredTool({
     const stressedEidoZ = eidoData && stressedEidoValue !== null ? computeZ(eidoData.series90d, stressedEidoValue) : null;
 
     // ── Score both ─────────────────────────────────────────────────────
-    const baseline = scoreModules(baselineIdrZ, baselineAvgExportZ, baselineEidoZ, baselineVixZ, baselineDxyZ);
-    const stressed = scoreModules(stressedIdrZ, stressedAvgExportZ, stressedEidoZ, stressedVixZ, stressedDxyZ);
+    const baseline = scoreModules(baselineIdrZ, baselineSbnZ, baselineAvgExportZ, baselineEidoZ, baselineVixZ, baselineDxyZ);
+    const stressed = scoreModules(stressedIdrZ, stressedSbnZ, stressedAvgExportZ, stressedEidoZ, stressedVixZ, stressedDxyZ);
 
     const delta = stressed.composite - baseline.composite;
     const deltaSign = delta >= 0 ? '+' : '';
@@ -261,10 +292,21 @@ export const stressSimulator = new DynamicStructuredTool({
     if (coalShockPct !== undefined)    inputLines.push(`Coal:      ${coalShockPct > 0 ? '+' : ''}${coalShockPct}%`);
     if (cpoShockPct !== undefined)     inputLines.push(`CPO:       ${cpoShockPct > 0 ? '+' : ''}${cpoShockPct}%`);
     if (nickelShockPct !== undefined)  inputLines.push(`Nickel:    ${nickelShockPct > 0 ? '+' : ''}${nickelShockPct}%`);
+    if (sbn10yLevel !== undefined)     inputLines.push(`SBN 10Y:   ${sbn10yLevel.toFixed(2)}% (baseline: ${baseSbn.toFixed(2)}%)`);
+    if (fiscalOverrunIdrT !== undefined) inputLines.push(`Fiscal overrun: IDR ${fiscalOverrunIdrT}T above APBN → +${fiscalYieldPremium.toFixed(2)}pp SBN yield premium`);
 
     if (inputLines.length === 0) {
       return 'No overrides provided. Specify at least one: idrLevel, vixLevel, dxyLevel, eidoPctChange, or commodityShockPct.';
     }
+
+    // ── Dornbusch overshoot note ───────────────────────────────────────
+    // When IDR shock >15% above current: short-run overshoot likely before PPP reversion (R&R Ch.10)
+    const idrShockPct = stressedIdrValue !== null && idrData
+      ? ((stressedIdrValue - idrData.currentValue) / idrData.currentValue) * 100
+      : 0;
+    const dornbuschNote = idrShockPct > 15
+      ? `⚡ Dornbusch Overshoot (R&R Ch.10): IDR shock +${idrShockPct.toFixed(1)}% exceeds monetary equilibrium correction. Short-run overshooting likely before PPP mean-reversion — actual peak depreciation may be higher than input, then partially reverses.`
+      : null;
 
     // ── Historical analog ──────────────────────────────────────────────
     const analog = stressed.composite >= 75
@@ -296,8 +338,8 @@ export const stressSimulator = new DynamicStructuredTool({
       `## Historical Analog`,
       analog,
       ``,
-      `_Note: Sovereign module (CDS/SBN) not included — no real-time data without Bloomberg/Refinitiv._`,
-      `_Actual stress may be higher if sovereign repricing occurs simultaneously._`,
+      dornbuschNote ?? '',
+      `_Sovereign module uses SBN 10Y yield from macro DB (run sovereign_risk_engine to populate). Fiscal overrun → yield premium: ~30bps per IDR 100T above APBN. Weights: FX 0.30 | Sovereign 0.20 | Commodity 0.20 | Flow 0.15 | VIX 0.10 | DXY 0.05._`,
     ];
 
     return lines.filter((l) => l !== '').join('\n');
