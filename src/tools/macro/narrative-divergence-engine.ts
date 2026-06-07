@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
-import { getLatestPoint, upsertPoints } from './time-series-db.js';
+import { getLatestPoint, getLastN, upsertPoints } from './time-series-db.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchSbn10yTradingEconomics, fetchBiRateTradingEconomics } from './sources/sovereign-scraper.js';
 import { fetchFoodInflationTe } from './sources/pihps.js';
@@ -62,6 +62,10 @@ const APBN_ASSUMPTIONS = {
   inflation: 2.5,       // APBN CPI target %
   biRate: 5.25,         // BI 7DRR as of May 2026 (raised +50bps from 4.75% on 20 May 2026)
 };
+
+// US CPI approximation — used for relative PPP misalignment cross-check only (R&R framework)
+// Update if Fed publishes major CPI revision; directional signal does not require precision
+const US_CPI_APPROX = 3.0;
 
 export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenceOutput> {
   const checks: DivergenceCheck[] = [];
@@ -186,6 +190,30 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
       divergenceScore: Math.min(100, combinedImpact * 2),
       flagged: combinedImpact > 20,
     });
+  }
+
+  // 8. PPP Misalignment (R&R Ch.4-5: Relative PPP)
+  // Relative PPP: %ΔUSDIDR ≈ π_Indonesia − π_USA. Persistent deviation = structural misalignment.
+  // Positive misalignment (IDR weaker than PPP predicts) → Dornbusch overshoot → may correct
+  // Negative (IDR stronger than PPP) → potential future depreciation pressure
+  const idrLongHistory = await getLastN('usdidr_spot', 250);
+  if (usdIdrSpot && idrLongHistory.length >= 30) {
+    const oldest = idrLongHistory[0]!;
+    const daysApart = (Date.parse(usdIdrSpot.date) - Date.parse(oldest.date)) / 86_400_000;
+    if (daysApart >= 180) {
+      const actualChange = ((usdIdrSpot.value - oldest.value) / oldest.value) * 100;
+      const annualizedChange = parseFloat((actualChange * (365 / daysApart)).toFixed(2));
+      const pppImplied = parseFloat((APBN_ASSUMPTIONS.inflation - US_CPI_APPROX).toFixed(2));
+      const misalignment = parseFloat((annualizedChange - pppImplied).toFixed(2));
+      const absMis = Math.abs(misalignment);
+      checks.push({
+        dimension: 'USDIDR vs Relative PPP Fair Value (R&R)',
+        officialClaim: `PPP-implied annual IDR change: ${pppImplied >= 0 ? '+' : ''}${pppImplied.toFixed(1)}% (ID CPI ${APBN_ASSUMPTIONS.inflation}% − US CPI ~${US_CPI_APPROX}%)`,
+        marketSignal: `IDR actual ${Math.round(daysApart)}d annualized: ${annualizedChange >= 0 ? '+' : ''}${annualizedChange.toFixed(1)}% — misalignment: ${misalignment >= 0 ? '+' : ''}${misalignment.toFixed(1)}pp${absMis > 10 ? (misalignment > 0 ? ' (IDR overshooting PPP — Dornbusch: expect partial reversion)' : ' (IDR outperforming PPP — latent pressure building)') : ' (broadly within PPP range)'}`,
+        divergenceScore: Math.min(100, Math.round(absMis * 5)),
+        flagged: absMis > 10,
+      });
+    }
   }
 
   // Compute overall credibility score (inverted average divergence)
