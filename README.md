@@ -65,6 +65,30 @@ SBN yield shock → implied bank CAR erosion: `(sbn_10y − 6.5% baseline) × 6y
 **BI Interest Rate Corridor:**
 IndONIA harus stay dalam corridor DFR (BI Rate −100bps) sampai LF Rate (BI Rate +75bps). Spread >30bps = YELLOW, >50bps = ORANGE, >75bps = RED (BI terpaksa inject liquidity = crisis signal).
 
+**Rivera-Batiz & Rivera-Batiz (R&R) — International Finance & Open Economy Macroeconomics:**
+
+Framework teoritis utama yang di-embed ke dalam sistem ini. Setiap sinyal berikut bukan heuristic — ada basis teori makro terbuka yang eksplisit:
+
+| Framework R&R | Chapter | Diimplementasikan di | Sinyal yang dihasilkan |
+|---------------|---------|----------------------|------------------------|
+| Purchasing Power Parity (PPP) | Ch. 4–5 | Module 6 (Narrative Divergence) | USDIDR vs PPP fair value; Dornbusch overshoot flag |
+| Uncovered Interest Parity (UIP) | Ch. 5 | Module 7 (ASEAN RV) | UIP Carry Attractiveness Index: real carry = SBN spread − IDR depreciation. Leads Module 5 foreign flow 2–3 minggu |
+| Mundell-Fleming Open Economy | Ch. 8 | Stress Simulator | MBG fiscal shock: ΔG → ΔIDR → term premium → foreign flow (param `fiscalOverrunIdrT`) |
+| Dornbusch Overshooting | Ch. 10 | Stress Simulator | IDR shock >15%: short-run overshoot sebelum PPP mean-reversion. Note otomatis di output |
+| Trilemma (Mundell) | Ch. 11 | Module 10 (Fiscal) | SRBI sterilization cost: open capital + monetary autonomy → wajib sterilisasi → quasi-fiscal drag BI |
+| r-g Debt Dynamics | Ch. 14–16 | Module 13 (ULN) | r−g = SBN 10Y − GDP growth. Jika positif tanpa primary surplus → debt/GDP expands mechanically |
+| 1st-gen Crisis (Krugman-FG) | Ch. 12 | Module 3 (FX Defense) *(Wave 3)* | Shadow exchange rate, months-to-attack estimate |
+| 2nd-gen Self-fulfilling Crisis | Ch. 13 | Module 3 (FX Defense) *(Wave 3)* | Confidence gate: multiple equilibria, self-fulfilling attack threshold |
+| Sudden Stop (Calvo) | Ch. 15 | Module 5 (Foreign Flow) *(Wave 3)* | Sudden Stop Vulnerability Index: SBN foreign ownership cliff + UIP carry reversal |
+
+**Contoh output r-g (Module 13):**
+```
+### R-G Debt Dynamics (R&R Ch.14–16)
+r−g = SBN 10Y 6.71% − GDP growth 5.40% = +1.31pp [KNIFE-EDGE]
+Debt/GDP: 27.8% → Primary surplus needed to stabilize: +0.36% GDP
+Flag: R-G ADVERSE — without primary surplus, debt/GDP expands mechanically
+```
+
 ### Shock Scenario Simulator
 
 Forward-looking stress test — simulasi bagaimana satu atau compound shock mengubah seluruh 13 modul sekaligus. Tersedia sebagai CLI script (`scripts/shock-scenario.ts`) maupun skill agent (`shock-scenario`).
