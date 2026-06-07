@@ -118,6 +118,7 @@ Decomposes IDR weakness into global DXY story vs Indonesia-specific repricing. P
 - `src/skills/macro/fx-defense/SKILL.md` — FX Defense workflow
 - `src/skills/macro/klr-ews/SKILL.md` — KLR EWS 21-indicator dual-crisis signal matrix (12 currency + 9 banking, includes Module 13 ULN signals)
 - `src/skills/macro/shock-scenario/SKILL.md` — Forward-looking stress simulator (Before vs After per module)
+- `src/skills/macro/rr-framework/SKILL.md` — Rivera-Batiz & Rivera-Batiz theoretical framework reference; invoke when user asks "why does this signal matter" or "theoretical basis for X"
 
 **Alert levels (z-score based):** GREEN (z<1.5) → YELLOW (z≥1.5) → ORANGE (z≥2.0) → RED (z≥2.5). Score-based thresholds (for shock scenario / module scoring): GREEN <33, YELLOW 33–49, ORANGE 50–69, RED ≥70.
 
@@ -127,6 +128,7 @@ Decomposes IDR weakness into global DXY story vs Indonesia-specific repricing. P
 - **KLR EWS** — 21-indicator dual crisis matrix (12 currency + 9 banking); invoke via `klr-ews` skill
 - **FSAP sovereign-bank nexus** — SBN yield → implied CAR erosion; live in `banking_stress_engine`
 - **BI IndONIA corridor** — DFR = BI Rate −100bps, LF = BI Rate +75bps; breach = forced BI liquidity injection
+- **Rivera-Batiz & Rivera-Batiz (R&R)** — 9 open-economy frameworks embedded across modules: PPP misalignment (M6), UIP carry (M7), Mundell-Fleming fiscal shock (stress-sim), Dornbusch overshoot (stress-sim), Trilemma/SRBI sterilization (M10), r-g debt dynamics (M13), 1st-gen shadow rate (M3), 2nd-gen confidence gate (M3), Sudden Stop SSVI (M5); invoke via `rr-framework` skill for theory → signal chain
 
 **APBN 2026 macro constants** (UU No.17/2025): USDIDR 16,500 | ICP $70/bbl | GDP growth 5.4% | CPI 2.5% | SBN 10Y 6.9% | Revenue 3,153.6T | Spending 3,842.7T | Deficit 2.68% GDP | Post-efisiensi spending ~3,534.7T | GDP 25,714.2T. BI Rate as of 20 May 2026: 5.25% (+50bps from 4.75%).
 
