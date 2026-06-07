@@ -5,13 +5,17 @@ import type { AlertLevel } from '../types.js';
 /**
  * Validate signals against a single crisis event.
  */
+const PRE_CRISIS_WINDOW_DAYS = 180;
+
 export function validateCrisis(
   crisis: CrisisEvent,
   signals: ModuleSignalAtDate[],
 ): CrisisValidation {
+  // Extended 180d pre-crisis window (was 90d — too narrow for slow-burn Fed cycles)
+  const windowStart = new Date(new Date(crisis.startDate).getTime() - PRE_CRISIS_WINDOW_DAYS * 86400_000)
+    .toISOString().slice(0, 10);
   const precrisisSignals = signals.filter(
-    (s) => s.date >= new Date(new Date(crisis.startDate).getTime() - 90 * 86400_000).toISOString().slice(0, 10)
-         && s.date <= crisis.startDate,
+    (s) => s.date >= windowStart && s.date <= crisis.startDate,
   );
 
   let firstAlertDate: string | null = null;
@@ -34,8 +38,15 @@ export function validateCrisis(
   const leadTimeOrange = firstOrangeDate ? daysBetween(firstOrangeDate, crisis.startDate) : null;
   const leadTimeRed = firstRedDate ? daysBetween(firstRedDate, crisis.startDate) : null;
 
-  const signalAtStart = signals.find((s) => s.date === crisis.startDate)?.overallAlert ?? 'green';
-  const signalAtPeak = signals.find((s) => s.date === crisis.peakDate)?.overallAlert ?? 'green';
+  // Nearest trading day lookup (avoids green fallback on holidays/weekends)
+  const findNearest = (targetDate: string): AlertLevel => {
+    const sorted = signals
+      .filter((s) => s.date <= targetDate)
+      .sort((a, b) => b.date.localeCompare(a.date));
+    return sorted[0]?.overallAlert ?? 'green';
+  };
+  const signalAtStart = findNearest(crisis.startDate);
+  const signalAtPeak  = findNearest(crisis.peakDate);
 
   const crisisSignals = signals.filter((s) => isInCrisisWindow(s.date, crisis, 0));
   const peakScore = crisisSignals.reduce((max, s) => Math.max(max, s.compositeScore), 0);
@@ -43,6 +54,21 @@ export function validateCrisis(
   const peakAlertLevel = crisisSignals.reduce<AlertLevel>(
     (max, s) => alertOrder.indexOf(s.overallAlert) > alertOrder.indexOf(max) ? s.overallAlert : max,
     'green',
+  );
+
+  // Within-crisis ORANGE detection: when did the first ORANGE fire after crisis start?
+  const inCrisisOnly = signals.filter(
+    (s) => s.date > crisis.startDate && s.date <= crisis.peakDate,
+  ).sort((a, b) => a.date.localeCompare(b.date));
+
+  const firstOrangeInCrisis = inCrisisOnly.find(
+    (s) => s.overallAlert === 'orange' || s.overallAlert === 'red',
+  ) ?? null;
+
+  // Signal peak = date of highest composite score within full crisis window
+  const signalPeakEntry = crisisSignals.reduce<ModuleSignalAtDate | null>(
+    (max, s) => (max === null || s.compositeScore > max.compositeScore) ? s : max,
+    null,
   );
 
   return {
@@ -53,6 +79,14 @@ export function validateCrisis(
     leadTimeDaysYellow: leadTimeYellow,
     leadTimeDaysOrange: leadTimeOrange,
     leadTimeDaysRed: leadTimeRed,
+    firstOrangeDateInCrisis: firstOrangeInCrisis?.date ?? null,
+    daysFromStartToOrange: firstOrangeInCrisis
+      ? daysBetween(crisis.startDate, firstOrangeInCrisis.date)
+      : null,
+    signalPeakDate: signalPeakEntry?.date ?? null,
+    signalPeakDaysFromStart: signalPeakEntry
+      ? daysBetween(crisis.startDate, signalPeakEntry.date)
+      : null,
     peakScore,
     peakAlertLevel,
     signalAtCrisisStart: signalAtStart,
@@ -162,21 +196,38 @@ export function formatBacktestReport(result: BacktestResult): string {
     result.summary,
     ``,
     `## Crisis-by-Crisis Validation`,
-    `| Crisis | Lead YELLOW | Lead ORANGE | Signal@Start | Signal@Peak | Caught |`,
-    `|--------|-------------|-------------|-------------|-------------|--------|`,
-    ...result.crisisValidations.map((v) =>
-      `| ${v.crisis.name} | ${v.leadTimeDaysYellow !== null ? `${v.leadTimeDaysYellow}d` : 'n/a'} | ${v.leadTimeDaysOrange !== null ? `${v.leadTimeDaysOrange}d` : 'n/a'} | ${v.signalAtCrisisStart.toUpperCase()} | ${v.signalAtCrisisPeak.toUpperCase()} | ${v.caught ? '✅' : '❌'} |`,
-    ),
+    `_Pre-crisis window: ${PRE_CRISIS_WINDOW_DAYS}d before crisis start. ORANGE "in crisis" = fired after start but before IDR peak._`,
+    `| Crisis | Lead YELLOW | ORANGE pre | ORANGE in-crisis | Signal peak score | Caught |`,
+    `|--------|-------------|------------|-----------------|-------------------|--------|`,
+    ...result.crisisValidations.map((v) => {
+      const orangePre = v.leadTimeDaysOrange !== null ? `${v.leadTimeDaysOrange}d` : 'none';
+      const orangeIn  = v.firstOrangeDateInCrisis && v.daysFromStartToOrange !== null
+        ? `+${v.daysFromStartToOrange}d` : (v.firstOrangeDate ? '—' : 'none');
+      const sigPeak = v.signalPeakDate && v.signalPeakDaysFromStart !== null
+        ? `${v.peakScore}/100 (+${v.signalPeakDaysFromStart}d)` : 'n/a';
+      return `| ${v.crisis.name} | ${v.leadTimeDaysYellow !== null ? `${v.leadTimeDaysYellow}d` : 'n/a'} | ${orangePre} | ${orangeIn} | ${sigPeak} | ${v.caught ? '✅' : '❌'} |`;
+    }),
     ``,
     `## Crisis Detail`,
-    ...result.crisisValidations.map((v) => [
-      `### ${v.crisis.name} (${v.crisis.startDate} → ${v.crisis.endDate})`,
-      `- **IDR Depreciation:** ${v.crisis.idrDepreciationPct}% peak`,
-      `- **Root Cause:** ${v.crisis.rootCause}`,
-      `- **First YELLOW signal:** ${v.firstAlertDate ?? 'none in 90d window'}${v.leadTimeDaysYellow !== null ? ` (${v.leadTimeDaysYellow} days before start)` : ''}`,
-      `- **First ORANGE signal:** ${v.firstOrangeDate ?? 'none'}${v.leadTimeDaysOrange !== null ? ` (${v.leadTimeDaysOrange} days before start)` : ''}`,
-      `- **Peak score:** ${v.peakScore}/100 [${v.peakAlertLevel.toUpperCase()}]`,
-    ].join('\n')),
+    ...result.crisisValidations.map((v) => {
+      const orangePreCrisis = v.firstOrangeDate
+        ? `${v.firstOrangeDate} (${v.leadTimeDaysOrange}d before start)`
+        : v.firstOrangeDateInCrisis
+          ? `none pre-crisis → fired ${v.firstOrangeDateInCrisis} (+${v.daysFromStartToOrange}d after start)`
+          : 'none';
+      const signalPeak = v.signalPeakDate
+        ? `${v.signalPeakDate} (+${v.signalPeakDaysFromStart}d from start) score=${v.peakScore}/100`
+        : 'n/a';
+      return [
+        `### ${v.crisis.name} (${v.crisis.startDate} → ${v.crisis.endDate})`,
+        `- **IDR Depreciation:** ${v.crisis.idrDepreciationPct}% peak`,
+        `- **Root Cause:** ${v.crisis.rootCause}`,
+        `- **First YELLOW signal:** ${v.firstAlertDate ?? 'none in 180d window'}${v.leadTimeDaysYellow !== null ? ` (${v.leadTimeDaysYellow} days before start)` : ''}`,
+        `- **First ORANGE signal:** ${orangePreCrisis}`,
+        `- **Signal peak:** ${signalPeak} [${v.peakAlertLevel.toUpperCase()}]`,
+        `- **Signal@start:** ${v.signalAtCrisisStart.toUpperCase()} | **Signal@IDR peak (${v.crisis.peakDate}):** ${v.signalAtCrisisPeak.toUpperCase()}`,
+      ].join('\n');
+    }),
     ``,
     `_Note: Sovereign module (CDS, SBN yield) excluded from backtest — no free historical CDS data._`,
     `_Configure Bloomberg (BLOOMBERG_API_URL) to include sovereign signals in future backtests._`,

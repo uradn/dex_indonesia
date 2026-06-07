@@ -34,16 +34,23 @@ export interface ModuleSignalAtDate {
 
 export interface CrisisValidation {
   crisis: CrisisEvent;
-  firstAlertDate: string | null;     // first YELLOW or above
-  firstOrangeDate: string | null;    // first ORANGE or above
-  firstRedDate: string | null;       // first RED
-  leadTimeDaysYellow: number | null; // days before crisis start
-  leadTimeDaysOrange: number | null;
-  leadTimeDaysRed: number | null;
+  // Pre-crisis window (180d before start)
+  firstAlertDate: string | null;        // first YELLOW or above
+  firstOrangeDate: string | null;       // first ORANGE or above (pre-crisis)
+  firstRedDate: string | null;          // first RED (pre-crisis)
+  leadTimeDaysYellow: number | null;    // days before crisis start
+  leadTimeDaysOrange: number | null;    // days before crisis start
+  leadTimeDaysRed: number | null;       // days before crisis start
+  // Within-crisis detection (start → peak)
+  firstOrangeDateInCrisis: string | null;  // first ORANGE after crisis start
+  daysFromStartToOrange: number | null;    // positive = days after start
+  signalPeakDate: string | null;           // date of highest composite score
+  signalPeakDaysFromStart: number | null;  // positive = days after start
+  // Snapshots
   peakScore: number;
   peakAlertLevel: AlertLevel;
   signalAtCrisisStart: AlertLevel;
-  signalAtCrisisPeak: AlertLevel;
+  signalAtCrisisPeak: AlertLevel;     // at economic peak date (IDR weakest)
   caught: boolean;  // true if signal reached YELLOW before or at crisis start
 }
 
