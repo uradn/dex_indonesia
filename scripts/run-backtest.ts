@@ -42,9 +42,12 @@ const dates = [...dateSet].sort();
 const signals = computeSignals(historicalData, dates);
 const validations = crises.map((crisis) => validateCrisis(crisis, signals));
 
-const indicatorsBacktested = BACKTEST_INDICATORS
-  .filter((spec) => historicalData.has(spec.indicator))
-  .map((spec) => spec.indicator);
+const indicatorsBacktested = [
+  ...BACKTEST_INDICATORS
+    .filter((spec) => historicalData.has(spec.indicator))
+    .map((spec) => spec.indicator),
+  ...(historicalData.has('indonesia_cds_5y_bps') ? ['indonesia_cds_5y_bps (WGB)'] : []),
+];
 
 const result = buildBacktestResult(validations, signals, { start, end }, indicatorsBacktested);
 

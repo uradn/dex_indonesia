@@ -306,45 +306,29 @@ export async function fetchIndonesiaCdsHistoricalWgb(): Promise<Array<{ date: st
   const WGB_HISTORICAL_URL = 'https://www.worldgovernmentbonds.com/cds-historical-data/indonesia/5-years/';
   const API_ENDPOINT       = 'https://www.worldgovernmentbonds.com/wp-json/common/v1/historical';
 
-  const WGB_PAYLOAD = {
-    GLOBALVAR: {
-      JS_VARIABLE: 'jsGlobalVars',
-      FUNCTION: 'CDS',
-      DOMESTIC: true,
-      ENDPOINT: API_ENDPOINT,
-      DATE_RIF: '2099-12-31',
-      DEBUG: true,
-      OBJ: { UNIT: '', DECIMAL: 2, UNIT_DELTA: '%', DECIMAL_DELTA: 2 },
-      COUNTRY1: { SYMBOL: '39', PAESE: 'Indonesia', PAESE_UPPERCASE: 'INDONESIA', BANDIERA: 'id', URL_PAGE: 'indonesia' },
-      COUNTRY2: null,
-      OBJ1: { DURATA_STRING: '5 Years', DURATA: 60 },
-      OBJ2: null,
-    },
-  };
-
   type WgbQuoteEntry = { CLOSE_VAL: number; DATA_VAL: string };
   type WgbResponse   = { success: boolean; result: { num: number; quote: Record<string, WgbQuoteEntry> } };
 
   const bars = await withBrowserPage<Array<{ date: string; close: number }>>(async (page) => {
-    // Box pattern: object property avoids TS narrowing collapse in async closure
-    const state: { captured: WgbResponse | null } = { captured: null };
+    // waitForResponse promise must be created BEFORE goto — Playwright queues the
+    // listener immediately and will never miss the response regardless of timing.
+    // This fixes the race condition in the old page.on('response') + waitForTimeout pattern.
+    const responsePromise = page.waitForResponse(
+      (res) => res.url().startsWith(API_ENDPOINT) && res.request().method() === 'POST',
+      { timeout: 40_000 },
+    );
 
-    page.on('response', async (res) => {
-      if (res.url() === API_ENDPOINT && res.request().method() === 'POST') {
-        try {
-          state.captured = await res.json() as WgbResponse;
-        } catch { /* ignore parse errors */ }
-      }
-    });
+    // 'load' is sufficient — page JS fires the historical POST on DOMContentLoaded.
+    // 'networkidle' was wrong: WGB keeps a keep-alive connection that prevents settlement.
+    await page.goto(WGB_HISTORICAL_URL, { waitUntil: 'load', timeout: 35_000 });
 
-    await page.goto(WGB_HISTORICAL_URL, { waitUntil: 'networkidle', timeout: 35_000 });
-    await page.waitForTimeout(4_000);
+    const wgbRes = await responsePromise;
+    const data = await wgbRes.json() as WgbResponse;
 
-    const cap = state.captured;
-    if (!cap?.success || !cap.result?.quote) return [];
+    if (!data?.success || !data.result?.quote) return [];
 
     const result: Array<{ date: string; close: number }> = [];
-    for (const entry of Object.values(cap.result.quote)) {
+    for (const entry of Object.values(data.result.quote)) {
       const cds = Number(entry.CLOSE_VAL);
       if (!entry.DATA_VAL || isNaN(cds) || cds < 20 || cds > 2_000) continue;
       result.push({ date: entry.DATA_VAL.slice(0, 10), close: cds });

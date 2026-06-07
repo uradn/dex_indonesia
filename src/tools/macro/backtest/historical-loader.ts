@@ -105,11 +105,14 @@ async function loadCdsSovereign(
   const cacheKey = 'backtest/indonesia_cds_5y_bps_wgb';
   const cached = readCache(cacheKey, { from: startDate, to: endDate }, 24 * 60 * 60 * 1000 * 3); // 3d TTL
   let bars: DailyBar[];
+  let fromCache = false;
 
   if (cached?.data?.bars) {
     bars = cached.data.bars as DailyBar[];
+    fromCache = true;
   } else {
     try {
+      process.stderr.write('Fetching WGB CDS historical data (Playwright)...\n');
       const raw = await fetchIndonesiaCdsHistoricalWgb();
       bars = raw
         .filter((b) => b.date >= startDate && b.date <= endDate)
@@ -117,12 +120,16 @@ async function loadCdsSovereign(
       if (bars.length > 0) {
         writeCache(cacheKey, { from: startDate, to: endDate }, { bars }, 'WGB_CDS');
       }
-    } catch {
+    } catch (err) {
+      process.stderr.write(`WGB CDS fetch failed: ${err instanceof Error ? err.message : String(err)}\n`);
       bars = [];
     }
   }
 
   if (bars.length > 0) {
+    process.stderr.write(`WGB CDS: ${bars.length} bars loaded${fromCache ? ' (cached)' : ''} [${bars[0]!.date} → ${bars[bars.length - 1]!.date}]\n`);
     result.set('indonesia_cds_5y_bps', bars);
+  } else {
+    process.stderr.write('WGB CDS: no data — using neutral sovereign baseline in replay\n');
   }
 }
