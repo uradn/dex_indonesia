@@ -130,6 +130,13 @@ interface UlnEngineOutput {
   ulnYoyGrowthPct: number | null;
   greenspanGuidotti: number | null;
   hedgingCompliancePct: number | null;
+  // R&R Ch.14-16 trajectory signal
+  rg: number | null;
+  rgLabel: 'stable' | 'knife_edge' | 'expanding' | 'explosive' | null;
+  sbn10yPct: number | null;
+  gdpGrowthPct: number | null;
+  totalDebtGdpPct: number | null;
+  primarySurplusRequiredPct: number | null;
   flags: string[];
   dataDate: string;
 }
@@ -165,12 +172,15 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
   if (hedgingPoint) await upsertPoints([hedgingPoint]);
 
   // 4. Retrieve from DB
-  const [ulnPoint, dsrPoint, stPoint, hedgingFromDb, fxReserves] = await Promise.all([
+  const [ulnPoint, dsrPoint, stPoint, hedgingFromDb, fxReserves, sbn10yFromDb, gdpGrowthFromDb, debtGdpFromDb] = await Promise.all([
     getLatestPoint('indonesia_external_debt_bn'),
     getLatestPoint('uln_dsr_pct'),
     getLatestPoint('uln_shortterm_pct'),
     getLatestPoint('uln_hedging_compliance_pct'),
     getLatestPoint('bi_fx_reserves_bn'),
+    getLatestPoint('sbn_10y_yield_pct'),
+    getLatestPoint('gdp_growth_pct'),
+    getLatestPoint('indonesia_debt_gdp_pct'),
   ]);
 
   // ULN time series for YoY growth (quarterly, ~2 years)
@@ -249,6 +259,19 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
   const stressScore = Math.min(100, Math.round(baseScore * amplifier));
   const alert = alertFromScore(stressScore);
 
+  // R&R Ch.14-16: r-g debt dynamics
+  // r-g = r_nom − g_nom (CPI cancels: (r_nom−π) − (g_nom−π) = r_nom − g_nom)
+  // Fallbacks: APBN 2026 assumptions if DB not yet populated by sovereign/regime engines
+  const sbn10y = sbn10yFromDb?.value ?? 6.9;
+  const gdpGrowth = gdpGrowthFromDb?.value ?? 5.4;
+  const totalDebtGdp = debtGdpFromDb?.value ?? null;
+  const rg = parseFloat((sbn10y - gdpGrowth).toFixed(2));
+  const primarySurplusRequired = totalDebtGdp !== null
+    ? parseFloat(((rg / 100) * totalDebtGdp).toFixed(2))
+    : null;
+  const rgLabel: 'stable' | 'knife_edge' | 'expanding' | 'explosive' =
+    rg <= 0 ? 'stable' : rg <= 1.5 ? 'knife_edge' : rg <= 3.0 ? 'expanding' : 'explosive';
+
   // 9. Flags
   const flags: string[] = [];
 
@@ -279,6 +302,13 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
     flags.push(`ULN/GDP ELEVATED: ${ulnGdpRatio}% — approaching YELLOW threshold (35%). Watch for sovereign rating pressure`);
   }
 
+  if (rg > 1.0) {
+    const surplusStr = primarySurplusRequired !== null
+      ? ` — requires primary surplus ≥${primarySurplusRequired.toFixed(2)}% GDP to stabilize debt ratio`
+      : '';
+    flags.push(`R-G ADVERSE: r−g = +${rg.toFixed(2)}pp (SBN ${sbn10y.toFixed(2)}% − GDP ${gdpGrowth.toFixed(1)}%)${surplusStr}. Without primary surplus, debt/GDP expands mechanically [R&R Ch.14-16]`);
+  }
+
   const dataDate = ulnPoint?.date ?? new Date().toISOString().slice(0, 10);
 
   return {
@@ -286,6 +316,8 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
     ulnGdpRatioPct: ulnGdpRatio, ulnShorttermPct: ulnSt,
     ulnDsrPct: ulnDsr, ulnYoyGrowthPct: yoyGrowth,
     greenspanGuidotti, hedgingCompliancePct: hedging,
+    rg, rgLabel, sbn10yPct: sbn10y, gdpGrowthPct: gdpGrowth,
+    totalDebtGdpPct: totalDebtGdp, primarySurplusRequiredPct: primarySurplusRequired,
     flags, dataDate,
   };
 }
@@ -314,6 +346,22 @@ function formatUlnOutput(o: UlnEngineOutput): string {
     `| Hedging compliance | ${pct(o.hedgingCompliancePct)} | YELLOW <85%, ORANGE <70%, RED <55% |`,
     '',
   ];
+
+  // R-G Debt Dynamics section
+  if (o.rg !== null) {
+    const rgLabelStr = {
+      stable: 'STABLE (r < g — debt/GDP self-corrects)',
+      knife_edge: 'KNIFE-EDGE (r slightly > g — small primary surplus sufficient)',
+      expanding: 'EXPANDING (r >> g — debt/GDP rising without significant surplus)',
+      explosive: 'EXPLOSIVE (r >>> g — debt/GDP unsustainable without major adjustment)',
+    }[o.rgLabel ?? 'knife_edge'];
+    lines.push(`### R-G Debt Dynamics (R&R Ch.14–16)`);
+    lines.push(`r−g = SBN 10Y ${o.sbn10yPct?.toFixed(2)}% − GDP growth ${o.gdpGrowthPct?.toFixed(1)}% = **${o.rg > 0 ? '+' : ''}${o.rg.toFixed(2)}pp** [${rgLabelStr}]`);
+    if (o.totalDebtGdpPct !== null) {
+      lines.push(`Debt/GDP: ${o.totalDebtGdpPct.toFixed(1)}% → Primary surplus needed to stabilize: **${o.primarySurplusRequiredPct !== null ? (o.primarySurplusRequiredPct > 0 ? '+' : '') + o.primarySurplusRequiredPct.toFixed(2) + '% GDP' : 'N/A'}**`);
+    }
+    lines.push('');
+  }
 
   if (o.flags.length > 0) {
     lines.push(`### Flags`);
