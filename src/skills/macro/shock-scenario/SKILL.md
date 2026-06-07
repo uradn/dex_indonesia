@@ -291,6 +291,62 @@ If user doesn't specify exact parameters, use these standard severity tiers:
 
 Default to "Moderate" if user says something like "stress test" without specifics. Always confirm parameters with user before computing.
 
+## Historical Episode Presets
+
+When user invokes a named historical episode ("simulate 2013 taper tantrum", "apply 2020 COVID scenario", etc.), skip Step 2 parsing and use the pre-calibrated parameters below directly in Step 3.
+
+Apply deltas to TODAY's live baseline (fetch from live engines per Step 1), NOT to historical starting values. The goal is: "what would this historical shock magnitude do to Indonesia given current conditions?"
+
+### Historical Shock Magnitudes (actual episode)
+
+| Episode | IDR Δ | SBN 10Y Δ | FX Res Δ | EIDO Δ | Commodity | BI Rate Δ | Root Cause |
+|---------|-------|-----------|----------|--------|-----------|-----------|-----------|
+| **Taper Tantrum 2013** | +21.4% | +300bps | −$15bn | −25% | −12% broad | +175bps | Fed taper signal → EM capital outflow |
+| **China Devaluation 2015** | +14.8% | +100bps | −$7bn | −20% | Coal −30%, CPO −25%, Ni −30% | −25bps | CNY deval → commodity demand shock |
+| **EM Contagion 2018** | +10.3% | +150bps | −$14bn | −30% | Brent +20% | +175bps | Turkey/Argentina crisis → EM spillover |
+| **COVID Crash 2020** | +15.2% | +250bps | −$11bn | −40% | −30% broad, Brent −65% | −100bps | Global risk-off → foreign SBN exit |
+| **Fed Tightening 2022** | +9.2% | +100bps | −$25bn | −20% | Mixed (coal/CPO high) | +225bps | Fed +425bps → USD strength |
+| **Dollar Surge 2023** | +6.1% | +50bps | −$8bn | −15% | −15% normalization | 0bps | Fed "higher-for-longer" + commodity fade |
+
+### Applied to June 2026 Baseline
+
+Baseline: USDIDR 17,879 | SBN 6.71% | BI Rate 5.25% | FX Reserves $151.9bn | GG 2.27
+
+| Episode | Shocked IDR | Shocked SBN 10Y | Shocked Reserves | EIDO Δ | BI Rate Response | Step 3 Modules |
+|---------|-------------|-----------------|-----------------|--------|-----------------|----------------|
+| Taper Tantrum | ~21,700 | ~9.71% | ~$137bn | −25% | 5.25% → 7.00% | 3A + 3B + 3C + 3E |
+| China Deval | ~20,500 | ~7.71% | ~$145bn | −20% | flat/mild cut | 3B + commodity 3A + 3C |
+| EM Contagion | ~19,720 | ~8.21% | ~$138bn | −30% | 5.25% → 7.00% | 3A + 3B + 3C + 3E |
+| COVID | ~20,600 | ~9.21% | ~$141bn | −40% | 5.25% → 4.25% | 3A + 3B + 3C + 3E |
+| Fed Tightening | ~19,520 | ~7.71% | ~$127bn | −20% | 5.25% → 7.50% | 3A + 3B + 3C + 3E |
+| Dollar Surge | ~18,960 | ~7.21% | ~$144bn | −15% | 5.25% (unchanged) | 3A (mild) + 3B (mild) |
+
+### 2026 Asymmetries vs Historical (always note in output)
+
+**Larger reserve buffer** ($151.9bn vs $92–141bn historical starts) → more BI ammo before GG degrades.
+
+**Higher starting SBN yield** (6.71%) → panic zones are closer. Taper Tantrum analog hits 9.71% (vs 8.5% actual 2013 peak) — would be Indonesia's highest yield since 2001.
+
+**Tighter fiscal space** (deficit 2.68% already) → BI hike amplifies fiscal stress faster. Each +100bps BI Rate: belanja bunga rises ~IDR 10T on each IDR 1,000T SBN outstanding.
+
+**Better ULN position** (GG 2.27 GREEN, DSR 24.69% near-threshold) → less vulnerable than 2013 (GG ~2.0) but DSR rising trend (2022=23.3% → 2024=24.7%) is the watch metric.
+
+**Commodity cushion varies by episode**: 2022 analog gets inflation from coal/CPO still elevated; 2015 analog is worst for commodity module as export basket collapses simultaneously with IDR.
+
+### Per-Episode Critical Watch Points
+
+**Taper Tantrum analog:**  SBN 9.71% → banking FSAP CAR hit = 3.0% × 1.2 = 3.6pp — doom loop territory. Foreign SBN ownership cliff risk (currently ~12.68% — below 2013's 25% → exit amplitude smaller but starting position already fragile).
+
+**China Deval analog:** Commodity module → primary stress channel. Coal −30% + CPO −25% + Ni −30% simultaneously = export earnings collapse. Trade surplus at risk → BoP current account turns negative.
+
+**EM Contagion analog:** Most similar to current 2026 setup (similar CAD trajectory, Fed hiking). Key trigger: if Greenspan-Guidotti drops toward 1.5 ($101bn reserves), ULN orange threshold breached simultaneously.
+
+**COVID analog:** Fastest transmission — 6-week window. Foreign SBN ownership exit: in 2020 foreigners sold ~Rp150T in 6 weeks. At current 12.68% ownership (~Rp885T): full sudden stop would exceed BI's absorption capacity.
+
+**Fed Tightening analog:** Longest cycle — 9 months of sustained pressure. BI hike 225bps → IndONIA corridor stressed; LDR rises as credit tightens; NPL lag 2–3Q. Reserve drawdown largest ($25bn) → watch GG → 1.5 threshold: $151.9 − $51 = $100.9bn → GG = 100.9/67 = 1.51 (barely ORANGE).
+
+**Dollar Surge analog:** Mildest scenario. Warning: 2026 has higher fiscal deficit than 2023, so narrative divergence module (APBN assumption vs market IDR) amplifies faster.
+
 ## Key Indonesia Macro Constants (check live data for latest)
 
 - APBN 2026 USDIDR assumption: 16,500
