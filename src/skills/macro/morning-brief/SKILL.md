@@ -20,9 +20,14 @@ Run all these tools in parallel (they are concurrencySafe):
 7. `regime_engine` — macro regime classification
 8. `asean_relative_value_engine` — IDR vs peers, DXY decomposition
 9. `narrative_divergence_engine` — official vs market credibility
+10. `banking_stress_engine` — NPL, LDR, CAR, IndONIA corridor, FSAP nexus
+11. `market_stress_engine` — IHSG valuation, IDX breadth, advance/decline
+12. `fiscal_engine` — APBN realisasi, revenue pace, deficit trajectory
+13. `domestic_pressure_engine` — PIHPS food basket stress, Food Stress Index
+14. `political_risk_engine` — BPS unemployment, Exa news sentiment, Political Risk Index
 
 After all return, call:
-10. `silent_crisis_detector` — unified Silent Crisis Probability (13 modules)
+15. `silent_crisis_detector` — unified Silent Crisis Probability (13 modules)
 
 ## Brief Format
 
@@ -59,6 +64,15 @@ OVERALL ALERT: [GREEN/YELLOW/ORANGE/RED]
 
 ## Foreign Flows
 [2 lines: EIDO, SBN ownership, silent exit probability]
+
+## Banking Stress
+[2 lines: NPL trend, LDR, CAR, IndONIA corridor spread]
+
+## Fiscal (APBN)
+[2 lines: revenue vs pro-rata target, deficit trajectory vs 3% GDP limit]
+
+## Domestic Pressure
+[1-2 lines: Food Stress Index, any simultaneous commodity spikes]
 
 ## ASEAN Context
 [2 lines: IDR vs peers, DXY story or ID-specific]
