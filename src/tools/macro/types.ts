@@ -53,6 +53,15 @@ export interface BoPEngineOutput {
   syntheticCadRisk: boolean;
 }
 
+export interface ConfidenceGateData {
+  zone: 'safe' | 'vulnerable' | 'attack';
+  defenseCostIndex: number;       // 0-100: cost to BI of defending peg
+  abandonmentCostIndex: number;   // 0-100: cost to BI of abandoning peg
+  netScore: number;               // DC - AC: negative=SAFE, near-zero=VULNERABLE, positive=ATTACK
+  dcFactors: { rateHikeBurden: number; growthSacrifice: number; reserveRunway: number };
+  acFactors: { ulnShock: number; inflationPassthrough: number; credibilityLoss: number };
+}
+
 export interface ShadowRateData {
   impliedUsdidr: number | null;        // projected USDIDR when defense capacity exhausted
   monthsToGgBreach: number | null;     // months until GG ratio hits 1.0 at current burn rate
@@ -73,6 +82,7 @@ export interface FxDefenseEngineOutput {
   pseudoStabilityFlag: boolean;
   interventionSustainability: AlertLevel;
   shadowRate: ShadowRateData | null;
+  confidenceGate: ConfidenceGateData | null;
 }
 
 export interface MacroDataSource {

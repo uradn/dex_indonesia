@@ -7,7 +7,7 @@ import { fetchUsdIdrHistory, fetchUsdIdrSpot, computeRealizedVol } from './sourc
 import { fetchBiFxReserves, fetchSrbiOutstanding } from './sources/bi.js';
 import { fetchBbgFxReserves, bloombergAvailable } from './sources/bloomberg.js';
 import { fetchUsdIdrRdp, refinitivAvailable } from './sources/refinitiv.js';
-import type { FxDefenseEngineOutput, ShadowRateData, IndicatorSnapshot, AlertLevel } from './types.js';
+import type { FxDefenseEngineOutput, ShadowRateData, ConfidenceGateData, IndicatorSnapshot, AlertLevel } from './types.js';
 
 export const FX_DEFENSE_DESCRIPTION = `
 MACRO INTELLIGENCE — FX Defense Engine (Module 3)
@@ -227,23 +227,29 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   const reserveScore  = reserveSnapshot ? zToRawScore(reserveSnapshot) : 0;
 
   const score = Math.round(spotScore * 0.60 + volScore * 0.25 + reserveScore * 0.15);
-  const alertLevel = alertFromScore(score);
+  let alertLevel = alertFromScore(score);
   const flags = detectFlags(validSnapshots);
 
   if (pseudoStabilityFlag) flags.push('PSEUDO-STABILITY: Low vol but reserves depleting — surface calm may be deceptive');
   if (biInterventionProxy === 'active_sterilized') flags.push('BI active sterilized intervention detected (reserves↓ + SRBI↑)');
   if (reserveBurnRate !== null && reserveBurnRate < 6) flags.push(`Reserve runway <6 months at current burn rate: ${reserveBurnRate.toFixed(1)} months`);
 
-  // Cross-feed from ULN Engine (Module 13): unhedged corporate USD exposure
-  const hedgingPoint = await getLatestPoint('uln_hedging_compliance_pct');
+  // Cross-feed from ULN Engine (Module 13) + macro context for confidence gate
+  const [hedgingPoint, ggPoint, biRatePoint, gdpGrowthPoint, foodInflPoint, cdsPoint] = await Promise.all([
+    getLatestPoint('uln_hedging_compliance_pct'),
+    getLatestPoint('greenspan_guidotti'),
+    getLatestPoint('bi_rate_pct'),
+    getLatestPoint('gdp_growth_pct'),
+    getLatestPoint('food_inflation_yoy_pct'),
+    getLatestPoint('indonesia_cds_5y_bps'),
+  ]);
   const hedgingCompliance = hedgingPoint?.value ?? null;
+  const ggRatio = ggPoint?.value ?? null;
   if (hedgingCompliance !== null && hedgingCompliance < 70) {
     flags.push(`UNHEDGED EXPOSURE WARNING (ULN M13): corporate hedging compliance ${hedgingCompliance.toFixed(0)}% — forced USD buying risk if IDR weakens (1997 transmission mechanism)`);
   } else if (hedgingCompliance !== null && hedgingCompliance < 85) {
     flags.push(`Hedging sub-optimal (ULN M13): ${hedgingCompliance.toFixed(0)}% compliance — IDR shock amplification risk`);
   }
-  const ggPoint = await getLatestPoint('greenspan_guidotti');
-  const ggRatio = ggPoint?.value ?? null;
   if (ggRatio !== null && ggRatio < 1.5) {
     flags.push(`GG RATIO (ULN M13): ${ggRatio.toFixed(2)} — FX reserve buffer vs short-term ULN thinning${ggRatio < 1.0 ? ' — CRITICAL BREACH' : ''}`);
   }
@@ -257,6 +263,50 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     } else if (shadowRate.monthsToAttack < 12) {
       flags.push(`Shadow rate watch: ${shadowRate.monthsToAttack} months to defense capacity floor — implied USDIDR ${shadowRate.impliedUsdidr?.toLocaleString() ?? 'n/a'} [R&R Ch.12]`);
     }
+  }
+
+  // Confidence Gate (R&R Ch.13 — Obstfeld 1986/1996, Morris-Shin 1998)
+  // 2nd-gen crisis: attack is self-fulfilling when DC ≈ AC (multiple equilibria zone).
+  // Unlike 1st-gen (reserves run out), 2nd-gen attack can fire BEFORE reserves deplete —
+  // if enough speculators believe BI will abandon, abandonment becomes rational.
+  const APBN_IDR = 16_500;
+  const gdpGrowth = gdpGrowthPoint?.value ?? 5.4;
+  const cds5y    = cdsPoint?.value ?? null;
+
+  // Defense Cost Index (DCI): what BI pays to defend the IDR
+  const idrDevPct = currentSpot ? ((currentSpot.value - APBN_IDR) / APBN_IDR) * 100 : 0;
+  const rateHikeBurden  = Math.min(100, Math.max(0, Math.round(idrDevPct * 5)));
+  const growthSacrifice = Math.min(100, Math.max(0, Math.round((5.0 - gdpGrowth) * 25)));
+  const reserveRunway   = shadowRate?.monthsToAttack != null
+    ? (shadowRate.monthsToAttack < 6 ? 90 : shadowRate.monthsToAttack < 12 ? 65 : shadowRate.monthsToAttack < 24 ? 35 : 10)
+    : 10;
+  const dci = Math.round(rateHikeBurden * 0.40 + growthSacrifice * 0.30 + reserveRunway * 0.30);
+
+  // Abandonment Cost Index (ACI): what BI loses if it stops defending
+  const hedgingRisk = hedgingCompliance !== null ? Math.max(0, Math.round((85 - hedgingCompliance) * 2)) : 30;
+  const ggRisk      = ggRatio !== null ? (ggRatio < 1.0 ? 80 : ggRatio < 1.5 ? 55 : ggRatio < 2.0 ? 25 : 10) : 25;
+  const ulnShock    = Math.min(100, Math.round((hedgingRisk + ggRisk) / 2));
+  const inflPassthrough  = dep3m !== null && dep3m > 0 ? Math.min(100, Math.round(dep3m * 8)) : 20;
+  const credibilityLoss  = cds5y !== null
+    ? (cds5y > 200 ? 80 : cds5y > 150 ? 60 : cds5y > 100 ? 40 : cds5y > 60 ? 20 : 10)
+    : 30;
+  const aci = Math.round(ulnShock * 0.40 + inflPassthrough * 0.30 + credibilityLoss * 0.30);
+
+  const netScore = dci - aci;
+  const gateZone: ConfidenceGateData['zone'] = netScore > 20 ? 'attack' : netScore < -20 ? 'safe' : 'vulnerable';
+
+  const confidenceGate: ConfidenceGateData = {
+    zone: gateZone, defenseCostIndex: dci, abandonmentCostIndex: aci, netScore,
+    dcFactors: { rateHikeBurden, growthSacrifice, reserveRunway },
+    acFactors: { ulnShock, inflationPassthrough: Math.round(inflPassthrough), credibilityLoss: Math.round(credibilityLoss) },
+  };
+
+  if (gateZone === 'attack') {
+    flags.push(`CONFIDENCE GATE — ATTACK ZONE (DC${netScore > 0 ? '+' : ''}${netScore} > AC): abandonment dominant — defense costs exceed credibility value. Rational speculators will attack regardless of coordination. [R&R Ch.13]`);
+    const ALERT_ORDER: AlertLevel[] = ['green', 'yellow', 'orange', 'red'];
+    alertLevel = ALERT_ORDER[Math.max(ALERT_ORDER.indexOf(alertLevel), ALERT_ORDER.indexOf('orange'))]!;
+  } else if (gateZone === 'vulnerable') {
+    flags.push(`CONFIDENCE GATE — VULNERABILITY ZONE (net DC-AC = ${netScore > 0 ? '+' : ''}${netScore}): self-fulfilling attack POSSIBLE. Defense and abandonment costs balanced → multiple equilibria. Sentiment shift alone can trigger crisis. [R&R Ch.13 Morris-Shin]`);
   }
 
   const interventionSustainability: AlertLevel =
@@ -296,6 +346,7 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     pseudoStabilityFlag,
     interventionSustainability,
     shadowRate,
+    confidenceGate,
   };
 }
 
@@ -376,6 +427,16 @@ function formatOutput(output: FxDefenseEngineOutput): string {
     ``,
     scoreCard.flags.length > 0 ? `## Flags\n${scoreCard.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '',
     ``,
+    output.confidenceGate !== null ? [
+      `## Confidence Gate (R&R Ch.13 — Obstfeld / Morris-Shin)`,
+      `**Zone: ${output.confidenceGate.zone.toUpperCase()}** | DC: ${output.confidenceGate.defenseCostIndex}/100 | AC: ${output.confidenceGate.abandonmentCostIndex}/100 | Net (DC−AC): ${output.confidenceGate.netScore > 0 ? '+' : ''}${output.confidenceGate.netScore}`,
+      `_2nd-gen: attack self-fulfilling when DC ≈ AC. SAFE = BI clearly defends. VULNERABLE = multiple equilibria, sentiment-driven. ATTACK = abandonment rational._`,
+      `| Component | Score | Factors |`,
+      `|-----------|-------|---------|`,
+      `| Defense Cost (DC) | ${output.confidenceGate.defenseCostIndex}/100 | Rate hike burden ${output.confidenceGate.dcFactors.rateHikeBurden} · Growth sacrifice ${output.confidenceGate.dcFactors.growthSacrifice} · Reserve runway ${output.confidenceGate.dcFactors.reserveRunway} |`,
+      `| Abandonment Cost (AC) | ${output.confidenceGate.abandonmentCostIndex}/100 | ULN shock ${output.confidenceGate.acFactors.ulnShock} · Inflation pass-through ${output.confidenceGate.acFactors.inflationPassthrough} · Credibility loss ${output.confidenceGate.acFactors.credibilityLoss} |`,
+      ``,
+    ].join('\n') : '',
     output.shadowRate !== null ? [
       `## Shadow Rate Analysis (R&R Ch.12 — Krugman 1979)`,
       `_1st-gen crisis: when reserves hit GG floor (reserves < short-term ULN), speculative attack becomes rational._`,
