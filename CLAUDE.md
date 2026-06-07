@@ -132,6 +132,29 @@ Decomposes IDR weakness into global DXY story vs Indonesia-specific repricing. P
 
 **Adding new modules:** create `src/tools/macro/{module}-engine.ts`, register in `registry.ts`, optionally add `src/skills/macro/{module}/SKILL.md`.
 
+## Backtest System
+
+Walk-forward historical validation against 6 Indonesia crisis events (2013–2023). No lookahead bias — z-scores computed using only data available up to each date t.
+
+**Run:** `bun scripts/run-backtest.ts [startDate] [endDate] [crisisId,...]`
+Default range: 2012-01-01 → today. Crisis IDs: `taper_tantrum_2013`, `china_devaluation_2015`, `em_selloff_2018`, `covid_crash_2020`, `fed_tightening_2022`, `dollar_surge_2023`.
+
+**Files under `src/tools/macro/backtest/`:**
+- `crisis-calendar.ts` — 6 `CrisisEvent` records with startDate/peakDate/endDate/idrDepreciationPct
+- `historical-loader.ts` — Yahoo Finance daily OHLCV for 11 indicators (7d cache) + WGB sovereign CDS (3d cache); both loaded in parallel via `Promise.allSettled`
+- `replay-engine.ts` — `computeSignals()` walk-forward z-score engine; produces `ModuleSignalAtDate[]`
+- `signal-validator.ts` — `validateCrisis()` per crisis, 180d pre-crisis window; `formatBacktestReport()` markdown output
+- `types.ts` — `CrisisEvent`, `BacktestPoint`, `ModuleSignalAtDate`, `CrisisValidation`, `BacktestResult`
+
+**Replay engine composite weights (sum 1.0):**
+FX Defense 0.30 | Commodity Cushion 0.25 | Foreign Flow 0.15 | Sovereign CDS 0.10 | VIX 0.10 | DXY 0.10
+
+**Sovereign CDS source:** WorldGovernmentBonds.com (`fetchIndonesiaCdsHistoricalWgb` in `sources/sovereign-scraper.ts`). Playwright intercepts the page's POST to `wp-json/common/v1/historical` using `page.waitForResponse()` (created before `goto` — avoids race condition). Returns ~2618 daily bars from 2018-09-20 to present. Pre-2018 dates use neutral baseline (score=30). Cache: `.dexter/cache/backtest/indonesia_cds_5y_bps_wgb` (3d TTL).
+
+**Alert thresholds in backtest:** composite ≥75 = RED, ≥55 = ORANGE, ≥35 = YELLOW. Pre-crisis validator window: 180d.
+
+**Latest results (2026-06-07):** 100% hit rate (6/6 crises) | 165d avg YELLOW lead time | 5.4% false positive rate | Peak scores: 2013=81, 2015=75, 2018=84, 2020=96, 2022=90, 2023=89.
+
 ## Environment variables
 
 ```
