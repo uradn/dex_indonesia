@@ -32,6 +32,21 @@ Detects:
 - Any time EIDO drops >3% in a session or USDIDR moves without IHSG explanation
 `.trim();
 
+interface SsviComponents {
+  sbnOwnership: number;   // 0-100 sub-score
+  eidoTrend: number;      // 0-100 sub-score
+  uipCarry: number;       // 0-100 sub-score
+  reserveAdequacy: number; // 0-100 sub-score
+}
+
+interface SuddenStopVulnerability {
+  index: number;
+  phase: 'low' | 'watch' | 'elevated' | 'imminent';
+  components: SsviComponents;
+  realCarryPct: number | null;   // informational
+  ggRatio: number | null;        // informational
+}
+
 interface ForeignFlowOutput {
   scoreCard: ModuleScoreCard;
   eidoSnapshot: IndicatorSnapshot | null;
@@ -41,7 +56,58 @@ interface ForeignFlowOutput {
   divergenceFlag: boolean;
   domesticAbsorptionFlag: boolean;
   silentExitProbability: number;
+  suddenStop: SuddenStopVulnerability | null;
   narrative: string;
+}
+
+// ─── SSVI sub-scorers (R&R Ch.15 — Sudden Stop, Calvo 1998) ──────────────────
+
+function scoreSbnOwnership(lvl: number | null): number {
+  if (lvl === null) return 40; // unknown → conservative
+  if (lvl > 15) return 0;
+  if (lvl > 12) return 25;
+  if (lvl > 10) return 50;
+  if (lvl > 8)  return 75;
+  return 100;
+}
+
+function scoreEidoTrend(z90: number): number {
+  if (z90 > -1.0) return 0;
+  if (z90 > -1.5) return 20;
+  if (z90 > -2.0) return 50;
+  if (z90 > -3.0) return 75;
+  return 100;
+}
+
+function scoreUipCarry(realCarry: number | null): number {
+  if (realCarry === null) return 30; // unknown → slightly elevated (carry risk always latent)
+  if (realCarry > 3.0)  return 0;
+  if (realCarry > 1.0)  return 20;
+  if (realCarry > 0.0)  return 50;
+  if (realCarry > -2.0) return 75;
+  return 100;
+}
+
+function scoreGg(gg: number | null): number {
+  if (gg === null) return 30; // unknown → conservative
+  if (gg >= 2.0)  return 0;
+  if (gg >= 1.5)  return 25;
+  if (gg >= 1.0)  return 60;
+  return 100;
+}
+
+function computeSsvi(components: SsviComponents): { index: number; phase: SuddenStopVulnerability['phase'] } {
+  const index = Math.round(
+    components.sbnOwnership  * 0.30 +
+    components.uipCarry      * 0.25 +
+    components.eidoTrend     * 0.25 +
+    components.reserveAdequacy * 0.20,
+  );
+  const phase: SuddenStopVulnerability['phase'] =
+    index >= 75 ? 'imminent' :
+    index >= 50 ? 'elevated' :
+    index >= 25 ? 'watch'    : 'low';
+  return { index, phase };
 }
 
 export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
@@ -71,6 +137,14 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   const eidoSnap = currentEido ? await buildSnapshot('eido_price', currentEido, prevEido) : null;
   const sbnSnap = currentSbn ? await buildSnapshot('sbn_foreign_ownership_pct', currentSbn, prevSbn) : null;
   const idxFlowSnap = currentIdxFlow ? await buildSnapshot('idx_foreign_net_buy_idr_bn', currentIdxFlow, prevIdxFlow) : null;
+
+  // SSVI additional DB reads — no new fetches, all cross-fed from other engines
+  const [ust10yFromDb, ggFromDb, idrHistory90] = await Promise.all([
+    getLatestPoint('ust_10y_yield_pct'),
+    getLatestPoint('greenspan_guidotti'),
+    getLastN('usdidr_spot', 90),
+  ]);
+  const idrCurrent = await getLatestPoint('usdidr_spot');
 
   // IHSG vs IDR divergence detection
   // Divergence: EIDO falling (foreign equity exit) while SBN ownership also falling
@@ -113,9 +187,47 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   if (divergenceFlag) silentExitProbability += 0.10;
   silentExitProbability = Math.min(0.95, silentExitProbability);
 
+  // ── SSVI (Sudden Stop Vulnerability Index) ────────────────────────
+  // R&R Ch.15 Calvo sudden stop: abrupt cessation of capital inflows when
+  // carry unwinds + SBN ownership cliff + reserve buffer thin simultaneously
+  const sbn10yVal = sbnYield?.value ?? null;
+  const ust10yVal = ust10yFromDb?.value ?? null;
+  const carrySpread = sbn10yVal !== null && ust10yVal !== null ? sbn10yVal - ust10yVal : null;
+
+  let realCarryPct: number | null = null;
+  if (idrCurrent && idrHistory90.length >= 10) {
+    const oldest = idrHistory90[0]!;
+    const daysBetween = (Date.parse(idrCurrent.date) - Date.parse(oldest.date)) / 86_400_000;
+    if (daysBetween >= 14) {
+      const idr3mAnnualized = ((idrCurrent.value - oldest.value) / oldest.value) * (365 / daysBetween) * 100;
+      realCarryPct = carrySpread !== null ? parseFloat((carrySpread - idr3mAnnualized).toFixed(2)) : null;
+    }
+  }
+
+  const ggRatio = ggFromDb?.value ?? null;
+  const sbnLvl = currentSbn?.value ?? null;
+
+  const ssviComponents: SsviComponents = {
+    sbnOwnership:    scoreSbnOwnership(sbnLvl),
+    eidoTrend:       scoreEidoTrend(eidoZ90),
+    uipCarry:        scoreUipCarry(realCarryPct),
+    reserveAdequacy: scoreGg(ggRatio),
+  };
+  const { index: ssviIndex, phase: ssviPhase } = computeSsvi(ssviComponents);
+  const suddenStop: SuddenStopVulnerability = { index: ssviIndex, phase: ssviPhase, components: ssviComponents, realCarryPct, ggRatio };
+
+  // SSVI → silent exit probability bump + alert floor
+  if (ssviIndex >= 75) silentExitProbability = Math.min(0.95, silentExitProbability + 0.15);
+  else if (ssviIndex >= 50) silentExitProbability = Math.min(0.95, silentExitProbability + 0.08);
+  silentExitProbability = Math.min(0.95, silentExitProbability);
+
   const validSnapshots = [eidoSnap, sbnSnap, idxFlowSnap].filter((s): s is IndicatorSnapshot => s !== null);
-  const score = compositeScore(validSnapshots);
-  const alertLevel = alertFromScore(score);
+  const baseScore = compositeScore(validSnapshots);
+  // SSVI alert floor: imminent (≥75) → orange min; critical (≥90) → red min
+  const ALERT_ORDER: AlertLevel[] = ['green', 'yellow', 'orange', 'red'];
+  const ssviFloorAlert: AlertLevel = ssviIndex >= 90 ? 'red' : ssviIndex >= 75 ? 'orange' : ssviIndex >= 50 ? 'yellow' : 'green';
+  const score = ssviIndex >= 75 ? Math.max(baseScore, 50) : baseScore;
+  const alertLevel = ALERT_ORDER[Math.max(ALERT_ORDER.indexOf(alertFromScore(score)), ALERT_ORDER.indexOf(ssviFloorAlert))]!;
   const flags: string[] = [];
   if (eidoStructuralTrend) flags.push(`EIDO 90d z-score ${eidoZ90.toFixed(2)} — 3-month structural foreign equity selling trend`);
   if (divergenceFlag) flags.push('Dual exit signal: EIDO falling + SBN foreign ownership falling simultaneously');
@@ -123,6 +235,12 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   if (idxNetSellingHeavy) flags.push(`IDX heavy foreign net sell: ${currentIdxFlow?.value.toFixed(0)} IDR bn — direct outflow signal`);
   else if (idxNetSelling) flags.push(`IDX foreign net sell: ${currentIdxFlow?.value.toFixed(0)} IDR bn`);
   if (silentExitProbability > 0.6) flags.push(`Silent exit probability elevated: ${(silentExitProbability * 100).toFixed(0)}%`);
+
+  if (ssviPhase === 'imminent') {
+    flags.push(`SUDDEN STOP IMMINENT (SSVI ${ssviIndex}/100): SBN cliff + carry unwind + reserve thin simultaneously — Calvo sudden stop conditions met [R&R Ch.15]`);
+  } else if (ssviPhase === 'elevated') {
+    flags.push(`Sudden stop vulnerability ELEVATED (SSVI ${ssviIndex}/100): ${ssviComponents.uipCarry >= 50 ? 'carry thinning ' : ''}${ssviComponents.sbnOwnership >= 50 ? 'SBN ownership at risk ' : ''}${ssviComponents.eidoTrend >= 50 ? 'EIDO structural exit' : ''}`);
+  }
 
   // Sudden stop absolute level threshold (structural, independent of z-score)
   // Historical: SBN foreign ownership peaked ~25% (2019), dropped to ~15% post-COVID.
@@ -141,7 +259,7 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
     }
   }
 
-  const narrative = buildNarrative({ eidoSnap, sbnSnap, divergenceFlag, domesticAbsorptionFlag, silentExitProbability });
+  const narrative = buildNarrative({ eidoSnap, sbnSnap, divergenceFlag, domesticAbsorptionFlag, silentExitProbability, ssviIndex, ssviPhase });
 
   return {
     scoreCard: {
@@ -160,6 +278,7 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
     divergenceFlag,
     domesticAbsorptionFlag,
     silentExitProbability,
+    suddenStop,
     narrative,
   };
 }
@@ -170,11 +289,14 @@ function buildNarrative(ctx: {
   divergenceFlag: boolean;
   domesticAbsorptionFlag: boolean;
   silentExitProbability: number;
+  ssviIndex: number;
+  ssviPhase: SuddenStopVulnerability['phase'];
 }): string {
   const parts: string[] = [];
   if (ctx.eidoSnap) parts.push(`EIDO ETF (foreign equity proxy): $${ctx.eidoSnap.current.toFixed(2)} (${ctx.eidoSnap.roc >= 0 ? '+' : ''}${ctx.eidoSnap.roc.toFixed(1)}% MoM).`);
   if (ctx.sbnSnap) parts.push(`Foreign SBN ownership: ${ctx.sbnSnap.current.toFixed(1)}% (${ctx.sbnSnap.roc >= 0 ? '+' : ''}${ctx.sbnSnap.roc.toFixed(1)}% MoM).`);
   parts.push(`Silent exit probability: ${(ctx.silentExitProbability * 100).toFixed(0)}%.`);
+  parts.push(`Sudden Stop Vulnerability: ${ctx.ssviIndex}/100 [${ctx.ssviPhase.toUpperCase()}].`);
   if (ctx.domesticAbsorptionFlag) parts.push('Domestic absorption masking foreign SBN exit — surface stability may be misleading.');
   return parts.join(' ');
 }
@@ -204,6 +326,18 @@ function formatOutput(output: ForeignFlowOutput): string {
     ``,
     output.scoreCard.flags.length > 0 ? `## Flags\n${output.scoreCard.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '',
     ``,
+    output.suddenStop !== null ? [
+      `## Sudden Stop Vulnerability Index (R&R Ch.15 — Calvo)`,
+      `**SSVI: ${output.suddenStop.index}/100 — Phase: ${output.suddenStop.phase.toUpperCase()}**`,
+      `| Component | Sub-score | Value |`,
+      `|-----------|-----------|-------|`,
+      `| SBN foreign ownership cliff | ${output.suddenStop.components.sbnOwnership}/100 | ${output.sbnForeignOwnership?.current.toFixed(1) ?? 'n/a'}% |`,
+      `| UIP real carry | ${output.suddenStop.components.uipCarry}/100 | ${output.suddenStop.realCarryPct !== null ? (output.suddenStop.realCarryPct >= 0 ? '+' : '') + output.suddenStop.realCarryPct.toFixed(2) + 'pp' : 'n/a'} |`,
+      `| EIDO 90d structural trend | ${output.suddenStop.components.eidoTrend}/100 | z90d via EIDO snapshot |`,
+      `| Reserve adequacy (GG ratio) | ${output.suddenStop.components.reserveAdequacy}/100 | ${output.suddenStop.ggRatio?.toFixed(2) ?? 'n/a (run uln_engine)'} |`,
+      `_Sudden stop (Calvo 1998): abrupt capital inflow reversal when carry unwinds + SBN cliff + thin reserves simultaneously. Weights: SBN 0.30 | Carry 0.25 | EIDO 0.25 | GG 0.20. Alert floor: SSVI ≥75 = ORANGE, ≥90 = RED._`,
+      ``,
+    ].join('\n') : '',
     `_EIDO = iShares MSCI Indonesia ETF (equity demand proxy). IDX flow = daily foreign net buy/sell on IDX equity. SBN ownership = DJPPR._`,
     `_For institutional flow data, configure Bloomberg (BLOOMBERG_API_URL) for actual SBN/equity flow figures._`,
   ]
