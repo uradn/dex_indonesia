@@ -81,7 +81,7 @@ export async function fetchBiFxReserves(): Promise<MacroDataPoint | null> {
 
   // Fallback: World Bank GEM API (free, monthly, confirmed working)
   try {
-    const wbPoints = await fetchBiFxReservesWorldBank(3);
+    const wbPoints = await fetchBiFxReservesWorldBank(6);
     if (wbPoints.length > 0) {
       return wbPoints[wbPoints.length - 1]; // most recent
     }

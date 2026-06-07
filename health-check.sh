@@ -395,8 +395,9 @@ run_bun_check "IHSG market breadth — IDX scrape (Module 9)" "
 import { fetchIhsgMarketData } from './src/tools/macro/sources/ihsg.js';
 try {
   const r = await fetchIhsgMarketData();
-  if (r && (r.advanceDeclineRatio ?? 0) > 0) {
-    console.log('OK: A/D ratio =', r.advanceDeclineRatio?.toFixed(2), '| advances', r.advances, '/ declines', r.declines);
+  const ratio = r?.advanceDecline?.value ?? 0;
+  if (ratio > 0) {
+    console.log('OK: A/D ratio =', ratio.toFixed(3), '| source:', r.advanceDecline?.source);
   } else {
     console.log('WARN: IDX breadth null — market stress engine uses P/E proxy only');
   }
