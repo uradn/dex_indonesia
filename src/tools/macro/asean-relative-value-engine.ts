@@ -53,6 +53,13 @@ interface AseanRelativeValueOutput {
   indonesiaFxChange1m: number | null;
   aseanMedianFxChange1m: number | null;
   idiosyncraticComponent: number | null; // IDR change minus ASEAN median = ID-specific
+  // UIP Carry Attractiveness (R&R framework)
+  sbn10yPct: number | null;
+  ust10yPct: number | null;
+  carrySpreadPct: number | null;         // SBN 10Y − UST 10Y
+  idr3mAnnualizedPct: number | null;     // annualized 3M IDR depreciation
+  realCarryPct: number | null;           // carry spread − expected depreciation
+  carryLabel: 'attractive' | 'neutral' | 'watch' | 'unattractive' | null;
   narrative: string;
   flags: string[];
 }
@@ -69,10 +76,17 @@ async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueOutput> 
   const fxData = await fetchAseanFxSpots();
   if (fxData.length > 0) await upsertPoints(fxData);
 
-  const idrCurrent = await getLatestPoint('usdidr_spot');
-  const idrHistory30 = await getLastN('usdidr_spot', 30);
-  const idrChange1m = idrCurrent && idrHistory30.length > 1
-    ? ((idrCurrent.value - idrHistory30[0].value) / idrHistory30[0].value) * 100
+  const [idrCurrent, sbn10yFromDb, ust10yFromDb] = await Promise.all([
+    getLatestPoint('usdidr_spot'),
+    getLatestPoint('sbn_10y_yield_pct'),
+    getLatestPoint('ust_10y_yield_pct'),
+  ]);
+
+  // 90-day history covers both 1M FX change and 3M annualized depreciation
+  const idrHistory90 = await getLastN('usdidr_spot', 90);
+  const idrChange1m = idrCurrent && idrHistory90.length > 1
+    ? ((idrCurrent.value - idrHistory90[Math.max(0, idrHistory90.length - 30)].value)
+       / idrHistory90[Math.max(0, idrHistory90.length - 30)].value) * 100
     : null;
 
   const peers: PeerData[] = [];
@@ -112,12 +126,54 @@ async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueOutput> 
   const allPeerChanges = [...allChanges1m, idrChange1m ?? 0].sort((a, b) => b - a);
   const indonesiaRank = allPeerChanges.indexOf(idrChange1m ?? 0) + 1;
 
-  const alertLevel: AlertLevel =
+  // UIP Carry Attractiveness (R&R framework)
+  // UIP equilibrium: carry_spread ≈ expected_depreciation → real carry measures excess return
+  const sbn10y = sbn10yFromDb?.value ?? null;
+  const ust10y = ust10yFromDb?.value ?? null;
+  const carrySpread = sbn10y !== null && ust10y !== null
+    ? parseFloat((sbn10y - ust10y).toFixed(2))
+    : null;
+
+  // 3M annualized IDR depreciation: oldest available point in 90-day window vs current
+  let idr3mAnnualized: number | null = null;
+  if (idrCurrent && idrHistory90.length >= 10) {
+    const oldest = idrHistory90[0]!;
+    const daysBetween = (Date.parse(idrCurrent.date) - Date.parse(oldest.date)) / 86_400_000;
+    if (daysBetween >= 14) {
+      idr3mAnnualized = parseFloat(
+        (((idrCurrent.value - oldest.value) / oldest.value) * (365 / daysBetween) * 100).toFixed(2),
+      );
+    }
+  }
+
+  const realCarry = carrySpread !== null && idr3mAnnualized !== null
+    ? parseFloat((carrySpread - idr3mAnnualized).toFixed(2))
+    : null;
+
+  const carryLabel: AseanRelativeValueOutput['carryLabel'] =
+    realCarry === null ? null :
+    realCarry > 3.0 ? 'attractive' :
+    realCarry > 1.0 ? 'neutral' :
+    realCarry > 0.0 ? 'watch' : 'unattractive';
+
+  // FX idiosyncratic alert (existing logic)
+  const fxAlertLevel: AlertLevel =
     idiosyncraticComponent !== null
       ? idiosyncraticComponent > 5 ? 'red' :
         idiosyncraticComponent > 3 ? 'orange' :
         idiosyncraticComponent > 1 ? 'yellow' : 'green'
       : 'green';
+
+  // Carry alert — UIP predicts exit when real carry goes negative
+  const carryAlertLevel: AlertLevel =
+    realCarry === null ? 'green' :
+    realCarry < -2 ? 'orange' :
+    realCarry < 0 ? 'yellow' : 'green';
+
+  const ALERT_ORDER: AlertLevel[] = ['green', 'yellow', 'orange', 'red'];
+  const alertLevel: AlertLevel = ALERT_ORDER[
+    Math.max(ALERT_ORDER.indexOf(fxAlertLevel), ALERT_ORDER.indexOf(carryAlertLevel))
+  ]!;
 
   const flags: string[] = [];
   if (!usdStrengthStory && (idiosyncraticComponent ?? 0) > 3) {
@@ -130,7 +186,13 @@ async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueOutput> 
     flags.push('Indonesia most depreciated ASEAN currency in past 30 days');
   }
 
-  const narrative = buildNarrative({ idrChange1m, aseanMedianFxChange1m, idiosyncraticComponent, usdStrengthStory, indonesiaRank });
+  if (realCarry !== null && realCarry < 0) {
+    flags.push(`UIP CARRY UNATTRACTIVE: real carry ${realCarry.toFixed(2)}pp (SBN spread ${carrySpread?.toFixed(2)}% − annualized IDR depreciation ${idr3mAnnualized?.toFixed(2)}%) — UIP predicts foreign SBN exit as yield no longer compensates for FX loss [R&R UIP]`);
+  } else if (realCarry !== null && realCarry < 1.0) {
+    flags.push(`Carry thin: real carry ${realCarry.toFixed(2)}pp — thin margin before carry trade unwinds. Watch SBN foreign ownership trend`);
+  }
+
+  const narrative = buildNarrative({ idrChange1m, aseanMedianFxChange1m, idiosyncraticComponent, usdStrengthStory, indonesiaRank, realCarry, carryLabel });
 
   return {
     date: new Date().toISOString().slice(0, 10),
@@ -141,6 +203,12 @@ async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueOutput> 
     indonesiaFxChange1m: idrChange1m,
     aseanMedianFxChange1m,
     idiosyncraticComponent,
+    sbn10yPct: sbn10y,
+    ust10yPct: ust10y,
+    carrySpreadPct: carrySpread,
+    idr3mAnnualizedPct: idr3mAnnualized,
+    realCarryPct: realCarry,
+    carryLabel,
     narrative,
     flags,
   };
@@ -152,6 +220,8 @@ function buildNarrative(ctx: {
   idiosyncraticComponent: number | null;
   usdStrengthStory: boolean;
   indonesiaRank: number;
+  realCarry: number | null;
+  carryLabel: AseanRelativeValueOutput['carryLabel'];
 }): string {
   const parts: string[] = [];
   if (ctx.idrChange1m !== null) parts.push(`IDR: ${ctx.idrChange1m >= 0 ? '+' : ''}${ctx.idrChange1m.toFixed(2)}% vs USD (1M).`);
@@ -162,6 +232,10 @@ function buildNarrative(ctx: {
         ? 'DXY-driven depreciation — ASEAN-wide, not Indonesia-specific.'
         : `Idiosyncratic component: ${ctx.idiosyncraticComponent >= 0 ? '+' : ''}${ctx.idiosyncraticComponent.toFixed(2)}% — ${ctx.idiosyncraticComponent > 2 ? 'Indonesia underperforming peers.' : 'broadly in line with peers.'}`,
     );
+  }
+  if (ctx.realCarry !== null) {
+    const carryStr = ctx.realCarry >= 0 ? `+${ctx.realCarry.toFixed(2)}pp` : `${ctx.realCarry.toFixed(2)}pp`;
+    parts.push(`UIP real carry: ${carryStr} [${ctx.carryLabel}].`);
   }
   return parts.join(' ') || 'Insufficient ASEAN FX data.';
 }
@@ -193,6 +267,17 @@ function formatOutput(output: AseanRelativeValueOutput & { idrSpotPrice?: number
     `| ASEAN Median 1M | ${output.aseanMedianFxChange1m !== null ? `${output.aseanMedianFxChange1m >= 0 ? '+' : ''}${output.aseanMedianFxChange1m.toFixed(2)}%` : 'n/a'} |`,
     `| Idiosyncratic (ID-specific) | ${output.idiosyncraticComponent !== null ? `${output.idiosyncraticComponent >= 0 ? '+' : ''}${output.idiosyncraticComponent.toFixed(2)}%` : 'n/a'} |`,
     `| Narrative | ${output.usdStrengthStory ? '🌐 DXY story (global USD strength)' : '🎯 Indonesia-specific repricing'} |`,
+    ``,
+    `## UIP Carry Attractiveness (R&R)`,
+    `| Component | Value |`,
+    `|-----------|-------|`,
+    `| SBN 10Y yield | ${output.sbn10yPct !== null ? output.sbn10yPct.toFixed(2) + '%' : 'n/a (run sovereign_risk_engine first)'} |`,
+    `| UST 10Y yield | ${output.ust10yPct !== null ? output.ust10yPct.toFixed(2) + '%' : 'n/a'} |`,
+    `| Carry spread (SBN − UST) | ${output.carrySpreadPct !== null ? (output.carrySpreadPct >= 0 ? '+' : '') + output.carrySpreadPct.toFixed(2) + 'pp' : 'n/a'} |`,
+    `| IDR 3M depreciation (ann.) | ${output.idr3mAnnualizedPct !== null ? (output.idr3mAnnualizedPct >= 0 ? '+' : '') + output.idr3mAnnualizedPct.toFixed(2) + '%' : 'n/a'} |`,
+    `| Real carry (UIP-adjusted) | ${output.realCarryPct !== null ? (output.realCarryPct >= 0 ? '+' : '') + output.realCarryPct.toFixed(2) + 'pp' : 'n/a'} |`,
+    `| Carry status | ${output.carryLabel?.toUpperCase() ?? 'n/a'} |`,
+    `_UIP (R&R): if real carry < 0, yield no longer compensates FX loss — rational foreign investors exit SBN. Leads Module 5 foreign flow data by 2-3 weeks._`,
     ``,
     output.flags.length > 0 ? `## Flags\n${output.flags.map((f) => `- ${f}`).join('\n')}` : '',
   ]
