@@ -161,14 +161,25 @@ export function computeSignals(
       dxyStressScore       * 0.10,
     );
 
-    const overallAlert: AlertLevel =
+    const vixAlert: AlertLevel    = vixStressScore > 66 ? 'orange' : vixStressScore > 33 ? 'yellow' : 'green';
+    const dxyAlert: AlertLevel    = dxyStressScore > 66 ? 'orange' : dxyStressScore > 33 ? 'yellow' : 'green';
+
+    const stressedModuleCount = [fxAlert, commodityAlert, flowAlert, sovereignAlert, vixAlert, dxyAlert].filter(
+      (a) => a === 'orange' || a === 'red',
+    ).length;
+
+    // Confirmation gate: ORANGE/RED require ≥2 modules stressed.
+    // Prevents single-indicator spikes (e.g. isolated VIX/DXY surge) from
+    // triggering phantom alerts on non-crisis days (FP rate reduction).
+    const rawAlert: AlertLevel =
       compositeScore >= 75 ? 'red' :
       compositeScore >= 55 ? 'orange' :
       compositeScore >= 35 ? 'yellow' : 'green';
 
-    const stressedModuleCount = [fxAlert, commodityAlert, flowAlert, sovereignAlert].filter(
-      (a) => a === 'orange' || a === 'red',
-    ).length;
+    const overallAlert: AlertLevel =
+      (rawAlert === 'orange' || rawAlert === 'red') && stressedModuleCount < 2
+        ? 'yellow'
+        : rawAlert;
 
     signals.push({
       date,
@@ -184,6 +195,8 @@ export function computeSignals(
         commodity: commodityAlert,
         foreign_flow: flowAlert,
         sovereign: sovereignAlert,
+        vix: vixAlert,
+        dxy: dxyAlert,
       },
       compositeScore,
       overallAlert,

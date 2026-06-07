@@ -130,6 +130,10 @@ Decomposes IDR weakness into global DXY story vs Indonesia-specific repricing. P
 
 **APBN 2026 macro constants** (UU No.17/2025): USDIDR 16,500 | ICP $70/bbl | GDP growth 5.4% | CPI 2.5% | SBN 10Y 6.9% | Revenue 3,153.6T | Spending 3,842.7T | Deficit 2.68% GDP | Post-efisiensi spending ~3,534.7T | GDP 25,714.2T. BI Rate as of 20 May 2026: 5.25% (+50bps from 4.75%).
 
+**Regime Engine** (`regime_engine` tool, `regime-engine.ts`): Classifies Indonesia macro regime via Growth ROC × Inflation ROC quadrant framework. Regimes: Q1 Goldilocks (Growth↑ Inflation↓), Q2 Reflation (Growth↑ Inflation↑), Q3 Stagflation (Growth↓ Inflation↑ — worst for IDR), Q4 Contraction (Growth↓ Inflation↓). Inputs: IMF GDP growth rate-of-change, IMF/TE inflation ROC, PMI Manufacturing (TE scrape), IHSG/DXY/VIX from Yahoo. Computes shift probability + historical Indonesia analogs + asset implications per quadrant. SCD weight: 0.05. Feeds Domestic Pressure Engine as upstream signal.
+
+**Macro Threshold Monitor** (`macro_threshold_monitor` tool, `macro-threshold-monitor.ts`): Fast fixed-threshold tripwire — no LLM call, no full engine runs. Fetches live spots (USDIDR, VIX, DXY, Brent, EIDO) and checks against static breach thresholds (VIX ≥35/45, DXY ≥108/112, Brent ±20% vs APBN $70, USDIDR daily move %). Returns breach list or "all clear" in seconds. Designed for intraday cron pre-screening before invoking `silent_crisis_detector`.
+
 **Adding new modules:** create `src/tools/macro/{module}-engine.ts`, register in `registry.ts`, optionally add `src/skills/macro/{module}/SKILL.md`.
 
 ## Backtest System
@@ -153,7 +157,7 @@ FX Defense 0.30 | Commodity Cushion 0.25 | Foreign Flow 0.15 | Sovereign CDS 0.1
 
 **Alert thresholds in backtest:** composite ≥75 = RED, ≥55 = ORANGE, ≥35 = YELLOW. Pre-crisis validator window: 180d.
 
-**Latest results (2026-06-07):** 100% hit rate (6/6 crises) | 165d avg YELLOW lead time | 5.4% false positive rate | Peak scores: 2013=81, 2015=75, 2018=84, 2020=96, 2022=90, 2023=89.
+**Latest results (2026-06-07):** 100% hit rate (6/6 crises) | 165d avg YELLOW lead time | 4.8% false positive rate | Peak scores: 2013=81, 2015=75, 2018=84, 2020=96, 2022=90, 2023=89.
 
 ## Environment variables
 

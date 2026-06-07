@@ -17,7 +17,8 @@ Tests whether the composite stress scoring system would have issued advance warn
 - 2023 USD Surge / Higher-for-Longer (IDR -6%)
 
 Outputs: hit rate, average lead time (days before crisis), false positive rate, per-crisis signal timeline.
-Uses Yahoo Finance data only — sovereign module excluded (no free historical CDS data).
+Indicators: Yahoo Finance (FX/ETF/futures) + Indonesia 5Y CDS from WorldGovernmentBonds.com (Playwright, from Sep 2018).
+Composite weights: FX 0.30, Commodity 0.25, Foreign Flow 0.15, Sovereign CDS 0.10, VIX 0.10, DXY 0.10.
 No lookahead bias: z-scores computed using only data available at each point in time.
 `.trim();
 
@@ -58,9 +59,12 @@ export const backtestEngine = new DynamicStructuredTool({
 
     const validations = crises.map((crisis) => validateCrisis(crisis, signals));
 
-    const indicatorsBacktested = BACKTEST_INDICATORS
-      .filter((spec) => historicalData.has(spec.indicator))
-      .map((spec) => spec.indicator);
+    const indicatorsBacktested = [
+      ...BACKTEST_INDICATORS
+        .filter((spec) => historicalData.has(spec.indicator))
+        .map((spec) => spec.indicator),
+      ...(historicalData.has('indonesia_cds_5y_bps') ? ['indonesia_cds_5y_bps (WGB)'] : []),
+    ];
 
     const result = buildBacktestResult(validations, signals, { start, end }, indicatorsBacktested);
 
