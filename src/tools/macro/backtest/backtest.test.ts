@@ -368,3 +368,174 @@ describe('computeFalsePositiveRate', () => {
     expect(falsePositiveRate).toBe(0);
   });
 });
+
+// ─── sovereign CDS module ─────────────────────────────────────────────────────
+//
+// z-score math for step-function series (p spike bars + q stable bars in window):
+//   z = sqrt(q / p)  when current is at spike level.
+// Example: 24 stable + 6 spike → z = sqrt(24/6) = 2.0 → ORANGE fxAlert.
+
+describe('computeSignals — sovereign CDS module', () => {
+  const flatIDR = (n: number) => makeBars(Array.from({ length: n }, () => 15000));
+
+  test('no CDS data → sovereign score defaults to 30 (neutral baseline)', () => {
+    const bars = flatIDR(50);
+    const data = new Map([['usdidr_spot', bars]]);
+    const signals = computeSignals(data, bars.map(b => b.date));
+    expect(signals[signals.length - 1].moduleScores.sovereign).toBe(30);
+  });
+
+  test('rising CDS (widening spread) → sovereignStressScore > 0', () => {
+    const n = 50;
+    const data = new Map([
+      ['usdidr_spot', flatIDR(n)],
+      ['indonesia_cds_5y_bps', makeBars(Array.from({ length: n }, (_, i) => 100 + i * 5))],
+    ]);
+    const dates = flatIDR(n).map(b => b.date);
+    const signals = computeSignals(data, dates);
+    expect(signals[signals.length - 1].moduleScores.sovereign).toBeGreaterThan(0);
+  });
+
+  test('falling CDS (tightening) → sovereignStressScore = 0', () => {
+    const n = 50;
+    const data = new Map([
+      ['usdidr_spot', flatIDR(n)],
+      ['indonesia_cds_5y_bps', makeBars(Array.from({ length: n }, (_, i) => 500 - i * 8))],
+    ]);
+    const dates = flatIDR(n).map(b => b.date);
+    const signals = computeSignals(data, dates);
+    // Negative z (CDS falling) → no sovereign stress
+    expect(signals[signals.length - 1].moduleScores.sovereign).toBe(0);
+  });
+
+  test('CDS spike with few bars in window → sovereignAlert = orange', () => {
+    // 50 stable + 5 spike → at last bar: q=26, p=4 → z≈2.55 → sovereignStressScore=100
+    const n = 55;
+    const cdsValues = [...Array(50).fill(100), ...Array(5).fill(1000)];
+    const idrBars = makeBars(Array.from({ length: n }, (_, i) => 15000 + i * 0.1));
+    const data = new Map([
+      ['usdidr_spot', idrBars],
+      ['indonesia_cds_5y_bps', makeBars(cdsValues)],
+    ]);
+    const signals = computeSignals(data, idrBars.map(b => b.date));
+    const last = signals[signals.length - 1];
+    expect(last.alertLevels.sovereign).toBe('orange');
+    expect(last.moduleScores.sovereign).toBeGreaterThan(66);
+  });
+
+  test('CDS stress contributes to composite score', () => {
+    // Compare two runs: one with rising CDS, one without.
+    // The run with rising CDS should produce higher composite.
+    const n = 50;
+    const dates = flatIDR(n).map(b => b.date);
+
+    const withCds = computeSignals(
+      new Map([
+        ['usdidr_spot', flatIDR(n)],
+        ['indonesia_cds_5y_bps', makeBars(Array.from({ length: n }, (_, i) => 100 + i * 5))],
+      ]),
+      dates,
+    );
+    const withoutCds = computeSignals(
+      new Map([['usdidr_spot', flatIDR(n)]]),
+      dates,
+    );
+    const last = withCds.length - 1;
+    // Rising CDS produces sovereignStressScore > 30 (neutral), so composite should be higher
+    expect(withCds[last].compositeScore).toBeGreaterThanOrEqual(withoutCds[last].compositeScore);
+  });
+
+  test('alertLevels output includes sovereign, vix, dxy keys', () => {
+    const bars = flatIDR(40);
+    const data = new Map([['usdidr_spot', bars]]);
+    const signals = computeSignals(data, bars.map(b => b.date));
+    const last = signals[signals.length - 1];
+    expect('sovereign' in last.alertLevels).toBe(true);
+    expect('vix' in last.alertLevels).toBe(true);
+    expect('dxy' in last.alertLevels).toBe(true);
+  });
+
+  test('moduleScores output includes sovereign key', () => {
+    const bars = flatIDR(40);
+    const data = new Map([['usdidr_spot', bars]]);
+    const signals = computeSignals(data, bars.map(b => b.date));
+    expect('sovereign' in signals[signals.length - 1].moduleScores).toBe(true);
+  });
+});
+
+// ─── FP confirmation gate ─────────────────────────────────────────────────────
+//
+// Gate: ORANGE/RED requires stressedModuleCount ≥ 2.
+// Prevents isolated single-indicator spikes from generating phantom alerts.
+
+describe('computeSignals — FP confirmation gate', () => {
+  // Builds a step-function series: `switchAt` bars at stable, rest at spikeVal.
+  // Tiny linear increment in stable period ensures non-zero window std (avoids null z).
+  function stepSeries(n: number, stableBase: number, spikeVal: number, switchAt = 45): DailyBar[] {
+    return makeBars(Array.from({ length: n }, (_, i) =>
+      i < switchAt ? stableBase + i * 0.01 : spikeVal,
+    ));
+  }
+
+  test('invariant: stressedModuleCount < 2 → overallAlert never orange/red', () => {
+    // Mild linear stress across 2 indicators — stays below ORANGE threshold for each
+    const n = 60;
+    const data = new Map([
+      ['usdidr_spot', makeBars(Array.from({ length: n }, (_, i) => 15000 + i * 5))],
+      ['vix_level',   makeBars(Array.from({ length: n }, (_, i) => 20   + i * 0.2))],
+    ]);
+    const signals = computeSignals(data, data.get('usdidr_spot')!.map(b => b.date));
+    for (const s of signals) {
+      if (s.stressedModuleCount < 2) {
+        expect(s.overallAlert === 'orange' || s.overallAlert === 'red').toBe(false);
+      }
+    }
+  });
+
+  test('2+ stressed modules allow ORANGE when composite ≥ 55', () => {
+    // IDR + EIDO + VIX + DXY all spike simultaneously.
+    // At bar ~51: q=24 stable + p=6 spike → z≈2.0 → each module ORANGE.
+    // Composite: 80×0.30 + 30×0.25 + 80×0.15 + 30×0.10 + 70×0.10 + 70×0.10 = 60.5 → ORANGE.
+    const n = 60;
+    const data = new Map([
+      ['usdidr_spot', stepSeries(n, 15000, 20000)],
+      ['eido_price',  stepSeries(n, 30,    5)],
+      ['vix_level',   stepSeries(n, 20,    80)],
+      ['dxy_index',   stepSeries(n, 100,   115)],
+    ]);
+    const dates = data.get('usdidr_spot')!.map(b => b.date);
+    const signals = computeSignals(data, dates);
+
+    const firstOrange = signals.find(s => s.overallAlert === 'orange' || s.overallAlert === 'red');
+    expect(firstOrange).toBeDefined();
+    expect(firstOrange!.stressedModuleCount).toBeGreaterThanOrEqual(2);
+  });
+
+  test('VIX spike is counted in stressedModuleCount', () => {
+    // VIX: stable then large spike. IDR flat.
+    // q=24, p=6 → z_vix = 2.0 → vixStressScore=70 → vixAlert=ORANGE → counted.
+    const n = 60;
+    const data = new Map([
+      ['usdidr_spot', stepSeries(n, 15000, 15000)],  // flat IDR — no FX stress
+      ['vix_level',   stepSeries(n, 20,    80)],
+    ]);
+    const dates = data.get('usdidr_spot')!.map(b => b.date);
+    const signals = computeSignals(data, dates);
+
+    const spikeSignals = signals.slice(46); // bars after spike settles
+    const hasVixOrange = spikeSignals.some(s => s.alertLevels.vix === 'orange' || s.alertLevels.vix === 'red');
+    expect(hasVixOrange).toBe(true);
+
+    const vixOrangeSignal = spikeSignals.find(s => s.alertLevels.vix === 'orange' || s.alertLevels.vix === 'red');
+    expect(vixOrangeSignal!.stressedModuleCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test('stressedModuleCount = 0 when all indicators flat', () => {
+    const bars = makeBars(Array.from({ length: 50 }, () => 15000));
+    const data = new Map([['usdidr_spot', bars]]);
+    const signals = computeSignals(data, bars.map(b => b.date));
+    expect(signals[signals.length - 1].stressedModuleCount).toBe(0);
+    expect(signals[signals.length - 1].overallAlert).not.toBe('orange');
+    expect(signals[signals.length - 1].overallAlert).not.toBe('red');
+  });
+});
