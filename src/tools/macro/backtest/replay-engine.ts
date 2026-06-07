@@ -73,13 +73,12 @@ export function replayRealizedVol(bars: DailyBar[], window = 30): Map<string, nu
  * Compute composite module signal at each date.
  *
  * Modules scored:
- * - FX Defense: USDIDR z-score + USDIDR vol z-score (weight 0.35)
+ * - FX Defense: USDIDR z-score (weight 0.30)
  * - Commodity Cushion: export commodity basket avg z-score (weight 0.25)
- * - Foreign Flow: EIDO z-score (weight 0.20)
- * - Regime proxy: VIX z-score inverted (weight 0.10)
+ * - Foreign Flow: EIDO z-score (weight 0.15)
+ * - Sovereign: Indonesia 5Y CDS z-score via WGB (weight 0.10; neutral 30 when no data pre-2018)
+ * - Regime proxy: VIX z-score (weight 0.10)
  * - Global stress: DXY z-score (weight 0.10)
- *
- * Note: Sovereign (CDS/SBN) excluded — no free historical data.
  */
 export function computeSignals(
   historicalData: Map<string, DailyBar[]>,
@@ -144,13 +143,22 @@ export function computeSignals(
     const dxyZ = getZ('dxy_index');
     const dxyStressScore = dxyZ !== null && dxyZ > 0 ? Math.min(100, dxyZ * 35) : 0;
 
+    // Sovereign: Indonesia 5Y CDS (WGB). Positive z = CDS widening = stress.
+    // Falls back to neutral 30 when data unavailable (pre-2018 dates).
+    const cdsZ = getZ('indonesia_cds_5y_bps');
+    const sovereignStressScore = cdsZ !== null
+      ? (cdsZ > 0 ? Math.min(100, cdsZ * 40) : 0)
+      : 30;  // neutral default when no CDS data
+    const sovereignAlert: AlertLevel = sovereignStressScore > 66 ? 'orange' : sovereignStressScore > 33 ? 'yellow' : 'green';
+
     // Composite (weights sum to 1.0)
     const compositeScore = Math.round(
-      fxStressScore * 0.35 +
+      fxStressScore       * 0.30 +
       commodityStressScore * 0.25 +
-      flowStressScore * 0.20 +
-      vixStressScore * 0.10 +
-      dxyStressScore * 0.10,
+      flowStressScore      * 0.15 +
+      sovereignStressScore * 0.10 +
+      vixStressScore       * 0.10 +
+      dxyStressScore       * 0.10,
     );
 
     const overallAlert: AlertLevel =
@@ -158,7 +166,7 @@ export function computeSignals(
       compositeScore >= 55 ? 'orange' :
       compositeScore >= 35 ? 'yellow' : 'green';
 
-    const stressedModuleCount = [fxAlert, commodityAlert, flowAlert].filter(
+    const stressedModuleCount = [fxAlert, commodityAlert, flowAlert, sovereignAlert].filter(
       (a) => a === 'orange' || a === 'red',
     ).length;
 
@@ -168,12 +176,14 @@ export function computeSignals(
         fx_defense: Math.round(fxStressScore),
         commodity: Math.round(commodityStressScore),
         foreign_flow: Math.round(flowStressScore),
+        sovereign: Math.round(sovereignStressScore),
         global_stress: Math.round((vixStressScore + dxyStressScore) / 2),
       },
       alertLevels: {
         fx_defense: fxAlert,
         commodity: commodityAlert,
         foreign_flow: flowAlert,
+        sovereign: sovereignAlert,
       },
       compositeScore,
       overallAlert,

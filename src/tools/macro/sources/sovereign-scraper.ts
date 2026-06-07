@@ -288,6 +288,74 @@ export async function fetchIndonesiaCds5yWgb(): Promise<MacroDataPoint | null> {
 }
 
 /**
+ * Fetch Indonesia 5Y CDS full historical time series from WorldGovernmentBonds.com.
+ *
+ * WGB serves data via a WordPress REST API (POST) that enforces CORS — plain fetch
+ * returns 403 "invalid origin". Playwright navigates the page so the browser's
+ * cookies and Origin header satisfy the check; we intercept the JSON response
+ * in-flight rather than parsing the DOM.
+ *
+ * Returns daily bars from ~Sep 2018 to present. Covers: 2018 EM contagion,
+ * 2020 COVID, 2022 Fed tightening, 2023 USD surge. Pre-2018 dates return null.
+ *
+ * Response format: { success: true, result: { num: N, quote: { "1": { CLOSE_VAL, DATA_VAL }, ... } } }
+ */
+export async function fetchIndonesiaCdsHistoricalWgb(): Promise<Array<{ date: string; close: number }>> {
+  const { withBrowserPage } = await import('./playwright-browser.js');
+
+  const WGB_HISTORICAL_URL = 'https://www.worldgovernmentbonds.com/cds-historical-data/indonesia/5-years/';
+  const API_ENDPOINT       = 'https://www.worldgovernmentbonds.com/wp-json/common/v1/historical';
+
+  const WGB_PAYLOAD = {
+    GLOBALVAR: {
+      JS_VARIABLE: 'jsGlobalVars',
+      FUNCTION: 'CDS',
+      DOMESTIC: true,
+      ENDPOINT: API_ENDPOINT,
+      DATE_RIF: '2099-12-31',
+      DEBUG: true,
+      OBJ: { UNIT: '', DECIMAL: 2, UNIT_DELTA: '%', DECIMAL_DELTA: 2 },
+      COUNTRY1: { SYMBOL: '39', PAESE: 'Indonesia', PAESE_UPPERCASE: 'INDONESIA', BANDIERA: 'id', URL_PAGE: 'indonesia' },
+      COUNTRY2: null,
+      OBJ1: { DURATA_STRING: '5 Years', DURATA: 60 },
+      OBJ2: null,
+    },
+  };
+
+  type WgbQuoteEntry = { CLOSE_VAL: number; DATA_VAL: string };
+  type WgbResponse   = { success: boolean; result: { num: number; quote: Record<string, WgbQuoteEntry> } };
+
+  const bars = await withBrowserPage<Array<{ date: string; close: number }>>(async (page) => {
+    // Box pattern: object property avoids TS narrowing collapse in async closure
+    const state: { captured: WgbResponse | null } = { captured: null };
+
+    page.on('response', async (res) => {
+      if (res.url() === API_ENDPOINT && res.request().method() === 'POST') {
+        try {
+          state.captured = await res.json() as WgbResponse;
+        } catch { /* ignore parse errors */ }
+      }
+    });
+
+    await page.goto(WGB_HISTORICAL_URL, { waitUntil: 'networkidle', timeout: 35_000 });
+    await page.waitForTimeout(4_000);
+
+    const cap = state.captured;
+    if (!cap?.success || !cap.result?.quote) return [];
+
+    const result: Array<{ date: string; close: number }> = [];
+    for (const entry of Object.values(cap.result.quote)) {
+      const cds = Number(entry.CLOSE_VAL);
+      if (!entry.DATA_VAL || isNaN(cds) || cds < 20 || cds > 2_000) continue;
+      result.push({ date: entry.DATA_VAL.slice(0, 10), close: cds });
+    }
+    return result.sort((a, b) => a.date.localeCompare(b.date));
+  });
+
+  return bars ?? [];
+}
+
+/**
  * Fetch Indonesia IndONIA (Indonesia Overnight Index Average) compounded rate from TE.
  * BI discontinued JIBOR in Dec 2023; TE now reports IndONIA on the same interbank-rate URL.
  * Pattern: "Interbank Rate in Indonesia ... X.XX percent"

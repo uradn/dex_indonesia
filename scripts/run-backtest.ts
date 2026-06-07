@@ -20,7 +20,7 @@ const crises = crisisFilter
 
 console.log(`Backtest: ${start} → ${end}`);
 console.log(`Crises: ${crises.map((c) => c.id).join(', ')}`);
-console.log(`Indicators: ${BACKTEST_INDICATORS.map((s) => s.ticker).join(', ')}\n`);
+console.log(`Indicators: ${BACKTEST_INDICATORS.map((s) => s.ticker).join(', ')}, indonesia_cds_5y_bps (WGB)\n`);
 console.log('Loading historical data from Yahoo Finance...');
 
 const historicalData = await loadAllHistoricalData(start, end);

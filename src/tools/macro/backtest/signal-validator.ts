@@ -229,8 +229,8 @@ export function formatBacktestReport(result: BacktestResult): string {
       ].join('\n');
     }),
     ``,
-    `_Note: Sovereign module (CDS, SBN yield) excluded from backtest — no free historical CDS data._`,
-    `_Configure Bloomberg (BLOOMBERG_API_URL) to include sovereign signals in future backtests._`,
+    `_Note: Sovereign CDS from WorldGovernmentBonds.com (Playwright). Data starts Sep 2018 — pre-2018 crises use neutral sovereign baseline._`,
+    `_SBN yield historical not yet wired. Configure Bloomberg (BLOOMBERG_API_URL) for SBN sovereign signals._`,
   ];
 
   return lines.filter((l) => l !== '').join('\n');

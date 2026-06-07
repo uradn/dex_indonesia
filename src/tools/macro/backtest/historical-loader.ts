@@ -6,6 +6,7 @@
 import YahooFinance from 'yahoo-finance2';
 import type { MacroDataPoint } from '../types.js';
 import { readCache, writeCache } from '../../../utils/cache.js';
+import { fetchIndonesiaCdsHistoricalWgb } from '../sources/sovereign-scraper.js';
 
 const yf = new YahooFinance();
 
@@ -83,14 +84,45 @@ export async function loadAllHistoricalData(
 ): Promise<Map<string, DailyBar[]>> {
   const result = new Map<string, DailyBar[]>();
 
-  await Promise.allSettled(
-    BACKTEST_INDICATORS.map(async (spec) => {
+  await Promise.allSettled([
+    ...BACKTEST_INDICATORS.map(async (spec) => {
       const bars = await fetchFullHistory(spec.ticker, startDate, endDate);
       if (bars.length > 0) {
         result.set(spec.indicator, bars);
       }
     }),
-  );
+    loadCdsSovereign(startDate, endDate, result),
+  ]);
 
   return result;
+}
+
+async function loadCdsSovereign(
+  startDate: string,
+  endDate: string,
+  result: Map<string, DailyBar[]>,
+): Promise<void> {
+  const cacheKey = 'backtest/indonesia_cds_5y_bps_wgb';
+  const cached = readCache(cacheKey, { from: startDate, to: endDate }, 24 * 60 * 60 * 1000 * 3); // 3d TTL
+  let bars: DailyBar[];
+
+  if (cached?.data?.bars) {
+    bars = cached.data.bars as DailyBar[];
+  } else {
+    try {
+      const raw = await fetchIndonesiaCdsHistoricalWgb();
+      bars = raw
+        .filter((b) => b.date >= startDate && b.date <= endDate)
+        .sort((a, b) => a.date.localeCompare(b.date));
+      if (bars.length > 0) {
+        writeCache(cacheKey, { from: startDate, to: endDate }, { bars }, 'WGB_CDS');
+      }
+    } catch {
+      bars = [];
+    }
+  }
+
+  if (bars.length > 0) {
+    result.set('indonesia_cds_5y_bps', bars);
+  }
 }
