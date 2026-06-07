@@ -78,6 +78,11 @@ interface FiscalOutput {
   spendingAbsorptionPct: number | null;
   projectedAnnualRevenueTrn: number | null;
   projectedDeficitPctGdp: number | null;
+  // SRBI sterilization cost (Trilemma quasi-fiscal)
+  srbiOutstandingTrn: number | null;
+  biRatePct: number | null;
+  srbiAnnualCostTrn: number | null;
+  srbiCostAsPctDeficit: number | null;
   // Alerts
   revenueShortfall: boolean;
   spendingOverrun: boolean;
@@ -136,10 +141,12 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   if (pointsToSave.length > 0) await upsertPoints(pointsToSave as NonNullable<typeof revenue>[]);
 
   // 2. Read latest from DB
-  const [dbRevenue, dbSpending, dbBudgetBalance] = await Promise.all([
+  const [dbRevenue, dbSpending, dbBudgetBalance, dbSrbi, dbBiRate] = await Promise.all([
     getLatestPoint('apbn_revenue_monthly_trn'),
     getLatestPoint('apbn_spending_monthly_trn'),
     getLatestPoint('apbn_budget_balance_monthly_trn'),
+    getLatestPoint('srbi_outstanding_trn_idr'),
+    getLatestPoint('bi_rate_pct'),
   ]);
 
   const latestRevenueTrn = dbRevenue?.value ?? null;
@@ -200,6 +207,18 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     ? parseFloat(((APBN_2026.spendingTrn - projectedAnnualRevenueTrn) / APBN_2026.gdpTrn * 100).toFixed(2))
     : null;
 
+  // 4b. SRBI sterilization cost — Trilemma quasi-fiscal drag (R&R framework)
+  // Trilemma: capital account open + monetary autonomy → cannot fix IDR without sterilizing FX intervention
+  // BI issues SRBI to absorb excess Rupiah from USD purchases → pays BI Rate on outstanding → reduces BI profit remittance to Treasury
+  const srbiOutstandingTrn = dbSrbi?.value ?? null;
+  const biRatePct = dbBiRate?.value ?? 5.25; // fallback: BI Rate as of May 2026
+  const srbiAnnualCostTrn = srbiOutstandingTrn !== null
+    ? parseFloat((srbiOutstandingTrn * (biRatePct / 100)).toFixed(1))
+    : null;
+  const srbiCostAsPctDeficit = srbiAnnualCostTrn !== null
+    ? parseFloat((srbiAnnualCostTrn / APBN_2026.deficitTrn * 100).toFixed(1))
+    : null;
+
   // 5. Stress score
   const components: Array<[number, number]> = [];
   if (revenueAbsorptionPct !== null) components.push([scoreRevenueAbsorption(revenueAbsorptionPct), 0.50]);
@@ -243,6 +262,12 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     flags.push('No fiscal data available — TE scrape failed. Check tradingeconomics.com/indonesia/government-revenues');
   }
 
+  if (srbiCostAsPctDeficit !== null && srbiCostAsPctDeficit > 10) {
+    flags.push(`SRBI STERILIZATION BURDEN ELEVATED: IDR ${srbiAnnualCostTrn!.toFixed(0)}T/yr (${srbiCostAsPctDeficit.toFixed(1)}% of APBN deficit) — Trilemma cost: FX defense requires sterilization → reduces BI profit remittance to Treasury`);
+  } else if (srbiCostAsPctDeficit !== null && srbiCostAsPctDeficit > 5) {
+    flags.push(`SRBI sterilization cost notable: IDR ${srbiAnnualCostTrn!.toFixed(0)}T/yr (${srbiCostAsPctDeficit.toFixed(1)}% of APBN deficit) — quasi-fiscal drag on BI balance sheet`);
+  }
+
   // 7. Narrative
   const isAnnualRevenueFlag = latestRevenueTrn !== null && latestRevenueTrn > ANNUAL_DATA_THRESHOLD_TRN;
   const isAnnualSpendingFlag = latestSpendingTrn !== null && latestSpendingTrn > ANNUAL_DATA_THRESHOLD_TRN;
@@ -276,6 +301,7 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     monthsElapsed, proRataRevenueTrn, proRataSpendingTrn,
     revenueAbsorptionPct, spendingAbsorptionPct,
     projectedAnnualRevenueTrn, projectedDeficitPctGdp,
+    srbiOutstandingTrn, biRatePct, srbiAnnualCostTrn, srbiCostAsPctDeficit,
     revenueShortfall, spendingOverrun, deficitRisk,
     flags, narrative,
   };
@@ -325,6 +351,19 @@ function formatFiscalOutput(output: FiscalOutput): string {
     ``,
     output.narrative,
     ``,
+    output.srbiOutstandingTrn !== null
+      ? [
+          `### SRBI Sterilization Cost (Trilemma)`,
+          `| Item | Value |`,
+          `|------|-------|`,
+          `| SRBI outstanding | IDR ${output.srbiOutstandingTrn.toFixed(0)}T |`,
+          `| BI Rate | ${output.biRatePct?.toFixed(2)}% |`,
+          `| Est. annual SRBI interest cost | IDR ${output.srbiAnnualCostTrn?.toFixed(0)}T/yr |`,
+          `| Cost as % of APBN deficit | ${output.srbiCostAsPctDeficit?.toFixed(1)}% |`,
+          `_Capital account open + monetary autonomy → sterilization mandatory. SRBI interest = quasi-fiscal drag on BI profit remittance to Treasury. [R&R Trilemma framework]_`,
+          ``,
+        ].join('\n')
+      : '',
     `_Data: Trading Economics monthly IDR trillion (government-revenues, government-spending)._`,
     `_YTD = sum of all current-year monthly entries in macro DB. Pro-rata = target × (months_elapsed/12)._`,
     `_Targets: APBN 2026 (UU No.17/2025 / Perpres No.118/2025). Post-efisiensi spending ~3,534T. YTD April 2026 deficit realization: 0.64% GDP (Rp164.4T)._`,
