@@ -77,9 +77,9 @@ Framework teoritis utama yang di-embed ke dalam sistem ini. Setiap sinyal beriku
 | Dornbusch Overshooting | Ch. 10 | Stress Simulator | IDR shock >15%: short-run overshoot sebelum PPP mean-reversion. Note otomatis di output |
 | Trilemma (Mundell) | Ch. 11 | Module 10 (Fiscal) | SRBI sterilization cost: open capital + monetary autonomy → wajib sterilisasi → quasi-fiscal drag BI |
 | r-g Debt Dynamics | Ch. 14–16 | Module 13 (ULN) | r−g = SBN 10Y − GDP growth. Jika positif tanpa primary surplus → debt/GDP expands mechanically |
-| 1st-gen Crisis (Krugman-FG) | Ch. 12 | Module 3 (FX Defense) *(Wave 3)* | Shadow exchange rate, months-to-attack estimate |
-| 2nd-gen Self-fulfilling Crisis | Ch. 13 | Module 3 (FX Defense) *(Wave 3)* | Confidence gate: multiple equilibria, self-fulfilling attack threshold |
-| Sudden Stop (Calvo) | Ch. 15 | Module 5 (Foreign Flow) *(Wave 3)* | Sudden Stop Vulnerability Index: SBN foreign ownership cliff + UIP carry reversal |
+| 1st-gen Crisis (Krugman-FG) | Ch. 12 | Module 3 (FX Defense) | Shadow exchange rate + months-to-attack: GG breach vs SRBI ceiling binding constraint |
+| 2nd-gen Self-fulfilling Crisis | Ch. 13 | Module 3 (FX Defense) | Confidence Gate: DC vs AC balance → SAFE / VULNERABLE / ATTACK zone. Upgrades alert to ORANGE if ATTACK |
+| Sudden Stop (Calvo) | Ch. 15 | Module 5 (Foreign Flow) | Sudden Stop Vulnerability Index (SSVI): SBN cliff (0.30) + UIP carry (0.25) + EIDO trend (0.25) + GG ratio (0.20) → 0–100, phase low/watch/elevated/imminent |
 
 **Contoh output r-g (Module 13):**
 ```
