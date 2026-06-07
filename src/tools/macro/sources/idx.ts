@@ -4,10 +4,13 @@
  * Foreign Net Flow: daily IDR billion foreign buy/sell balance on IDX equity market.
  * Positive = net buy (inflow). Negative = net sell (outflow).
  *
- * Primary: IDX JSON API endpoint (plain fetch, no auth required).
- * Fallback: Playwright scrape of IDX market summary page.
+ * Source priority:
+ *   1. CNBC Indonesia market page (cnbcindonesia.com — plain fetch, daily close headline)
+ *   2. EODHD macro indicator API (eodhd.com — requires EODHD_API_KEY; no foreign-flow series currently)
+ *   3. IDX JSON API endpoints (idx.co.id — frequently 403)
+ *   4. IDX market summary Playwright scrape (idx.co.id — JS-rendered, last resort)
  *
- * Note: IDX API returns data in IDR billion. Values typically ±500–3000 IDR bn/day.
+ * Note: values in IDR billion. Typical daily range ±500–3000 IDR bn.
  * Monthly cumulative > -5000 IDR bn = significant exit signal.
  */
 import type { MacroDataPoint } from '../types.js';
@@ -21,6 +24,68 @@ const IDX_HEADERS = {
   'Accept': 'application/json, text/html, */*',
   'Referer': 'https://www.idx.co.id/',
 };
+
+/**
+ * CNBC Indonesia market page scrape — primary source.
+ * cnbcindonesia.com/market publishes daily end-of-session foreign net buy/sell
+ * in article headlines, e.g. "Tutup Perdagangan dengan Net Sell Rp1,27 T".
+ * Plain fetch, no Playwright, no auth required.
+ *
+ * Sign convention: Net Sell → negative IDR bn. Net Buy → positive IDR bn.
+ * Indonesian number format: comma = decimal separator ("1,27" = 1.27 trillion).
+ */
+async function fetchIdxForeignFlowCnbcIndonesia(): Promise<number | null> {
+  try {
+    const res = await fetch('https://www.cnbcindonesia.com/market', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,*/*',
+        'Accept-Language': 'id-ID,id;q=0.9,en;q=0.8',
+      },
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+
+    // Extract candidate strings from dtr-ttl attributes and h2 text nodes.
+    // Target: end-of-session aggregate articles, e.g.:
+    //   "Tutup Perdagangan dengan Net Sell Rp1,27 T"
+    //   "Asing Net Buy Rp0,83 T di Sesi Penutupan"
+    const candidates: string[] = [];
+    const attrMatches = html.matchAll(/dtr-ttl="([^"]*(?:net\s+(?:sell|buy)|net\s+asing)[^"]*)"/gi);
+    for (const m of attrMatches) candidates.push(m[1]!);
+    const h2Matches = html.matchAll(/<h2[^>]*>([^<]*(?:net\s+(?:sell|buy)|net\s+asing)[^<]*)<\/h2>/gi);
+    for (const m of h2Matches) candidates.push(m[1]!);
+
+    // Parse "Net Sell Rp1,27 T" or "Net Buy Rp0,83 T"
+    // Indonesian decimal: comma ("1,27" = 1.27). Thousand sep: dot ("1.270" = 1270).
+    for (const candidate of candidates) {
+      const m = candidate.match(/Net\s+(Sell|Buy)\s+Rp([\d.,]+)\s*T/i);
+      if (!m) continue;
+      const isSell = m[1]!.toLowerCase() === 'sell';
+      // Normalize: remove dot thousand-sep, replace comma decimal with dot
+      const normalized = m[2]!.replace(/\./g, '').replace(',', '.');
+      const val = parseFloat(normalized);
+      if (isNaN(val) || val <= 0 || val > 50) continue; // sanity: 0–50 trillion range
+      const idrBn = val * 1000;
+      return isSell ? -idrBn : idrBn;
+    }
+  } catch { /* fall through */ }
+  return null;
+}
+
+/**
+ * EODHD macro indicator fallback.
+ * EODHD does not currently publish an IDX foreign-flow series; returns null.
+ * Placeholder: if EODHD adds the series, set EODHD_FOREIGN_FLOW_INDICATOR here.
+ */
+async function fetchIdxForeignFlowEodhd(): Promise<number | null> {
+  const key = process.env.EODHD_API_KEY;
+  if (!key) return null;
+  // No known EODHD series for IDX daily foreign net flow as of 2026.
+  // Kept as fallback slot; returns null to pass through to IDX sources.
+  return null;
+}
 
 /**
  * Try IDX JSON API for daily foreign net flow on equity market.
@@ -142,10 +207,26 @@ async function fetchIdxForeignFlowPlaywright(): Promise<number | null> {
  * Positive = net inflow (foreigners buying). Negative = net outflow (foreigners selling).
  */
 export async function fetchIdxForeignNetFlow(): Promise<MacroDataPoint | null> {
-  let netBuyIdrBn = await fetchIdxForeignFlowApi();
+  // Priority: RTI Business → EODHD → IDX API → IDX Playwright
+  let netBuyIdrBn: number | null = null;
+  let source = 'idx_scrape';
+
+  netBuyIdrBn = await fetchIdxForeignFlowCnbcIndonesia();
+  if (netBuyIdrBn !== null) { source = 'cnbc_indonesia'; }
+
+  if (netBuyIdrBn === null) {
+    netBuyIdrBn = await fetchIdxForeignFlowEodhd();
+    if (netBuyIdrBn !== null) { source = 'eodhd'; }
+  }
+
+  if (netBuyIdrBn === null) {
+    netBuyIdrBn = await fetchIdxForeignFlowApi();
+  }
+
   if (netBuyIdrBn === null) {
     netBuyIdrBn = await fetchIdxForeignFlowPlaywright();
   }
+
   if (netBuyIdrBn === null) return null;
 
   return {
@@ -154,7 +235,7 @@ export async function fetchIdxForeignNetFlow(): Promise<MacroDataPoint | null> {
     date: TODAY(),
     value: parseFloat(netBuyIdrBn.toFixed(2)),
     unit: 'IDR_bn',
-    source: 'idx_scrape',
+    source,
     fetchedAt: NOW(),
   };
 }
