@@ -53,6 +53,14 @@ export interface BoPEngineOutput {
   syntheticCadRisk: boolean;
 }
 
+export interface ShadowRateData {
+  impliedUsdidr: number | null;        // projected USDIDR when defense capacity exhausted
+  monthsToGgBreach: number | null;     // months until GG ratio hits 1.0 at current burn rate
+  monthsToSrbiCeiling: number | null;  // months until SRBI hits stress ceiling (1,500T IDR)
+  monthsToAttack: number | null;       // binding constraint = min(gg, srbi)
+  depreciationAtAttack: number | null; // implied % IDR depreciation from current to attack point
+}
+
 export interface FxDefenseEngineOutput {
   scoreCard: ModuleScoreCard;
   usdIdr: IndicatorSnapshot;
@@ -64,6 +72,7 @@ export interface FxDefenseEngineOutput {
   biInterventionProxy: string;
   pseudoStabilityFlag: boolean;
   interventionSustainability: AlertLevel;
+  shadowRate: ShadowRateData | null;
 }
 
 export interface MacroDataSource {

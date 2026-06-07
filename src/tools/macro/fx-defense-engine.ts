@@ -7,7 +7,7 @@ import { fetchUsdIdrHistory, fetchUsdIdrSpot, computeRealizedVol } from './sourc
 import { fetchBiFxReserves, fetchSrbiOutstanding } from './sources/bi.js';
 import { fetchBbgFxReserves, bloombergAvailable } from './sources/bloomberg.js';
 import { fetchUsdIdrRdp, refinitivAvailable } from './sources/refinitiv.js';
-import type { FxDefenseEngineOutput, IndicatorSnapshot, AlertLevel } from './types.js';
+import type { FxDefenseEngineOutput, ShadowRateData, IndicatorSnapshot, AlertLevel } from './types.js';
 
 export const FX_DEFENSE_DESCRIPTION = `
 MACRO INTELLIGENCE — FX Defense Engine (Module 3)
@@ -78,6 +78,7 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   const prevReserve = (await getLastN('bi_fx_reserves_bn', 3)).slice(-2)[0] ?? null;
 
   const currentSrbi = await getLatestPoint('srbi_outstanding_trn_idr');
+  const prevSrbi = (await getLastN('srbi_outstanding_trn_idr', 3)).slice(-2)[0] ?? null;
 
   // Realized volatility (30-day annualized)
   const prices = history.map((p) => p.value);
@@ -109,7 +110,7 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     : null;
 
   const srbiSnapshot = currentSrbi
-    ? await buildSnapshot('srbi_outstanding_trn_idr', currentSrbi, null)
+    ? await buildSnapshot('srbi_outstanding_trn_idr', currentSrbi, prevSrbi)
     : null;
 
   // Reserve burn rate (months of reserve adequacy at current trajectory)
@@ -154,6 +155,60 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     ? ((currentSpot?.value ?? 0) - spot12MoAgo.value) / spot12MoAgo.value * 100
     : null;
 
+  // Shadow rate + months-to-attack (R&R Ch.12 — Krugman 1979, Flood-Garber 1984)
+  // 1st-gen crisis: peg collapses when reserves hit the GG floor (can't cover short-term ULN rollover)
+  // OR when SRBI capacity exhausted (BI sterilization cost > profit ceiling)
+  // "Attack" = the point when rational speculators front-run the inevitable peg collapse
+  const [ulnTotalDb, ulnStDb] = await Promise.all([
+    getLatestPoint('indonesia_external_debt_bn'),
+    getLatestPoint('uln_shortterm_pct'),
+  ]);
+  const ulnTotal = ulnTotalDb?.value ?? null;
+  const ulnStPct = ulnStDb?.value ?? null;
+  const shortTermUlnBn = ulnTotal !== null && ulnStPct !== null
+    ? parseFloat((ulnTotal * (ulnStPct / 100)).toFixed(1))
+    : null;
+
+  let monthsToGgBreach: number | null = null;
+  if (currentReserve && reserveBurnRate !== null && reserveBurnRate > 0 && shortTermUlnBn !== null) {
+    const monthlyBurn = currentReserve.value / reserveBurnRate;
+    if (monthlyBurn > 0) {
+      const bufferAboveFloor = currentReserve.value - shortTermUlnBn;
+      monthsToGgBreach = bufferAboveFloor > 0
+        ? parseFloat((bufferAboveFloor / monthlyBurn).toFixed(1))
+        : 0;
+    }
+  }
+
+  const SRBI_CEILING_TRN = 1_500; // IDR trn — above this BI interest cost > seigniorage revenue
+  let monthsToSrbiCeiling: number | null = null;
+  if (currentSrbi && srbiSnapshot && srbiSnapshot.roc > 0) {
+    const monthlyGrowthTrn = currentSrbi.value * (srbiSnapshot.roc / 100);
+    if (monthlyGrowthTrn > 0) {
+      const headroom = SRBI_CEILING_TRN - currentSrbi.value;
+      monthsToSrbiCeiling = headroom > 0
+        ? parseFloat((headroom / monthlyGrowthTrn).toFixed(1))
+        : 0;
+    }
+  }
+
+  const monthsToAttack: number | null = monthsToGgBreach !== null && monthsToSrbiCeiling !== null
+    ? parseFloat(Math.min(monthsToGgBreach, monthsToSrbiCeiling).toFixed(1))
+    : monthsToGgBreach ?? monthsToSrbiCeiling ?? null;
+
+  let impliedUsdidr: number | null = null;
+  let depreciationAtAttack: number | null = null;
+  if (currentSpot && monthsToAttack !== null && dep3m !== null && dep3m > 0) {
+    const monthlyDep = dep3m / 3;
+    const totalDep = monthlyDep * monthsToAttack;
+    impliedUsdidr = Math.round(currentSpot.value * (1 + totalDep / 100));
+    depreciationAtAttack = parseFloat(totalDep.toFixed(1));
+  }
+
+  const shadowRate: ShadowRateData | null = (monthsToAttack !== null || impliedUsdidr !== null)
+    ? { impliedUsdidr, monthsToGgBreach, monthsToSrbiCeiling, monthsToAttack, depreciationAtAttack }
+    : null;
+
   // Composite score — FX-specific weighted scoring.
   // Spot dominates (60%): continuous z-score so 18k vs 19k vs 21k all score differently.
   // Vol (25%) + reserves (15%) add confirmation signal without diluting extreme spot moves.
@@ -195,6 +250,15 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   if (srbiSterilizationRatio !== null && srbiSterilizationRatio > 0.50) flags.push(`SRBI sterilization burden critical: ${(srbiSterilizationRatio * 100).toFixed(1)}% of FX reserves — BI balance sheet stretched`);
   else if (srbiSterilizationRatio !== null && srbiSterilizationRatio > 0.35) flags.push(`SRBI sterilization burden elevated: ${(srbiSterilizationRatio * 100).toFixed(1)}% of FX reserves — watch for capacity constraint`);
 
+  // Shadow rate flags (R&R 1st-gen crisis)
+  if (shadowRate?.monthsToAttack !== null && shadowRate?.monthsToAttack !== undefined) {
+    if (shadowRate.monthsToAttack < 6) {
+      flags.push(`SHADOW RATE CRITICAL: defense capacity exhaustion in ${shadowRate.monthsToAttack} months — implied USDIDR ${shadowRate.impliedUsdidr?.toLocaleString() ?? 'n/a'} at collapse point [R&R 1st-gen crisis Ch.12]`);
+    } else if (shadowRate.monthsToAttack < 12) {
+      flags.push(`Shadow rate watch: ${shadowRate.monthsToAttack} months to defense capacity floor — implied USDIDR ${shadowRate.impliedUsdidr?.toLocaleString() ?? 'n/a'} [R&R Ch.12]`);
+    }
+  }
+
   const interventionSustainability: AlertLevel =
     reserveBurnRate !== null
       ? reserveBurnRate < 3 ? 'red' : reserveBurnRate < 6 ? 'orange' : reserveBurnRate < 12 ? 'yellow' : 'green'
@@ -231,6 +295,7 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     biInterventionProxy,
     pseudoStabilityFlag,
     interventionSustainability,
+    shadowRate,
   };
 }
 
@@ -311,6 +376,18 @@ function formatOutput(output: FxDefenseEngineOutput): string {
     ``,
     scoreCard.flags.length > 0 ? `## Flags\n${scoreCard.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '',
     ``,
+    output.shadowRate !== null ? [
+      `## Shadow Rate Analysis (R&R Ch.12 — Krugman 1979)`,
+      `_1st-gen crisis: when reserves hit GG floor (reserves < short-term ULN), speculative attack becomes rational._`,
+      `| Metric | Value |`,
+      `|--------|-------|`,
+      `| Months to GG floor breach | ${output.shadowRate.monthsToGgBreach !== null ? output.shadowRate.monthsToGgBreach.toFixed(1) + ' mo' : 'n/a (run uln_engine first)'} |`,
+      `| Months to SRBI ceiling (1,500T) | ${output.shadowRate.monthsToSrbiCeiling !== null ? output.shadowRate.monthsToSrbiCeiling.toFixed(1) + ' mo' : 'n/a (SRBI not growing)'} |`,
+      `| **Months to attack (binding)** | **${output.shadowRate.monthsToAttack !== null ? output.shadowRate.monthsToAttack.toFixed(1) + ' months' : 'n/a'}** |`,
+      `| Implied USDIDR at collapse | ${output.shadowRate.impliedUsdidr !== null ? output.shadowRate.impliedUsdidr.toLocaleString() : 'n/a (requires depreciation trend)'} |`,
+      `| IDR depreciation at attack | ${output.shadowRate.depreciationAtAttack !== null ? '+' + output.shadowRate.depreciationAtAttack.toFixed(1) + '%' : 'n/a'} |`,
+      ``,
+    ].join('\n') : '',
     `## Data Quality`,
     `- USDIDR: Yahoo Finance (real-time)`,
     `- Reserves: ${bloombergAvailable() ? 'Bloomberg' : 'BI website (monthly, ~4wk lag)'}`,
