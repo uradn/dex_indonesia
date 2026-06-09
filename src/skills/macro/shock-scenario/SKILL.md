@@ -266,6 +266,196 @@ All Step 3A transmission (sovereign score, FSAP CAR hit, foreign flow, fiscal in
 
 **Compound scenario (MBG + revenue shortfall):** most dangerous configuration — fiscal overrun on spending side while pajak shortfall widens on revenue side. When both fire, deficit_pct_gdp can cross 4%+ without BI credibly defending IDR. Check fiscal_engine revenue absorption rate before computing.
 
+### 3H. China Slowdown Shock (commodity demand collapse)
+
+**Context:** China = ~25% of Indonesia's export destination. A hard landing / property sector collapse → simultaneous demand-side shock on all major export commodities. Distinct from Hormuz (supply-side, pushes Brent up) — this is DEMAND-side (pushes commodity prices DOWN while IDR also weakens, eliminating the export cushion).
+
+**Shock parameters (use these unless user specifies):**
+
+| Parameter | Mild | Moderate | Severe |
+|-----------|------|----------|--------|
+| Coal (KOL) Δ | −15% | −30% | −45% |
+| CPO (FCPO.KL) Δ | −12% | −25% | −38% |
+| Nickel (NI=F) Δ | −15% | −30% | −45% |
+| USDIDR Δ | +800 | +1,500 | +2,500 |
+| FX Reserves Δ | −$8bn | −$15bn | −$25bn |
+| BI Rate Δ | 0 | −25bps (growth support) | −50bps (growth panic) |
+| Brent Δ | −$5 | −$10 | −$20 (demand destruction) |
+
+**Module 4 — Commodity (primary channel):**
+- Coal, CPO, nickel are top-3 export commodities ($24.5bn, $24.4bn, $8.4bn respectively)
+- Combined 2026 export impact at Moderate: coal −$7.3bn + CPO −$6.1bn + Ni −$2.5bn = −$15.9bn annual export earnings
+- Commodity Cushion Score: all three simultaneously z < −2.0 → score jumps 30–50 pts
+- If all three z < −2.5 simultaneously: RED flag fires
+
+**Module 1 — BoP (secondary):**
+- Export earnings collapse → trade surplus shrinks or flips negative
+- Synthetic CAD risk: reserves fall as export receipts drop while import bill (oil) relatively stickier
+- BoP score: +20–35 pts at Moderate
+
+**Module 1 — FX Defense (tertiary):**
+- IDR weakens (less export USD inflow)
+- Reserve drawdown: BI defends IDR while export support gone
+- Bid-cover ratio on SRBI likely falls (carry attractiveness drops with IDR pressure)
+- Apply 3B (USDIDR shock) at Moderate: +1,500 → USDIDR ~19,500
+
+**Module 13 — ULN:**
+- IDR depreciation worsens ULN/GDP and DSR (same as 3B)
+- At Moderate: shocked_usdidr 19,500 → ULN/GDP ~30.5%, DSR ~26.5% (crosses 25% threshold)
+
+**Module 10 — Fiscal:**
+- Royalti & PNBP dari sektor tambang turun → revenue shortfall
+- At Moderate: estimate PNBP shortfall ~IDR 50–80T (mining royalties ~3% of revenue)
+- Apply absorption rate penalty: revenue falls to ~80% pace → fiscal score +15 pts
+
+**Module 6 — Narrative:**
+- Official growth narrative vs commodity price collapse divergence
+- APBN oil/commodity assumptions now further from market
+- Add 10 to narrative score
+
+**Regime (secondary):**
+- Commodity demand shock = growth deceleration signal
+- If simultaneous IDR weakness: stagflation risk Q3 (Growth↓ Inflation↑ via IDR pass-through)
+
+**Standard China Slowdown severity applied to June 2026 baseline (USDIDR 18,160):**
+
+| Tier | Shocked IDR | Shocked KOL/CPO/Ni | Shocked Reserves | BI Rate | Step 3 modules |
+|------|------------|-------------------|-----------------|---------|----------------|
+| Mild | ~18,960 | −15% each | ~$143bn | flat | 3B + 3C + commodity |
+| Moderate | ~19,660 | −30% each | ~$137bn | −25bps | 3B + 3C + commodity + 3E |
+| Severe | ~20,660 | −45% each | ~$127bn | −50bps | 3B + 3C + commodity + 3E + fiscal |
+
+**Key difference from 2015 China deval analog:** 2015 had CNY depreciation as trigger → competitive devaluation pressure. 2026 China slowdown is property/demand-led → no CNY deval needed, pure volume shock. Commodity module hit is similar magnitude but without the currency contagion channel.
+
+---
+
+### 3I. BI Rate Cut Premature (domestic policy error)
+
+**Context:** BI cuts rates while IDR is already under pressure → carry trade unwinds → sudden stop. The 2nd-gen Morris-Shin dynamic triggered by a DOMESTIC policy mistake, not an external attack. Risk highest when: BI Rate real = BI Rate − CPI is already low (<1%), IDR 3M depreciation >5%, and foreign SBN ownership still >10%.
+
+**Shock parameters:**
+
+| Parameter | Mild | Moderate | Severe |
+|-----------|------|----------|--------|
+| BI Rate Δ | −25bps | −50bps | −100bps |
+| SBN yield response (beta 0.7×) | −18bps | −35bps | −70bps |
+| USDIDR Δ (carry unwind) | +500 | +1,200 | +2,500 |
+| SBN foreign ownership Δ | −0.5pp | −1.5pp | −3.0pp |
+| EIDO Δ | −5% | −12% | −25% |
+
+**Transmission sequence:**
+1. BI cuts → real rate falls → carry spread vs USD narrows
+2. Carry trade unwind: foreigners sell IDR assets → SBN + EIDO simultaneous exit
+3. IDR weakens → BI forced to intervene (reserve burn) or reverse cut
+4. If BI reverses cut: credibility loss + fiscal interest burden spike (SBN yield re-prices up faster)
+5. If BI holds cut: IDR spiral → inflation pass-through → real rate turns negative → capital flight
+
+**Module 3 — FX Defense:**
+- Apply 3B (USDIDR shock) at stated delta
+- Additional flag: "POLICY ERROR — carry trade unwind, BI rate cut vs IDR weakness divergence"
+- SRBI bid-cover likely drops sharply (carry premium gone)
+- Confidence Gate: abandonment cost falls (IDR weaker = harder to defend) → net DC-AC worsens
+
+**Module 2 — Sovereign Risk:**
+- If rate cut reads as fiscal dominance (BI accommodating deficit): CDS widens +20–40bps
+- SBN yield: may fall short-term (rate cut) then spike (risk premium re-pricing)
+- Net effect: sovereign score up 15–25 pts
+
+**Module 5 — Foreign Flow:**
+- Carry unwind = SBN foreign ownership decline of stated delta
+- EIDO falls of stated delta
+- Silent exit probability: +25pp at Moderate
+
+**Module 13 — ULN:**
+- IDR depreciation → ULN/GDP worsens per 3B
+- Hedging compliance may drop as corporates scramble (1997 loop risk if compliance <70%)
+
+**Morris-Shin 2nd-gen check:**
+- After shock: recalculate DC vs AC
+- If (post-shock DC) < (post-shock AC): ATTACK zone — self-fulfilling crisis becomes rational
+- Flag explicitly: "POLICY ERROR + 2nd-gen threshold: BI rate cut moved confidence gate to ATTACK zone"
+
+**Key asymmetry vs external shock:** External shocks often allow BI to credibly raise rates as defense. Policy error cut destroys the rate-hike defensive option — BI can't raise again without admitting mistake. Markets price in policy uncertainty premium. Add +10 to sovereign score for credibility loss.
+
+**Standard severity applied to June 2026 baseline (BI Rate 5.25%):**
+
+| Tier | Shocked BI Rate | Shocked IDR | SBN ownership Δ | Key Risk |
+|------|----------------|------------|-----------------|----------|
+| Mild | 5.00% | ~18,660 | −0.5pp | Carry thinning, watch |
+| Moderate | 4.75% | ~19,360 | −1.5pp | EIDO exit + SBN selling |
+| Severe | 4.25% | ~20,660 | −3.0pp | 2nd-gen confidence gate breached |
+
+---
+
+### 3J. Sovereign Downgrade Shock (Baa2 → Baa3, last notch investment grade)
+
+**Context:** Moody's/S&P/Fitch downgrades Indonesia to last notch of investment grade (Baa3/BBB−). This triggers mandatory selling by investment-grade-only funds (pension funds, insurance, ETFs that track IG indices). Indonesia's sovereign rating: currently Baa2 (Moody's), BBB (S&P). Downgrade watch typically: CDS >200bps sustained 3+ months. Historical analog: Brazil 2015 downgrade → CDS +150bps, BRL −20% in 3 months.
+
+**Trigger conditions (check before applying):**
+- CDS 5Y > 200bps: downgrade watch zone
+- CDS > 250bps: downgrade imminent
+- Deficit > 3.5% GDP: fiscal triggers S&P methodology
+- Foreign SBN ownership already falling + no domestic absorption: rating action catalyst
+
+**Shock parameters (apply at downgrade announcement):**
+
+| Parameter | Announcement Day | 1-Month | 3-Month |
+|-----------|-----------------|---------|---------|
+| CDS Δ | +50–80bps | +80–120bps | +100–150bps |
+| SBN 10Y yield Δ | +50–100bps | +100–150bps | +150–250bps |
+| Foreign SBN exit | −1pp day 1 | −3pp | −5 to −8pp |
+| USDIDR Δ | +1,000 | +2,000 | +3,000–5,000 |
+| EIDO Δ | −8% | −15% | −25% |
+| FX Reserves Δ | −$5bn | −$15bn | −$25bn |
+
+**Module 2 — Sovereign Risk (primary):**
+- CDS absolute + z-score both spike
+- Foreign SBN ownership cliff: IG-mandate funds forced sellers
+- Refinancing stress: new issuance costs spike → rollover risk on maturing SBN
+- Sovereign score: +30–50 pts → likely RED
+
+**Module 5 — Foreign Flow (primary):**
+- Mandatory selling = structural exit, not tactical
+- Domestic absorption capacity check: can BI/banks absorb forced selling?
+  - If SBN/assets at banks already high (>20%): limited headroom
+  - BI SRBI bid-cover likely collapses (foreigners exiting BI instruments too)
+- Silent exit probability: +40pp → likely >70%
+
+**Module 1 — FX Defense:**
+- Apply 3B (USDIDR shock) + 3C (reserve depletion)
+- Confidence Gate: both DC and AC shift → likely VULNERABLE or ATTACK zone
+- SRBI sterilization demand collapses (foreigners exit carry trade)
+
+**Module 8 — Banking (FSAP nexus):**
+- Apply 3A SBN yield shock: +150bps at 3-month → CAR hit = 1.5 × 1.2 = 1.8pp
+- 1.8pp CAR hit → doom loop territory if starting CAR < 22%
+- Current CAR 25.8% → post-shock ~24.0% (still above 14% regulatory minimum, but watch)
+
+**Module 10 — Fiscal:**
+- New SBN issuance at higher cost → interest burden rises
+- Each +100bps on Rp 1,000T issuance = +Rp 10T belanja bunga
+- Deficit trajectory: downgrade typically coincides with fiscal stress that triggered it
+
+**Sovereign-bank doom loop check:**
+- Sovereign downgrade → SBN price falls → bank CAR erodes → credit contraction → growth falls → sovereign revenue falls → deficit widens → CDS widens → downgrade watch again
+- Flag if: SBN yield shock >150bps AND CAR hit >1.5pp simultaneously
+
+**Investment-grade cliff magnitude (Indonesia-specific):**
+- Bloomberg Barclays EM index: ~$X bn of Indonesia bonds held by IG-mandate funds
+- Estimate: if foreign SBN ~Rp 885T (~$48bn) and IG-mandate funds hold ~40% = ~$19bn forced selling
+- $19bn = ~12% of FX reserves → reserves fall from $152bn to ~$133bn over 3 months
+- Apply 3C: reserves fall $19bn → GG ratio = 133 / 67 = 1.99 (near YELLOW at 2.0)
+
+**Standard downgrade severity applied to June 2026 baseline:**
+
+| Timing | CDS Δ | SBN 10Y Δ | IDR Δ | SBN exit | Reserves | Key Module |
+|--------|-------|-----------|-------|----------|---------|------------|
+| Day 1 | +60bps | +75bps | +1,000 | −1pp | −$5bn | Sovereign RED |
+| 1-month | +100bps | +125bps | +2,000 | −3pp | −$15bn | Foreign Flow RED |
+| 3-month | +130bps | +175bps | +3,500 | −6pp | −$25bn | Banking ORANGE, doom loop check |
+
+**Historical analog (Brazil 2015):** Petrobras scandal + fiscal slippage → S&P downgrade Aug 2015 → BRL −20%, CDS +150bps in 90d. Indonesia 2026 asymmetry: smaller fiscal deficit (2.68% vs Brazil's 8%+), but lower FX reserves relative to external debt, and higher political risk.
+
 ## Step 4 — Score Each Module Before vs After
 
 For each affected module, compute:
@@ -395,6 +585,48 @@ Baseline: USDIDR 17,879 | SBN 6.71% | BI Rate 5.25% | FX Reserves $151.9bn | GG 
 **Fed Tightening analog:** Longest cycle — 9 months of sustained pressure. BI hike 225bps → IndONIA corridor stressed; LDR rises as credit tightens; NPL lag 2–3Q. Reserve drawdown largest ($25bn) → watch GG → 1.5 threshold: $151.9 − $51 = $100.9bn → GG = 100.9/67 = 1.51 (barely ORANGE).
 
 **Dollar Surge analog:** Mildest scenario. Warning: 2026 has higher fiscal deficit than 2023, so narrative divergence module (APBN assumption vs market IDR) amplifies faster.
+
+### Forward-Looking Scenario Presets
+
+For user invocations like "simulate China slowdown", "test BI rate cut scenario", "run sovereign downgrade shock" — use Step 3H/3I/3J parameters directly with TODAY's live baseline (fetch Step 1 first). Default tier = Moderate unless user specifies.
+
+| Scenario Preset | Invocation phrases | Default Tier | Primary Step 3 |
+|----------------|-------------------|--------------|----------------|
+| **China Slowdown** | "China slowdown", "China hard landing", "China property collapse", "China demand shock" | Moderate | 3H → 3B → 3C → 3E |
+| **BI Rate Cut Premature** | "BI rate cut", "premature cut", "policy error cut", "carry unwind", "BI cut too early" | Moderate | 3I → 3B → confidence gate check |
+| **Sovereign Downgrade** | "sovereign downgrade", "Moody's downgrade", "IG cliff", "investment grade loss", "downgrade shock" | 1-month horizon | 3J → 3A → 3B → 3C → doom loop check |
+
+**China Slowdown — Moderate applied to June 2026 baseline:**
+- USDIDR: 17,879 → ~19,379 (+1,500)
+- FX Reserves: $151.9bn → ~$136.9bn (−$15bn)
+- BI Rate: 5.25% → 5.00% (−25bps growth support)
+- Coal/CPO/Ni: −30% each; Brent: −$10/bbl
+- Shocked GG: $136.9 / 67 = 2.04 (approaching YELLOW)
+- Shocked DSR: ~26.5% → crosses IMF 25% threshold → YELLOW
+
+**BI Rate Cut Premature — Moderate applied to June 2026 baseline:**
+- BI Rate: 5.25% → 4.75% (−50bps)
+- SBN 10Y: initial −35bps (rate cut beta), then risk re-pricing +80bps net = ~7.16%
+- USDIDR: 17,879 → ~19,079 (+1,200)
+- SBN foreign ownership: 12.68% → ~11.18% (−1.5pp)
+- EIDO: −12%
+- Check confidence gate: if post-shock DC < AC → flag ATTACK zone
+- Key asymmetry: BI cannot credibly re-hike → credibility loss premium +10 to sovereign score
+
+**Sovereign Downgrade — 1-month horizon applied to June 2026 baseline:**
+- CDS: current baseline + 100bps (verify vs 200bps watch threshold before applying)
+- SBN 10Y: 6.71% → ~7.96% (+125bps)
+- USDIDR: 17,879 → ~19,879 (+2,000)
+- SBN foreign exit: 12.68% → ~9.68% (−3pp; crosses 10% sudden stop warning)
+- FX Reserves: $151.9bn → ~$136.9bn (−$15bn)
+- Forced selling estimate: ~$19bn IG-mandate exit over 3 months (use 1-month rate: −$15bn)
+- Doom loop check: SBN 10Y +125bps → CAR hit = 1.25 × 1.2 = 1.5pp → watch if starting CAR <23%
+
+**Per-preset asymmetries vs historical analogs:**
+
+- China Slowdown vs 2015 China Deval: 2026 = pure volume shock (no CNY deval). Commodity impact similar magnitude but currency contagion channel absent. Indonesia's export diversification slightly better (nickel EV processing added). More dangerous: 2026 fiscal deficit already at 2.68%, less room to absorb revenue shortfall.
+- BI Rate Cut vs any historical episode: no close analog — Indonesia's 1997 crisis began with *inability* to hike (FX peg defense), not a voluntary cut. Closest: 2020 COVID cut (−100bps) but that was a global shock, not a policy error. The 2026 cut scenario is uniquely dangerous because BI Rate real is already near 0% (5.25% − 4.5–5% CPI ≈ 0.25–0.75% real).
+- Sovereign Downgrade vs Brazil 2015: Brazil 2015 deficit 8%+ (much worse), but Brazil had deeper domestic debt market to absorb. Indonesia's lower deficit but higher reliance on foreign SBN holders (12.68% vs Brazil's ~10% at downgrade). Net: similar market reaction expected but faster via SRBI collapse channel.
 
 ## Key Indonesia Macro Constants (check live data for latest)
 
