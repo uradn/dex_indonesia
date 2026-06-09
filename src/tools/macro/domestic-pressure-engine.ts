@@ -23,6 +23,7 @@ import { formatToolResult } from '../types.js';
 import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
 import { alertFromScore, alertLabel, rollingZScore } from './scoring.js';
 import { fetchPihpsCommodities, fetchFoodInflationTe, PIHPS_COMMODITIES } from './sources/pihps.js';
+import { computeCostRecovery, bbmHikeAlert, getFuelPricePoints, DOMESTIC_FUEL_PRICES } from './sources/pertamina.js';
 import type { AlertLevel } from './types.js';
 
 export const DOMESTIC_PRESSURE_DESCRIPTION = `
@@ -69,6 +70,10 @@ export interface DomesticPressureOutput {
   spikedCommodities: string[];
   domesticPressureAlert: boolean;         // ≥2 commodities z > 1.5 simultaneously
   commodityScores: CommodityStressEntry[];
+  bbmPertalitePrice: number;
+  bbmCostRecovery: number;
+  bbmSubsidyGap: number;     // cost recovery - Pertalite price; positive = government subsidizing
+  bbmHikeRisk: AlertLevel;
   narrative: string;
   flags: string[];
 }
@@ -209,6 +214,35 @@ export async function runDomesticPressureEngine(): Promise<DomesticPressureOutpu
     flags.push(`Commodity spike watch: ${topSpiked.map((c) => `${c.label} (z=${c.zScore90d?.toFixed(1)})`).join(', ')}`);
   }
 
+  // ── 5. BBM subsidy gap ─────────────────────────────────────────────────────
+  // Seed Pertalite/Solar prices if not in DB (hardcoded Kepmen ESDM values)
+  const pertalitePoint = await getLatestPoint('pertalite_price_idr_liter');
+  if (!pertalitePoint) await upsertPoints(getFuelPricePoints());
+
+  const [brentPoint, usdIdrPoint] = await Promise.all([
+    getLatestPoint('brent_price_usd'),
+    getLatestPoint('usdidr_spot'),
+  ]);
+
+  const bbmPertalitePrice = pertalitePoint?.value ?? DOMESTIC_FUEL_PRICES.pertalite_price_idr_liter;
+  const brentUsd = brentPoint?.value ?? 70;
+  const usdIdr = usdIdrPoint?.value ?? 16_500;
+
+  const bbmCostRecovery = computeCostRecovery(brentUsd, usdIdr);
+  const bbmSubsidyGap = bbmCostRecovery - bbmPertalitePrice;
+  const bbmHikeRisk = bbmHikeAlert(Math.max(0, bbmSubsidyGap));
+
+  await upsertPoints([
+    { indicator: 'bbm_cost_recovery_idr_liter', category: 'pangan', date: today, value: bbmCostRecovery, unit: 'IDR/liter', source: 'computed_brent_usdidr', fetchedAt: new Date().toISOString() },
+    { indicator: 'bbm_subsidy_gap_idr_liter', category: 'pangan', date: today, value: bbmSubsidyGap, unit: 'IDR/liter', source: 'computed', fetchedAt: new Date().toISOString() },
+  ]);
+
+  if (bbmHikeRisk !== 'green') {
+    flags.push(
+      `BBM subsidy gap IDR ${bbmSubsidyGap.toLocaleString('id-ID')}/liter — cost recovery IDR ${bbmCostRecovery.toLocaleString('id-ID')} vs Pertalite IDR ${bbmPertalitePrice.toLocaleString('id-ID')}; hike risk ${bbmHikeRisk.toUpperCase()} (Brent $${brentUsd.toFixed(1)} + USDIDR ${usdIdr.toLocaleString('id-ID')})`,
+    );
+  }
+
   const narrative = buildNarrative({ foodStressIndex, alert, foodInflationYoy, foodInflationDeviation, spikedCommodities, domesticPressureAlert, availableCount: availableScores.length });
 
   return {
@@ -221,6 +255,10 @@ export async function runDomesticPressureEngine(): Promise<DomesticPressureOutpu
     spikedCommodities,
     domesticPressureAlert,
     commodityScores,
+    bbmPertalitePrice,
+    bbmCostRecovery,
+    bbmSubsidyGap,
+    bbmHikeRisk,
     narrative,
     flags,
   };
@@ -291,10 +329,18 @@ function formatOutput(output: DomesticPressureOutput): string {
       ? `_No data: ${unavailable.map((c) => c.label).join(', ')}_`
       : '',
     ``,
+    `## BBM Subsidy Gap`,
+    `| Metric | Value |`,
+    `|--------|-------|`,
+    `| Pertalite price | IDR ${output.bbmPertalitePrice.toLocaleString('id-ID')}/liter |`,
+    `| Cost recovery (Brent×USDIDR) | IDR ${output.bbmCostRecovery.toLocaleString('id-ID')}/liter |`,
+    `| Subsidy gap | IDR ${output.bbmSubsidyGap.toLocaleString('id-ID')}/liter |`,
+    `| Hike risk | ${output.bbmHikeRisk.toUpperCase()} |`,
+    ``,
     output.flags.length > 0 ? `## Active Flags\n${output.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '## No Stress Flags',
     ``,
     `_Food CPI source: Trading Economics / BPS. PIHPS prices: hargapangan.id. APBN 2026 baseline: general CPI 2.5% (Perpres 201/2024)._`,
-    `_Transmission chain: Food spike → headline CPI overshoot → BI forced hike → SBN yield → foreign outflow risk._`,
+    `_Transmission chain: Food + BBM spike → headline CPI overshoot → BI forced hike → SBN yield → foreign outflow risk._`,
   ]
     .filter((l) => l !== '')
     .join('\n');

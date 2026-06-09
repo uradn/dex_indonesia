@@ -5,6 +5,7 @@ import { getLatestPoint, getLastN, upsertPoints } from './time-series-db.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchSbn10yTradingEconomics, fetchBiRateTradingEconomics } from './sources/sovereign-scraper.js';
 import { fetchFoodInflationTe } from './sources/pihps.js';
+import { computeCostRecovery, DOMESTIC_FUEL_PRICES } from './sources/pertamina.js';
 import type { AlertLevel } from './types.js';
 
 export const NARRATIVE_DIVERGENCE_DESCRIPTION = `
@@ -214,6 +215,22 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
         flagged: absMis > 10,
       });
     }
+  }
+
+  // 9. BBM domestic price vs cost recovery — "harga BBM terjangkau" narrative
+  // Uses brentSpot + usdIdrSpot already fetched above; reads Pertalite price from DB
+  const pertalitePoint = await getLatestPoint('pertalite_price_idr_liter');
+  if (brentSpot && usdIdrSpot && pertalitePoint) {
+    const costRecovery = computeCostRecovery(brentSpot.value, usdIdrSpot.value);
+    const gap = costRecovery - pertalitePoint.value;
+    const divergenceScore = gap > 7_000 ? 90 : gap > 4_000 ? 65 : gap > 2_000 ? 35 : 10;
+    checks.push({
+      dimension: 'BBM Price vs Cost Recovery (Subsidi Gap)',
+      officialClaim: `Pertamina maintains Pertalite at IDR ${pertalitePoint.value.toLocaleString('id-ID')}/liter ("harga BBM terjangkau")`,
+      marketSignal: `Cost recovery: IDR ${costRecovery.toLocaleString('id-ID')}/liter → gap IDR ${gap.toLocaleString('id-ID')}/liter${gap > 4_000 ? ' — BBM hike pressure HIGH; fiscal subsidi burden' : gap > 2_000 ? ' — subsidi burden building' : ' — manageable at current oil+IDR'}`,
+      divergenceScore,
+      flagged: gap > 2_000,
+    });
   }
 
   // Compute overall credibility score (inverted average divergence)
