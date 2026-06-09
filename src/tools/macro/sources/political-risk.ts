@@ -16,6 +16,7 @@
  * Exa only called when EXASEARCH_API_KEY is set.
  */
 import type { MacroDataPoint } from '../types.js';
+import { NEGATIVE_TERMS, POSITIVE_TERMS, HIGH_SEVERITY_TERMS } from './political-risk-terms.js';
 
 const NOW = () => new Date().toISOString();
 const TODAY = () => new Date().toISOString().slice(0, 10);
@@ -90,27 +91,6 @@ const SIGNAL_QUERIES: Record<NewsSentimentSignal, string> = {
   political_stability: 'Indonesia politik risiko stabilitas Prabowo ekonomi 2026',
 };
 
-// Negative keywords — political stress signals
-const NEGATIVE_TERMS = [
-  'protes', 'demo', 'unjuk rasa', 'phk', 'naik', 'mahal', 'krisis', 'darurat',
-  'kelangkaan', 'tuntut', 'kekacauan', 'risiko', 'berisiko', 'gejolak', 'otoriter',
-  'mogok', 'aksi massa', 'ancaman', 'gagal', 'tidak terjangkau', 'tak terjangkau',
-  'protest', 'unrest', 'crisis', 'chaotic', 'authoritarian', 'volatile', 'layoff',
-  'strike', 'surge', 'soaring', 'unstable', 'risk', 'threat', 'concern',
-];
-
-// Positive keywords — stability signals
-const POSITIVE_TERMS = [
-  'stabil', 'terkendali', 'turun', 'normal', 'aman', 'terjangkau', 'surplus',
-  'stable', 'controlled', 'decrease', 'recovery', 'growth', 'improved',
-];
-
-// High-severity — international attention or structural political risk (count 2×)
-const HIGH_SEVERITY_TERMS = [
-  'economist', 'internasional', 'otoriter', 'authoritarian', 'chaos', 'kekacauan',
-  'darurat', 'emergency', 'krisis politik', 'political crisis', 'perbatasan krisis',
-  'berisiko', 'jalur berisiko', 'gejolak mata uang',
-];
 
 function scoreTitle(title: string): { negative: number; positive: number; highSeverity: number } {
   const lower = title.toLowerCase();

@@ -10,30 +10,12 @@
 
 const X_RECENT_SEARCH = 'https://api.twitter.com/2/tweets/search/recent';
 
+import { NEGATIVE_TERMS, POSITIVE_TERMS, HIGH_SEVERITY_TERMS } from './political-risk-terms.js';
+
 const SEARCH_QUERY =
   '(demo OR "unjuk rasa" OR protes OR PHK OR mogok OR "harga sembako" OR ' +
   '"harga beras" OR kerusuhan OR buruh OR "krisis Indonesia" OR Prabowo) ' +
   '(lang:id OR lang:en) -is:retweet';
-
-const NEGATIVE_TERMS = [
-  'protes', 'demo', 'unjuk rasa', 'phk', 'harga naik', 'mahal', 'krisis', 'darurat',
-  'kelangkaan', 'tuntut', 'kekacauan', 'risiko', 'gejolak', 'otoriter', 'mogok',
-  'aksi massa', 'ancaman', 'gagal', 'kerusuhan', 'rusuh', 'bakar', 'anarkis',
-  'protest', 'unrest', 'crisis', 'chaotic', 'authoritarian', 'volatile', 'layoff',
-  'strike', 'surge', 'soaring', 'unstable', 'riot', 'violence', 'clash',
-];
-
-const POSITIVE_TERMS = [
-  'stabil', 'terkendali', 'turun', 'normal', 'aman', 'terjangkau', 'surplus',
-  'stable', 'controlled', 'decrease', 'recovery', 'growth', 'improved',
-];
-
-// Count 2× — structural / international attention signals
-const HIGH_SEVERITY_TERMS = [
-  'otoriter', 'authoritarian', 'chaos', 'kekacauan', 'darurat', 'emergency',
-  'rusuh', 'kerusuhan', 'riot', 'bakar', 'anarkis', 'anarchy',
-  'krisis politik', 'political crisis',
-];
 
 export interface XSentimentResult {
   signal: 'x_social_unrest';
