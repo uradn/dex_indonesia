@@ -78,6 +78,7 @@ export interface FxDefenseEngineOutput {
   reserveBurnRate: number | null;
   srbiOutstanding: IndicatorSnapshot | null;
   srbiSterilizationRatio: number | null;  // SRBI outstanding / FX reserves in IDR — >0.5 = stretched
+  srbiAuction: import('./sources/srbi-auction.js').SrbiAuctionData | null;
   biInterventionProxy: string;
   pseudoStabilityFlag: boolean;
   interventionSustainability: AlertLevel;

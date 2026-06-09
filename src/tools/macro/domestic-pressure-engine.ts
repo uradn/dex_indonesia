@@ -217,16 +217,16 @@ export async function runDomesticPressureEngine(): Promise<DomesticPressureOutpu
   }
 
   // ── 5. BBM subsidy gap ─────────────────────────────────────────────────────
-  // Seed Pertalite/Solar prices if not in DB (hardcoded Kepmen ESDM values)
-  const pertalitePoint = await getLatestPoint('pertalite_price_idr_liter');
-  if (!pertalitePoint) await upsertPoints(getFuelPricePoints());
+  // Always upsert fuel prices so DB stays in sync with env overrides (PERTALITE_PRICE_IDR etc.)
+  await upsertPoints(getFuelPricePoints());
 
   const [brentPoint, usdIdrPoint] = await Promise.all([
     getLatestPoint('brent_price_usd'),
     getLatestPoint('usdidr_spot'),
   ]);
 
-  const bbmPertalitePrice = pertalitePoint?.value ?? DOMESTIC_FUEL_PRICES.pertalite_price_idr_liter;
+  // Always use DOMESTIC_FUEL_PRICES (env-aware) — never stale DB value for pump price
+  const bbmPertalitePrice = DOMESTIC_FUEL_PRICES.pertalite_price_idr_liter;
   const brentUsd = brentPoint?.value ?? 70;
   const usdIdr = usdIdrPoint?.value ?? 16_500;
 

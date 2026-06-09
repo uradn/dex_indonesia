@@ -7,7 +7,9 @@ import { fetchUsdIdrHistory, fetchUsdIdrSpot, computeRealizedVol } from './sourc
 import { fetchBiFxReserves, fetchSrbiOutstanding } from './sources/bi.js';
 import { fetchBbgFxReserves, bloombergAvailable } from './sources/bloomberg.js';
 import { fetchUsdIdrRdp, refinitivAvailable } from './sources/refinitiv.js';
+import { fetchSrbiAuction, formatSrbiAuction } from './sources/srbi-auction.js';
 import type { FxDefenseEngineOutput, ShadowRateData, ConfidenceGateData, IndicatorSnapshot, AlertLevel } from './types.js';
+import type { SrbiAuctionData } from './sources/srbi-auction.js';
 
 export const FX_DEFENSE_DESCRIPTION = `
 MACRO INTELLIGENCE — FX Defense Engine (Module 3)
@@ -61,8 +63,11 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   reservePoint ??= await fetchBiFxReserves();
   if (reservePoint) await upsertPoints([reservePoint]);
 
-  // 4. SRBI outstanding
-  const srbiPoint = await fetchSrbiOutstanding();
+  // 4. SRBI outstanding + weekly auction demand (Exa/Tavily — capital flow proxy)
+  const [srbiPoint, srbiAuction] = await Promise.all([
+    fetchSrbiOutstanding(),
+    fetchSrbiAuction(),
+  ]);
   if (srbiPoint) await upsertPoints([srbiPoint]);
 
   // Retrieve stored data
@@ -234,6 +239,16 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   if (biInterventionProxy === 'active_sterilized') flags.push('BI active sterilized intervention detected (reserves↓ + SRBI↑)');
   if (reserveBurnRate !== null && reserveBurnRate < 6) flags.push(`Reserve runway <6 months at current burn rate: ${reserveBurnRate.toFixed(1)} months`);
 
+  // SRBI auction demand signal (capital flow proxy — weekly lead vs monthly DJPPR data)
+  if (srbiAuction?.bidCoverRatio !== null && srbiAuction?.bidCoverRatio !== undefined) {
+    if (srbiAuction.bidCoverAlert === 'red')
+      flags.push(`SRBI UNDERSUBSCRIBED: bid-cover ${srbiAuction.bidCoverRatio.toFixed(2)}x — BI sterilization constrained, capital outflow pressure CRITICAL`);
+    else if (srbiAuction.bidCoverAlert === 'orange')
+      flags.push(`SRBI WEAK DEMAND: bid-cover ${srbiAuction.bidCoverRatio.toFixed(2)}x — below 1.5x, early outflow signal (leads DJPPR by ~1 month)`);
+    else if (srbiAuction.bidCoverAlert === 'yellow')
+      flags.push(`SRBI demand watch: bid-cover ${srbiAuction.bidCoverRatio.toFixed(2)}x (normal range 1.5–2.5x)`);
+  }
+
   // Cross-feed from ULN Engine (Module 13) + macro context for confidence gate
   const [hedgingPoint, ggPoint, biRatePoint, gdpGrowthPoint, foodInflPoint, cdsPoint] = await Promise.all([
     getLatestPoint('uln_hedging_compliance_pct'),
@@ -342,6 +357,7 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     reserveBurnRate,
     srbiOutstanding: srbiSnapshot,
     srbiSterilizationRatio,
+    srbiAuction: srbiAuction ?? null,
     biInterventionProxy,
     pseudoStabilityFlag,
     interventionSustainability,
@@ -424,6 +440,7 @@ function formatOutput(output: FxDefenseEngineOutput): string {
     `- **Reserve Burn Rate:** ${reserveBurnRate !== null ? `${reserveBurnRate.toFixed(1)} months` : 'n/a'}`,
     `- **SRBI/Reserve Ratio:** ${srbiRatioStr}`,
     `- **Pseudo-Stability Flag:** ${pseudoStabilityFlag ? '⚠️ YES — covert reserve depletion detected' : 'No'}`,
+    output.srbiAuction ? `- **SRBI Auction Demand:** ${formatSrbiAuction(output.srbiAuction).join(' | ')}` : '',
     ``,
     scoreCard.flags.length > 0 ? `## Flags\n${scoreCard.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '',
     ``,
