@@ -29,8 +29,13 @@ bun run src/evals/run.ts              # full eval suite
 bun run src/evals/run.ts --sample 10  # random sample
 
 # Macro scripts
-bun scripts/morning-check.ts          # full 13-module morning brief
-bun scripts/check-m12-divergence.ts   # M12 divergence check (exit 0=ok, 1=stale, 2=keyword audit needed)
+bun scripts/morning-check.ts              # full 13-module morning brief (manual run)
+bun scripts/check-m12-divergence.ts       # M12 divergence check (exit 0=ok, 1=stale, 2=keyword audit needed)
+
+# Cron job registration (run once; idempotent)
+bun scripts/add-morning-brief-cron.ts     # daily 08:00 WIB Mon-Fri — 13 modules + SCD via asean-morning-brief skill
+bun scripts/add-weekly-deepdive-cron.ts   # Monday 07:00 WIB — 13 modules + sovereign memo + Hormuz shock (Brent $105 + IDR 19,000)
+bun scripts/add-monthly-deepdive-cron.ts  # 1st of month 08:00 WIB — 13 modules + APBN realisasi + ULN/DSR + compound shock (Brent $120 + IDR 20,500 + VIX 45) + backtest analog
 ```
 
 CI runs `bun run typecheck` and `bun test` on every push/PR.
@@ -53,7 +58,7 @@ Dexter is a CLI-based autonomous financial research agent. Runtime is **Bun**. U
 
 **`src/gateway/`** — WhatsApp gateway using `@whiskeysockets/baileys`. Receives inbound messages, routes them to agent sessions, sends replies. Group chats: buffers messages until bot is @mentioned, then sends buffered history as context. Sessions persist across restarts via `src/gateway/sessions/store.ts`.
 
-**`src/cron/`** — scheduled task runner (using `croner`). Heartbeat jobs probe the agent on a schedule. Cron jobs survive gateway restarts via SQLite store.
+**`src/cron/`** — scheduled task runner (using `croner`). Heartbeat jobs probe the agent on a schedule. Cron jobs survive gateway restarts via SQLite store at `.dexter/cron/jobs.json` (gitignored — local runtime state). Active macro schedule: daily morning brief (08:00 WIB Mon-Fri, `asean-morning-brief` skill, all 13 modules), weekly deep dive (Monday 07:00 WIB, adds sovereign memo + Hormuz shock), monthly deep dive (1st of month 08:00 WIB, adds APBN realisasi + ULN/DSR + compound shock + backtest analog). Register/update via scripts in `scripts/add-*-cron.ts`.
 
 **`src/skills/`** — extensible workflows defined as `SKILL.md` files with YAML frontmatter (`name`, `description`). The LLM invokes skills via the `skill` tool. Each skill runs at most once per query. Add a new skill by dropping a `SKILL.md` anywhere under `src/skills/`.
 
