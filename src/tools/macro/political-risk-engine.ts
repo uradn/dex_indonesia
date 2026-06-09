@@ -18,7 +18,9 @@
  * Source reliability:
  *   - Unemployment (TE): high reliability, quarterly lag ~2 months
  *   - Exa news: keyword-based, no LLM inference — signal is directional not precise
- *   - No Twitter/X (API $100/month) — Exa news is the viable free-tier substitute
+ *   - X (Twitter) API v2 Bearer Token — real-time street-level unrest, minute-zero detection
+ *   - Exa news — published articles, hours lag, keyword-scored
+ *   - X raises socialUnrestComponent floor; Exa holds it if X is absent
  */
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
@@ -31,6 +33,7 @@ import {
   detectSeasonalContext,
   type SentimentResult,
 } from './sources/political-risk.js';
+import { fetchXSocialSentiment, type XSentimentResult } from './sources/x-social.js';
 import type { AlertLevel } from './types.js';
 
 export const POLITICAL_RISK_DESCRIPTION = `
@@ -70,8 +73,10 @@ export interface PoliticalRiskOutput {
   unemploymentRate: number | null;
   unemploymentComponent: number; // 0-25 sub-score
   foodPressureComponent: number; // 0-35 sub-score
-  socialUnrestComponent: number; // 0-30 sub-score
+  socialUnrestComponent: number; // 0-30 sub-score (Exa + X blended)
   stabilityComponent: number;    // 0-25 sub-score (negative = international concern)
+  xSocialResult: XSentimentResult | null;
+  xSocialScore: number | null;   // raw X score before blending
   sentimentResults: SentimentResult[];
   seasonalContext: string | null;
   topHeadlines: string[];
@@ -98,16 +103,18 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
       )))
     : 8; // unknown → conservative mid assumption
 
-  // ── 2. Exa news sentiment (3 signals, parallel) ───────────────────────────
-  const [foodResult, unrestResult, stabilityResult] = await Promise.allSettled([
+  // ── 2. Exa news sentiment + X social feed (parallel) ─────────────────────
+  const [foodResult, unrestResult, stabilityResult, xResult] = await Promise.allSettled([
     searchNewsSentiment('food_pressure'),
     searchNewsSentiment('social_unrest'),
     searchNewsSentiment('political_stability'),
+    fetchXSocialSentiment(),
   ]);
 
   const foodSentiment = foodResult.status === 'fulfilled' ? foodResult.value : null;
   const unrestSentiment = unrestResult.status === 'fulfilled' ? unrestResult.value : null;
   const stabilitySentiment = stabilityResult.status === 'fulfilled' ? stabilityResult.value : null;
+  const xSentiment = xResult.status === 'fulfilled' ? xResult.value : null;
 
   // Store sentiment scores in DB for trend tracking
   const sentimentPoints = [
@@ -120,6 +127,9 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     stabilitySentiment
       ? { indicator: 'political_stability_stress_score', category: 'pangan' as const, date: today, value: stabilitySentiment.stressScore, unit: 'score_0_100', source: 'exa_sentiment', fetchedAt: new Date().toISOString() }
       : null,
+    xSentiment
+      ? { indicator: 'political_x_social_score', category: 'pangan' as const, date: today, value: xSentiment.stressScore, unit: 'score_0_100', source: 'x_api_v2', fetchedAt: new Date().toISOString() }
+      : null,
   ].filter((p): p is NonNullable<typeof p> => p !== null);
   if (sentimentPoints.length > 0) await upsertPoints(sentimentPoints);
 
@@ -128,8 +138,11 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
   const seasonalDiscount = seasonal ? 0.70 : 1.0;
   const foodPressureComponent = Math.min(35, Math.round(rawFoodScore * seasonalDiscount));
 
-  // Social unrest: cap at 30. Labor protests are direct political risk.
-  const socialUnrestComponent = Math.min(30, unrestSentiment?.stressScore ?? 15);
+  // Social unrest: cap at 30. X raises the floor (real-time signal, 15% noise discount).
+  // When X sees unrest Exa hasn't published yet, X score dominates.
+  const exaUnrestScore = unrestSentiment?.stressScore ?? 15;
+  const xUnrestScore = xSentiment !== null ? Math.round(xSentiment.stressScore * 0.85) : 0;
+  const socialUnrestComponent = Math.min(30, Math.max(exaUnrestScore, xUnrestScore));
 
   // Political stability: cap at 25. International concern signals are structural.
   const stabilityComponent = Math.min(25, stabilitySentiment?.stressScore ?? 10);
@@ -161,8 +174,20 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     flags.push(`Seasonal context: ${seasonal} period — food price spikes partially expected; social contract stress remains`);
   }
 
+  if (xSentiment && xSentiment.stressScore > exaUnrestScore) {
+    flags.push(`X social feed elevated (score ${xSentiment.stressScore}/100) above Exa news (${exaUnrestScore}/100) — minute-zero unrest signal active`);
+  }
+
+  if (xSentiment && xSentiment.highSeverityCount > 0) {
+    flags.push(`X social: ${xSentiment.highSeverityCount} high-severity tweet(s) — structural/riot signals on X`);
+  }
+
   if (!process.env.EXASEARCH_API_KEY) {
     flags.push('EXASEARCH_API_KEY not set — news sentiment unavailable; unemployment-only scoring active');
+  }
+
+  if (!process.env.X_BEARER_TOKEN) {
+    flags.push('X_BEARER_TOKEN not set — real-time social feed unavailable; Exa news is primary signal');
   }
 
   // ── 5. Top headlines ──────────────────────────────────────────────────────
@@ -185,7 +210,10 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
 
   const narrative = buildNarrative({
     politicalRiskIndex, alert, unemploymentRate, foodPressureComponent,
-    socialUnrestComponent, stabilityComponent, seasonal, hasExa: !!process.env.EXASEARCH_API_KEY,
+    socialUnrestComponent, stabilityComponent, seasonal,
+    hasExa: !!process.env.EXASEARCH_API_KEY,
+    hasX: xSentiment !== null,
+    xLeadingExa: xSentiment !== null && xSentiment.stressScore > exaUnrestScore,
   });
 
   return {
@@ -198,6 +226,8 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     foodPressureComponent,
     socialUnrestComponent,
     stabilityComponent,
+    xSocialResult: xSentiment,
+    xSocialScore: xSentiment?.stressScore ?? null,
     sentimentResults,
     seasonalContext: seasonal,
     topHeadlines,
@@ -215,6 +245,8 @@ function buildNarrative(ctx: {
   stabilityComponent: number;
   seasonal: string | null;
   hasExa: boolean;
+  hasX: boolean;
+  xLeadingExa: boolean;
 }): string {
   const parts: string[] = [];
   parts.push(`Political Risk Index: ${ctx.politicalRiskIndex}/100 (${ctx.alert.toUpperCase()}).`);
@@ -223,7 +255,7 @@ function buildNarrative(ctx: {
     parts.push(`Unemployment ${ctx.unemploymentRate.toFixed(1)}% (${ctx.unemploymentRate <= UNEMPLOYMENT_NORMAL ? 'within' : 'above'} ${UNEMPLOYMENT_NORMAL}% norm).`);
   }
 
-  if (ctx.hasExa) {
+  if (ctx.hasExa || ctx.hasX) {
     const dominant = [
       { label: 'food price pressure', score: ctx.foodPressureComponent, max: 35 },
       { label: 'social unrest', score: ctx.socialUnrestComponent, max: 30 },
@@ -234,17 +266,22 @@ function buildNarrative(ctx: {
     if (dominant.length > 0) {
       parts.push(`Active stress vectors: ${dominant.join(', ')}.`);
     }
+    if (ctx.xLeadingExa) {
+      parts.push('X social feed leading Exa news — real-time unrest signal active before media coverage.');
+    }
     if (ctx.seasonal) {
       parts.push(`${ctx.seasonal} seasonal context: food price spike partially expected — structural risk assessment still applies.`);
     }
   } else {
-    parts.push('Exa news sentiment unavailable — scoring based on unemployment data only.');
+    parts.push('Exa news sentiment and X social feed unavailable — scoring based on unemployment data only.');
   }
   return parts.join(' ');
 }
 
 function formatOutput(output: PoliticalRiskOutput): string {
   const hasExa = output.sentimentResults.length > 0;
+  const hasX = output.xSocialResult !== null;
+  const x = output.xSocialResult;
 
   return [
     `# Political Risk Engine — Indonesia`,
@@ -260,7 +297,7 @@ function formatOutput(output: PoliticalRiskOutput): string {
     `|-----------|-------|-----|`,
     `| Unemployment (BPS quarterly) | ${output.unemploymentComponent} | 25 |`,
     `| Food Price Political Pressure | ${output.foodPressureComponent} | 35 |`,
-    `| Social Unrest (labor protests, PHK) | ${output.socialUnrestComponent} | 30 |`,
+    `| Social Unrest (Exa + X blended) | ${output.socialUnrestComponent} | 30 |`,
     `| Political/Governance Stability | ${output.stabilityComponent} | 25 |`,
     `| **Total (+ base 10)** | **${output.politicalRiskIndex}** | **100** |`,
     ``,
@@ -272,21 +309,27 @@ function formatOutput(output: PoliticalRiskOutput): string {
     `| Stress Threshold | ${UNEMPLOYMENT_STRESS}% |`,
     ``,
     hasExa ? [
-      `## News Sentiment Signals`,
+      `## News Sentiment Signals (Exa)`,
       ...output.sentimentResults.map((r) =>
         `**${r.signal.replace('_', ' ')} (score ${r.stressScore}/100):** ${r.negativeCount} negative, ${r.positiveCount} positive, ${r.highSeverityCount} high-severity`,
       ),
     ].join('\n') : '_Exa API not configured — news sentiment unavailable. Set EXASEARCH_API_KEY._',
     ``,
+    hasX && x ? [
+      `## X Social Feed (real-time)`,
+      `**Score:** ${x.stressScore}/100 | **Tweets:** ${x.tweetCount} | ${x.negativeCount} negative, ${x.positiveCount} positive, ${x.highSeverityCount} high-severity`,
+      x.topTweets.length > 0 ? x.topTweets.map((t) => `- "${t}"`).join('\n') : '',
+    ].filter(Boolean).join('\n') : '_X social feed unavailable. Set X_BEARER_TOKEN._',
+    ``,
     output.topHeadlines.length > 0 ? [
-      `## Top Headlines (recent 60 days)`,
+      `## Top Headlines (recent 7 days)`,
       ...output.topHeadlines.map((h) => `- ${h}`),
     ].join('\n') : '',
     ``,
     output.flags.length > 0 ? `## Active Flags\n${output.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '## No Critical Flags',
     ``,
     `_Transmission: political risk → policy unpredictability → sovereign risk premium → IDR/SBN repricing._`,
-    `_Unemployment source: BPS (quarterly, ~2 month lag). News: Exa search, keyword-scored, directional signal only._`,
+    `_Sources: BPS unemployment (quarterly, ~2mo lag) · Exa news (7d, keyword-scored) · X API v2 (real-time, 15% noise discount)._`,
   ]
     .filter((l) => l !== '')
     .join('\n');
