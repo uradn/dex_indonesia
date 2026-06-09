@@ -168,14 +168,67 @@ Module 11 (Domestic Pressure) tracks domestic fuel prices against cost recovery,
 | Dexlite | IDR 23.000/liter | Non-subsidi | |
 | Pertamina Dex | IDR 24.800/liter | Non-subsidi | |
 
-**Government commitment:**
-Menteri ESDM Bahlil Lahadalia, Istana Negara, 16 April 2026 ([ESDM.go.id](https://www.esdm.go.id/id/media-center/arsip-berita/menteri-bahlil-harga-bbm-subsidi-tak-naik-hingga-akhir-tahun)):
-> *"harga BBM untuk subsidi tidak akan dinaikkan sampai dengan akhir tahun"*
+**Bahlil Statement — Verbatim Record:**
 
-Kondisi komitmen: ICP tetap di bawah **$100/bbl** (APBN safety threshold). ICP rata-rata YTD Apr 2026: ~$77/bbl.
+> *"Saya sampaikan kepada publik, bahwa insyaallah stok kita di atas standar minimum, baik itu solar, baik itu bensin, maupun LPG. Insyaallah aman, dan sekali lagi saya katakan bahwa kami sudah bersepakat atas arahan Bapak Presiden, bahwa harga BBM untuk subsidi tidak akan dinaikkan sampai dengan akhir tahun."*
+>
+> *"Doain, ini kan tergantung dengan harga ICP, tapi kalau sampai dengan 100 dolar itu sudah aman BBM. Dan sekarang harga rata-rata ICP Januari sampai dengan sekarang itu tidak lebih dari USD77."*
+>
+> — Menteri ESDM **Bahlil Lahadalia**, Istana Negara Jakarta, **16 April 2026**
+> Sumber: [ESDM.go.id](https://www.esdm.go.id/id/media-center/arsip-berita/menteri-bahlil-harga-bbm-subsidi-tak-naik-hingga-akhir-tahun) | [Tempo.co](https://www.tempo.co/ekonomi/alasan-harga-bbm-subsidi-tidak-naik-hingga-akhir-2026-2129627) | [Tribun Jateng](https://jateng.tribunnews.com/nasional/1253476/ternyata-ini-syarat-agar-harga-bbm-subsidi-dan-elpiji-tidak-naik-bahlil-enggak-gampang)
 
-**Geopolitical risk — Hormuz 2026:**
-Selat Hormuz sebagian diblokir sejak ~28 Feb 2026 (konflik Iran-US/Israel). Brent sempat spike ke $120+/bbl pada Maret 2026 ([Wikipedia: 2026 Strait of Hormuz crisis](https://en.wikipedia.org/wiki/2026_Strait_of_Hormuz_crisis)). IEA sebut ini "largest supply disruption in history of global oil market." Tiap eskalasi = risiko ICP melewati $100 threshold → komitmen pemerintah patah → hike BBM.
+**Konteks keputusan:** Arahan Presiden Prabowo Subianto pasca kunjungan ke Rusia dan Prancis. Indonesia memiliki production deficit ~1 juta bbl/hari (konsumsi 1,6M bbl/hari vs produksi domestik 600–610k bbl/hari) — sangat rentan terhadap shock harga global.
+
+**Kondisi komitmen (hard clause):**
+- ICP ≤ $100/bbl → BBM subsidi **tidak naik**
+- ICP > $100/bbl → komitmen **gugur** — hike menjadi keharusan fiskal
+- ICP YTD rata-rata Jan–Apr 2026: $77/bbl (saat pernyataan dibuat, margin $23)
+- **Per 9 Juni 2026: Brent $94.07 — margin tersisa hanya $5.93/bbl** ⚠️
+
+---
+
+**Hormuz 2026 — Situation Report (SitRep)**
+
+*Sumber utama: [Wikipedia: 2026 Strait of Hormuz crisis](https://en.wikipedia.org/wiki/2026_Strait_of_Hormuz_crisis) | [CNBC: Iran vows to completely block Hormuz](https://www.cnbc.com/2026/06/01/iran-us-negotiations-strait-of-hormuz.html) | [Al Jazeera](https://www.aljazeera.com/news/2026/6/5/how-the-us-naval-blockade-has-bled-iran-of-nearly-6bn-in-oil-revenues) | [Britannica](https://www.britannica.com/event/2026-Iran-war)*
+
+| Tanggal | Event |
+|---------|-------|
+| **28 Feb 2026** | US-Israel luncurkan Operation Epic Fury; serangan terhadap fasilitas militer & nuklir Iran; Khamenei tewas |
+| **1–4 Mar 2026** | IRGC mulai blokade; kapal tanker *Skylight* diserang; IRGC klaim kontrol penuh 4 Mar |
+| **8 Mar 2026** | Brent tembus **$100/bbl** untuk pertama kali dalam 4 tahun; peak $126/bbl |
+| **19 Mar 2026** | Dubai crude record **$166/bbl** — kenaikan bulanan terbesar dalam sejarah |
+| **27 Mar 2026** | IRGC umumkan penutupan selat untuk kapal menuju/dari pelabuhan AS, Israel, dan sekutu |
+| **8 Apr 2026** | Gencatan senjata sementara; Iran mulai pungut **toll >$1 juta/kapal** |
+| **13–29 Apr 2026** | US Navy implementasi counter-blockade pelabuhan Iran |
+| **4 Mei 2026** | Operation Project Freedom: US Navy kawal kapal dagang; di-pause 6 Mei |
+| **1 Jun 2026** | Iran hentikan negosiasi dengan AS; **vow to completely block Hormuz** |
+| **9 Jun 2026** | Status: ~5% traffic normal (~600 tanker tertahan di Teluk Persia, 240+ menunggu di luar) |
+
+**Dampak global:**
+
+| Metric | Data |
+|--------|------|
+| Pra-krisis (baseline) | Brent ~$70–80/bbl |
+| Peak Brent | **$126/bbl** (Mar 2026) |
+| Peak Dubai crude | **$166/bbl** (19 Mar 2026) |
+| Penurunan traffic | 70% dalam 48 jam pertama → ~0% saat ini |
+| Ekspor regional turun | 60% (dari 25M ke ~10M bbl/hari) |
+| Kapal tertahan | 20.000 pelaut + 2.000 kapal di Teluk Persia (per 21 Apr) |
+| LNG Eropa | €30 → €60+/MWh |
+
+Sebelum krisis: **25% seaborne oil** + **20% LNG dunia** melewati Hormuz. Kapasitas pipeline alternatif ~9M bbl/hari — tidak cukup menggantikan 20M bbl/hari via Hormuz.
+
+**Implikasi langsung untuk Indonesia:**
+
+| Skenario | Brent | ICP Proxy | Subsidy Gap/Liter | ICP Alert | Action |
+|----------|-------|-----------|-------------------|-----------|--------|
+| Baseline APBN | $70 | $70 | ~IDR 0 | 🟢 GREEN | Tidak ada |
+| Saat ini (9 Jun) | **$94** | ~$94 | **IDR 5.051** | 🟠 ORANGE | Monitor ketat |
+| Threshold Bahlil | $100 | $100 | ~IDR 7.200 | 🔴 RED | Komitmen gugur |
+| Peak Mar 2026 | $126 | $126 | ~IDR 12.800 | 🔴 RED | Hike wajib fiskal |
+| Eskalasi baru | $110+ | $110+ | ~IDR 9.000+ | 🔴 RED | Hike + social unrest |
+
+**CATATAN PENTING:** Iran pada 1 Juni 2026 menghentikan negosiasi dan mengumumkan akan **menutup penuh** Hormuz. Jika terealisasi → Brent bisa kembali ke $110–120 range → ICP melewati $100 → komitmen Bahlil gugur → hike BBM → trigger M12 political risk flashpoint.
 
 **Cost recovery formula:**
 ```
