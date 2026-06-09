@@ -48,8 +48,8 @@ Cross-confirmed modules: 1/13
 | 8 | Banking Stress | NPL (OJK/World Bank API), LDR, CAR, ~~JIBOR~~ IndONIA corridor (DFR = BI Rate −100bps / LF = BI Rate +75bps), FSAP nexus (implied CAR hit), KLR signals, M2/FX reserves ratio |
 | 9 | Market Stress | IHSG P/E + breadth, valuation disconnect |
 | 10 | Fiscal | APBN realisasi vs target, revenue shortfall, deficit trajectory |
-| 11 | Domestic Pressure | PIHPS 10 komoditas pangan, Food Stress Index 0–100 |
-| 12 | Political Risk | Unemployment + Exa news sentiment (social unrest, stabilitas) |
+| 11 | Domestic Pressure | PIHPS 10 komoditas pangan + BBM subsidy gap (cost recovery vs Pertalite) + ICP threshold watch |
+| 12 | Political Risk | Unemployment + Exa news sentiment + X social feed real-time (social unrest, stabilitas) |
 | 13 | ULN / External Debt | DSR (IMF threshold 25%), Greenspan-Guidotti ratio, ULN/GDP, BI hedging compliance (PBI 21/14/2019), 1997 transmission mechanism |
 
 **Logika inti:** Satu modul di RED bisa noise. Dua modul di ORANGE = deteriorasi struktural. Tiga+ = systemic fragility.
@@ -144,6 +144,66 @@ DOOM LOOP TERRITORY: CAR erosion 3.26pp (threshold >1.5pp)
 UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - USDIDR: 16,500 | ICP oil: $70/bbl | GDP growth: 5.4% | CPI: 2.5%
 - Revenue: 3,154T | Spending: 3,843T | Deficit: 2.68% GDP
+
+### BBM Subsidy Monitoring (Module 11)
+
+Module 11 (Domestic Pressure) tracks domestic fuel prices against cost recovery, computing the subsidy gap that drives fiscal stress and political risk.
+
+**Regulatory basis:**
+
+| Regulasi | Nomor | Tentang |
+|----------|-------|---------|
+| Kepmen ESDM | [245.K/MG.01/MEM.M/2022](https://jdih.esdm.go.id/dokumen/view?id=2307) | Formula harga dasar BBM umum (amends Kepmen 62.K/12/MEM/2020) |
+| Kepmen ESDM | 62.K/12/MEM/2020 | Formula harga jual eceran BBM — dasar hukum awal |
+| Kepmen ESDM | [tentang harga jual eceran BBM tertentu](https://migas.esdm.go.id/post/kepmen-esdm-tentang-harga-jual-eceran-bbm-jenis-tertentu-dan-khusus-penugasan) | BBM bersubsidi (Pertalite, Solar) — jenis tertentu dan khusus penugasan |
+
+**Harga BBM per 9 Juni 2026** (sumber: [Bisnis.com](https://ekonomi.bisnis.com/read/20260609/44/1979503/daftar-terbaru-harga-bbm-di-seluruh-spbu-berlaku-9-juni-2026)):
+
+| Jenis | Harga | Tipe | Keterangan |
+|-------|-------|------|------------|
+| Pertalite (RON 90) | IDR 10.000/liter | Bersubsidi | Tidak berubah sejak Sep 2022 |
+| Solar / Biosolar B40 | IDR 6.800/liter | Bersubsidi | Tidak berubah |
+| Pertamax (RON 92) | IDR 12.300/liter | Non-subsidi | Disesuaikan berkala |
+| Pertamax Turbo | IDR 20.750/liter | Non-subsidi | Naik per Jun 2026 |
+| Dexlite | IDR 23.000/liter | Non-subsidi | |
+| Pertamina Dex | IDR 24.800/liter | Non-subsidi | |
+
+**Government commitment:**
+Menteri ESDM Bahlil Lahadalia, Istana Negara, 16 April 2026 ([ESDM.go.id](https://www.esdm.go.id/id/media-center/arsip-berita/menteri-bahlil-harga-bbm-subsidi-tak-naik-hingga-akhir-tahun)):
+> *"harga BBM untuk subsidi tidak akan dinaikkan sampai dengan akhir tahun"*
+
+Kondisi komitmen: ICP tetap di bawah **$100/bbl** (APBN safety threshold). ICP rata-rata YTD Apr 2026: ~$77/bbl.
+
+**Geopolitical risk — Hormuz 2026:**
+Selat Hormuz sebagian diblokir sejak ~28 Feb 2026 (konflik Iran-US/Israel). Brent sempat spike ke $120+/bbl pada Maret 2026 ([Wikipedia: 2026 Strait of Hormuz crisis](https://en.wikipedia.org/wiki/2026_Strait_of_Hormuz_crisis)). IEA sebut ini "largest supply disruption in history of global oil market." Tiap eskalasi = risiko ICP melewati $100 threshold → komitmen pemerintah patah → hike BBM.
+
+**Cost recovery formula:**
+```
+cost_recovery (IDR/liter) = (Brent_USD / 158.987) × USDIDR × 1.40
+```
+Faktor 1.40 = crude 100% + kilang 20% + distribusi 10% + margin+pajak 10%
+
+**Alert thresholds (ICP):**
+- GREEN: ICP < $80/bbl
+- YELLOW: $80–90/bbl (Hormuz risk zone)
+- ORANGE: $90–100/bbl (approaching commitment threshold)
+- RED: > $100/bbl — **APBN commitment breaking point, hike imminent**
+
+**Alert thresholds (subsidy gap per liter):**
+- GREEN: gap < IDR 2.000
+- YELLOW: IDR 2.000–4.000 (burden building)
+- ORANGE: IDR 4.000–7.000 (analogous to mid-2022 sebelum hike Sep 2022)
+- RED: > IDR 7.000 (hike imminent — fiscal tidak tahan)
+
+**Emergency override (tanpa redeploy):**
+Jika pemerintah umumkan kenaikan harga BBM, update langsung via env var:
+```bash
+# .env
+PERTALITE_PRICE_IDR=12000   # harga baru setelah naik
+SOLAR_PRICE_IDR=8000
+PERTAMAX_PRICE_IDR=14000
+```
+Sistem akan otomatis rekalkulasi subsidy gap dan ICP alert menggunakan harga baru.
 
 ### Scripts Tambahan
 

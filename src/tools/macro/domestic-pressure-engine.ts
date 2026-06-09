@@ -23,7 +23,7 @@ import { formatToolResult } from '../types.js';
 import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
 import { alertFromScore, alertLabel, rollingZScore } from './scoring.js';
 import { fetchPihpsCommodities, fetchFoodInflationTe, PIHPS_COMMODITIES } from './sources/pihps.js';
-import { computeCostRecovery, bbmHikeAlert, getFuelPricePoints, DOMESTIC_FUEL_PRICES } from './sources/pertamina.js';
+import { computeCostRecovery, bbmHikeAlert, icpHikeAlert, getFuelPricePoints, DOMESTIC_FUEL_PRICES, ICP_SAFETY_THRESHOLD, HORMUZ_WATCH_THRESHOLD } from './sources/pertamina.js';
 import type { AlertLevel } from './types.js';
 
 export const DOMESTIC_PRESSURE_DESCRIPTION = `
@@ -74,6 +74,8 @@ export interface DomesticPressureOutput {
   bbmCostRecovery: number;
   bbmSubsidyGap: number;     // cost recovery - Pertalite price; positive = government subsidizing
   bbmHikeRisk: AlertLevel;
+  bbmIcpRisk: AlertLevel;    // ICP vs $100/bbl government commitment threshold
+  bbmIcpMargin: number;      // USD/bbl remaining to $100 threshold
   narrative: string;
   flags: string[];
 }
@@ -231,6 +233,8 @@ export async function runDomesticPressureEngine(): Promise<DomesticPressureOutpu
   const bbmCostRecovery = computeCostRecovery(brentUsd, usdIdr);
   const bbmSubsidyGap = bbmCostRecovery - bbmPertalitePrice;
   const bbmHikeRisk = bbmHikeAlert(Math.max(0, bbmSubsidyGap));
+  const bbmIcpRisk = icpHikeAlert(brentUsd);
+  const bbmIcpMargin = parseFloat((ICP_SAFETY_THRESHOLD - brentUsd).toFixed(1));
 
   await upsertPoints([
     { indicator: 'bbm_cost_recovery_idr_liter', category: 'pangan', date: today, value: bbmCostRecovery, unit: 'IDR/liter', source: 'computed_brent_usdidr', fetchedAt: new Date().toISOString() },
@@ -241,6 +245,20 @@ export async function runDomesticPressureEngine(): Promise<DomesticPressureOutpu
     flags.push(
       `BBM subsidy gap IDR ${bbmSubsidyGap.toLocaleString('id-ID')}/liter — cost recovery IDR ${bbmCostRecovery.toLocaleString('id-ID')} vs Pertalite IDR ${bbmPertalitePrice.toLocaleString('id-ID')}; hike risk ${bbmHikeRisk.toUpperCase()} (Brent $${brentUsd.toFixed(1)} + USDIDR ${usdIdr.toLocaleString('id-ID')})`,
     );
+  }
+
+  // ICP threshold watch — government commitment holds below $100/bbl (Bahlil, Apr 2026)
+  const icpRisk = icpHikeAlert(brentUsd);
+  if (icpRisk !== 'green') {
+    const margin = ICP_SAFETY_THRESHOLD - brentUsd;
+    flags.push(
+      `ICP watch: Brent $${brentUsd.toFixed(1)}/bbl — ${icpRisk.toUpperCase()} (margin to $${ICP_SAFETY_THRESHOLD} govt commitment: $${margin.toFixed(1)}/bbl)` +
+      (brentUsd > HORMUZ_WATCH_THRESHOLD ? ` — Hormuz crisis escalation zone; Bahlil commitment at risk` : ''),
+    );
+  }
+
+  if (process.env.PERTALITE_PRICE_IDR) {
+    flags.push(`Pertalite price ENV OVERRIDE active: IDR ${DOMESTIC_FUEL_PRICES.pertalite_price_idr_liter.toLocaleString('id-ID')}/liter (PERTALITE_PRICE_IDR set)`);
   }
 
   const narrative = buildNarrative({ foodStressIndex, alert, foodInflationYoy, foodInflationDeviation, spikedCommodities, domesticPressureAlert, availableCount: availableScores.length });
@@ -259,6 +277,8 @@ export async function runDomesticPressureEngine(): Promise<DomesticPressureOutpu
     bbmCostRecovery,
     bbmSubsidyGap,
     bbmHikeRisk,
+    bbmIcpRisk,
+    bbmIcpMargin,
     narrative,
     flags,
   };
@@ -332,10 +352,11 @@ function formatOutput(output: DomesticPressureOutput): string {
     `## BBM Subsidy Gap`,
     `| Metric | Value |`,
     `|--------|-------|`,
-    `| Pertalite price | IDR ${output.bbmPertalitePrice.toLocaleString('id-ID')}/liter |`,
-    `| Cost recovery (Brent×USDIDR) | IDR ${output.bbmCostRecovery.toLocaleString('id-ID')}/liter |`,
+    `| Pertalite pump price | IDR ${output.bbmPertalitePrice.toLocaleString('id-ID')}/liter (Kepmen ESDM 245/2022) |`,
+    `| Cost recovery (Brent×USDIDR×1.40) | IDR ${output.bbmCostRecovery.toLocaleString('id-ID')}/liter |`,
     `| Subsidy gap | IDR ${output.bbmSubsidyGap.toLocaleString('id-ID')}/liter |`,
-    `| Hike risk | ${output.bbmHikeRisk.toUpperCase()} |`,
+    `| Gap hike risk | ${output.bbmHikeRisk.toUpperCase()} |`,
+    `| ICP vs $${ICP_SAFETY_THRESHOLD}/bbl govt threshold | ${output.bbmIcpRisk.toUpperCase()} — $${output.bbmIcpMargin}/bbl margin (Bahlil commitment) |`,
     ``,
     output.flags.length > 0 ? `## Active Flags\n${output.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '## No Stress Flags',
     ``,
