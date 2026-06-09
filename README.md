@@ -169,6 +169,8 @@ Module 11 (Domestic Pressure) tracks domestic fuel prices against cost recovery,
 | Pertamina Dex (CN 53) | IDR 24.800/liter | Non-subsidi | Solar diesel premium, mesin high-performance; harga tertinggi — turun sedikit per Jun 2026 |
 
 **Bahlil Statement — Verbatim Record:**
+
+
 <img width="269" height="354" alt="Screenshot 2026-06-09 at 13 51 24" src="https://github.com/user-attachments/assets/f05302e5-3bd4-4994-8e11-08f5c22003c3" />
 
 > *"Saya sampaikan kepada publik, bahwa insyaallah stok kita di atas standar minimum, baik itu solar, baik itu bensin, maupun LPG. Insyaallah aman, dan sekali lagi saya katakan bahwa kami sudah bersepakat atas arahan Bapak Presiden, bahwa harga BBM untuk subsidi tidak akan dinaikkan sampai dengan akhir tahun."*
