@@ -164,9 +164,9 @@ Module 11 (Domestic Pressure) tracks domestic fuel prices against cost recovery,
 | Pertalite (RON 90) | IDR 10.000/liter | Bersubsidi | Tidak berubah sejak Sep 2022 |
 | Solar / Biosolar B40 | IDR 6.800/liter | Bersubsidi | Tidak berubah |
 | Pertamax (RON 92) | IDR 12.300/liter | Non-subsidi | Disesuaikan berkala |
-| Pertamax Turbo | IDR 20.750/liter | Non-subsidi | Naik per Jun 2026 |
-| Dexlite | IDR 23.000/liter | Non-subsidi | |
-| Pertamina Dex | IDR 24.800/liter | Non-subsidi | |
+| Pertamax Turbo | IDR 20.750/liter | Non-subsidi | RON 98, bensin premium; naik per Jun 2026 |
+| Dexlite (CN 51) | IDR 23.000/liter | Non-subsidi | Solar diesel non-subsidi; harga ikut MOPS Gasoil Singapore — sangat sensitif krisis Hormuz |
+| Pertamina Dex (CN 53) | IDR 24.800/liter | Non-subsidi | Solar diesel premium, mesin high-performance; harga tertinggi — turun sedikit per Jun 2026 |
 
 **Bahlil Statement — Verbatim Record:**
 
