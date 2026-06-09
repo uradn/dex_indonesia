@@ -38,7 +38,7 @@ Cross-confirmed modules: 1/13
 
 | # | Modul | Signal |
 |---|-------|--------|
-| 1 | FX Defense | USDIDR z-score, pseudo-stability, BI intervention |
+| 1 | FX Defense | USDIDR z-score, pseudo-stability, BI intervention, **SRBI auction bid-cover** (weekly capital flow proxy — 1wk lead vs DJPPR) |
 | 2 | BoP | Trade balance, FX reserves, synthetic CAD risk |
 | 3 | Sovereign Risk | CDS 5Y, SBN yield, foreign SBN ownership |
 | 4 | Foreign Flow | EIDO, silent exit detection |
