@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
-import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
+import { upsertPoints, getLatestPoint, getLastN, getHistory } from './time-series-db.js';
 import { buildSnapshot, compositeScore, detectFlags, alertFromScore, alertLabel } from './scoring.js';
 import { fetchIndonesiaCds5y, fetchSbn10yYield, fetchEmbiSpread, bloombergAvailable } from './sources/bloomberg.js';
 import { fetchSbn10yRdp, fetchCds5yRdp, refinitivAvailable } from './sources/refinitiv.js';
@@ -42,12 +42,21 @@ Tracks Indonesia sovereign credit and funding stress. Detects:
 Priority: Bloomberg → Refinitiv → web scraping fallback
 `.trim();
 
+interface CdsVelocity {
+  bpsPerWeek: number;
+  daysTo200: number | null;  // null if CDS falling, already ≥200, or insufficient data
+  alertLevel: AlertLevel;
+  dataPointsUsed: number;
+  windowDays: number;
+}
+
 interface SovereignOutput {
   scoreCard: ModuleScoreCard;
   cds5y: IndicatorSnapshot | null;
   sbn10y: IndicatorSnapshot | null;
   embiSpread: IndicatorSnapshot | null;
   foreignSbnOwnership: IndicatorSnapshot | null;
+  cdsVelocity: CdsVelocity | null;
   sovereignRiskScore: number;
   refinancingStressScore: number;
   fiscalCredibilityIndex: number;
@@ -56,6 +65,38 @@ interface SovereignOutput {
   sbnUstSpread: number | null;  // SBN 10Y − UST 10Y; narrowing = outflow risk
   ust10y: number | null;
   narrative: string;
+}
+
+const CDS_DOWNGRADE_WATCH = 200;  // bps — S&P/Moody's watch zone threshold
+
+function cdsVelocityAlert(bpsPerWeek: number): AlertLevel {
+  if (bpsPerWeek > 7)  return 'red';
+  if (bpsPerWeek > 3)  return 'orange';
+  if (bpsPerWeek > 0)  return 'yellow';
+  return 'green';
+}
+
+async function computeCdsVelocity(currentBps: number): Promise<CdsVelocity | null> {
+  const history = await getHistory('indonesia_cds_5y_bps', 21); // 3-week window
+  if (history.length < 2) return null;
+
+  const oldest = history[0];
+  const latest  = history[history.length - 1];
+  const daysDiff = Math.max(1,
+    (new Date(latest.date).getTime() - new Date(oldest.date).getTime()) / 86_400_000,
+  );
+  const bpsPerWeek = parseFloat((((latest.value - oldest.value) / daysDiff) * 7).toFixed(2));
+  const daysTo200 = (bpsPerWeek > 0 && currentBps < CDS_DOWNGRADE_WATCH)
+    ? Math.ceil((CDS_DOWNGRADE_WATCH - currentBps) / (bpsPerWeek / 7))
+    : null;
+
+  return {
+    bpsPerWeek,
+    daysTo200,
+    alertLevel: cdsVelocityAlert(bpsPerWeek),
+    dataPointsUsed: history.length,
+    windowDays: Math.round(daysDiff),
+  };
 }
 
 export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
@@ -113,6 +154,20 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
   const currentBiRate = await getLatestPoint('bi_rate_pct');
   const currentRating = await getLatestPoint('indonesia_credit_rating_score');
   const currentDebtGdp = await getLatestPoint('indonesia_debt_gdp_pct');
+
+  // CDS velocity — bps/week over 3-week window; days-to-200bps countdown
+  const cdsVelocity = currentCds ? await computeCdsVelocity(currentCds.value) : null;
+  if (cdsVelocity !== null) {
+    await upsertPoints([{
+      indicator: 'cds_velocity_bps_week',
+      category: 'sovereign',
+      date: new Date().toISOString().slice(0, 10),
+      value: cdsVelocity.bpsPerWeek,
+      unit: 'bps/week',
+      source: 'computed_m2',
+      fetchedAt: new Date().toISOString(),
+    }]);
+  }
 
   // Build snapshots
   const cdsSnapshot = currentCds ? await buildSnapshot('indonesia_cds_5y_bps', currentCds, prevCds) : null;
@@ -214,6 +269,12 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
   if (foreignExitRisk === 'red') flags.push('CRITICAL: Foreign SBN exit + CDS widening simultaneously — repricing cycle risk');
   if (foreignExitRisk === 'orange') flags.push('Foreign SBN ownership declining — monitor for acceleration');
   if (cdsLevel > 200) flags.push(`CDS 5Y at ${cdsLevel}bps — above 200bps stress threshold`);
+  if (cdsVelocity && cdsVelocity.bpsPerWeek > 3) {
+    const countdown = cdsVelocity.daysTo200 !== null
+      ? ` — 200bps watch zone in ~${cdsVelocity.daysTo200} days at current pace`
+      : '';
+    flags.push(`CDS velocity ${cdsVelocity.bpsPerWeek > 0 ? '+' : ''}${cdsVelocity.bpsPerWeek.toFixed(1)}bps/week [${cdsVelocity.alertLevel.toUpperCase()}]${countdown}`);
+  }
   if (fiscalCredibilityIndex < 30) flags.push('Fiscal credibility severely impaired — market pricing systemic risk');
   if (termPremiumStress) flags.push(`⚠️ Term premium elevated: SBN 10Y−BI Rate = ${termPremium!.termPremium.toFixed(2)}% — ${termPremium!.label}`);
   // SBN-UST spread compression warning: <200bps = carry trade unwind risk
@@ -236,6 +297,7 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
     sbn10y: sbnSnapshot,
     embiSpread: embiSnapshot,
     foreignSbnOwnership: foreignSnapshot,
+    cdsVelocity,
     sovereignRiskScore,
     refinancingStressScore,
     fiscalCredibilityIndex,
@@ -296,6 +358,9 @@ function formatOutput(output: SovereignOutput & { termPremium: ReturnType<typeof
     output.sbnUstSpread !== null && output.ust10y !== null
       ? `| SBN−UST 10Y Spread | ${output.sbnUstSpread}bps (SBN ${(output.ust10y + output.sbnUstSpread / 100).toFixed(2)}% − UST ${output.ust10y.toFixed(2)}%) |`
       : `| SBN−UST 10Y Spread | n/a |`,
+    output.cdsVelocity
+      ? `| CDS Velocity | ${output.cdsVelocity.bpsPerWeek >= 0 ? '+' : ''}${output.cdsVelocity.bpsPerWeek.toFixed(1)} bps/week [${output.cdsVelocity.alertLevel.toUpperCase()}]${output.cdsVelocity.daysTo200 !== null ? ` — 200bps in ~${output.cdsVelocity.daysTo200}d` : ''} |`
+      : `| CDS Velocity | insufficient history |`,
     ``,
     output.scoreCard.flags.length > 0 ? `## Flags\n${output.scoreCard.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '',
     ``,
