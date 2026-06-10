@@ -4,6 +4,7 @@ import { formatToolResult } from '../types.js';
 import { upsertPoints, getLatestPoint } from './time-series-db.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchBankingRatiosOjk } from './sources/ojk.js';
+import { fetchFintechLendingOjkIknb } from './sources/ojk-iknb.js';
 import { fetchIndoniaRateTe, fetchExternalDebtTe, fetchIhprTe, fetchNplTe, fetchLdrTe, fetchCarTe, fetchM2MoneySupplyTe, fetchDpkDepositsTe, fetchNplWorldBank, fetchM2WorldBank } from './sources/sovereign-scraper.js';
 import type { AlertLevel, MacroDataPoint } from './types.js';
 
@@ -60,6 +61,10 @@ interface BankingStressOutput {
   m2ReservesRatio: number | null;
   fxReservesBn: number | null;
   sectorNpl: Record<string, number>;
+  fintechNplPct: number | null;
+  fintechOutstandingIdrT: number | null;
+  fintechGrowthYoyPct: number | null;
+  bnplSignal: 'distress' | 'inclusion' | 'credit_cycle_turn' | 'watch' | 'unknown';
   dataDate: string;
   flags: string[];
   summary: string;
@@ -101,6 +106,21 @@ function scoreIndoniaSpread(spreadBps: number): number {
   if (spreadBps < 75) return Math.round(40 + (spreadBps - 50) / 25 * 30);
   if (spreadBps < 150) return Math.round(70 + (spreadBps - 75) / 75 * 20);
   return Math.min(100, Math.round(90 + (spreadBps - 150) / 50 * 10));
+}
+
+/** Dual-signal: high growth + high NPL = distress, NOT inclusion.
+ *  Context: BI Rate hike + BBM hike → income squeeze → BNPL catch-up spending.
+ *  Thresholds calibrated to Indonesia IKNB: OJK normal NPL ~3%, stress ~5%, crisis ~8%. */
+function classifyBnplSignal(
+  nplPct: number | null,
+  growthYoyPct: number | null,
+): BankingStressOutput['bnplSignal'] {
+  if (nplPct === null) return 'unknown';
+  if (growthYoyPct !== null && growthYoyPct > 30 && nplPct > 5) return 'distress';
+  if (growthYoyPct !== null && growthYoyPct > 30 && nplPct <= 3) return 'inclusion';
+  if (growthYoyPct !== null && growthYoyPct < 10 && nplPct > 5) return 'credit_cycle_turn';
+  if (nplPct > 5) return 'watch';
+  return 'unknown';
 }
 
 export async function runBankingStressEngine(): Promise<BankingStressOutput> {
@@ -156,6 +176,9 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   }
   const dpk = dpkPoint.status === 'fulfilled' ? dpkPoint.value : null;
 
+  // 1d. Fintech lending / BNPL (OJK IKNB, monthly, 30d TTL — fetch in parallel with 1c)
+  const fintechResult = await fetchFintechLendingOjkIknb().catch(() => null);
+
   // 2. Persist to DB
   const pointsToSave = [ratios.npl, ratios.ldr, ratios.car, indonia, extDebt, ihpr, m2, dpk].filter(Boolean);
   if (pointsToSave.length > 0) await upsertPoints(pointsToSave as NonNullable<typeof ratios.npl>[]);
@@ -173,7 +196,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   if (sectorNplPoints.length > 0) await upsertPoints(sectorNplPoints);
 
   // 3. Read from DB (use cached if live fetch failed)
-  const [dbNpl, dbLdr, dbCar, dbIndonia, dbBiRate, dbExtDebt, dbIhpr, dbSbn10y, dbCpi, dbSrbi, dbM2Idr, dbFxReserves, dbUsdidr] = await Promise.all([
+  const [dbNpl, dbLdr, dbCar, dbIndonia, dbBiRate, dbExtDebt, dbIhpr, dbSbn10y, dbCpi, dbSrbi, dbM2Idr, dbFxReserves, dbUsdidr, dbFintechNpl, dbFintechOutstanding, dbFintechGrowth] = await Promise.all([
     getLatestPoint('bank_npl_gross_pct'),
     getLatestPoint('bank_ldr_pct'),
     getLatestPoint('bank_car_pct'),
@@ -187,6 +210,9 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     getLatestPoint('m2_money_supply_idr_bn'),
     getLatestPoint('bi_fx_reserves_bn'),
     getLatestPoint('usdidr_spot'),
+    getLatestPoint('fintech_npl_pct'),
+    getLatestPoint('fintech_lending_outstanding_idr_t'),
+    getLatestPoint('fintech_lending_growth_yoy_pct'),
   ]);
 
   const nplPct = dbNpl?.value ?? null;
@@ -202,6 +228,11 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   const m2IdrBn = dbM2Idr?.value ?? null;
   const fxReservesBn = dbFxReserves?.value ?? null;
   const usdidrSpot = dbUsdidr?.value ?? null;
+
+  const fintechNplPct      = fintechResult?.fintechNplPct      ?? dbFintechNpl?.value        ?? null;
+  const fintechOutstandingIdrT = fintechResult?.outstandingIdrT ?? dbFintechOutstanding?.value ?? null;
+  const fintechGrowthYoyPct   = fintechResult?.growthYoyPct    ?? dbFintechGrowth?.value      ?? null;
+  const bnplSignal = classifyBnplSignal(fintechNplPct, fintechGrowthYoyPct);
 
   // KLR M2/reserves ratio: M2 (USD equiv) / FX reserves — most critical KLR capital flight indicator
   // M2 in IDR bn ÷ USDIDR = M2 in USD bn; then ÷ FX reserves (USD bn)
@@ -252,6 +283,15 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   // FSAP amplifier: SBN yield shock transmits to banking CAR via sovereign-bank nexus
   if (impliedCarHitPp !== null && impliedCarHitPp > 0.5) {
     stressScore = Math.min(100, stressScore + Math.min(15, Math.round(impliedCarHitPp * 5)));
+  }
+
+  // BNPL amplifier: fintech NPL is 2-3Q leading indicator for bank NPL
+  if (fintechNplPct !== null) {
+    const bnplAmplifier = bnplSignal === 'credit_cycle_turn' ? 10
+      : bnplSignal === 'distress' ? 8
+      : fintechNplPct > 5 ? 5
+      : 0;
+    stressScore = Math.min(100, stressScore + bnplAmplifier);
   }
 
   // 5. Alert level: high stressScore = more stress = higher alert
@@ -317,6 +357,18 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     if (npl > 5) flags.push(`Sector NPL ${sector}: ${npl.toFixed(1)}% — above 5% threshold`);
   }
 
+  // BNPL / fintech lending flags (OJK IKNB)
+  if (bnplSignal === 'distress') {
+    flags.push(`BNPL/fintech DISTRESS: high growth + NPL ${fintechNplPct?.toFixed(1)}% (>5%) — catch-up spending while income insufficient; 2-3Q bank NPL leading indicator`);
+  } else if (bnplSignal === 'credit_cycle_turn') {
+    flags.push(`BNPL/fintech CREDIT_CYCLE_TURN: slowing growth + NPL ${fintechNplPct?.toFixed(1)}% — contraction + defaults; formal banking stress in 2-3Q`);
+  } else if (bnplSignal === 'watch' && fintechNplPct !== null) {
+    flags.push(`BNPL/fintech WATCH: NPL ${fintechNplPct.toFixed(1)}% — fintech NPL 2.5× bank NPL; monitor for credit-cycle transmission`);
+  }
+  if (fintechNplPct !== null && nplPct !== null && fintechNplPct > nplPct * 2) {
+    flags.push(`Fintech NPL ${fintechNplPct.toFixed(1)}% vs bank NPL ${nplPct.toFixed(1)}% — gap ${(fintechNplPct / nplPct).toFixed(1)}× indicates unsecured digital credit stress concentrating ahead of formal banking`);
+  }
+
   // 7. Data date (most recent of all fetched points)
   const dates = [dbNpl, dbLdr, dbCar, dbIndonia, dbExtDebt]
     .filter(Boolean)
@@ -347,7 +399,9 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     externalDebtBn, ihprYoy,
     sbn10yPct, cpiPct, realIndoniaPct, impliedCarHitPp, srbiOutstandingT,
     m2ReservesRatio, fxReservesBn,
-    sectorNpl, dataDate, flags, summary,
+    sectorNpl,
+    fintechNplPct, fintechOutstandingIdrT, fintechGrowthYoyPct, bnplSignal,
+    dataDate, flags, summary,
   };
 }
 
@@ -379,6 +433,9 @@ export const bankingStressEngine = new DynamicStructuredTool({
         `| M2/FX Reserves ratio | ${output.m2ReservesRatio !== null ? output.m2ReservesRatio.toFixed(1) + 'x' : 'n/a'} | KLR: watch >3x, critical >5x |`,
         `| External Debt | ${output.externalDebtBn !== null ? '$' + output.externalDebtBn.toFixed(0) + 'bn' : 'n/a'} | — |`,
         `| IHPR YoY % | ${output.ihprYoy !== null ? output.ihprYoy.toFixed(1) + '%' : 'n/a'} | <0% = collateral risk |`,
+        `| Fintech NPL % | ${output.fintechNplPct !== null ? output.fintechNplPct.toFixed(1) + '%' : 'n/a'} | OJK IKNB; >5% = watch, 2-3Q bank lead |`,
+        `| Fintech Outstanding | ${output.fintechOutstandingIdrT !== null ? 'Rp' + output.fintechOutstandingIdrT.toFixed(1) + 'T' : 'n/a'} | P2P + paylater combined (OJK IKNB) |`,
+        `| Fintech Growth YoY | ${output.fintechGrowthYoyPct !== null ? output.fintechGrowthYoyPct.toFixed(1) + '%' : 'n/a'} | BNPL signal: ${output.bnplSignal.toUpperCase()} |`,
         ``,
         Object.keys(output.sectorNpl).length > 0
           ? `**Sector NPL:**\n${Object.entries(output.sectorNpl).map(([s, v]) => `- ${s}: ${v.toFixed(1)}%`).join('\n')}`
