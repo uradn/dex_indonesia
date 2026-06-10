@@ -25,9 +25,9 @@ Run these tools in parallel to get current values:
 - `uln_engine` — total ULN, DSR, GG ratio, short-term %, hedging compliance
 
 Extract these baseline values:
-- `usdidr`: current USDIDR spot (e.g. 17,879)
-- `sbn10y`: current SBN 10Y yield % (e.g. 6.709)
-- `bi_rate`: current BI Rate % (e.g. 5.25 — raised to 5.25% on 20 May 2026)
+- `usdidr`: current USDIDR spot (e.g. 17,997)
+- `sbn10y`: current SBN 10Y yield % (e.g. 7.404)
+- `bi_rate`: current BI Rate % (e.g. 5.50 — inter-cycle hike at weekly RDG Jun 9 2026, +25bps; prev monthly RDG was May 19-20)
 - `fx_reserves`: FX reserves USD bn (e.g. 151.9)
 - `srbi_t`: SRBI outstanding IDR trillion (e.g. 957.9)
 - `npl`: NPL gross % (e.g. 1.96)
@@ -377,13 +377,13 @@ All Step 3A transmission (sovereign score, FSAP CAR hit, foreign flow, fiscal in
 
 **Key asymmetry vs external shock:** External shocks often allow BI to credibly raise rates as defense. Policy error cut destroys the rate-hike defensive option — BI can't raise again without admitting mistake. Markets price in policy uncertainty premium. Add +10 to sovereign score for credibility loss.
 
-**Standard severity applied to June 2026 baseline (BI Rate 5.25%):**
+**Standard severity applied to June 2026 baseline (BI Rate 5.50%):**
 
 | Tier | Shocked BI Rate | Shocked IDR | SBN ownership Δ | Key Risk |
 |------|----------------|------------|-----------------|----------|
-| Mild | 5.00% | ~18,660 | −0.5pp | Carry thinning, watch |
-| Moderate | 4.75% | ~19,360 | −1.5pp | EIDO exit + SBN selling |
-| Severe | 4.25% | ~20,660 | −3.0pp | 2nd-gen confidence gate breached |
+| Mild | 5.25% | ~18,780 | −0.5pp | Carry thinning, watch |
+| Moderate | 5.00% | ~19,480 | −1.5pp | EIDO exit + SBN selling |
+| Severe | 4.50% | ~20,780 | −3.0pp | 2nd-gen confidence gate breached |
 
 ---
 
@@ -549,22 +549,22 @@ Apply deltas to TODAY's live baseline (fetch from live engines per Step 1), NOT 
 
 ### Applied to June 2026 Baseline
 
-Baseline: USDIDR 17,879 | SBN 6.71% | BI Rate 5.25% | FX Reserves $151.9bn | GG 2.27
+Baseline: USDIDR 17,997 | SBN 7.40% | BI Rate 5.50% | FX Reserves $151.9bn | GG 2.27
 
 | Episode | Shocked IDR | Shocked SBN 10Y | Shocked Reserves | EIDO Δ | BI Rate Response | Step 3 Modules |
 |---------|-------------|-----------------|-----------------|--------|-----------------|----------------|
-| Taper Tantrum | ~21,700 | ~9.71% | ~$137bn | −25% | 5.25% → 7.00% | 3A + 3B + 3C + 3E |
-| China Deval | ~20,500 | ~7.71% | ~$145bn | −20% | flat/mild cut | 3B + commodity 3A + 3C |
-| EM Contagion | ~19,720 | ~8.21% | ~$138bn | −30% | 5.25% → 7.00% | 3A + 3B + 3C + 3E |
-| COVID | ~20,600 | ~9.21% | ~$141bn | −40% | 5.25% → 4.25% | 3A + 3B + 3C + 3E |
-| Fed Tightening | ~19,520 | ~7.71% | ~$127bn | −20% | 5.25% → 7.50% | 3A + 3B + 3C + 3E |
-| Dollar Surge | ~18,960 | ~7.21% | ~$144bn | −15% | 5.25% (unchanged) | 3A (mild) + 3B (mild) |
+| Taper Tantrum | ~21,850 | ~10.40% | ~$137bn | −25% | 5.50% → 7.25% | 3A + 3B + 3C + 3E |
+| China Deval | ~20,660 | ~8.40% | ~$145bn | −20% | flat/mild cut | 3B + commodity 3A + 3C |
+| EM Contagion | ~19,850 | ~8.90% | ~$138bn | −30% | 5.50% → 7.25% | 3A + 3B + 3C + 3E |
+| COVID | ~20,740 | ~9.90% | ~$141bn | −40% | 5.50% → 4.50% | 3A + 3B + 3C + 3E |
+| Fed Tightening | ~19,650 | ~8.40% | ~$127bn | −20% | 5.50% → 7.75% | 3A + 3B + 3C + 3E |
+| Dollar Surge | ~19,095 | ~7.90% | ~$144bn | −15% | 5.50% (unchanged) | 3A (mild) + 3B (mild) |
 
 ### 2026 Asymmetries vs Historical (always note in output)
 
 **Larger reserve buffer** ($151.9bn vs $92–141bn historical starts) → more BI ammo before GG degrades.
 
-**Higher starting SBN yield** (6.71%) → panic zones are closer. Taper Tantrum analog hits 9.71% (vs 8.5% actual 2013 peak) — would be Indonesia's highest yield since 2001.
+**Higher starting SBN yield** (7.40%) → panic zones are closer. Taper Tantrum analog hits 10.40% (vs 8.5% actual 2013 peak) — would be Indonesia's highest yield on record.
 
 **Tighter fiscal space** (deficit 2.68% already) → BI hike amplifies fiscal stress faster. Each +100bps BI Rate: belanja bunga rises ~IDR 10T on each IDR 1,000T SBN outstanding.
 
@@ -597,17 +597,17 @@ For user invocations like "simulate China slowdown", "test BI rate cut scenario"
 | **Sovereign Downgrade** | "sovereign downgrade", "Moody's downgrade", "IG cliff", "investment grade loss", "downgrade shock" | 1-month horizon | 3J → 3A → 3B → 3C → doom loop check |
 
 **China Slowdown — Moderate applied to June 2026 baseline:**
-- USDIDR: 17,879 → ~19,379 (+1,500)
+- USDIDR: 17,997 → ~19,497 (+1,500)
 - FX Reserves: $151.9bn → ~$136.9bn (−$15bn)
-- BI Rate: 5.25% → 5.00% (−25bps growth support)
+- BI Rate: 5.50% → 5.25% (−25bps growth support)
 - Coal/CPO/Ni: −30% each; Brent: −$10/bbl
 - Shocked GG: $136.9 / 67 = 2.04 (approaching YELLOW)
 - Shocked DSR: ~26.5% → crosses IMF 25% threshold → YELLOW
 
 **BI Rate Cut Premature — Moderate applied to June 2026 baseline:**
-- BI Rate: 5.25% → 4.75% (−50bps)
-- SBN 10Y: initial −35bps (rate cut beta), then risk re-pricing +80bps net = ~7.16%
-- USDIDR: 17,879 → ~19,079 (+1,200)
+- BI Rate: 5.50% → 5.00% (−50bps)
+- SBN 10Y: initial −35bps (rate cut beta), then risk re-pricing +80bps net = ~7.85%
+- USDIDR: 17,997 → ~19,197 (+1,200)
 - SBN foreign ownership: 12.68% → ~11.18% (−1.5pp)
 - EIDO: −12%
 - Check confidence gate: if post-shock DC < AC → flag ATTACK zone
@@ -615,8 +615,8 @@ For user invocations like "simulate China slowdown", "test BI rate cut scenario"
 
 **Sovereign Downgrade — 1-month horizon applied to June 2026 baseline:**
 - CDS: current baseline + 100bps (verify vs 200bps watch threshold before applying)
-- SBN 10Y: 6.71% → ~7.96% (+125bps)
-- USDIDR: 17,879 → ~19,879 (+2,000)
+- SBN 10Y: 7.40% → ~8.65% (+125bps)
+- USDIDR: 17,997 → ~19,997 (+2,000)
 - SBN foreign exit: 12.68% → ~9.68% (−3pp; crosses 10% sudden stop warning)
 - FX Reserves: $151.9bn → ~$136.9bn (−$15bn)
 - Forced selling estimate: ~$19bn IG-mandate exit over 3 months (use 1-month rate: −$15bn)
@@ -625,7 +625,7 @@ For user invocations like "simulate China slowdown", "test BI rate cut scenario"
 **Per-preset asymmetries vs historical analogs:**
 
 - China Slowdown vs 2015 China Deval: 2026 = pure volume shock (no CNY deval). Commodity impact similar magnitude but currency contagion channel absent. Indonesia's export diversification slightly better (nickel EV processing added). More dangerous: 2026 fiscal deficit already at 2.68%, less room to absorb revenue shortfall.
-- BI Rate Cut vs any historical episode: no close analog — Indonesia's 1997 crisis began with *inability* to hike (FX peg defense), not a voluntary cut. Closest: 2020 COVID cut (−100bps) but that was a global shock, not a policy error. The 2026 cut scenario is uniquely dangerous because BI Rate real is already near 0% (5.25% − 4.5–5% CPI ≈ 0.25–0.75% real).
+- BI Rate Cut vs any historical episode: no close analog — Indonesia's 1997 crisis began with *inability* to hike (FX peg defense), not a voluntary cut. Closest: 2020 COVID cut (−100bps) but that was a global shock, not a policy error. The 2026 cut scenario is uniquely dangerous because BI Rate real is already low (5.50% − 4.5–5% CPI ≈ 0.50–1.00% real). Note: Jun 9 2026 hike was inter-cycle (weekly RDG, not monthly) — signals BI alarmed by IDR weakness since late May; reversing this hike would destroy credibility faster than a normal-cycle cut.
 - Sovereign Downgrade vs Brazil 2015: Brazil 2015 deficit 8%+ (much worse), but Brazil had deeper domestic debt market to absorb. Indonesia's lower deficit but higher reliance on foreign SBN holders (12.68% vs Brazil's ~10% at downgrade). Net: similar market reaction expected but faster via SRBI collapse channel.
 
 ## Key Indonesia Macro Constants (check live data for latest)

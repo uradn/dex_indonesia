@@ -233,6 +233,24 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     });
   }
 
+  // 10. Pertamax non-subsidi single-step hike magnitude vs "stable non-subsidi pricing" narrative
+  // A >20% single-step hike on non-subsidi BBM = political price suppression released in one shot,
+  // contradicting BI's "pre-emptive, gradual" framing and implying pent-up inflationary pressure.
+  const pertamaxPoint = await getLatestPoint('pertamax_price_idr_liter');
+  const PERTAMAX_PRE_HORMUZ_BASELINE = 12_300; // last stable price before Hormuz crisis (Sep 2022–Jun 2026)
+  if (pertamaxPoint) {
+    const stepChangePct = ((pertamaxPoint.value - PERTAMAX_PRE_HORMUZ_BASELINE) / PERTAMAX_PRE_HORMUZ_BASELINE) * 100;
+    const divergenceScore = stepChangePct > 30 ? 75 : stepChangePct > 20 ? 50 : stepChangePct > 10 ? 25 : 5;
+    const flagged = stepChangePct > 20;
+    checks.push({
+      dimension: 'Pertamax Non-Subsidi Hike Magnitude vs Stable Energy Narrative',
+      officialClaim: `Non-subsidi BBM harga mengikuti formula keekonomian secara berkala (Kepmen ESDM)`,
+      marketSignal: `Pertamax IDR ${pertamaxPoint.value.toLocaleString('id-ID')}/liter — +${stepChangePct.toFixed(1)}% single-step dari baseline pre-Hormuz IDR ${PERTAMAX_PRE_HORMUZ_BASELINE.toLocaleString('id-ID')}${flagged ? ' — catch-up hike setelah 18+ bulan suppressed; implied CPI transportasi overshoot' : ''}`,
+      divergenceScore,
+      flagged,
+    });
+  }
+
   // Compute overall credibility score (inverted average divergence)
   const avgDivergence = checks.length > 0
     ? checks.reduce((s, c) => s + c.divergenceScore, 0) / checks.length

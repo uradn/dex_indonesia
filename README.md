@@ -157,14 +157,15 @@ Module 11 (Domestic Pressure) tracks domestic fuel prices against cost recovery,
 | Kepmen ESDM | 62.K/12/MEM/2020 | Formula harga jual eceran BBM — dasar hukum awal |
 | Kepmen ESDM | [tentang harga jual eceran BBM tertentu](https://migas.esdm.go.id/post/kepmen-esdm-tentang-harga-jual-eceran-bbm-jenis-tertentu-dan-khusus-penugasan) | BBM bersubsidi (Pertalite, Solar) — jenis tertentu dan khusus penugasan |
 
-**Harga BBM per 9 Juni 2026** (sumber: [Bisnis.com](https://ekonomi.bisnis.com/read/20260609/44/1979503/daftar-terbaru-harga-bbm-di-seluruh-spbu-berlaku-9-juni-2026)):
+**Harga BBM per 10 Juni 2026** (sumber: [Bisnis.com](https://ekonomi.bisnis.com/read/20260610/44/1979770/pertamax-naik-nyaris-rp4000-per-liter-daftar-harga-terbaru-bbm-pertamina) | [CNBC Indonesia](https://www.cnbcindonesia.com/news/20260610000254-4-741535/resmi-harga-bbm-pertamax-naik-jadi-rp-16250-liter-mulai-10-juni-2026)):
 
 | Jenis | Harga | Tipe | Keterangan |
 |-------|-------|------|------------|
-| Pertalite (RON 90) | IDR 10.000/liter | Bersubsidi | Tidak berubah sejak Sep 2022 |
+| Pertalite (RON 90) | IDR 10.000/liter | Bersubsidi | Tidak berubah sejak Sep 2022 — dilindungi komitmen Bahlil |
 | Solar / Biosolar B40 | IDR 6.800/liter | Bersubsidi | Tidak berubah |
-| Pertamax (RON 92) | IDR 12.300/liter | Non-subsidi | Disesuaikan berkala |
-| Pertamax Turbo | IDR 20.750/liter | Non-subsidi | RON 98, bensin premium; naik per Jun 2026 |
+| Pertamax (RON 92) | IDR 16.250/liter | Non-subsidi | **+Rp3.950 efektif 10 Jun 2026** (dari 12.300); Pertamina Patra Niaga |
+| Pertamax Green (RON 95) | IDR 17.000/liter | Non-subsidi | **+Rp4.100 efektif 10 Jun 2026** (dari 12.900) |
+| Pertamax Turbo | IDR 20.750/liter | Non-subsidi | RON 98, bensin premium; tidak berubah |
 | Dexlite (CN 51) | IDR 23.000/liter | Non-subsidi | Solar diesel non-subsidi; harga ikut MOPS Gasoil Singapore — sangat sensitif krisis Hormuz |
 | Pertamina Dex (CN 53) | IDR 24.800/liter | Non-subsidi | Solar diesel premium, mesin high-performance; harga tertinggi — turun sedikit per Jun 2026 |
 
@@ -186,7 +187,7 @@ Module 11 (Domestic Pressure) tracks domestic fuel prices against cost recovery,
 - ICP ≤ $100/bbl → BBM subsidi **tidak naik**
 - ICP > $100/bbl → komitmen **gugur** — hike menjadi keharusan fiskal
 - ICP YTD rata-rata Jan–Apr 2026: $77/bbl (saat pernyataan dibuat, margin $23)
-- **Per 9 Juni 2026: Brent $94.07 — margin tersisa hanya $5.93/bbl** ⚠️
+- **Per 10 Juni 2026: Brent $92.6 — margin tersisa hanya $7.4/bbl** ⚠️ (BI Rate inter-cycle hike + Pertamax naik 32% dalam satu hari)
 
 ---
 
@@ -226,7 +227,7 @@ Sebelum krisis: **25% seaborne oil** + **20% LNG dunia** melewati Hormuz. Kapasi
 | Skenario | Brent | ICP Proxy | Subsidy Gap/Liter | ICP Alert | Action |
 |----------|-------|-----------|-------------------|-----------|--------|
 | Baseline APBN | $70 | $70 | ~IDR 0 | 🟢 GREEN | Tidak ada |
-| Saat ini (9 Jun) | **$94** | ~$94 | **IDR 5.051** | 🟠 ORANGE | Monitor ketat |
+| Saat ini (10 Jun) | **$92.6** | ~$92.6 | **IDR 4.680** | 🟠 ORANGE | Monitor ketat |
 | Threshold Bahlil | $100 | $100 | ~IDR 7.200 | 🔴 RED | Komitmen gugur |
 | Peak Mar 2026 | $126 | $126 | ~IDR 12.800 | 🔴 RED | Hike wajib fiskal |
 | Eskalasi baru | $110+ | $110+ | ~IDR 9.000+ | 🔴 RED | Hike + social unrest |
@@ -255,9 +256,10 @@ Faktor 1.40 = crude 100% + kilang 20% + distribusi 10% + margin+pajak 10%
 Jika pemerintah umumkan kenaikan harga BBM, update langsung via env var:
 ```bash
 # .env
-PERTALITE_PRICE_IDR=12000   # harga baru setelah naik
-SOLAR_PRICE_IDR=8000
-PERTAMAX_PRICE_IDR=14000
+PERTALITE_PRICE_IDR=12000     # harga baru setelah naik (subsidi)
+SOLAR_PRICE_IDR=8000          # harga baru Solar subsidi
+PERTAMAX_PRICE_IDR=16250      # RON 92 — sudah naik 10 Jun 2026
+PERTAMAX_GREEN_PRICE_IDR=17000  # RON 95 — sudah naik 10 Jun 2026
 ```
 Sistem akan otomatis rekalkulasi subsidy gap dan ICP alert menggunakan harga baru.
 
