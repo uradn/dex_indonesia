@@ -139,7 +139,7 @@ Decomposes IDR weakness into global DXY story vs Indonesia-specific repricing. P
 - **BI IndONIA corridor** — DFR = BI Rate −100bps, LF = BI Rate +75bps; breach = forced BI liquidity injection
 - **Rivera-Batiz & Rivera-Batiz (R&R)** — 9 open-economy frameworks embedded across modules: PPP misalignment (M6), UIP carry (M7), Mundell-Fleming fiscal shock (stress-sim), Dornbusch overshoot (stress-sim), Trilemma/SRBI sterilization (M10), r-g debt dynamics (M13), 1st-gen shadow rate (M3), 2nd-gen confidence gate (M3), Sudden Stop SSVI (M5); invoke via `rr-framework` skill for theory → signal chain
 
-**APBN 2026 macro constants** (UU No.17/2025): USDIDR 16,500 | ICP $70/bbl | GDP growth 5.4% | CPI 2.5% | SBN 10Y 6.9% | Revenue 3,153.6T | Spending 3,842.7T | Deficit 2.68% GDP | Post-efisiensi spending ~3,534.7T | GDP 25,714.2T. BI Rate as of 20 May 2026: 5.25% (+50bps from 4.75%).
+**APBN 2026 macro constants** (UU No.17/2025): USDIDR 16,500 | ICP $70/bbl | GDP growth 5.4% | CPI 2.5% | SBN 10Y 6.9% | Revenue 3,153.6T | Spending 3,842.7T | Deficit 2.68% GDP | Post-efisiensi spending ~3,534.7T | GDP 25,714.2T. BI Rate as of 9 June 2026: 5.50% (+25bps from 5.25%, RDG June 2026) — rationale: stabilisasi Rupiah + pre-emptive inflasi. DFR 4.50%, LF 6.25%. Term premium (SBN 10Y 6.9% − BI Rate 5.50%): 1.4% (GREEN, below 2% ORANGE threshold).
 
 **Regime Engine** (`regime_engine` tool, `regime-engine.ts`): Classifies Indonesia macro regime via Growth ROC × Inflation ROC quadrant framework. Regimes: Q1 Goldilocks (Growth↑ Inflation↓), Q2 Reflation (Growth↑ Inflation↑), Q3 Stagflation (Growth↓ Inflation↑ — worst for IDR), Q4 Contraction (Growth↓ Inflation↓). Inputs: IMF GDP growth rate-of-change, IMF/TE inflation ROC, PMI Manufacturing (TE scrape), IHSG/DXY/VIX from Yahoo. Computes shift probability + historical Indonesia analogs + asset implications per quadrant. SCD weight: 0.05. Feeds Domestic Pressure Engine as upstream signal.
 
@@ -199,7 +199,8 @@ X_BEARER_TOKEN             # X API v2 Bearer Token; requires Basic plan ($100/mo
 # BBM price overrides — update immediately when Kepmen ESDM announces hike (no redeploy)
 PERTALITE_PRICE_IDR        # default 10000 (Kepmen ESDM 245.K/MG.01/MEM.M/2022)
 SOLAR_PRICE_IDR            # default 6800
-PERTAMAX_PRICE_IDR         # default 12300 (non-subsidi, Pertamina Jun 2026)
+PERTAMAX_PRICE_IDR         # default 16250 (non-subsidi, +Rp3,950 Jun 10 2026)
+PERTAMAX_GREEN_PRICE_IDR   # default 17000 (RON 95, +Rp4,100 Jun 10 2026)
 
 # LangSmith tracing (optional)
 LANGSMITH_API_KEY

@@ -21,9 +21,10 @@
  *
  * EMERGENCY OVERRIDE (for rapid response to hike announcement):
  *   Set env vars — no redeployment needed:
- *     PERTALITE_PRICE_IDR=10000   (override subsidized Pertalite price)
- *     SOLAR_PRICE_IDR=6800        (override subsidized Solar price)
- *     PERTAMAX_PRICE_IDR=12300    (override Pertamax — monthly adjusted by Pertamina)
+ *     PERTALITE_PRICE_IDR=10000        (override subsidized Pertalite price)
+ *     SOLAR_PRICE_IDR=6800             (override subsidized Solar price)
+ *     PERTAMAX_PRICE_IDR=16250         (override Pertamax RON 92 — +Rp3,950 Jun 10 2026)
+ *     PERTAMAX_GREEN_PRICE_IDR=17000   (override Pertamax Green RON 95 — +Rp4,100 Jun 10 2026)
  *
  * COST RECOVERY FORMULA:
  *   cost_recovery = (Brent_USD / 158.987 L/bbl) × USDIDR × 1.40
@@ -57,11 +58,12 @@ function envPrice(key: string, fallback: number): number {
   return isNaN(val) || val <= 0 ? fallback : val;
 }
 
-// Prices as of June 9, 2026 — update via env vars for instant response to hike
+// Prices as of June 10, 2026 — update via env vars for instant response to hike
 export const DOMESTIC_FUEL_PRICES = {
-  pertalite_price_idr_liter:  envPrice('PERTALITE_PRICE_IDR', 10_000), // RON 90, subsidized, Kepmen 245/2022
-  solar_price_idr_liter:      envPrice('SOLAR_PRICE_IDR',      6_800), // Biosolar B40, subsidized
-  pertamax_price_idr_liter:   envPrice('PERTAMAX_PRICE_IDR',  12_300), // RON 92, non-subsidized, Jun 2026
+  pertalite_price_idr_liter:       envPrice('PERTALITE_PRICE_IDR',       10_000), // RON 90, subsidized, Kepmen 245/2022 — unchanged
+  solar_price_idr_liter:           envPrice('SOLAR_PRICE_IDR',             6_800), // Biosolar B40, subsidized — unchanged
+  pertamax_price_idr_liter:        envPrice('PERTAMAX_PRICE_IDR',         16_250), // RON 92, non-subsidized, +Rp3,950 Jun 10 2026
+  pertamax_green_price_idr_liter:  envPrice('PERTAMAX_GREEN_PRICE_IDR',   17_000), // RON 95, non-subsidized, +Rp4,100 Jun 10 2026
 } as const;
 
 export function computeCostRecovery(brentUsd: number, usdIdr: number): number {
@@ -90,9 +92,11 @@ export function getFuelPricePoints(): MacroDataPoint[] {
     'kepmen_esdm_245_2022',
   ].filter(Boolean).join('+');
 
+  const pertaminaSource = 'pertamina_jun10_2026';
   return [
-    { indicator: 'pertalite_price_idr_liter', category: 'pangan', date, value: DOMESTIC_FUEL_PRICES.pertalite_price_idr_liter, unit: 'IDR/liter', source, fetchedAt },
-    { indicator: 'solar_price_idr_liter',     category: 'pangan', date, value: DOMESTIC_FUEL_PRICES.solar_price_idr_liter,     unit: 'IDR/liter', source, fetchedAt },
-    { indicator: 'pertamax_price_idr_liter',  category: 'pangan', date, value: DOMESTIC_FUEL_PRICES.pertamax_price_idr_liter,  unit: 'IDR/liter', source: 'pertamina_jun2026', fetchedAt },
+    { indicator: 'pertalite_price_idr_liter',      category: 'pangan', date, value: DOMESTIC_FUEL_PRICES.pertalite_price_idr_liter,      unit: 'IDR/liter', source, fetchedAt },
+    { indicator: 'solar_price_idr_liter',           category: 'pangan', date, value: DOMESTIC_FUEL_PRICES.solar_price_idr_liter,           unit: 'IDR/liter', source, fetchedAt },
+    { indicator: 'pertamax_price_idr_liter',        category: 'pangan', date, value: DOMESTIC_FUEL_PRICES.pertamax_price_idr_liter,        unit: 'IDR/liter', source: pertaminaSource, fetchedAt },
+    { indicator: 'pertamax_green_price_idr_liter',  category: 'pangan', date, value: DOMESTIC_FUEL_PRICES.pertamax_green_price_idr_liter,  unit: 'IDR/liter', source: pertaminaSource, fetchedAt },
   ];
 }
