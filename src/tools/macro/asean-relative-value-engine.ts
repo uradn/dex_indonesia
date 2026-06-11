@@ -69,6 +69,7 @@ const PEER_FX: Array<{ country: string; indicator: string }> = [
   { country: 'Singapore',   indicator: 'usdsgd_spot' },
   { country: 'Thailand',    indicator: 'usdthb_spot' },
   { country: 'Philippines', indicator: 'usdphp_spot' },
+  { country: 'Vietnam',     indicator: 'usdvnd_spot' },
 ];
 
 async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueOutput> {

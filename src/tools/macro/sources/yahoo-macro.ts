@@ -102,6 +102,7 @@ const FX_TICKERS: Record<string, { indicator: string; unit: string }> = {
   'SGD=X': { indicator: 'usdsgd_spot', unit: 'SGD/USD' },
   'THB=X': { indicator: 'usdthb_spot', unit: 'THB/USD' },
   'PHP=X': { indicator: 'usdphp_spot', unit: 'PHP/USD' },
+  'VND=X': { indicator: 'usdvnd_spot', unit: 'VND/USD' },
 };
 
 export async function fetchAseanFxSpots(): Promise<MacroDataPoint[]> {

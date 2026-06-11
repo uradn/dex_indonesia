@@ -70,8 +70,8 @@ const SNAPSHOT_INDICATORS = [
   'fintech_npl_pct', 'ihsg_pe_ratio', 'idx_advance_decline_ratio',
   // political risk
   'political_social_unrest_score', 'political_food_stress_score', 'political_stability_stress_score',
-  // asean fx
-  'usdmyr_spot', 'usdsgd_spot', 'usdthb_spot', 'usdphp_spot',
+  // asean fx (IDR + 5 peers)
+  'usdmyr_spot', 'usdsgd_spot', 'usdthb_spot', 'usdphp_spot', 'usdvnd_spot',
 ];
 
 const CHART_INDICATORS = [
@@ -80,8 +80,8 @@ const CHART_INDICATORS = [
   'bi_fx_reserves_bn', 'sbn_foreign_ownership_pct',
 ];
 
-const ASEAN_FX = ['usdidr_spot', 'usdmyr_spot', 'usdsgd_spot', 'usdthb_spot', 'usdphp_spot'];
-const ASEAN_LABELS: Record<string, string> = { usdidr_spot: 'IDR', usdmyr_spot: 'MYR', usdsgd_spot: 'SGD', usdthb_spot: 'THB', usdphp_spot: 'PHP' };
+const ASEAN_FX = ['usdidr_spot', 'usdmyr_spot', 'usdsgd_spot', 'usdthb_spot', 'usdphp_spot', 'usdvnd_spot'];
+const ASEAN_LABELS: Record<string, string> = { usdidr_spot: 'IDR', usdmyr_spot: 'MYR', usdsgd_spot: 'SGD', usdthb_spot: 'THB', usdphp_spot: 'PHP', usdvnd_spot: 'VND' };
 
 function get30dAgo(db: Database, indicator: string): number | null {
   const since = new Date(Date.now() - 35 * 86400_000).toISOString().slice(0, 10);
@@ -708,56 +708,118 @@ function renderPolRisk(d) {
     \${scoreRows}
     <div style="margin-top:8px;font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">1998 Template Checklist</div>
     \${t98rows}
-    \${kv('Unemployment', unemp ? fmtNum(unemp,2)+'%' : '—', unemp > 6 ? 'red' : unemp > 5 ? 'orange' : unemp > 4.8 ? 'yellow' : 'green')}
-    \${unemp && unempDate ? \`<div style="font-size:9px;color:var(--muted);padding:2px 0">BPS quarterly data — as of \${unempDate}. Next BPS release ~Aug 2026.</div>\` : ''}
     \${feedWarning}
   \`;
 }
 
 // ── ASEAN FX Peers Panel ──────────────────────────────────────────────────────
+function fmtSpot(v, label) {
+  if (label === 'IDR' || label === 'VND') return Math.round(v).toLocaleString('id');
+  if (v >= 10) return v.toFixed(2);
+  return v.toFixed(4);
+}
+
 function renderAsean(d) {
   const { aseanFx } = d;
   if (!aseanFx) return '<span style="color:var(--muted)">No data</span>';
 
   const entries = Object.values(aseanFx);
-  // sort by changePct desc (most depreciated first)
   entries.sort((a,b) => (b.changePct ?? -999) - (a.changePct ?? -999));
 
-  // compute idiosyncratic: IDR change - ASEAN median (excl IDR)
-  const peers = entries.filter(e => e.label !== 'IDR').map(e => e.changePct).filter(x => x !== null);
-  const median = peers.length ? peers.sort((a,b)=>a-b)[Math.floor(peers.length/2)] : null;
+  // ASEAN median 30d change (excl IDR)
+  const peerChanges = entries.filter(e => e.label !== 'IDR').map(e => e.changePct).filter(x => x !== null);
+  const sortedPeers = [...peerChanges].sort((a,b) => a-b);
+  const median = sortedPeers.length ? sortedPeers[Math.floor(sortedPeers.length/2)] : null;
   const idrChange = aseanFx['usdidr_spot']?.changePct ?? null;
   const idiosync = idrChange !== null && median !== null ? +(idrChange - median).toFixed(2) : null;
 
-  // bar chart — max range ±10%
-  const maxAbs = Math.max(5, ...entries.map(e => Math.abs(e.changePct ?? 0)));
+  // Summary stats
+  const validEntries = entries.filter(e => e.changePct !== null);
+  const depreciating = validEntries.filter(e => (e.changePct ?? 0) > 0.5).length;
+  const appreciating = validEntries.filter(e => (e.changePct ?? 0) < -0.5).length;
+  const allDepreciating = validEntries.length > 0 && validEntries.every(e => (e.changePct ?? 0) > 0);
+
+  // IDR rank (1 = most depreciated)
+  const idrEntry = entries.find(e => e.label === 'IDR');
+  const idrRank = idrEntry ? entries.filter(e => e.changePct !== null).findIndex(e => e.label === 'IDR') + 1 : null;
+
+  // Summary header bar
+  const idiosCls = idiosync === null ? '' : Math.abs(idiosync) >= 3 ? 'red' : Math.abs(idiosync) >= 1 ? 'orange' : 'green';
+  const summaryHtml = \`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:8px">
+    <div style="background:rgba(255,255,255,.04);border-radius:3px;padding:4px 6px;text-align:center">
+      <div style="font-size:18px;font-weight:700;color:var(--text)">\${idrRank ?? '?'}<span style="font-size:10px;color:var(--muted)">/\${validEntries.length}</span></div>
+      <div style="font-size:9px;color:var(--muted)">IDR rank</div>
+    </div>
+    <div style="background:rgba(255,255,255,.04);border-radius:3px;padding:4px 6px;text-align:center">
+      <div style="font-size:18px;font-weight:700" class="\${idiosCls}">\${idiosync !== null ? (idiosync > 0 ? '+' : '')+idiosync+'%' : '—'}</div>
+      <div style="font-size:9px;color:var(--muted)">IDR idiosync</div>
+    </div>
+    <div style="background:rgba(255,255,255,.04);border-radius:3px;padding:4px 6px;text-align:center">
+      <div style="font-size:18px;font-weight:700;color:var(--orange)">\${depreciating}<span style="font-size:10px;color:var(--muted)">/\${validEntries.length}</span></div>
+      <div style="font-size:9px;color:var(--muted)">depreciating</div>
+    </div>
+  </div>\`;
+
+  // Bars with spot rate
+  const maxAbs = Math.max(1, ...entries.map(e => Math.abs(e.changePct ?? 0)));
   const bars = entries.map(e => {
     const pct = e.changePct;
-    if (pct === null) return \`<div class="bar-row"><span class="bar-label">\${e.label}</span><span style="color:var(--muted)">n/a</span></div>\`;
     const isIdr = e.label === 'IDR';
-    // positive = depreciation (bad), negative = appreciation (good)
-    const cls = pct >= 5 ? 'red' : pct >= 3 ? 'orange' : pct >= 1 ? 'yellow' : 'green';
-    const color = pct >= 5 ? 'var(--red)' : pct >= 3 ? 'var(--orange)' : pct >= 1 ? 'var(--yellow)' : 'var(--green)';
+    if (pct === null) return \`<div class="bar-row">
+      <span class="bar-label" style="\${isIdr ? 'color:var(--text);font-weight:700' : ''}">\${e.label}</span>
+      <div class="bar-track"></div>
+      <span style="font-size:10px;color:var(--muted);width:52px;text-align:right">n/a</span>
+    </div>\`;
+    const cls = pct >= 5 ? 'red' : pct >= 3 ? 'orange' : pct >= 1 ? 'yellow' : pct <= -1 ? 'green' : '';
+    const color = pct >= 5 ? 'var(--red)' : pct >= 3 ? 'var(--orange)' : pct >= 1 ? 'var(--yellow)' : pct <= -1 ? 'var(--green)' : 'var(--muted)';
     const widthPct = Math.min(100, Math.abs(pct) / maxAbs * 100);
-    return \`<div class="bar-row">
+    const spotStr = e.current !== null ? fmtSpot(e.current, e.label) : '';
+    return \`<div class="bar-row" style="margin-bottom:4px">
       <span class="bar-label" style="\${isIdr ? 'color:var(--text);font-weight:700' : ''}">\${e.label}</span>
       <div class="bar-track"><div class="bar-fill" style="width:\${widthPct}%;background:\${color}"></div></div>
-      <span class="bar-val \${cls}">\${pct > 0 ? '+' : ''}\${pct.toFixed(2)}%</span>
+      <span style="font-size:9px;color:var(--muted);width:48px;text-align:right;flex-shrink:0">\${spotStr}</span>
+      <span class="bar-val \${cls}" style="width:48px">\${pct > 0 ? '+' : ''}\${pct.toFixed(2)}%</span>
     </div>\`;
   }).join('');
 
-  // narrative
-  const allDepreciating = entries.every(e => (e.changePct ?? 0) > 0);
-  let narrative = '';
-  if (idiosync !== null) {
-    const idiosCls = Math.abs(idiosync) >= 3 ? 'red' : Math.abs(idiosync) >= 1 ? 'orange' : 'green';
-    narrative = \`IDR idiosyncratic: <span class="\${idiosCls}"><b>\${idiosync > 0 ? '+' : ''}\${idiosync}%</b></span> vs ASEAN median (\${median !== null ? median.toFixed(2)+'%' : 'n/a'}).\`;
-    if (allDepreciating && Math.abs(idiosync) < 2) narrative += ' <span class="yellow">Global DXY story — tidak ID-specific.</span>';
-    else if (idiosync >= 3) narrative += ' <span class="red">IDR underperform signifikan — ID-specific pressure.</span>';
-    else if (idiosync <= -2) narrative += ' <span class="green">IDR outperform peers — tekanan berkurang relatif.</span>';
+  // Narrative — rendered inline, clear the external div
+  let narrativeTxt = '';
+  if (idiosync !== null && median !== null) {
+    narrativeTxt = \`ASEAN median 30d: <b>\${median > 0 ? '+' : ''}\${median.toFixed(2)}%</b> (\${depreciating} depresiasi, \${appreciating} apresiasi).\`;
+    if (allDepreciating && Math.abs(idiosync) < 1.5) narrativeTxt += \` <span class="yellow">DXY broad — bukan ID-specific.</span>\`;
+    else if (idiosync >= 3) narrativeTxt += \` <span class="red">IDR ID-specific pressure (+\${idiosync}% vs median).</span>\`;
+    else if (idiosync <= -2) narrativeTxt += \` <span class="green">IDR outperform peers.</span>\`;
+    else narrativeTxt += \` IDR inline dengan peers.\`;
   }
-  document.getElementById('asean-narrative').innerHTML = narrative;
-  return bars;
+  const narrativeHtml = narrativeTxt
+    ? \`<div style="font-size:9px;color:var(--muted);margin:6px 0 2px;line-height:1.5">\${narrativeTxt}</div>\`
+    : '';
+  document.getElementById('asean-narrative').innerHTML = '';
+
+  // FX Drivers — global forces driving ASEAN FX
+  const ind = d.indicators;
+  const dxy   = ind['dxy_index']?.value ?? null;
+  const vix   = ind['vix_level']?.value ?? null;
+  const spr   = d.derived?.sbnUstSpread ?? null;
+  const gap   = d.derived?.usdidrVsApbn ?? null;
+  const bi    = ind['bi_rate_pct']?.value ?? null;
+  const ust   = ind['ust_10y_yield_pct']?.value ?? null;
+  const carry = bi !== null && ust !== null ? +(bi - ust).toFixed(2) : null;
+
+  const fxDrivers = \`
+    <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">FX Drivers</div>
+      \${kv('DXY Index',       dxy   ? fmtNum(dxy,1)       : '—', dxy > 108 ? 'orange' : dxy > 104 ? 'yellow' : 'green')}
+      \${kv('VIX',             vix   ? fmtNum(vix,1)       : '—', vix > 35 ? 'red' : vix > 25 ? 'orange' : vix > 20 ? 'yellow' : 'green')}
+      \${kv('SBN-UST Spread',  spr   != null ? spr+'bps'  : '—', spr < 200 ? 'red' : spr < 250 ? 'orange' : '')}
+      \${kv('IDR vs APBN 16.5k', gap != null ? (gap > 0 ? '+' : '')+gap+'%' : '—', gap > 9 ? 'orange' : gap > 6 ? 'yellow' : 'green')}
+      \${kv('Carry (BI−UST)',  carry != null ? (carry > 0 ? '+' : '')+fmtNum(carry,2)+'%' : '—', carry < 0.5 ? 'red' : carry < 1.0 ? 'orange' : carry < 1.5 ? 'yellow' : 'green')}
+      \${kv('BI Rate',         bi    ? fmtNum(bi,2)+'%'   : '—')}
+      \${kv('UST 10Y',         ust   ? fmtNum(ust,2)+'%'  : '—')}
+    </div>
+  \`;
+
+  return summaryHtml + bars + narrativeHtml + fxDrivers;
 }
 
 // ── Markdown → HTML (minimal, SCD-tuned) ─────────────────────────────────────
