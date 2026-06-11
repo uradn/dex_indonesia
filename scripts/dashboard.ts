@@ -68,6 +68,10 @@ const SNAPSHOT_INDICATORS = [
   'pihps_daging_sapi_idr', 'pihps_gula_pasir_idr',
   'nickel_price_usd', 'coal_etf_usd', 'cpo_price_myr', 'gold_price_usd',
   'fintech_npl_pct', 'ihsg_pe_ratio', 'idx_advance_decline_ratio',
+  // political risk
+  'political_social_unrest_score', 'political_food_stress_score', 'political_stability_stress_score',
+  // asean fx
+  'usdmyr_spot', 'usdsgd_spot', 'usdthb_spot', 'usdphp_spot',
 ];
 
 const CHART_INDICATORS = [
@@ -76,11 +80,23 @@ const CHART_INDICATORS = [
   'bi_fx_reserves_bn', 'sbn_foreign_ownership_pct',
 ];
 
+const ASEAN_FX = ['usdidr_spot', 'usdmyr_spot', 'usdsgd_spot', 'usdthb_spot', 'usdphp_spot'];
+const ASEAN_LABELS: Record<string, string> = { usdidr_spot: 'IDR', usdmyr_spot: 'MYR', usdsgd_spot: 'SGD', usdthb_spot: 'THB', usdphp_spot: 'PHP' };
+
+function get30dAgo(db: Database, indicator: string): number | null {
+  const since = new Date(Date.now() - 35 * 86400_000).toISOString().slice(0, 10);
+  const until = new Date(Date.now() - 25 * 86400_000).toISOString().slice(0, 10);
+  const row = db.query<{ value: number }, [string, string, string]>(
+    `SELECT value FROM macro_series WHERE indicator = ? AND date BETWEEN ? AND ? ORDER BY date DESC LIMIT 1`
+  ).get(indicator, since, until);
+  return row?.value ?? null;
+}
+
 function buildSnapshot() {
   const db = openDb();
   try {
     const data = getLatest(db, SNAPSHOT_INDICATORS);
-    // derived
+    // derived monetary
     const sbn = data['sbn_10y_yield_pct']?.value ?? null;
     const bi = data['bi_rate_pct']?.value ?? null;
     const termPremium = sbn !== null && bi !== null ? +(sbn - bi).toFixed(2) : null;
@@ -89,7 +105,16 @@ function buildSnapshot() {
     const sbnUstSpread = sbn !== null && ust !== null ? Math.round((sbn - ust) * 100) : null;
     const usdidr = data['usdidr_spot']?.value ?? null;
     const usdidrVsApbn = usdidr !== null ? +(((usdidr - 16500) / 16500) * 100).toFixed(1) : null;
-    return { indicators: data, derived: { termPremium, sbnUstSpread, usdidrVsApbn, cds }, ts: new Date().toISOString() };
+    // ASEAN FX 30d changes
+    const aseanFx: Record<string, { current: number | null; prior30d: number | null; changePct: number | null; label: string }> = {};
+    for (const ind of ASEAN_FX) {
+      const current = data[ind]?.value ?? null;
+      const prior = get30dAgo(db, ind);
+      const changePct = current !== null && prior !== null && prior !== 0
+        ? +((current - prior) / prior * 100).toFixed(2) : null;
+      aseanFx[ind] = { current, prior30d: prior, changePct, label: ASEAN_LABELS[ind] };
+    }
+    return { indicators: data, derived: { termPremium, sbnUstSpread, usdidrVsApbn, cds }, aseanFx, ts: new Date().toISOString() };
   } finally {
     db.close();
   }
@@ -158,6 +183,14 @@ const HTML = `<!DOCTYPE html>
   .chart-current { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
   canvas { max-height: 120px; }
   .food-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+  .bottom-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 11px; }
+  .bar-label { width: 40px; color: var(--muted); flex-shrink: 0; }
+  .bar-track { flex: 1; height: 14px; background: var(--border); border-radius: 2px; overflow: hidden; position: relative; }
+  .bar-fill { height: 100%; border-radius: 2px; transition: width .3s; }
+  .bar-val { width: 60px; text-align: right; font-weight: 600; flex-shrink: 0; }
+  .template98-item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 11px; border-bottom: 1px solid var(--border); }
+  .template98-item:last-child { border-bottom: none; }
   .scd-run-btn { margin-top: 8px; padding: 6px 14px; background: #1f2937; border: 1px solid var(--border); color: var(--text); border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 11px; width: 100%; }
   .scd-run-btn:hover { background: var(--border); }
   .scd-run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -227,6 +260,23 @@ const HTML = `<!DOCTYPE html>
 
   <div class="main">
     <div class="charts-grid" id="charts-grid"></div>
+    <div class="bottom-panels">
+      <div class="card">
+        <div class="card-title">Political Risk — Unrest Monitor (M12)</div>
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">
+          <span class="doom-score" id="polrisk-score">—</span>
+          <span id="polrisk-label" style="font-size:11px;color:var(--muted)"></span>
+          <span style="font-size:10px;color:var(--muted);margin-left:auto">1998 template: <span id="template98-score" style="font-weight:700">—</span>/5</span>
+        </div>
+        <div id="panel-polrisk"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">ASEAN FX Peers — IDR Idiosyncratic Check (M7)</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:6px">30d change — positive = depreciation vs USD</div>
+        <div id="panel-asean"></div>
+        <div style="margin-top:8px;font-size:10px;color:var(--muted)" id="asean-narrative"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -530,12 +580,133 @@ async function refresh() {
     document.getElementById('panel-banking').innerHTML = renderBanking(snapshot);
     document.getElementById('panel-doom').innerHTML = renderDoom(snapshot);
     document.getElementById('panel-food').innerHTML = renderFood(snapshot);
+    document.getElementById('panel-polrisk').innerHTML = renderPolRisk(snapshot);
+    document.getElementById('panel-asean').innerHTML = renderAsean(snapshot);
     renderCharts(charts);
 
     document.getElementById('last-updated').textContent = 'Updated: ' + new Date().toLocaleTimeString('id-ID');
   } catch (e) {
     document.getElementById('last-updated').textContent = 'Error: ' + e.message;
   }
+}
+
+// ── Political Risk Panel ──────────────────────────────────────────────────────
+function renderPolRisk(d) {
+  const ind = d.indicators;
+  const unrest  = ind['political_social_unrest_score']?.value ?? null;
+  const food    = ind['political_food_stress_score']?.value ?? null;
+  const stab    = ind['political_stability_stress_score']?.value ?? null;
+  const unemp   = ind['unemployment_rate_pct']?.value ?? null;
+  const usdidr  = ind['usdidr_spot']?.value ?? null;
+  const gap     = ind['bbm_subsidy_gap_idr_liter']?.value ?? null;
+
+  // composite score
+  const scores = [unrest, food, stab ? (100 - stab) : null].filter(x => x !== null) as number[];
+  const composite = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : null;
+
+  const scoreEl = document.getElementById('polrisk-score');
+  const labelEl = document.getElementById('polrisk-label');
+  if (composite !== null) {
+    scoreEl.textContent = composite.toString();
+    const cls = composite >= 70 ? 'red' : composite >= 50 ? 'orange' : composite >= 33 ? 'yellow' : 'green';
+    scoreEl.className = 'doom-score ' + cls;
+    const lbl = composite >= 70 ? 'HIGH RISK' : composite >= 50 ? 'Elevated' : composite >= 33 ? 'Watch' : 'Stable';
+    labelEl.innerHTML = \`<span class="tag \${cls}">\${lbl}</span>\`;
+  } else {
+    scoreEl.textContent = '?';
+  }
+
+  // 1998 template conditions
+  const t98 = [
+    { label: 'Food unaffordable',        active: (food ?? 0) > 50 || (gap ?? 0) > 4000 },
+    { label: 'IDR weakening (>17,000)',  active: (usdidr ?? 0) > 17000 },
+    { label: 'Unemployment rising',      active: (unemp ?? 0) > 5.0 },
+    { label: 'Social unrest elevated',   active: (unrest ?? 0) > 40 },
+    { label: 'Political stability stress', active: stab !== null && stab < 50 },
+  ];
+  const t98score = t98.filter(x => x.active).length;
+  const t98cls = t98score >= 4 ? 'red' : t98score >= 3 ? 'orange' : t98score >= 2 ? 'yellow' : 'green';
+  document.getElementById('template98-score').className = t98cls;
+  document.getElementById('template98-score').textContent = t98score.toString();
+
+  const scoreRows = [
+    { label: 'Social Unrest', val: unrest, inverse: false },
+    { label: 'Food Stress',   val: food,   inverse: false },
+    { label: 'Stability',     val: stab,   inverse: true },
+  ].map(({ label, val, inverse }) => {
+    if (val === null) return \`<div class="bar-row"><span class="bar-label">\${label}</span><span style="color:var(--muted)">n/a</span></div>\`;
+    const displayVal = inverse ? 100 - val : val;
+    const cls = displayVal >= 70 ? 'red' : displayVal >= 50 ? 'orange' : displayVal >= 33 ? 'yellow' : 'green';
+    const color = displayVal >= 70 ? 'var(--red)' : displayVal >= 50 ? 'var(--orange)' : displayVal >= 33 ? 'var(--yellow)' : 'var(--green)';
+    return \`<div class="bar-row">
+      <span class="bar-label">\${label}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:\${displayVal}%;background:\${color}"></div></div>
+      <span class="bar-val \${cls}">\${displayVal}/100</span>
+    </div>\`;
+  }).join('');
+
+  const t98rows = t98.map(item =>
+    \`<div class="template98-item">
+      <span>\${item.label}</span>
+      <span class="\${item.active ? 'red' : 'green'}">\${item.active ? '▲ YES' : '○ no'}</span>
+    </div>\`
+  ).join('');
+
+  return \`
+    \${scoreRows}
+    <div style="margin-top:8px;font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">1998 Template Checklist</div>
+    \${t98rows}
+    \${kv('Unemployment', unemp ? fmtNum(unemp,2)+'%' : '—', unemp > 6 ? 'red' : unemp > 5 ? 'orange' : unemp > 4.8 ? 'yellow' : 'green')}
+  \`;
+}
+
+// ── ASEAN FX Peers Panel ──────────────────────────────────────────────────────
+function renderAsean(d) {
+  const { aseanFx } = d;
+  if (!aseanFx) return '<span style="color:var(--muted)">No data</span>';
+
+  const entries = Object.values(aseanFx) as any[];
+  // sort by changePct desc (most depreciated first)
+  entries.sort((a,b) => (b.changePct ?? -999) - (a.changePct ?? -999));
+
+  // compute idiosyncratic: IDR change - ASEAN median (excl IDR)
+  const peers = entries.filter(e => e.label !== 'IDR').map(e => e.changePct).filter(x => x !== null) as number[];
+  const median = peers.length ? peers.sort((a,b)=>a-b)[Math.floor(peers.length/2)] : null;
+  const idrChange = aseanFx['usdidr_spot']?.changePct ?? null;
+  const idiosync = idrChange !== null && median !== null ? +(idrChange - median).toFixed(2) : null;
+
+  // bar chart — max range ±10%
+  const maxAbs = Math.max(5, ...entries.map(e => Math.abs(e.changePct ?? 0)));
+  const bars = entries.map(e => {
+    const pct = e.changePct;
+    if (pct === null) return \`<div class="bar-row"><span class="bar-label">\${e.label}</span><span style="color:var(--muted)">n/a</span></div>\`;
+    const isIdr = e.label === 'IDR';
+    const cls = pct >= 5 ? 'red' : pct >= 3 ? 'orange' : pct >= 1 ? 'yellow' : pct <= -1 ? 'green' : '';
+    const color = pct >= 5 ? 'var(--red)' : pct >= 3 ? 'var(--orange)' : pct >= 1 ? 'var(--yellow)' : 'var(--green)';
+    const widthPct = Math.abs(pct) / maxAbs * 100;
+    const isPos = pct >= 0;
+    // bar from center for positive (depreciation) or negative (appreciation)
+    return \`<div class="bar-row">
+      <span class="bar-label" style="\${isIdr ? 'color:var(--text);font-weight:700' : ''}">\${e.label}</span>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:\${widthPct}%;background:\${isPos ? color : 'var(--green)'};margin-left:\${isPos ? 0 : (100-widthPct)+'%'}"></div>
+      </div>
+      <span class="bar-val \${cls}">\${pct > 0 ? '+' : ''}\${pct.toFixed(2)}%</span>
+    </div>\`;
+  }).join('');
+
+  // narrative
+  const allDepreciating = entries.every(e => (e.changePct ?? 0) > 0);
+  let narrative = '';
+  if (idiosync !== null) {
+    const idiosCls = Math.abs(idiosync) >= 3 ? 'red' : Math.abs(idiosync) >= 1 ? 'orange' : 'green';
+    narrative = \`IDR idiosyncratic: <span class="\${idiosCls}"><b>\${idiosync > 0 ? '+' : ''}\${idiosync}%</b></span> vs ASEAN median (\${median !== null ? median.toFixed(2)+'%' : 'n/a'}).\`;
+    if (allDepreciating && Math.abs(idiosync) < 2) narrative += ' <span class="yellow">Global DXY story — tidak ID-specific.</span>';
+    else if (idiosync >= 3) narrative += ' <span class="red">IDR underperform signifikan — ID-specific pressure.</span>';
+    else if (idiosync <= -2) narrative += ' <span class="green">IDR outperform peers — tekanan berkurang relatif.</span>';
+  }
+  document.getElementById('asean-narrative').innerHTML = narrative;
+  return bars;
 }
 
 // ── SCD on-demand ────────────────────────────────────────────────────────────
