@@ -37,6 +37,8 @@ Indicators:
 - Market stress check alongside sovereign/FX signals
 `.trim();
 
+export type MarketTiming = 'oversold' | 'neutral' | 'overheated';
+
 interface MarketStressOutput {
   alert: AlertLevel;
   stressScore: number;
@@ -45,6 +47,7 @@ interface MarketStressOutput {
   peAlert: AlertLevel;
   breadthAlert: AlertLevel;
   valuationDisconnect: boolean;
+  timing: MarketTiming;
   dataDate: string;
   flags: string[];
   narrative: string;
@@ -128,6 +131,18 @@ export async function runMarketStressEngine(): Promise<MarketStressOutput> {
   // 4. Detect valuation disconnect (use composite-equiv for threshold comparison)
   const valuationDisconnect = (peForScoring !== null && peForScoring > 20) && (adRatio !== null && adRatio < 0.8);
 
+  // 4b. Market timing signal
+  // oversold: P/E cheap (<14x) + breadth selling, OR panic breadth (<0.5) regardless of valuation
+  // overheated: P/E elevated (>22x) + breadth still positive (>1.0) = expensive + still being bought
+  // neutral: everything else
+  const timing: MarketTiming =
+    (adRatio !== null && adRatio < 0.5) ||
+    (peForScoring !== null && peForScoring < 14 && adRatio !== null && adRatio < 0.8)
+      ? 'oversold'
+    : (peForScoring !== null && peForScoring > 22 && adRatio !== null && adRatio >= 1.0)
+      ? 'overheated'
+    : 'neutral';
+
   // 5. Flags
   const flags: string[] = [];
   if (peForScoring !== null && peForScoring > 24) flags.push(`IHSG P/E ~${peForScoring}x (composite-equiv) — elevated vs historical avg (14-16x)`);
@@ -155,7 +170,7 @@ export async function runMarketStressEngine(): Promise<MarketStressOutput> {
     flags.length === 0 ? 'No active stress flags.' : '',
   ].filter(Boolean).join(' ');
 
-  return { alert, stressScore, peRatio, adRatio, peAlert, breadthAlert, valuationDisconnect, dataDate, flags, narrative };
+  return { alert, stressScore, peRatio, adRatio, peAlert, breadthAlert, valuationDisconnect, timing, dataDate, flags, narrative };
 }
 
 function formatMarketStressOutput(output: MarketStressOutput): string {
@@ -168,6 +183,7 @@ function formatMarketStressOutput(output: MarketStressOutput): string {
     `| IHSG P/E (EIDO proxy) | ${output.peRatio !== null ? output.peRatio.toFixed(1) + 'x raw / ~' + compositeEquivPe(output.peRatio) + 'x equiv' : 'n/a'} | ${output.peAlert.toUpperCase()} | YELLOW >22x, RED >27x (composite-equiv) |`,
     `| A/D Ratio | ${output.adRatio !== null ? output.adRatio.toFixed(2) : 'n/a'} | ${output.breadthAlert.toUpperCase()} | YELLOW <0.8, RED <0.5 |`,
     `| Valuation Disconnect | ${output.valuationDisconnect ? 'DETECTED' : 'No'} | — | P/E>20 + A/D<0.8 |`,
+    `| Market Timing | ${output.timing.toUpperCase()} | — | Oversold: P/E<14+selling or A/D<0.5; Overheated: P/E>22+A/D>1.0 |`,
     ``,
     output.flags.length > 0 ? `**Flags:**\n${output.flags.map(f => `- ${f}`).join('\n')}` : '**No active flags.**',
     ``,
