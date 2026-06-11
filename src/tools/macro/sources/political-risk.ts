@@ -91,6 +91,19 @@ const SIGNAL_QUERIES: Record<NewsSentimentSignal, string> = {
   political_stability: 'Indonesia politik risiko stabilitas Prabowo ekonomi 2026',
 };
 
+// Tavily queries skew toward Indonesian domestic news portals
+const SIGNAL_QUERIES_TAVILY: Record<NewsSentimentSignal, string> = {
+  food_pressure:       'Indonesia harga sembako beras naik demo protes petani buruh pangan 2026',
+  social_unrest:       'Indonesia demo unjuk rasa kerusuhan PHK buruh mogok protes jalanan 2026',
+  political_stability: 'Indonesia stabilitas politik risiko investor Prabowo otoriter 2026',
+};
+
+const INDONESIAN_NEWS_DOMAINS = [
+  'detik.com', 'kompas.com', 'tribunnews.com', 'tempo.co',
+  'cnnindonesia.com', 'bisnis.com', 'kontan.co.id', 'antaranews.com',
+  'republika.co.id', 'mediaindonesia.com', 'jpnn.com', 'suara.com',
+];
+
 
 function scoreTitle(title: string): { negative: number; positive: number; highSeverity: number } {
   const lower = title.toLowerCase();
@@ -145,6 +158,58 @@ export async function searchNewsSentiment(signal: NewsSentimentSignal, daysBack 
       headlines: top4.map((r) => r.title ?? '').filter(Boolean),
       urls: top4.map((r) => r.url ?? '').filter(Boolean),
       publishedDates: top4.map((r) => (r.publishedDate ?? '').slice(0, 10)),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Tavily fallback for news sentiment — Bing-indexed Indonesian portals.
+ * Scores article titles + first 200 chars of content via same keyword logic as Exa.
+ * Returns null if TAVILY_API_KEY not set or search fails.
+ */
+export async function searchNewsSentimentTavily(signal: NewsSentimentSignal, daysBack = 7): Promise<SentimentResult | null> {
+  if (!process.env.TAVILY_API_KEY) return null;
+  try {
+    const { TavilySearchAPIWrapper } = await import('@langchain/tavily');
+    const tavily = new TavilySearchAPIWrapper({ tavilyApiKey: process.env.TAVILY_API_KEY });
+
+    const response = await (tavily as any).rawResults({
+      query: SIGNAL_QUERIES_TAVILY[signal],
+      max_results: 8,
+      include_domains: INDONESIAN_NEWS_DOMAINS,
+      time_range: daysBack <= 7 ? 'week' : 'month',
+    });
+
+    const results = (response.results ?? []) as Array<{ title?: string; url?: string; content?: string; published_date?: string }>;
+    let totalNegative = 0;
+    let totalPositive = 0;
+    let totalHighSeverity = 0;
+
+    for (const item of results) {
+      // Score title + first 200 chars of content snippet for richer signal
+      const text = (item.title ?? '') + ' ' + (item.content ?? '').slice(0, 200);
+      const { negative, positive, highSeverity } = scoreTitle(text);
+      totalNegative += negative + highSeverity;
+      totalPositive += positive;
+      totalHighSeverity += highSeverity;
+    }
+
+    const weightedNegative = totalNegative + totalHighSeverity;
+    const netStress = Math.max(0, weightedNegative - totalPositive);
+    const stressScore = Math.min(100, Math.round((netStress / Math.max(results.length, 1)) * 25));
+
+    const top4 = results.slice(0, 4);
+    return {
+      signal,
+      stressScore,
+      negativeCount: totalNegative,
+      positiveCount: totalPositive,
+      highSeverityCount: totalHighSeverity,
+      headlines: top4.map((r) => r.title ?? '').filter(Boolean),
+      urls: top4.map((r) => r.url ?? '').filter(Boolean),
+      publishedDates: top4.map((r) => (r.published_date ?? '').slice(0, 10)),
     };
   } catch {
     return null;

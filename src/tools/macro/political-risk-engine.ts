@@ -15,12 +15,14 @@
  * Complements Module 11 (Domestic Pressure) which tracks price levels;
  * Module 12 tracks political RESPONSE and systemic risk from those prices.
  *
- * Source reliability:
- *   - Unemployment (TE): high reliability, quarterly lag ~2 months
- *   - Exa news: keyword-based, no LLM inference — signal is directional not precise
- *   - X (Twitter) API v2 Bearer Token — real-time street-level unrest, minute-zero detection
- *   - Exa news — published articles, hours lag, keyword-scored
- *   - X raises socialUnrestComponent floor; Exa holds it if X is absent
+ * 3-tier news signal (all run in parallel, best score wins):
+ *   1. Exa — neural link search, published articles (hours lag), keyword-scored
+ *   2. Tavily — Bing-indexed Indonesian portals (Detik/Kompas/Tempo/Tribun), parallel coverage
+ *   3. X (Twitter) API v2 — real-time street-level, minute-zero detection (optional premium)
+ *
+ * Blending: socialUnrestComponent = max(exaScore, tavilyScore, xScore × 0.85)
+ * Tavily active when TAVILY_API_KEY set; X active when X_BEARER_TOKEN set.
+ * Exa alone = minimum baseline; Tavily adds Indonesian news coverage breadth.
  */
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
@@ -30,6 +32,7 @@ import { alertFromScore, alertLabel } from './scoring.js';
 import {
   fetchUnemploymentTe,
   searchNewsSentiment,
+  searchNewsSentimentTavily,
   detectSeasonalContext,
   type SentimentResult,
 } from './sources/political-risk.js';
@@ -73,10 +76,11 @@ export interface PoliticalRiskOutput {
   unemploymentRate: number | null;
   unemploymentComponent: number; // 0-25 sub-score
   foodPressureComponent: number; // 0-35 sub-score
-  socialUnrestComponent: number; // 0-30 sub-score (Exa + X blended)
+  socialUnrestComponent: number; // 0-30 sub-score (Exa + Tavily + X blended)
   stabilityComponent: number;    // 0-25 sub-score (negative = international concern)
   xSocialResult: XSentimentResult | null;
   xSocialScore: number | null;   // raw X score before blending
+  tavilyUnrestScore: number | null; // raw Tavily score before blending
   sentimentResults: SentimentResult[];
   seasonalContext: string | null;
   topHeadlines: string[];
@@ -103,49 +107,77 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
       )))
     : 8; // unknown → conservative mid assumption
 
-  // ── 2. Exa news sentiment + X social feed (parallel) ─────────────────────
-  const [foodResult, unrestResult, stabilityResult, xResult] = await Promise.allSettled([
+  // ── 2. Exa + Tavily + X social feed (all parallel) ───────────────────────
+  const [
+    foodResult, unrestResult, stabilityResult,
+    tavilyFoodResult, tavilyUnrestResult, tavilyStabilityResult,
+    xResult,
+  ] = await Promise.allSettled([
     searchNewsSentiment('food_pressure'),
     searchNewsSentiment('social_unrest'),
     searchNewsSentiment('political_stability'),
+    searchNewsSentimentTavily('food_pressure'),
+    searchNewsSentimentTavily('social_unrest'),
+    searchNewsSentimentTavily('political_stability'),
     fetchXSocialSentiment(),
   ]);
 
-  const foodSentiment = foodResult.status === 'fulfilled' ? foodResult.value : null;
-  const unrestSentiment = unrestResult.status === 'fulfilled' ? unrestResult.value : null;
-  const stabilitySentiment = stabilityResult.status === 'fulfilled' ? stabilityResult.value : null;
-  const xSentiment = xResult.status === 'fulfilled' ? xResult.value : null;
+  const foodSentiment       = foodResult.status           === 'fulfilled' ? foodResult.value           : null;
+  const unrestSentiment     = unrestResult.status         === 'fulfilled' ? unrestResult.value         : null;
+  const stabilitySentiment  = stabilityResult.status      === 'fulfilled' ? stabilityResult.value      : null;
+  const tavilyFood          = tavilyFoodResult.status     === 'fulfilled' ? tavilyFoodResult.value     : null;
+  const tavilyUnrest        = tavilyUnrestResult.status   === 'fulfilled' ? tavilyUnrestResult.value   : null;
+  const tavilyStability     = tavilyStabilityResult.status === 'fulfilled' ? tavilyStabilityResult.value : null;
+  const xSentiment          = xResult.status              === 'fulfilled' ? xResult.value              : null;
+
+  // Blended unrest score: best of Exa + Tavily for DB storage (represents combined news coverage)
+  const blendedUnrestScore = Math.max(
+    unrestSentiment?.stressScore ?? 0,
+    tavilyUnrest?.stressScore ?? 0,
+  );
+  const blendedFoodScore = Math.max(
+    foodSentiment?.stressScore ?? 0,
+    tavilyFood?.stressScore ?? 0,
+  );
 
   // Store sentiment scores in DB for trend tracking
   const sentimentPoints = [
-    foodSentiment
-      ? { indicator: 'political_food_stress_score', category: 'pangan' as const, date: today, value: foodSentiment.stressScore, unit: 'score_0_100', source: 'exa_sentiment', fetchedAt: new Date().toISOString() }
+    (blendedFoodScore > 0)
+      ? { indicator: 'political_food_stress_score', category: 'pangan' as const, date: today, value: blendedFoodScore, unit: 'score_0_100', source: 'exa_tavily_blend', fetchedAt: new Date().toISOString() }
       : null,
-    unrestSentiment
-      ? { indicator: 'political_social_unrest_score', category: 'pangan' as const, date: today, value: unrestSentiment.stressScore, unit: 'score_0_100', source: 'exa_sentiment', fetchedAt: new Date().toISOString() }
+    (blendedUnrestScore > 0)
+      ? { indicator: 'political_social_unrest_score', category: 'pangan' as const, date: today, value: blendedUnrestScore, unit: 'score_0_100', source: 'exa_tavily_blend', fetchedAt: new Date().toISOString() }
       : null,
-    stabilitySentiment
-      ? { indicator: 'political_stability_stress_score', category: 'pangan' as const, date: today, value: stabilitySentiment.stressScore, unit: 'score_0_100', source: 'exa_sentiment', fetchedAt: new Date().toISOString() }
+    (stabilitySentiment !== null || tavilyStability !== null)
+      ? { indicator: 'political_stability_stress_score', category: 'pangan' as const, date: today, value: Math.max(stabilitySentiment?.stressScore ?? 0, tavilyStability?.stressScore ?? 0), unit: 'score_0_100', source: 'exa_tavily_blend', fetchedAt: new Date().toISOString() }
       : null,
     xSentiment
       ? { indicator: 'political_x_social_score', category: 'pangan' as const, date: today, value: xSentiment.stressScore, unit: 'score_0_100', source: 'x_api_v2', fetchedAt: new Date().toISOString() }
       : null,
+    tavilyUnrest
+      ? { indicator: 'political_tavily_social_score', category: 'pangan' as const, date: today, value: tavilyUnrest.stressScore, unit: 'score_0_100', source: 'tavily_search', fetchedAt: new Date().toISOString() }
+      : null,
   ].filter((p): p is NonNullable<typeof p> => p !== null);
   if (sentimentPoints.length > 0) await upsertPoints(sentimentPoints);
 
-  // Food pressure: cap at 35. Apply 30% seasonal discount during Iduladha/Lebaran windows
-  const rawFoodScore = foodSentiment?.stressScore ?? 20;
+  // Food pressure: cap at 35. Apply 30% seasonal discount during Iduladha/Lebaran windows.
+  // Tavily broadens Indonesian news coverage vs Exa — take best of both.
+  const rawFoodScore = blendedFoodScore > 0 ? blendedFoodScore : 20;
   const seasonalDiscount = seasonal ? 0.70 : 1.0;
   const foodPressureComponent = Math.min(35, Math.round(rawFoodScore * seasonalDiscount));
 
-  // Social unrest: cap at 30. X raises the floor (real-time signal, 15% noise discount).
-  // When X sees unrest Exa hasn't published yet, X score dominates.
+  // Social unrest: cap at 30. Three-tier blend — best score wins.
+  // Tier 1: Exa (neural link search, hours lag)
+  // Tier 2: Tavily (Bing/Indonesian portals, parallel coverage)
+  // Tier 3: X (real-time tweets, 15% noise discount)
   const exaUnrestScore = unrestSentiment?.stressScore ?? 15;
+  const tavilyUnrestScore = tavilyUnrest?.stressScore ?? 0;
   const xUnrestScore = xSentiment !== null ? Math.round(xSentiment.stressScore * 0.85) : 0;
-  const socialUnrestComponent = Math.min(30, Math.max(exaUnrestScore, xUnrestScore));
+  const socialUnrestComponent = Math.min(30, Math.max(exaUnrestScore, tavilyUnrestScore, xUnrestScore));
 
-  // Political stability: cap at 25. International concern signals are structural.
-  const stabilityComponent = Math.min(25, stabilitySentiment?.stressScore ?? 10);
+  // Political stability: cap at 25. Best of Exa + Tavily.
+  const blendedStabilityScore = Math.max(stabilitySentiment?.stressScore ?? 10, tavilyStability?.stressScore ?? 0);
+  const stabilityComponent = Math.min(25, blendedStabilityScore);
 
   // ── 3. Political Risk Index ────────────────────────────────────────────────
   // Base 10 + component sum (normalised — components can sum to 115 max → cap at 100)
@@ -187,19 +219,27 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
   }
 
   if (!process.env.X_BEARER_TOKEN) {
-    flags.push('X_BEARER_TOKEN not set — real-time social feed unavailable; Exa news is primary signal');
+    flags.push('X_BEARER_TOKEN not set — real-time Twitter/demo feed unavailable; using Exa+Tavily news baseline');
+  }
+  if (!process.env.TAVILY_API_KEY) {
+    flags.push('TAVILY_API_KEY not set — Indonesian portal coverage (Detik/Kompas/Tempo) unavailable; Exa only');
   }
 
   // ── 5. Top headlines ──────────────────────────────────────────────────────
+  // Merge Exa + Tavily headlines across signals, de-duplicate by title
+  const allSentimentResults = [
+    foodSentiment, unrestSentiment, stabilitySentiment,
+    tavilyFood, tavilyUnrest, tavilyStability,
+  ].filter((r): r is SentimentResult => r !== null);
+
   const sentimentResults = [foodSentiment, unrestSentiment, stabilitySentiment].filter(
     (r): r is SentimentResult => r !== null,
   );
 
-  // Merge headlines across 3 signals, de-duplicate by title, keep date label
   const seenTitles = new Set<string>();
   const topHeadlines: string[] = [];
-  for (const r of sentimentResults) {
-    for (let i = 0; i < r.headlines.length && topHeadlines.length < 6; i++) {
+  for (const r of allSentimentResults) {
+    for (let i = 0; i < r.headlines.length && topHeadlines.length < 8; i++) {
       const title = r.headlines[i];
       if (!title || seenTitles.has(title)) continue;
       seenTitles.add(title);
@@ -212,8 +252,10 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     politicalRiskIndex, alert, unemploymentRate, foodPressureComponent,
     socialUnrestComponent, stabilityComponent, seasonal,
     hasExa: !!process.env.EXASEARCH_API_KEY,
+    hasTavily: tavilyUnrest !== null,
     hasX: xSentiment !== null,
-    xLeadingExa: xSentiment !== null && xSentiment.stressScore > exaUnrestScore,
+    xLeadingExa: xSentiment !== null && xSentiment.stressScore > Math.max(exaUnrestScore, tavilyUnrestScore),
+    tavilyLeadingExa: tavilyUnrestScore > exaUnrestScore,
   });
 
   return {
@@ -228,6 +270,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     stabilityComponent,
     xSocialResult: xSentiment,
     xSocialScore: xSentiment?.stressScore ?? null,
+    tavilyUnrestScore: tavilyUnrest?.stressScore ?? null,
     sentimentResults,
     seasonalContext: seasonal,
     topHeadlines,
@@ -245,8 +288,10 @@ function buildNarrative(ctx: {
   stabilityComponent: number;
   seasonal: string | null;
   hasExa: boolean;
+  hasTavily: boolean;
   hasX: boolean;
   xLeadingExa: boolean;
+  tavilyLeadingExa: boolean;
 }): string {
   const parts: string[] = [];
   parts.push(`Political Risk Index: ${ctx.politicalRiskIndex}/100 (${ctx.alert.toUpperCase()}).`);
@@ -255,7 +300,10 @@ function buildNarrative(ctx: {
     parts.push(`Unemployment ${ctx.unemploymentRate.toFixed(1)}% (${ctx.unemploymentRate <= UNEMPLOYMENT_NORMAL ? 'within' : 'above'} ${UNEMPLOYMENT_NORMAL}% norm).`);
   }
 
-  if (ctx.hasExa || ctx.hasX) {
+  if (ctx.hasExa || ctx.hasTavily || ctx.hasX) {
+    const sourceParts = [ctx.hasExa ? 'Exa' : '', ctx.hasTavily ? 'Tavily' : '', ctx.hasX ? 'X' : ''].filter(Boolean);
+    parts.push(`Sources active: ${sourceParts.join(' + ')}.`);
+
     const dominant = [
       { label: 'food price pressure', score: ctx.foodPressureComponent, max: 35 },
       { label: 'social unrest', score: ctx.socialUnrestComponent, max: 30 },
@@ -267,13 +315,15 @@ function buildNarrative(ctx: {
       parts.push(`Active stress vectors: ${dominant.join(', ')}.`);
     }
     if (ctx.xLeadingExa) {
-      parts.push('X social feed leading Exa news — real-time unrest signal active before media coverage.');
+      parts.push('X social feed leading Exa+Tavily news — real-time unrest signal active before media coverage.');
+    } else if (ctx.tavilyLeadingExa) {
+      parts.push('Tavily (Indonesian portals) returning higher unrest signal than Exa — Indonesian-language coverage gap closed.');
     }
     if (ctx.seasonal) {
       parts.push(`${ctx.seasonal} seasonal context: food price spike partially expected — structural risk assessment still applies.`);
     }
   } else {
-    parts.push('Exa news sentiment and X social feed unavailable — scoring based on unemployment data only.');
+    parts.push('No news sources active — scoring based on unemployment data only. Set EXASEARCH_API_KEY or TAVILY_API_KEY.');
   }
   return parts.join(' ');
 }
@@ -297,7 +347,7 @@ function formatOutput(output: PoliticalRiskOutput): string {
     `|-----------|-------|-----|`,
     `| Unemployment (BPS quarterly) | ${output.unemploymentComponent} | 25 |`,
     `| Food Price Political Pressure | ${output.foodPressureComponent} | 35 |`,
-    `| Social Unrest (Exa + X blended) | ${output.socialUnrestComponent} | 30 |`,
+    `| Social Unrest (Exa + Tavily + X) | ${output.socialUnrestComponent} | 30 |`,
     `| Political/Governance Stability | ${output.stabilityComponent} | 25 |`,
     `| **Total (+ base 10)** | **${output.politicalRiskIndex}** | **100** |`,
     ``,
@@ -313,23 +363,27 @@ function formatOutput(output: PoliticalRiskOutput): string {
       ...output.sentimentResults.map((r) =>
         `**${r.signal.replace('_', ' ')} (score ${r.stressScore}/100):** ${r.negativeCount} negative, ${r.positiveCount} positive, ${r.highSeverityCount} high-severity`,
       ),
-    ].join('\n') : '_Exa API not configured — news sentiment unavailable. Set EXASEARCH_API_KEY._',
+    ].join('\n') : '_Exa API not configured — Set EXASEARCH_API_KEY._',
+    ``,
+    output.tavilyUnrestScore !== null
+      ? `## Tavily News (Indonesian Portals)\n**Social unrest score:** ${output.tavilyUnrestScore}/100 — Detik/Kompas/Tempo/Tribun coverage`
+      : '_Tavily not configured — Set TAVILY_API_KEY for Indonesian portal coverage (Detik/Kompas/Tempo)._',
     ``,
     hasX && x ? [
       `## X Social Feed (real-time)`,
       `**Score:** ${x.stressScore}/100 | **Tweets:** ${x.tweetCount} | ${x.negativeCount} negative, ${x.positiveCount} positive, ${x.highSeverityCount} high-severity`,
       x.topTweets.length > 0 ? x.topTweets.map((t) => `- "${t}"`).join('\n') : '',
-    ].filter(Boolean).join('\n') : '_X social feed unavailable. Set X_BEARER_TOKEN._',
+    ].filter(Boolean).join('\n') : '_X social feed unavailable. Set X_BEARER_TOKEN for real-time minute-zero detection._',
     ``,
     output.topHeadlines.length > 0 ? [
-      `## Top Headlines (recent 7 days)`,
+      `## Top Headlines (Exa + Tavily, recent 7 days)`,
       ...output.topHeadlines.map((h) => `- ${h}`),
     ].join('\n') : '',
     ``,
     output.flags.length > 0 ? `## Active Flags\n${output.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '## No Critical Flags',
     ``,
     `_Transmission: political risk → policy unpredictability → sovereign risk premium → IDR/SBN repricing._`,
-    `_Sources: BPS unemployment (quarterly, ~2mo lag) · Exa news (7d, keyword-scored) · X API v2 (real-time, 15% noise discount)._`,
+    `_Sources: BPS unemployment (quarterly, ~2mo lag) · Exa news (7d, keyword-scored) · Tavily (Indonesian portals, 7d) · X API v2 (real-time, 15% noise discount)._`,
   ]
     .filter((l) => l !== '')
     .join('\n');
@@ -338,7 +392,7 @@ function formatOutput(output: PoliticalRiskOutput): string {
 export const politicalRiskEngine = new DynamicStructuredTool({
   name: 'political_risk_engine',
   description:
-    'Political Risk Engine: tracks Indonesia political and social stability via BPS unemployment + Exa news sentiment (food pressure, labor protests, governance stability). Computes Political Risk Index 0-100. Detects approval erosion and social contract stress before it reprices into sovereign spreads.',
+    'Political Risk Engine: tracks Indonesia political and social stability via BPS unemployment + 3-tier news signal (Exa neural search + Tavily Indonesian portals + X real-time feed). Blends max(exaScore, tavilyScore, xScore×0.85). Computes Political Risk Index 0-100. Detects approval erosion and social contract stress before it reprices into sovereign spreads.',
   schema: z.object({
     query: z.string().describe('e.g. "Show political risk" or "Prabowo approval pressure?" or "Social unrest risk for investors?"'),
   }),

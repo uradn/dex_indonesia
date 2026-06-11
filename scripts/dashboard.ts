@@ -114,7 +114,12 @@ function buildSnapshot() {
         ? +((current - prior) / prior * 100).toFixed(2) : null;
       aseanFx[ind] = { current, prior30d: prior, changePct, label: ASEAN_LABELS[ind] };
     }
-    return { indicators: data, derived: { termPremium, sbnUstSpread, usdidrVsApbn, cds }, aseanFx, ts: new Date().toISOString() };
+    const envFlags = {
+      hasX: !!process.env.X_BEARER_TOKEN,
+      hasTavily: !!process.env.TAVILY_API_KEY,
+      hasExa: !!process.env.EXASEARCH_API_KEY,
+    };
+    return { indicators: data, derived: { termPremium, sbnUstSpread, usdidrVsApbn, cds }, aseanFx, envFlags, ts: new Date().toISOString() };
   } finally {
     db.close();
   }
@@ -650,13 +655,17 @@ function renderPolRisk(d) {
     scoreEl.textContent = '?';
   }
 
+  const unempDate = ind['unemployment_rate_pct']?.date ?? null;
+  const unrestDate = ind['political_social_unrest_score']?.date ?? null;
+
   // 1998 template conditions
+  // Thresholds: unemployment >4.8% (CLAUDE.md normal=4.8%); social unrest >33 (system YELLOW)
   const t98 = [
-    { label: 'Food unaffordable',        active: (food ?? 0) > 50 || (gap ?? 0) > 4000 },
-    { label: 'IDR weakening (>17,000)',  active: (usdidr ?? 0) > 17000 },
-    { label: 'Unemployment rising',      active: (unemp ?? 0) > 5.0 },
-    { label: 'Social unrest elevated',   active: (unrest ?? 0) > 40 },
-    { label: 'Political stability stress', active: stab !== null && stab < 50 },
+    { label: 'Food unaffordable',         detail: gap != null ? 'gap Rp'+Math.round(gap).toLocaleString('id')+'/L' : food != null ? 'score '+food : '',    active: (food ?? 0) > 50 || (gap ?? 0) > 4000 },
+    { label: 'IDR lemah (>17,000)',        detail: usdidr != null ? fmtK(usdidr) : '',                                                                        active: (usdidr ?? 0) > 17000 },
+    { label: 'Unemployment naik (>4.8%)', detail: unemp != null ? fmtNum(unemp,2)+'% ['+(unempDate ?? 'n/a')+']' : 'n/a — BPS quarterly',                    active: (unemp ?? 0) > 4.8 },
+    { label: 'Social unrest elevated',    detail: unrest != null ? 'score '+unrest+'/100 ['+(unrestDate ? unrestDate.slice(5) : 'n/a')+']' : 'n/a',           active: (unrest ?? 0) > 33 },
+    { label: 'Political stability stress', detail: stab != null ? 'stab '+stab+'/100' : 'n/a',                                                                active: stab !== null && stab < 50 },
   ];
   const t98score = t98.filter(x => x.active).length;
   const t98cls = t98score >= 4 ? 'red' : t98score >= 3 ? 'orange' : t98score >= 2 ? 'yellow' : 'green';
@@ -681,16 +690,27 @@ function renderPolRisk(d) {
 
   const t98rows = t98.map(item =>
     \`<div class="template98-item">
-      <span>\${item.label}</span>
-      <span class="\${item.active ? 'red' : 'green'}">\${item.active ? '▲ YES' : '○ no'}</span>
+      <span style="flex:1">\${item.label}</span>
+      <span style="color:var(--muted);font-size:9px;flex:1;text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">\${item.detail}</span>
+      <span class="\${item.active ? 'red' : 'green'}" style="flex:0 0 42px;text-align:right">\${item.active ? '▲ YES' : '○ no'}</span>
     </div>\`
   ).join('');
+
+  const env = d.envFlags ?? {};
+  const missingFeed = [];
+  if (!env.hasX) missingFeed.push('X (real-time demo)');
+  if (!env.hasTavily) missingFeed.push('Tavily (Detik/Kompas/Tempo)');
+  const feedWarning = missingFeed.length > 0
+    ? \`<div style="margin-top:6px;font-size:9px;color:var(--orange);padding:3px 6px;background:rgba(227,114,28,.08);border-radius:3px;border:1px solid rgba(227,114,28,.2)">⚠ Feed offline: \${missingFeed.join(', ')}. Unrest score may be understated.\${!env.hasX ? ' Set X_BEARER_TOKEN for minute-zero demo detection.' : ''}</div>\`
+    : \`<div style="margin-top:6px;font-size:9px;color:var(--green);padding:3px 6px;background:rgba(63,185,80,.08);border-radius:3px;border:1px solid rgba(63,185,80,.2)">✓ All 3 sources active: Exa + Tavily + X</div>\`;
 
   return \`
     \${scoreRows}
     <div style="margin-top:8px;font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">1998 Template Checklist</div>
     \${t98rows}
     \${kv('Unemployment', unemp ? fmtNum(unemp,2)+'%' : '—', unemp > 6 ? 'red' : unemp > 5 ? 'orange' : unemp > 4.8 ? 'yellow' : 'green')}
+    \${unemp && unempDate ? \`<div style="font-size:9px;color:var(--muted);padding:2px 0">BPS quarterly data — as of \${unempDate}. Next BPS release ~Aug 2026.</div>\` : ''}
+    \${feedWarning}
   \`;
 }
 
