@@ -125,12 +125,16 @@ export function computeTermPremium(sbn10y: number, biRate: number): {
   label: string;
 } {
   const termPremium = sbn10y - biRate;
-  const stressSignal = termPremium > 3.0;
+  const stressSignal = termPremium > 2.0;
   const label = termPremium > 3.5
     ? 'elevated — fiscal stress signal'
-    : termPremium > 2.5
+    : termPremium > 3.0
       ? 'above normal — watch'
-      : 'normal range';
+      : termPremium > 2.0
+        ? 'ORANGE — yield control pressure'
+        : termPremium > 1.8
+          ? 'approaching ORANGE (threshold 2.0%)'
+          : 'normal range';
   return { termPremium, stressSignal, label };
 }
 

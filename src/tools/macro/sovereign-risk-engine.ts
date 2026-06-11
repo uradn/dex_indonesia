@@ -264,6 +264,11 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
     fiscalCredibilityIndex = 50;
   }
 
+  // BI yield policy: set BI_BUYS_LONG_SBN=false when BI explicitly abstains from 10Y+ purchases
+  // (yield control abandoned — APBN funding cost rises without BI backstop → yield spiral risk)
+  const biAbstainedFromLongEnd = process.env.BI_BUYS_LONG_SBN === 'false';
+  if (biAbstainedFromLongEnd) sovereignRiskScore = Math.min(100, sovereignRiskScore + 10);
+
   const alertLevel = alertFromScore(sovereignRiskScore);
   const flags = detectFlags(validSnapshots);
   if (foreignExitRisk === 'red') flags.push('CRITICAL: Foreign SBN exit + CDS widening simultaneously — repricing cycle risk');
@@ -277,6 +282,12 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
   }
   if (fiscalCredibilityIndex < 30) flags.push('Fiscal credibility severely impaired — market pricing systemic risk');
   if (termPremiumStress) flags.push(`⚠️ Term premium elevated: SBN 10Y−BI Rate = ${termPremium!.termPremium.toFixed(2)}% — ${termPremium!.label}`);
+  else if (termPremium && termPremium.termPremium > 1.8) flags.push(`Term premium ${termPremium.termPremium.toFixed(2)}% — approaching ORANGE threshold (2.0%); next BI hike would breach`);
+  if (biAbstainedFromLongEnd) flags.push('BI abstained from 10Y+ SBN purchases — yield control abandoned; APBN funding cost unanchored (+10 score)');
+  // S&P proximity: BI hike cycle + yield rising = interest/revenue ratio approaching 15% S&P threshold
+  if (biAbstainedFromLongEnd && termPremium && termPremium.termPremium >= 1.8 && cdsLevel > 80) {
+    flags.push('S&P proximity risk: BI hike cycle + unanchored long-end yield → interest/revenue ratio approaching 15% S&P downgrade threshold');
+  }
   // SBN-UST spread compression warning: <200bps = carry trade unwind risk
   if (sbnUstSpread !== null && sbnUstSpread < 200) flags.push(`SBN-UST spread ${sbnUstSpread}bps — <200bps threshold; carry trade attractiveness declining`);
   else if (sbnUstSpread !== null && sbnUstSpread > 300) flags.push(`SBN-UST spread ${sbnUstSpread}bps — >300bps; attractive carry but implies high risk premium`);

@@ -56,6 +56,14 @@ const APBN_2026 = {
   deficitPctGdp: 2.68,
   gdpTrn: 25714.2,
   spendingPostEfisiensiTrn: 3534.73, // informational — post Prabowo ~Rp308T cut
+  // Pembayaran bunga utang (interest payments) — from APBN 2026 document
+  // S&P threshold: interest/revenue > 15% sustained = negative rating action risk
+  // S&P Feb 2026: Indonesia "very likely exceeded" 15% threshold in 2025
+  interestPaymentsTrn: 552.7,
+  spInterestThresholdPct: 15.0,
+  // SBN annual rollover estimate for BI rate uplift calc (~Rp1,200T/yr)
+  sbnAnnualRolloverTrn: 1200,
+  biRateBaselinePct: 4.75, // BI Rate at start of 2026 hike cycle
 };
 
 interface FiscalOutput {
@@ -83,6 +91,11 @@ interface FiscalOutput {
   biRatePct: number | null;
   srbiAnnualCostTrn: number | null;
   srbiCostAsPctDeficit: number | null;
+  // S&P interest/revenue ratio
+  adjustedInterestTrn: number;
+  biRateInterestUpliftTrn: number;
+  spInterestRevenuePct: number | null;
+  spThresholdBreached: boolean;
   // Alerts
   revenueShortfall: boolean;
   spendingOverrun: boolean;
@@ -219,6 +232,18 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     ? parseFloat((srbiAnnualCostTrn / APBN_2026.deficitTrn * 100).toFixed(1))
     : null;
 
+  // 4c. S&P interest/revenue ratio — threshold 15% for negative rating action
+  // BI hike uplift: each 25bps on ~Rp1,200T annual SBN rollover = +Rp3T/yr additional interest
+  const biRateInterestUpliftTrn = biRatePct > APBN_2026.biRateBaselinePct
+    ? parseFloat(((biRatePct - APBN_2026.biRateBaselinePct) / 100 * APBN_2026.sbnAnnualRolloverTrn).toFixed(1))
+    : 0;
+  const adjustedInterestTrn = APBN_2026.interestPaymentsTrn + biRateInterestUpliftTrn;
+  const revenueForSpCalc = projectedAnnualRevenueTrn ?? (latestRevenueTrn ?? null);
+  const spInterestRevenuePct = revenueForSpCalc !== null && revenueForSpCalc > 0
+    ? parseFloat((adjustedInterestTrn / revenueForSpCalc * 100).toFixed(1))
+    : null;
+  const spThresholdBreached = spInterestRevenuePct !== null && spInterestRevenuePct > APBN_2026.spInterestThresholdPct;
+
   // 5. Stress score
   const components: Array<[number, number]> = [];
   if (revenueAbsorptionPct !== null) components.push([scoreRevenueAbsorption(revenueAbsorptionPct), 0.50]);
@@ -238,6 +263,12 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   if (projectedDeficitPctGdp !== null && projectedDeficitPctGdp > 4.0) {
     stressScore = Math.max(stressScore, 55);
   } else if (projectedDeficitPctGdp !== null && projectedDeficitPctGdp > 3.0) {
+    stressScore = Math.max(stressScore, 35);
+  }
+  // S&P interest/revenue floor: >15% = YELLOW min; >20% = ORANGE min
+  if (spInterestRevenuePct !== null && spInterestRevenuePct > 20) {
+    stressScore = Math.max(stressScore, 50);
+  } else if (spThresholdBreached) {
     stressScore = Math.max(stressScore, 35);
   }
 
@@ -266,6 +297,18 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     flags.push(`SRBI STERILIZATION BURDEN ELEVATED: IDR ${srbiAnnualCostTrn!.toFixed(0)}T/yr (${srbiCostAsPctDeficit.toFixed(1)}% of APBN deficit) — Trilemma cost: FX defense requires sterilization → reduces BI profit remittance to Treasury`);
   } else if (srbiCostAsPctDeficit !== null && srbiCostAsPctDeficit > 5) {
     flags.push(`SRBI sterilization cost notable: IDR ${srbiAnnualCostTrn!.toFixed(0)}T/yr (${srbiCostAsPctDeficit.toFixed(1)}% of APBN deficit) — quasi-fiscal drag on BI balance sheet`);
+  }
+
+  // S&P interest/revenue flags
+  if (spInterestRevenuePct !== null) {
+    if (spInterestRevenuePct > 20) {
+      flags.push(`S&P THRESHOLD CRITICAL: interest/revenue ${spInterestRevenuePct.toFixed(1)}% (APBN ${APBN_2026.interestPaymentsTrn}T + BI hike uplift ${biRateInterestUpliftTrn}T vs revenue ${revenueForSpCalc?.toFixed(0)}T) — ${(spInterestRevenuePct - APBN_2026.spInterestThresholdPct).toFixed(1)}pp above S&P 15% negative-action threshold`);
+    } else if (spThresholdBreached) {
+      flags.push(`S&P threshold breached: interest/revenue ${spInterestRevenuePct.toFixed(1)}% > 15% — S&P Feb 2026 warning; sustained breach risks negative rating action on BBB`);
+    }
+    if (biRateInterestUpliftTrn > 0) {
+      flags.push(`BI hike cycle adds Rp${biRateInterestUpliftTrn.toFixed(0)}T/yr to debt service (${((biRatePct ?? 5.5) - APBN_2026.biRateBaselinePct).toFixed(2)}pp × Rp${APBN_2026.sbnAnnualRolloverTrn}T rollover) — BI sinyal hike lagi memperburuk rasio`);
+    }
   }
 
   // 7. Narrative
@@ -302,6 +345,7 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     revenueAbsorptionPct, spendingAbsorptionPct,
     projectedAnnualRevenueTrn, projectedDeficitPctGdp,
     srbiOutstandingTrn, biRatePct, srbiAnnualCostTrn, srbiCostAsPctDeficit,
+    adjustedInterestTrn, biRateInterestUpliftTrn, spInterestRevenuePct, spThresholdBreached,
     revenueShortfall, spendingOverrun, deficitRisk,
     flags, narrative,
   };
@@ -346,6 +390,7 @@ function formatFiscalOutput(output: FiscalOutput): string {
     `| Revenue shortfall | ${output.revenueShortfall ? '⚠️ ACTIVE' : 'No'} |`,
     `| Spending overrun | ${output.spendingOverrun ? '⚠️ ACTIVE' : 'No'} |`,
     `| Deficit > 3% GDP | ${output.deficitRisk ? '⚠️ ACTIVE' : 'No'} |`,
+    `| S&P interest/revenue >15% | ${output.spThresholdBreached ? `🔴 ${output.spInterestRevenuePct?.toFixed(1)}% — BREACHED` : output.spInterestRevenuePct !== null ? `✅ ${output.spInterestRevenuePct.toFixed(1)}%` : 'n/a'} |`,
     ``,
     output.flags.length > 0 ? `**Flags:**\n${output.flags.map(f => `- ${f}`).join('\n')}` : '**No active fiscal flags.**',
     ``,

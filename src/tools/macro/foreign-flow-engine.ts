@@ -57,6 +57,7 @@ interface ForeignFlowOutput {
   domesticAbsorptionFlag: boolean;
   silentExitProbability: number;
   suddenStop: SuddenStopVulnerability | null;
+  msciClassificationRisk: 'confirmed' | 'under_review' | 'downgrade_risk';
   narrative: string;
 }
 
@@ -111,6 +112,14 @@ function computeSsvi(components: SsviComponents): { index: number; phase: Sudden
 }
 
 export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
+  // MSCI classification risk — update MSCI_CLASSIFICATION_STATUS when review outcome changes
+  // 'confirmed': EM status secure | 'under_review': evaluation ongoing | 'downgrade_risk': downgrade likely
+  // MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN: passive outflow from May 29 rebalancing (19 cos removed)
+  const msciStatus = (process.env.MSCI_CLASSIFICATION_STATUS ?? 'confirmed') as 'confirmed' | 'under_review' | 'downgrade_risk';
+  const msciRebalancingOutflowUsd = process.env.MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN
+    ? parseFloat(process.env.MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN)
+    : null;
+
   // 1. EIDO ETF history — proxy for foreign equity demand
   // 2. Foreign SBN ownership
   // 3. IDX daily foreign net flow (direct equity flow signal)
@@ -223,10 +232,12 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
 
   const validSnapshots = [eidoSnap, sbnSnap, idxFlowSnap].filter((s): s is IndicatorSnapshot => s !== null);
   const baseScore = compositeScore(validSnapshots);
+  // MSCI classification risk score bump — uncertainty = passive fund repositioning risk
+  const msciScoreBump = msciStatus === 'downgrade_risk' ? 20 : msciStatus === 'under_review' ? 8 : 0;
   // SSVI alert floor: imminent (≥75) → orange min; critical (≥90) → red min
   const ALERT_ORDER: AlertLevel[] = ['green', 'yellow', 'orange', 'red'];
   const ssviFloorAlert: AlertLevel = ssviIndex >= 90 ? 'red' : ssviIndex >= 75 ? 'orange' : ssviIndex >= 50 ? 'yellow' : 'green';
-  const score = ssviIndex >= 75 ? Math.max(baseScore, 50) : baseScore;
+  const score = Math.min(100, (ssviIndex >= 75 ? Math.max(baseScore, 50) : baseScore) + msciScoreBump);
   const alertLevel = ALERT_ORDER[Math.max(ALERT_ORDER.indexOf(alertFromScore(score)), ALERT_ORDER.indexOf(ssviFloorAlert))]!;
   const flags: string[] = [];
   if (eidoStructuralTrend) flags.push(`EIDO 90d z-score ${eidoZ90.toFixed(2)} — 3-month structural foreign equity selling trend`);
@@ -259,6 +270,17 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
     }
   }
 
+  // MSCI classification flags
+  if (msciStatus === 'under_review') {
+    flags.push(`MSCI June 2026 classification review ongoing — EM status unconfirmed; passive fund uncertainty elevated (+8 score)`);
+    if (idxNetSellingHeavy) flags.push('MSCI uncertainty amplifying foreign equity exit — EIDO weakness = sentiment + passive repositioning (dual cause)');
+  } else if (msciStatus === 'downgrade_risk') {
+    flags.push('CRITICAL: MSCI Frontier downgrade risk — systematic EM fund forced-sell would dwarf May 2026 rebalancing (+20 score)');
+  }
+  if (msciRebalancingOutflowUsd !== null) {
+    flags.push(`MSCI May 29 rebalancing: ~$${msciRebalancingOutflowUsd}bn passive outflow (19 companies removed) — explains part of EIDO weakness; June review outcome pending`);
+  }
+
   const narrative = buildNarrative({ eidoSnap, sbnSnap, divergenceFlag, domesticAbsorptionFlag, silentExitProbability, ssviIndex, ssviPhase });
 
   return {
@@ -279,6 +301,7 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
     domesticAbsorptionFlag,
     silentExitProbability,
     suddenStop,
+    msciClassificationRisk: msciStatus,
     narrative,
   };
 }
@@ -323,6 +346,7 @@ function formatOutput(output: ForeignFlowOutput): string {
     `| IDX daily foreign net flow | ${output.idxDailyFlow !== null ? `${output.idxDailyFlow >= 0 ? '+' : ''}${output.idxDailyFlow.toFixed(0)} IDR bn` : 'n/a (IDX API unavailable)'} |`,
     `| Dual exit (EIDO + SBN simultaneously falling) | ${output.divergenceFlag ? '⚠️ ACTIVE' : 'No'} |`,
     `| Domestic absorption masking foreign exit | ${output.domesticAbsorptionFlag ? '⚠️ ACTIVE' : 'No'} |`,
+    `| MSCI EM classification status | ${output.msciClassificationRisk === 'downgrade_risk' ? '🔴 DOWNGRADE RISK' : output.msciClassificationRisk === 'under_review' ? '⚠️ UNDER REVIEW' : '✅ CONFIRMED'} |`,
     ``,
     output.scoreCard.flags.length > 0 ? `## Flags\n${output.scoreCard.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '',
     ``,
