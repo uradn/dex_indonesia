@@ -5,9 +5,27 @@
  */
 import { Database } from 'bun:sqlite';
 import { join } from 'node:path';
+import { silentCrisisDetector } from '../src/tools/macro/silent-crisis-detector.ts';
 
 const DB_PATH = join(import.meta.dir, '../.dexter/macro/macro.db');
 const PORT = 6080;
+
+// ── SCD on-demand state ───────────────────────────────────────────────────────
+
+type ScdStatus = 'idle' | 'running' | 'done' | 'error';
+let scdState: { status: ScdStatus; result?: string; error?: string; startedAt?: string; completedAt?: string } = { status: 'idle' };
+
+function triggerScd(): void {
+  if (scdState.status === 'running') return;
+  scdState = { status: 'running', startedAt: new Date().toISOString() };
+  (silentCrisisDetector as any).invoke({ query: 'full silent crisis scan' })
+    .then((result: string) => {
+      scdState = { status: 'done', result, startedAt: scdState.startedAt, completedAt: new Date().toISOString() };
+    })
+    .catch((e: Error) => {
+      scdState = { status: 'error', error: String(e), startedAt: scdState.startedAt, completedAt: new Date().toISOString() };
+    });
+}
 
 // ── DB helpers ────────────────────────────────────────────────────────────────
 
@@ -140,8 +158,11 @@ const HTML = `<!DOCTYPE html>
   .chart-current { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
   canvas { max-height: 120px; }
   .food-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
-  .positioning-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
-  .regime-badge { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 700; margin: 4px 0; }
+  .scd-run-btn { margin-top: 8px; padding: 6px 14px; background: #1f2937; border: 1px solid var(--border); color: var(--text); border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 11px; width: 100%; }
+  .scd-run-btn:hover { background: var(--border); }
+  .scd-run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  #scd-result-panel { margin-top: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px; display: none; }
+  #scd-result-panel pre { white-space: pre-wrap; font-size: 11px; color: var(--text); line-height: 1.5; max-height: 60vh; overflow-y: auto; }
 </style>
 </head>
 <body>
@@ -158,7 +179,15 @@ const HTML = `<!DOCTYPE html>
         <div class="scd-number" id="scd-score">—</div>
         <div class="scd-label">SCD Score (0-100)</div>
         <div id="scd-alert" style="margin-top:6px"></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px">↑ proxy heuristic — indicators only</div>
       </div>
+      <button class="scd-run-btn" id="scd-btn" onclick="runScd()">▶ Run Full SCD (13 modules ~60-120s)</button>
+      <div id="scd-status" style="font-size:10px;color:var(--muted);margin-top:4px;text-align:center"></div>
+    </div>
+
+    <div id="scd-result-panel">
+      <div class="card-title" style="margin-bottom:6px">Full SCD Result</div>
+      <pre id="scd-result-text"></pre>
     </div>
 
     <div class="card">
@@ -509,6 +538,56 @@ async function refresh() {
   }
 }
 
+// ── SCD on-demand ────────────────────────────────────────────────────────────
+let scdPollTimer = null;
+
+async function runScd() {
+  const btn = document.getElementById('scd-btn');
+  const status = document.getElementById('scd-status');
+  btn.disabled = true;
+  btn.textContent = '⏳ Running...';
+  status.textContent = 'Starting SCD scan...';
+
+  try {
+    await fetch('/api/run-scd', { method: 'POST' });
+    scdPollTimer = setInterval(pollScdResult, 5000);
+    pollScdResult();
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '▶ Run Full SCD (13 modules ~60-120s)';
+    status.textContent = 'Error: ' + e.message;
+  }
+}
+
+async function pollScdResult() {
+  const btn = document.getElementById('scd-btn');
+  const statusEl = document.getElementById('scd-status');
+  const panel = document.getElementById('scd-result-panel');
+  const text = document.getElementById('scd-result-text');
+
+  try {
+    const r = await fetch('/api/scd-result').then(x => x.json());
+    if (r.status === 'running') {
+      const elapsed = r.startedAt ? Math.round((Date.now() - new Date(r.startedAt).getTime()) / 1000) : '?';
+      statusEl.textContent = \`Running... \${elapsed}s elapsed\`;
+      return;
+    }
+    if (scdPollTimer) { clearInterval(scdPollTimer); scdPollTimer = null; }
+    btn.disabled = false;
+    btn.textContent = '▶ Run Full SCD (13 modules ~60-120s)';
+
+    if (r.status === 'done') {
+      statusEl.textContent = 'Completed at ' + new Date(r.completedAt).toLocaleTimeString('id-ID');
+      panel.style.display = 'block';
+      text.textContent = r.result || '(no result)';
+    } else if (r.status === 'error') {
+      statusEl.textContent = '❌ Error: ' + r.error;
+    }
+  } catch (e) {
+    statusEl.textContent = 'Poll error: ' + e.message;
+  }
+}
+
 refresh();
 setInterval(refresh, 60_000);
 </script>
@@ -553,6 +632,18 @@ const server = Bun.serve({
       } catch (e) {
         return Response.json({ error: String(e) }, { status: 500 });
       }
+    }
+
+    if (url.pathname === '/api/run-scd' && req.method === 'POST') {
+      if (scdState.status === 'running') {
+        return Response.json({ status: 'running', message: 'SCD already running — check /api/scd-result' });
+      }
+      triggerScd();
+      return Response.json({ status: 'running', message: 'SCD scan started (all 13 modules — takes 60-120s)' });
+    }
+
+    if (url.pathname === '/api/scd-result') {
+      return Response.json(scdState);
     }
 
     return new Response('Not found', { status: 404 });
