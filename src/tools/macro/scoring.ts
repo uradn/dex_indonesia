@@ -19,9 +19,9 @@ export function alertFromZScore(z: number): AlertLevel {
 }
 
 export function alertFromScore(score: number): AlertLevel {
-  if (score >= 75) return 'red';
-  if (score >= 55) return 'orange';
-  if (score >= 35) return 'yellow';
+  if (score >= 70) return 'red';
+  if (score >= 50) return 'orange';
+  if (score >= 33) return 'yellow';
   return 'green';
 }
 

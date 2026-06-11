@@ -38,19 +38,19 @@ Cross-confirmed modules: 1/13
 
 | # | Modul | Signal |
 |---|-------|--------|
-| 1 | FX Defense | USDIDR z-score, pseudo-stability, BI intervention, **SRBI auction bid-cover** (weekly capital flow proxy — 1wk lead vs DJPPR) |
-| 2 | BoP | Trade balance, FX reserves, synthetic CAD risk |
-| 3 | Sovereign Risk | CDS 5Y, SBN yield, foreign SBN ownership |
-| 4 | Foreign Flow | EIDO, silent exit detection |
-| 5 | Commodity | Ekspor basket, oil import vulnerability |
-| 6 | Regime | Quad regime Q1–Q4 via Growth ROC × Inflation ROC |
-| 7 | Narrative Divergence | Official guidance vs market — APBN assumptions vs aktual |
-| 8 | Banking Stress | NPL (OJK/World Bank API), LDR, CAR, ~~JIBOR~~ IndONIA corridor (DFR = BI Rate −100bps / LF = BI Rate +75bps), FSAP nexus (implied CAR hit), KLR signals, M2/FX reserves ratio |
-| 9 | Market Stress | IHSG P/E + breadth, valuation disconnect |
-| 10 | Fiscal | APBN realisasi vs target, revenue shortfall, deficit trajectory |
-| 11 | Domestic Pressure | PIHPS 10 komoditas pangan + BBM subsidy gap (cost recovery vs Pertalite) + ICP threshold watch |
-| 12 | Political Risk | Unemployment + Exa news sentiment + X social feed real-time (social unrest, stabilitas) |
-| 13 | ULN / External Debt | DSR (IMF threshold 25%), Greenspan-Guidotti ratio, ULN/GDP, BI hedging compliance (PBI 21/14/2019), 1997 transmission mechanism |
+| M1 | BoP | Trade balance, FX reserves, synthetic CAD risk, Greenspan-Guidotti cross-feed |
+| M2 | Sovereign Risk | CDS 5Y + velocity (bps/week), SBN yield, foreign SBN %, term premium (ORANGE ≥2%), **BI yield policy flag** (Perry Jun 10 2026), **S&P interest/revenue proximity risk** (>15% = negative watch; current: 20.4%) |
+| M3 | FX Defense | USDIDR z-score, pseudo-stability, BI intervention, **SRBI auction bid-cover** (weekly capital flow proxy — 1wk lead vs DJPPR), 1st/2nd-gen crisis gates |
+| M4 | Commodity | Ekspor basket (coal/CPO/nickel/LNG), oil import vulnerability, ICP threshold watch |
+| M5 | Foreign Flow | EIDO ETF, silent exit detection, SSVI (Sudden Stop Vulnerability Index), **MSCI EM classification risk** (June 2026 review), May 2026 rebalancing outflow |
+| M6 | Narrative Divergence | Official guidance vs market — APBN assumptions vs aktual, BBM narrative vs cost recovery |
+| M7 | ASEAN Relative Value | IDR idiosyncratic component vs ASEAN peers (supplementary — not in SCD weight) |
+| M8 | Banking Stress | NPL (OJK/World Bank API), LDR, CAR, IndONIA corridor (DFR = BI Rate −100bps / LF = BI Rate +75bps), FSAP nexus (implied CAR hit), KLR signals, M2/FX reserves ratio, **BNPL sub-indicator** (OJK IKNB fintech NPL) |
+| M9 | Market Stress | IHSG P/E + breadth, valuation disconnect |
+| M10 | Fiscal | APBN realisasi vs target, revenue shortfall, deficit trajectory, **S&P interest/revenue threshold** (≥15% = negative action watch; BI hike cycle uplift computed) |
+| M11 | Domestic Pressure | PIHPS 10 komoditas pangan + BBM subsidy gap (cost recovery vs Pertalite) + ICP threshold watch |
+| M12 | Political Risk | Unemployment + Exa news sentiment + **X API v2 real-time social feed** (unrest detection, minute-zero before Exa publishes) |
+| M13 | ULN / External Debt | DSR (IMF threshold 25%), Greenspan-Guidotti ratio, ULN/GDP, BI hedging compliance (PBI 21/14/2019), 1997 transmission mechanism |
 
 **Logika inti:** Satu modul di RED bisa noise. Dua modul di ORANGE = deteriorasi struktural. Tiga+ = systemic fragility.
 
@@ -102,7 +102,7 @@ bun scripts/shock-scenario.ts moderate        # baseline stress test
 bun scripts/shock-scenario.ts moderate --sbn 8.5 --usdidr 21000 --npl 4.5
 ```
 
-**10 named presets:**
+**10 named presets (CLI script):**
 
 | Preset | Deskripsi | SBN Δ | USDIDR Δ | Reserves Δ |
 |--------|-----------|-------|----------|------------|
@@ -116,6 +116,14 @@ bun scripts/shock-scenario.ts moderate --sbn 8.5 --usdidr 21000 --npl 4.5
 | `idr-freefall` | Sudden stop + forced BI hike | +150bps | +5,000 | −$50bn |
 | `bank-crisis` | Credit shock (NPL surge) | +100bps | +2,000 | −$20bn |
 | `bi-hike` | Aggressive rate tightening | +200bps | +1,000 | −$5bn |
+
+**3 additional presets (agent skill only — invoke via `shock-scenario` skill, not CLI):**
+
+| Preset | Deskripsi | Primer melalui |
+|--------|-----------|----------------|
+| `china-slowdown` | China demand shock: coal/CPO/nickel −30%, GG mendekati 1.8, DSR crosses 25% | Step 3H |
+| `bi-rate-cut` | Premature BI rate cut −50bps: SBN repricing net +80bps, IDR jatuh +1,200, confidence gate check | Step 3I |
+| `sovereign-downgrade` | Rating downgrade ke BB+: CDS +100bps, SBN +125bps, IG-mandate exit ~$19bn, doom loop check | Step 3J |
 
 **Output per scenario:**
 - Before vs After score tiap modul (GREEN/YELLOW/ORANGE/RED)
@@ -144,6 +152,12 @@ DOOM LOOP TERRITORY: CAR erosion 3.26pp (threshold >1.5pp)
 UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - USDIDR: 16,500 | ICP oil: $70/bbl | GDP growth: 5.4% | CPI: 2.5%
 - Revenue: 3,154T | Spending: 3,843T | Deficit: 2.68% GDP
+
+**Live deviations (Jun 2026):**
+- BI Rate: **5.50%** — inter-cycle hike Jun 9 2026 (+25bps, rationale: IDR stabilization)
+- Term premium: **1.98%** (SBN 10Y 7.48% − BI Rate 5.50%) — borderline ORANGE (threshold 2.0%)
+- S&P interest/revenue ratio: **~20.4%** (belanja bunga 552.7T + BI hike uplift 9T vs revenue 2,756T) — 5.4pp above S&P 15% negative-watch threshold
+- USDIDR spot: **~18,000** vs APBN assumption 16,500 — 9% gap
 
 ### BBM Subsidy Monitoring (Module 11)
 
@@ -255,13 +269,22 @@ Faktor 1.40 = crude 100% + kilang 20% + distribusi 10% + margin+pajak 10%
 **Emergency override (tanpa redeploy):**
 Jika pemerintah umumkan kenaikan harga BBM, update langsung via env var:
 ```bash
-# .env
+# .env — BBM price overrides (no redeploy needed)
 PERTALITE_PRICE_IDR=12000     # harga baru setelah naik (subsidi)
 SOLAR_PRICE_IDR=8000          # harga baru Solar subsidi
 PERTAMAX_PRICE_IDR=16250      # RON 92 — sudah naik 10 Jun 2026
 PERTAMAX_GREEN_PRICE_IDR=17000  # RON 95 — sudah naik 10 Jun 2026
+
+# .env — policy/classification signals (operator-updated qualitative flags)
+BI_BUYS_LONG_SBN=false        # set 'false' saat BI abstain dari beli SBN 10Y+
+                               # (Perry Warjiyo statement 10 Jun 2026)
+                               # Revert 'true' jika BI resume pembelian SBN
+MSCI_CLASSIFICATION_STATUS=under_review   # 'confirmed' | 'under_review' | 'downgrade_risk'
+                                          # Update setelah MSCI rilis June 2026 review
+MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN=1.8  # passive outflow dari rebalancing Mei 2026
+                                              # (19 perusahaan dikeluarkan, estimasi CGS International)
 ```
-Sistem akan otomatis rekalkulasi subsidy gap dan ICP alert menggunakan harga baru.
+Sistem akan otomatis rekalkulasi subsidy gap, ICP alert, dan foreign flow risk score menggunakan nilai terbaru.
 
 ### Scripts Tambahan
 
