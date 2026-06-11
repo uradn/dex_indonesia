@@ -655,36 +655,40 @@ function renderPolRisk(d) {
     scoreEl.textContent = '?';
   }
 
-  const unempDate = ind['unemployment_rate_pct']?.date ?? null;
+  const unempDate  = ind['unemployment_rate_pct']?.date ?? null;
   const unrestDate = ind['political_social_unrest_score']?.date ?? null;
+  const cds        = ind['indonesia_cds_5y_bps']?.value ?? null;
+  const eido       = ind['eido_price']?.value ?? null;
+  const idxFlow    = ind['idx_foreign_net_buy_idr_bn']?.value ?? null;
 
-  // 1998 template conditions
-  // Thresholds: unemployment >4.8% (CLAUDE.md normal=4.8%); social unrest >33 (system YELLOW)
+  // 1998 analog: 5 distinct macro conditions (none overlap with M12 score bars above)
   const t98 = [
-    { label: 'Food unaffordable',         detail: gap != null ? 'gap Rp'+Math.round(gap).toLocaleString('id')+'/L' : food != null ? 'score '+food : '',    active: (food ?? 0) > 50 || (gap ?? 0) > 4000 },
-    { label: 'IDR lemah (>17,000)',        detail: usdidr != null ? fmtK(usdidr) : '',                                                                        active: (usdidr ?? 0) > 17000 },
-    { label: 'Unemployment naik (>4.8%)', detail: unemp != null ? fmtNum(unemp,2)+'% ['+(unempDate ?? 'n/a')+']' : 'n/a — BPS quarterly',                    active: (unemp ?? 0) > 4.8 },
-    { label: 'Social unrest elevated',    detail: unrest != null ? 'score '+unrest+'/100 ['+(unrestDate ? unrestDate.slice(5) : 'n/a')+']' : 'n/a',           active: (unrest ?? 0) > 33 },
-    { label: 'Political stability stress', detail: stab != null ? 'stab '+stab+'/100' : 'n/a',                                                                active: stab !== null && stab < 50 },
+    { label: 'Food unaffordable',      detail: gap != null ? 'Rp'+Math.round(gap).toLocaleString('id')+'/L gap' : food != null ? 'score '+food : '',       active: (food ?? 0) > 50 || (gap ?? 0) > 4000 },
+    { label: 'IDR lemah (>17,000)',    detail: usdidr != null ? fmtK(usdidr) : '',                                                                            active: (usdidr ?? 0) > 17000 },
+    { label: 'Unemployment (>4.8%)',   detail: unemp != null ? fmtNum(unemp,2)+'% ['+(unempDate ?? 'n/a')+'] BPS' : 'BPS quarterly',                         active: (unemp ?? 0) > 4.8 },
+    { label: 'CDS widening (>100bps)', detail: cds != null ? fmtNum(cds,1)+'bps' : '—',                                                                      active: (cds ?? 0) > 100 },
+    { label: 'Capital exit signal',    detail: eido != null ? 'EIDO $'+fmtNum(eido,2) : idxFlow != null ? fmtK(idxFlow)+'B IDR' : '—',                       active: (eido ?? 999) < 12 || (idxFlow ?? 0) < -1000 },
   ];
   const t98score = t98.filter(x => x.active).length;
   const t98cls = t98score >= 4 ? 'red' : t98score >= 3 ? 'orange' : t98score >= 2 ? 'yellow' : 'green';
   document.getElementById('template98-score').className = t98cls;
   document.getElementById('template98-score').textContent = t98score.toString();
 
+  // All bars: raw stress score 0-100, higher = worse (consistent direction)
   const scoreRows = [
-    { label: 'Social Unrest', val: unrest, inverse: false },
-    { label: 'Food Stress',   val: food,   inverse: false },
-    { label: 'Stability',     val: stab,   inverse: true },
-  ].map(({ label, val, inverse }) => {
+    { label: 'Social Unrest', val: unrest, date: unrestDate },
+    { label: 'Food Stress',   val: food,   date: ind['political_food_stress_score']?.date ?? null },
+    { label: 'Stab Stress',   val: stab,   date: ind['political_stability_stress_score']?.date ?? null },
+  ].map(({ label, val, date }) => {
     if (val === null) return \`<div class="bar-row"><span class="bar-label">\${label}</span><span style="color:var(--muted)">n/a</span></div>\`;
-    const displayVal = inverse ? 100 - val : val;
-    const cls = displayVal >= 70 ? 'red' : displayVal >= 50 ? 'orange' : displayVal >= 33 ? 'yellow' : 'green';
-    const color = displayVal >= 70 ? 'var(--red)' : displayVal >= 50 ? 'var(--orange)' : displayVal >= 33 ? 'var(--yellow)' : 'var(--green)';
+    const cls   = val >= 70 ? 'red' : val >= 50 ? 'orange' : val >= 33 ? 'yellow' : 'green';
+    const color = val >= 70 ? 'var(--red)' : val >= 50 ? 'var(--orange)' : val >= 33 ? 'var(--yellow)' : 'var(--green)';
+    const dateStr = date ? date.slice(5) : '';
     return \`<div class="bar-row">
       <span class="bar-label">\${label}</span>
-      <div class="bar-track"><div class="bar-fill" style="width:\${displayVal}%;background:\${color}"></div></div>
-      <span class="bar-val \${cls}">\${displayVal}/100</span>
+      <div class="bar-track"><div class="bar-fill" style="width:\${val}%;background:\${color}"></div></div>
+      <span style="font-size:9px;color:var(--muted);flex-shrink:0;width:32px;text-align:right">\${dateStr}</span>
+      <span class="bar-val \${cls}" style="width:36px">\${val}/100</span>
     </div>\`;
   }).join('');
 
