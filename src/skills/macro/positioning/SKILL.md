@@ -13,12 +13,16 @@ Synthesizes Dexter's 13-module system into an actionable positioning output.
 
 ## Step 1 — Gather inputs (run in parallel)
 
-Call these three tools simultaneously:
+Always call all four tools fresh — do not rely on context from prior turns:
 - `silent_crisis_detector` — SCD score, stressed module count, weighted composite
 - `regime_engine` — current quadrant (Q1/Q2/Q3/Q4), regime label
 - `market_stress_engine` — stressScore, timing (oversold/neutral/overheated), P/E, A/D
+- `foreign_flow_engine` — EIDO MoM %, SBN ownership direction, IDX net flow, silentExitProbability
 
-Also read from the most recent module outputs already in context (M2 sovereign, M5 foreign flow, M10 fiscal) if available — avoid re-running them.
+**Derive CapitalFlow status from `foreign_flow_engine` output:**
+- `Deteriorating` — EIDO MoM < −2% OR SBN ownership falling OR IDX net sell < −2,000 IDR bn AND silentExitProbability > 40%
+- `Improving` — EIDO MoM > +2% AND SBN ownership stable/rising AND IDX net sell > −500 IDR bn
+- `Stable` — everything else
 
 ## Step 2 — Compute Timing
 
@@ -49,14 +53,15 @@ Map quadrant + SCD + Timing → one of 6 regimes:
 
 | Regime | Conditions | Implication |
 |--------|-----------|-------------|
-| **RiskOn** | Q1 (Growth↑ Inflation↓) + SCD < 33 + Timing ≠ Overheated | Favorable entry; IDR stable; SBN carry attractive |
-| **Recovery** | Q1/Q2 + SCD < 33 + Timing = Oversold | Early recovery post-selloff; asymmetric upside if Resolved improving |
+| **DoomLoopWatch** | SCD ≥ 50 AND stressed_modules ≥ 3 (any quadrant) | Non-linear deterioration; ×1.2 amplifier active; monitor daily — **highest priority, overrides all below** |
+| **ConsensusBear** | Q3/Q4 + SCD ≥ 33 + Timing = Oversold (and DoomLoop not triggered) | Consensus already short/bearish; short squeeze risk; do NOT chase shorts |
+| **Stress** | Q3 (Growth↓ Inflation↑) + SCD 33-69 + Timing ≠ Oversold | IDR under pressure; SBN foreign exit risk; defensive stance |
 | **LateCycle** | Q2 (Growth↑ Inflation↑) + SCD 33-49 + Timing = Overheated | BI hike risk; reduce duration; commodities outperform |
-| **Stress** | Q3 (Growth↓ Inflation↑) + SCD 33-69 | IDR under pressure; SBN foreign exit risk; defensive stance |
-| **DoomLoopWatch** | Any quadrant + SCD ≥ 50 + 3+ modules stressed | Non-linear deterioration risk; ×1.2 amplifier active; monitor daily |
-| **ConsensusBear** | Q3/Q4 + SCD ≥ 33 + Timing = Oversold | Everyone already positioned bearish; short squeeze risk; do NOT chase shorts |
+| **WatchMode** | Any quadrant + SCD 33-49 (not Q3/not Overheated — doesn't fit above) | Deterioration emerging but not acute; tighten stops, reduce new exposure |
+| **Recovery** | Q1/Q2 + SCD < 33 + Timing = Oversold | Early recovery post-selloff; asymmetric upside if Resolved improving |
+| **RiskOn** | Q1 + SCD < 33 + Timing ≠ Overheated (default Green state) | Favorable entry; IDR stable; SBN carry attractive |
 
-**Priority rule:** If DoomLoopWatch conditions met, it overrides LateCycle or Stress labels.
+**Priority order (top wins):** DoomLoopWatch → ConsensusBear → Stress → LateCycle → WatchMode → Recovery → RiskOn
 
 ## Step 5 — Decision Rules (IF-THEN)
 
