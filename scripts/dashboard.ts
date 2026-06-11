@@ -177,13 +177,14 @@ const HTML = `<!DOCTYPE html>
   .doom-item { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
   .doom-item:last-child { border-bottom: none; }
   .doom-score { font-size: 20px; font-weight: 700; }
-  .charts-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
+  .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
   .chart-title { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 4px; }
-  .chart-current { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
-  canvas { max-height: 90px; }
+  .chart-current { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .chart-sparse { font-size: 10px; color: var(--muted); margin-top: 4px; font-style: italic; }
+  canvas { min-height: 180px; max-height: 180px; }
   .food-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
-  .bottom-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .top-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 11px; }
   .bar-label { width: 46px; color: var(--muted); flex-shrink: 0; font-size: 10px; }
   .bar-track { flex: 1; height: 14px; background: rgba(255,255,255,.06); border-radius: 2px; overflow: hidden; }
@@ -273,8 +274,7 @@ const HTML = `<!DOCTYPE html>
   </div>
 
   <div class="main">
-    <div class="charts-grid" id="charts-grid"></div>
-    <div class="bottom-panels">
+    <div class="top-panels">
       <div class="card polrisk-card">
         <div class="card-title">Political Risk — Unrest Monitor (M12)</div>
         <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">
@@ -291,6 +291,7 @@ const HTML = `<!DOCTYPE html>
         <div style="margin-top:8px;font-size:10px;color:var(--muted)" id="asean-narrative"></div>
       </div>
     </div>
+    <div class="charts-grid" id="charts-grid"></div>
   </div>
 </div>
 
@@ -547,7 +548,7 @@ function renderCharts(chartsData) {
 
     if (chartInstances[canvasId]) { chartInstances[canvasId].destroy(); delete chartInstances[canvasId]; }
 
-    if (series.length > 1) {
+    if (series.length >= 2) {
       const ctx = div.querySelector('canvas').getContext('2d');
       chartInstances[canvasId] = new Chart(ctx, {
         type: 'line',
@@ -559,7 +560,7 @@ function renderCharts(chartsData) {
             backgroundColor: cfg.color + '22',
             fill: true,
             tension: 0.3,
-            pointRadius: 0,
+            pointRadius: series.length < 10 ? 3 : 0,
             borderWidth: 1.5,
           }]
         },
@@ -573,6 +574,25 @@ function renderCharts(chartsData) {
           }
         }
       });
+      if (series.length < 10) {
+        const sparse = div.querySelector('canvas').insertAdjacentElement('afterend', document.createElement('div'));
+        sparse.className = 'chart-sparse';
+        sparse.textContent = series.length + ' data points — run morning brief to populate history';
+      }
+    } else if (series.length === 1) {
+      const canvas = div.querySelector('canvas');
+      canvas.style.display = 'none';
+      const msg = document.createElement('div');
+      msg.style.cssText = 'height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;';
+      msg.innerHTML = \`<span style="font-size:28px;font-weight:700;color:\${cfg.color}">\${cfg.fmt(series[0].value)}</span><span class="chart-sparse">1 data point (\${series[0].date}) — no history yet</span>\`;
+      canvas.parentNode.insertBefore(msg, canvas);
+    } else {
+      const canvas = div.querySelector('canvas');
+      canvas.style.display = 'none';
+      const msg = document.createElement('div');
+      msg.style.cssText = 'height:180px;display:flex;align-items:center;justify-content:center;';
+      msg.innerHTML = \`<span class="chart-sparse">No series data — run morning brief to populate</span>\`;
+      canvas.parentNode.insertBefore(msg, canvas);
     }
   }
 }
@@ -615,7 +635,7 @@ function renderPolRisk(d) {
   const gap     = ind['bbm_subsidy_gap_idr_liter']?.value ?? null;
 
   // composite score
-  const scores = [unrest, food, stab ? (100 - stab) : null].filter(x => x !== null) as number[];
+  const scores = [unrest, food, stab ? (100 - stab) : null].filter(x => x !== null);
   const composite = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : null;
 
   const scoreEl = document.getElementById('polrisk-score');
@@ -679,12 +699,12 @@ function renderAsean(d) {
   const { aseanFx } = d;
   if (!aseanFx) return '<span style="color:var(--muted)">No data</span>';
 
-  const entries = Object.values(aseanFx) as any[];
+  const entries = Object.values(aseanFx);
   // sort by changePct desc (most depreciated first)
   entries.sort((a,b) => (b.changePct ?? -999) - (a.changePct ?? -999));
 
   // compute idiosyncratic: IDR change - ASEAN median (excl IDR)
-  const peers = entries.filter(e => e.label !== 'IDR').map(e => e.changePct).filter(x => x !== null) as number[];
+  const peers = entries.filter(e => e.label !== 'IDR').map(e => e.changePct).filter(x => x !== null);
   const median = peers.length ? peers.sort((a,b)=>a-b)[Math.floor(peers.length/2)] : null;
   const idrChange = aseanFx['usdidr_spot']?.changePct ?? null;
   const idiosync = idrChange !== null && median !== null ? +(idrChange - median).toFixed(2) : null;
