@@ -177,25 +177,39 @@ const HTML = `<!DOCTYPE html>
   .doom-item { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
   .doom-item:last-child { border-bottom: none; }
   .doom-score { font-size: 20px; font-weight: 700; }
-  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
-  .chart-title { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 6px; }
-  .chart-current { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
-  canvas { max-height: 120px; }
-  .food-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+  .charts-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
+  .chart-title { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 4px; }
+  .chart-current { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+  canvas { max-height: 90px; }
+  .food-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
   .bottom-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 11px; }
-  .bar-label { width: 40px; color: var(--muted); flex-shrink: 0; }
-  .bar-track { flex: 1; height: 14px; background: var(--border); border-radius: 2px; overflow: hidden; position: relative; }
+  .bar-label { width: 46px; color: var(--muted); flex-shrink: 0; font-size: 10px; }
+  .bar-track { flex: 1; height: 14px; background: rgba(255,255,255,.06); border-radius: 2px; overflow: hidden; }
   .bar-fill { height: 100%; border-radius: 2px; transition: width .3s; }
-  .bar-val { width: 60px; text-align: right; font-weight: 600; flex-shrink: 0; }
+  .bar-val { width: 56px; text-align: right; font-weight: 700; flex-shrink: 0; font-size: 11px; }
   .template98-item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 11px; border-bottom: 1px solid var(--border); }
   .template98-item:last-child { border-bottom: none; }
+  /* pastel panel cards */
+  .card.polrisk-card { background: rgba(248,81,73,.08); border-color: rgba(248,81,73,.28); }
+  .card.polrisk-card .card-title { color: rgba(248,81,73,.7); }
+  .card.asean-card { background: rgba(63,185,80,.08); border-color: rgba(63,185,80,.28); }
+  .card.asean-card .card-title { color: rgba(63,185,80,.7); }
   .scd-run-btn { margin-top: 8px; padding: 6px 14px; background: #1f2937; border: 1px solid var(--border); color: var(--text); border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 11px; width: 100%; }
   .scd-run-btn:hover { background: var(--border); }
   .scd-run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  #scd-result-panel { margin-top: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px; display: none; }
-  #scd-result-panel pre { white-space: pre-wrap; font-size: 11px; color: var(--text); line-height: 1.5; max-height: 60vh; overflow-y: auto; }
+  #scd-result-panel { margin-top: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px; display: none; max-height: 55vh; overflow-y: auto; }
+  #scd-result-panel .scd-md { font-size: 11px; color: var(--text); line-height: 1.6; }
+  #scd-result-panel .scd-md h2 { font-size: 13px; margin: 8px 0 4px; border-bottom: 1px solid var(--border); padding-bottom: 3px; }
+  #scd-result-panel .scd-md h3 { font-size: 12px; color: var(--muted); margin: 6px 0 2px; }
+  #scd-result-panel .scd-md .tbl-row { display: flex; gap: 6px; padding: 2px 0; border-bottom: 1px solid rgba(48,54,61,.6); font-size: 10px; }
+  #scd-result-panel .scd-md .tbl-row span { flex: 1; }
+  #scd-result-panel .scd-md .tbl-row.tbl-header { font-weight: 700; color: var(--muted); border-bottom: 1px solid var(--border); }
+  #scd-result-panel .scd-md ul { padding-left: 14px; margin: 3px 0; }
+  #scd-result-panel .scd-md li { margin: 1px 0; font-size: 10px; }
+  #scd-result-panel .scd-md p { margin: 3px 0; font-size: 10px; }
+  #scd-result-panel .scd-md b { color: var(--text); }
 </style>
 </head>
 <body>
@@ -220,7 +234,7 @@ const HTML = `<!DOCTYPE html>
 
     <div id="scd-result-panel">
       <div class="card-title" style="margin-bottom:6px">Full SCD Result</div>
-      <pre id="scd-result-text"></pre>
+      <div id="scd-result-content" class="scd-md"></div>
     </div>
 
     <div class="card">
@@ -261,7 +275,7 @@ const HTML = `<!DOCTYPE html>
   <div class="main">
     <div class="charts-grid" id="charts-grid"></div>
     <div class="bottom-panels">
-      <div class="card">
+      <div class="card polrisk-card">
         <div class="card-title">Political Risk — Unrest Monitor (M12)</div>
         <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">
           <span class="doom-score" id="polrisk-score">—</span>
@@ -270,7 +284,7 @@ const HTML = `<!DOCTYPE html>
         </div>
         <div id="panel-polrisk"></div>
       </div>
-      <div class="card">
+      <div class="card asean-card">
         <div class="card-title">ASEAN FX Peers — IDR Idiosyncratic Check (M7)</div>
         <div style="font-size:10px;color:var(--muted);margin-bottom:6px">30d change — positive = depreciation vs USD</div>
         <div id="panel-asean"></div>
@@ -292,7 +306,7 @@ const CHART_CONFIGS = [
   { key: 'eido_price', label: 'EIDO ETF (USD)', color: '#58a6ff', fmt: v => '$'+v.toFixed(2) },
   { key: 'bbm_subsidy_gap_idr_liter', label: 'BBM Subsidy Gap (IDR/L)', color: '#ff7b72', fmt: v => 'Rp'+Math.round(v).toLocaleString('id') },
   { key: 'brent_price_usd', label: 'Brent (USD/bbl)', color: '#ffa657', fmt: v => '$'+v.toFixed(1) },
-  { key: 'bi_fx_reserves_bn', label: 'FX Reserves (USD bn)', color: '#3fb950', fmt: v => '$'+v.toFixed(1)+'bn' },
+  { key: 'srbi_outstanding_trn_idr', label: 'SRBI Outstanding (T IDR)', color: '#3fb950', fmt: v => 'Rp'+v.toFixed(0)+'T' },
   { key: 'sbn_foreign_ownership_pct', label: 'SBN Foreign Ownership %', color: '#bc8cff', fmt: v => v.toFixed(2)+'%' },
 ];
 
@@ -475,7 +489,7 @@ function renderFood(d) {
   ];
   return foods.map(f => {
     const v = ind[f.key]?.value;
-    return \`<div class="kv">\${kv(f.label, v ? f.fmt(v) : '—')}</div>\`;
+    return kv(f.label, v ? f.fmt(v) : '—');
   }).join('');
 }
 
@@ -681,16 +695,13 @@ function renderAsean(d) {
     const pct = e.changePct;
     if (pct === null) return \`<div class="bar-row"><span class="bar-label">\${e.label}</span><span style="color:var(--muted)">n/a</span></div>\`;
     const isIdr = e.label === 'IDR';
-    const cls = pct >= 5 ? 'red' : pct >= 3 ? 'orange' : pct >= 1 ? 'yellow' : pct <= -1 ? 'green' : '';
+    // positive = depreciation (bad), negative = appreciation (good)
+    const cls = pct >= 5 ? 'red' : pct >= 3 ? 'orange' : pct >= 1 ? 'yellow' : 'green';
     const color = pct >= 5 ? 'var(--red)' : pct >= 3 ? 'var(--orange)' : pct >= 1 ? 'var(--yellow)' : 'var(--green)';
-    const widthPct = Math.abs(pct) / maxAbs * 100;
-    const isPos = pct >= 0;
-    // bar from center for positive (depreciation) or negative (appreciation)
+    const widthPct = Math.min(100, Math.abs(pct) / maxAbs * 100);
     return \`<div class="bar-row">
       <span class="bar-label" style="\${isIdr ? 'color:var(--text);font-weight:700' : ''}">\${e.label}</span>
-      <div class="bar-track">
-        <div class="bar-fill" style="width:\${widthPct}%;background:\${isPos ? color : 'var(--green)'};margin-left:\${isPos ? 0 : (100-widthPct)+'%'}"></div>
-      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:\${widthPct}%;background:\${color}"></div></div>
       <span class="bar-val \${cls}">\${pct > 0 ? '+' : ''}\${pct.toFixed(2)}%</span>
     </div>\`;
   }).join('');
@@ -707,6 +718,61 @@ function renderAsean(d) {
   }
   document.getElementById('asean-narrative').innerHTML = narrative;
   return bars;
+}
+
+// ── Markdown → HTML (minimal, SCD-tuned) ─────────────────────────────────────
+function mdToHtml(md) {
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const colorize = s => s
+    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+    .replace(/\b(RED|CRISIS)\b/g, '<span class="red">$1</span>')
+    .replace(/\b(ORANGE|ELEVATED)\b/g, '<span class="orange">$1</span>')
+    .replace(/\b(YELLOW|WATCH)\b/g, '<span class="yellow">$1</span>')
+    .replace(/\b(GREEN|NORMAL|STABLE)\b/g, '<span class="green">$1</span>');
+
+  const lines = md.split('\\n');
+  const out = [];
+  let inTable = false;
+  let tableRowCount = 0;
+  let inList = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const line = raw.trim();
+
+    // Table rows
+    if (line.startsWith('|')) {
+      const cells = line.split('|').filter((_,j,a) => j > 0 && j < a.length - 1).map(c => c.trim());
+      if (cells.every(c => /^[-:]+$/.test(c))) continue; // separator row
+      if (!inTable) { out.push('<div class="tbl">'); inTable = true; tableRowCount = 0; }
+      const isHeader = tableRowCount === 0;
+      const cellHtml = cells.map(c => \`<span>\${colorize(esc(c))}</span>\`).join('');
+      out.push(\`<div class="tbl-row\${isHeader ? ' tbl-header' : ''}">\${cellHtml}</div>\`);
+      tableRowCount++;
+      continue;
+    }
+    if (inTable) { out.push('</div>'); inTable = false; tableRowCount = 0; }
+
+    // List items
+    if (/^[-*] /.test(line)) {
+      if (!inList) { out.push('<ul>'); inList = true; }
+      out.push(\`<li>\${colorize(esc(line.slice(2)))}</li>\`);
+      continue;
+    }
+    if (inList) { out.push('</ul>'); inList = false; }
+
+    if (!line) continue;
+    if (line.startsWith('### ')) { out.push(\`<h3>\${colorize(esc(line.slice(4)))}</h3>\`); continue; }
+    if (line.startsWith('## ')) { out.push(\`<h2>\${colorize(esc(line.slice(3)))}</h2>\`); continue; }
+    if (line.startsWith('# ')) { out.push(\`<h2>\${colorize(esc(line.slice(2)))}</h2>\`); continue; }
+    // blockquote
+    if (line.startsWith('> ')) { out.push(\`<p style="border-left:2px solid var(--border);padding-left:8px;color:var(--muted)">\${colorize(esc(line.slice(2)))}</p>\`); continue; }
+    out.push(\`<p>\${colorize(esc(line))}</p>\`);
+  }
+
+  if (inTable) out.push('</div>');
+  if (inList) out.push('</ul>');
+  return out.join('\\n');
 }
 
 // ── SCD on-demand ────────────────────────────────────────────────────────────
@@ -734,7 +800,7 @@ async function pollScdResult() {
   const btn = document.getElementById('scd-btn');
   const statusEl = document.getElementById('scd-status');
   const panel = document.getElementById('scd-result-panel');
-  const text = document.getElementById('scd-result-text');
+  const content = document.getElementById('scd-result-content');
 
   try {
     const r = await fetch('/api/scd-result').then(x => x.json());
@@ -750,7 +816,7 @@ async function pollScdResult() {
     if (r.status === 'done') {
       statusEl.textContent = 'Completed at ' + new Date(r.completedAt).toLocaleTimeString('id-ID');
       panel.style.display = 'block';
-      text.textContent = r.result || '(no result)';
+      content.innerHTML = mdToHtml(r.result || '(no result)');
     } else if (r.status === 'error') {
       statusEl.textContent = '❌ Error: ' + r.error;
     }
