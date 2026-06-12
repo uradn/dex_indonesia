@@ -77,6 +77,8 @@ const SNAPSHOT_INDICATORS = [
   'usdidr_vol_30d', 'indonesia_pmi_manufacturing', 'indonesia_debt_gdp_pct',
   // m12 macro context (unique)
   'food_inflation_yoy_pct',
+  // rr/gg page
+  'uln_shortterm_pct', 'indonesia_external_debt_bn',
 ];
 
 const CHART_INDICATORS = [
@@ -228,6 +230,7 @@ const HTML = `<!DOCTYPE html>
   <h1>🇮🇩 Dexter — Indonesia Macro Dashboard</h1>
   <span id="last-updated">—</span>
   <button id="refresh-btn" onclick="refresh()">↻ Refresh</button>
+  <a href="/rr" style="margin-left:auto;font-size:11px;color:var(--muted);text-decoration:none;padding:4px 8px;border:1px solid var(--border);border-radius:4px;white-space:nowrap" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">R&amp;R / G-G →</a>
 </header>
 <div class="layout">
   <div class="sidebar">
@@ -982,6 +985,243 @@ setInterval(refresh, 60_000);
 </body>
 </html>`;
 
+// ── R&R / G-G Framework Page ─────────────────────────────────────────────────
+
+const RR_HTML = `<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dexter — R&R / G-G Framework</title>
+<style>
+  :root {
+    --bg:#0d1117; --surface:#161b22; --border:#30363d; --fg:#e6edf3;
+    --muted:#8b949e; --green:#3fb950; --yellow:#d29922; --orange:#e3721c; --red:#f85149;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--fg); font-family:'SF Mono',monospace; font-size:12px; }
+  header { padding:14px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:16px; }
+  header h1 { font-size:15px; font-weight:600; }
+  a.back { font-size:11px; color:var(--muted); text-decoration:none; padding:4px 8px; border:1px solid var(--border); border-radius:4px; }
+  a.back:hover { color:var(--fg); }
+  .page { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:16px 24px; max-width:1400px; margin:0 auto; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px; }
+  .card-title { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:12px; }
+  .big-num { font-size:36px; font-weight:700; line-height:1; }
+  .tag { font-size:10px; padding:2px 7px; border-radius:3px; font-weight:600; text-transform:uppercase; }
+  .green { color:var(--green); } .yellow { color:var(--yellow); } .orange { color:var(--orange); } .red { color:var(--red); }
+  .tag.green { background:rgba(63,185,80,.12); } .tag.yellow { background:rgba(210,153,34,.12); }
+  .tag.orange { background:rgba(227,114,28,.12); } .tag.red { background:rgba(248,81,73,.12); }
+  .kv { display:flex; justify-content:space-between; align-items:baseline; padding:3px 0; border-bottom:1px solid var(--border); font-size:11px; }
+  .kv:last-child { border-bottom:none; }
+  .kv-label { color:var(--muted); }
+  .kv-val { font-weight:500; }
+  .section-title { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:10px 0 6px; border-top:1px solid var(--border); padding-top:8px; }
+  .fw-table { width:100%; border-collapse:collapse; margin-top:4px; }
+  .fw-table th { font-size:9px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); text-align:left; padding:4px 6px; border-bottom:1px solid var(--border); font-weight:400; }
+  .fw-table td { padding:5px 6px; border-bottom:1px solid rgba(48,54,61,.5); font-size:11px; vertical-align:middle; }
+  .fw-table tr:last-child td { border-bottom:none; }
+  .fw-theory { font-size:9px; color:var(--muted); font-style:italic; display:block; margin-top:1px; }
+  .gauge-wrap { display:flex; align-items:center; gap:16px; margin-bottom:12px; }
+  .gauge-arc { position:relative; width:80px; height:44px; overflow:visible; }
+  .hist-note { margin-top:8px; font-size:9px; color:var(--muted); padding:4px 6px; background:rgba(48,54,61,.4); border-radius:3px; border-left:2px solid var(--border); }
+  #last-updated-rr { font-size:10px; color:var(--muted); margin-left:auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🇮🇩 R&R / G-G — Theoretical Framework Monitor</h1>
+  <span id="last-updated-rr">—</span>
+  <a href="/" class="back">← Dashboard Utama</a>
+</header>
+<div class="page">
+  <div class="card" id="panel-gg">
+    <div class="card-title">G-G Shield — Greenspan-Guidotti Ratio</div>
+    <div style="color:var(--muted)">Loading…</div>
+  </div>
+  <div class="card" id="panel-rr">
+    <div class="card-title">R&R Open Economy — 9 Frameworks Live</div>
+    <div style="color:var(--muted)">Loading…</div>
+  </div>
+</div>
+<script>
+function fmtNum(v,d=2){ return v != null ? (+v).toFixed(d) : '—'; }
+function fmtK(v){ return v != null ? (v/1000).toFixed(1)+'k' : '—'; }
+function cls(v, g, y, o){ return v >= o ? 'red' : v >= y ? 'orange' : v >= g ? 'yellow' : 'green'; }
+function clsInv(v, g, y, o){ return v <= o ? 'red' : v <= y ? 'orange' : v <= g ? 'yellow' : 'green'; }
+function kv(label,val,c=''){ return \`<div class="kv"><span class="kv-label">\${label}</span><span class="kv-val \${c}">\${val}</span></div>\`; }
+function tag(label,c){ return \`<span class="tag \${c}">\${label}</span>\`; }
+
+function renderGG(d) {
+  const ind = d.indicators;
+  const gg      = ind['greenspan_guidotti']?.value ?? null;
+  const res     = ind['bi_fx_reserves_bn']?.value ?? null;
+  const dsr     = ind['uln_dsr_pct']?.value ?? null;
+  const ulnGdp  = ind['uln_gdp_ratio_pct']?.value ?? null;
+  const stPct   = ind['uln_shortterm_pct']?.value ?? null;
+  const sbn     = ind['sbn_10y_yield_pct']?.value ?? null;
+  const gdp     = ind['gdp_growth_pct']?.value ?? null;
+  const rg      = (sbn != null && gdp != null) ? +(sbn - gdp).toFixed(2) : null;
+  const extDebt = ind['indonesia_external_debt_bn']?.value ?? null;
+  const stDebt  = (extDebt != null && stPct != null) ? +(extDebt * stPct / 100).toFixed(1) : null;
+
+  const ggCls  = gg != null ? (gg < 1.0 ? 'red' : gg < 1.5 ? 'orange' : gg < 2.0 ? 'yellow' : 'green') : '';
+  const ggLbl  = gg != null ? (gg < 1.0 ? 'KRITIS' : gg < 1.5 ? 'Elevated' : gg < 2.0 ? 'Watch' : 'Aman') : '—';
+  const dsrCls = dsr != null ? (dsr > 30 ? 'red' : dsr > 25 ? 'orange' : dsr > 20 ? 'yellow' : 'green') : '';
+  const rgCls  = rg != null ? (rg > 3 ? 'red' : rg > 2 ? 'orange' : rg > 1 ? 'yellow' : 'green') : '';
+  const rgLbl  = rg != null ? (rg > 2 ? '▲ snowball risk' : rg > 1 ? '▲ watch' : '✓ ok') : '';
+
+  // SVG semi-circle gauge for G-G
+  const pct = gg != null ? Math.min(gg / 3, 1) : 0;
+  const angle = pct * 180;
+  const rad   = (180 - angle) * Math.PI / 180;
+  const cx = 40, cy = 40, r = 34;
+  const x = cx + r * Math.cos(rad);
+  const y = cy - r * Math.sin(rad);
+  const arc = gg != null ? \`M\${cx-r},\${cy} A\${r},\${r} 0 0,1 \${x.toFixed(1)},\${y.toFixed(1)}\` : '';
+  const gaugeColor = gg != null ? (gg < 1.0 ? 'var(--red)' : gg < 1.5 ? 'var(--orange)' : gg < 2.0 ? 'var(--yellow)' : 'var(--green)') : 'var(--muted)';
+
+  const gauge = \`<svg width="80" height="44" viewBox="0 0 80 44">
+    <path d="M6,40 A34,34 0 0,1 74,40" fill="none" stroke="var(--border)" stroke-width="6" stroke-linecap="round"/>
+    \${arc ? \`<path d="\${arc}" fill="none" stroke="\${gaugeColor}" stroke-width="6" stroke-linecap="round"/>\` : ''}
+    <line x1="\${x.toFixed(1)}" y1="\${y.toFixed(1)}" x2="\${cx}" y2="\${cy}" stroke="\${gaugeColor}" stroke-width="1.5" opacity=".6"/>
+    <text x="\${cx}" y="38" text-anchor="middle" font-size="9" fill="var(--muted)">0</text>
+  </svg>\`;
+
+  return \`
+    <div class="gauge-wrap">
+      \${gauge}
+      <div>
+        <div class="big-num \${ggCls}">\${gg != null ? fmtNum(gg,2)+'x' : '—'}</div>
+        <div style="margin-top:4px">\${tag(ggLbl, ggCls)}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:3px">Threshold kritis: &lt;1.0x</div>
+      </div>
+    </div>
+    \${kv('FX Reserves', res ? '$'+fmtNum(res,1)+'bn' : '—')}
+    \${kv('External Debt', extDebt ? '$'+fmtNum(extDebt,1)+'bn' : '—')}
+    \${kv('Short-term ULN', stDebt ? '$'+fmtNum(stDebt,1)+'bn ('+fmtNum(stPct,1)+'%)' : stPct ? stPct+'%' : '—')}
+    \${kv('ULN DSR', dsr ? fmtNum(dsr,2)+'%' : '—', dsrCls)}
+    \${kv('ULN / GDP', ulnGdp ? fmtNum(ulnGdp,1)+'%' : '—', ulnGdp > 45 ? 'red' : ulnGdp > 40 ? 'orange' : ulnGdp > 35 ? 'yellow' : 'green')}
+    <div class="section-title">r − g Debt Dynamics</div>
+    \${kv('SBN 10Y (r)', sbn ? fmtNum(sbn,2)+'%' : '—')}
+    \${kv('GDP Growth (g)', gdp ? fmtNum(gdp,1)+'%' : '—')}
+    \${kv('r − g spread', rg != null ? (rg > 0 ? '+' : '')+fmtNum(rg,2)+'% '+rgLbl : '—', rgCls)}
+    <div class="hist-note">1997 analog: GG ratio Indonesia ~0.4x saat krisis — reserves depleted vs ST debt. Saat ini 2.27x = buffer signifikan, tapi DSR 24.69% naik (2022→2023→2024: 23.3%→20.3%→24.7%).</div>
+  \`;
+}
+
+function renderRR(d) {
+  const ind = d.indicators;
+  const bi       = ind['bi_rate_pct']?.value ?? null;
+  const ust      = ind['ust_10y_yield_pct']?.value ?? null;
+  const carry    = (bi != null && ust != null) ? +(bi - ust).toFixed(2) : null;
+  const usdidr   = ind['usdidr_spot']?.value ?? null;
+  const apbnRate = 16500;
+  const pppDev   = usdidr != null ? +(((usdidr - apbnRate) / apbnRate) * 100).toFixed(1) : null;
+  const sbn      = ind['sbn_10y_yield_pct']?.value ?? null;
+  const gdp      = ind['gdp_growth_pct']?.value ?? null;
+  const rg       = (sbn != null && gdp != null) ? +(sbn - gdp).toFixed(2) : null;
+  const srbi     = ind['srbi_outstanding_trn_idr']?.value ?? null;
+  const sbnOwn   = ind['sbn_foreign_ownership_pct']?.value ?? null;
+  const cdsVelo  = ind['cds_velocity_bps_week']?.value ?? null;
+  const cds      = ind['indonesia_cds_5y_bps']?.value ?? null;
+  const idrVol   = ind['usdidr_vol_30d']?.value ?? null;
+
+  const carryCls  = carry != null ? (carry < 0.5 ? 'red' : carry < 1.0 ? 'orange' : carry < 1.5 ? 'yellow' : 'green') : '';
+  const pppCls    = pppDev != null ? (pppDev > 15 ? 'red' : pppDev > 9 ? 'orange' : pppDev > 5 ? 'yellow' : 'green') : '';
+  const rgCls     = rg != null ? (rg > 3 ? 'red' : rg > 2 ? 'orange' : rg > 1 ? 'yellow' : 'green') : '';
+  const srnCls    = srbi != null ? (srbi > 1200 ? 'orange' : srbi > 800 ? 'yellow' : 'green') : '';
+  const ssCls     = sbnOwn != null ? (sbnOwn < 10 ? 'red' : sbnOwn < 12 ? 'orange' : sbnOwn < 14 ? 'yellow' : 'green') : '';
+  const cdsCls    = cdsVelo != null ? (cdsVelo > 7 ? 'red' : cdsVelo > 3 ? 'orange' : cdsVelo > 0 ? 'yellow' : 'green') : '';
+  const volCls    = idrVol != null ? (idrVol > 15 ? 'red' : idrVol > 10 ? 'orange' : idrVol > 7 ? 'yellow' : 'green') : '';
+
+  const frameworks = [
+    {
+      fw: 'UIP / Carry Trade',
+      theory: 'Uncovered Interest Parity — carry tipis → unwind risk',
+      signal: carry != null ? (carry > 0 ? '+' : '')+fmtNum(carry,2)+'% (BI '+fmtNum(bi,2)+'% − UST '+fmtNum(ust,3)+'%)' : '—',
+      cls: carryCls,
+      label: carry != null ? (carry < 0.5 ? 'KRITIS' : carry < 1.0 ? 'Tipis' : carry < 1.5 ? 'Watch' : 'Aman') : '—',
+    },
+    {
+      fw: 'PPP Misalignment',
+      theory: 'Purchasing Power Parity — IDR vs APBN 16,500 proxy',
+      signal: pppDev != null ? (pppDev > 0 ? '+' : '')+fmtNum(pppDev,1)+'% (IDR '+Math.round(usdidr).toLocaleString('id')+')' : '—',
+      cls: pppCls,
+      label: pppDev != null ? (pppDev > 15 ? 'Sangat Lemah' : pppDev > 9 ? 'Lemah' : pppDev > 5 ? 'Watch' : 'Wajar') : '—',
+    },
+    {
+      fw: 'r − g Debt Dynamics',
+      theory: 'r > g → debt/GDP naik otomatis (Blanchard, R&R Ch.13)',
+      signal: rg != null ? (rg > 0 ? '+' : '')+fmtNum(rg,2)+'% (r='+fmtNum(sbn,2)+'% g='+fmtNum(gdp,1)+'%)' : '—',
+      cls: rgCls,
+      label: rg != null ? (rg > 2 ? 'Snowball' : rg > 1 ? 'Watch' : rg > 0 ? 'Borderline' : 'Favorable') : '—',
+    },
+    {
+      fw: 'Trilemma / Sterilisasi',
+      theory: 'SRBI = biaya sterilisasi — makin besar = trilemma makin ketat',
+      signal: srbi != null ? fmtNum(srbi,0)+'T IDR outstanding' : '—',
+      cls: srnCls,
+      label: srbi != null ? (srbi > 1200 ? 'Tinggi' : srbi > 800 ? 'Watch' : 'Normal') : '—',
+    },
+    {
+      fw: 'Sudden Stop (SSVI)',
+      theory: 'SBN foreign ownership turun = sudden stop risk (R&R Ch.6)',
+      signal: sbnOwn != null ? fmtNum(sbnOwn,2)+'% kepemilikan asing (warning <12%)' : '—',
+      cls: ssCls,
+      label: sbnOwn != null ? (sbnOwn < 10 ? 'KRITIS' : sbnOwn < 12 ? 'Watch' : sbnOwn < 14 ? 'Monitor' : 'Aman') : '—',
+    },
+    {
+      fw: '1st-Gen Shadow Rate',
+      theory: 'CDS velocity = pasar pricing default sebelum BI intervensi',
+      signal: cdsVelo != null ? (cdsVelo > 0 ? '+' : '')+fmtNum(cdsVelo,1)+' bps/wk (CDS '+fmtNum(cds,1)+'bps)' : '—',
+      cls: cdsCls,
+      label: cdsVelo != null ? (cdsVelo > 7 ? 'AKSELERASI' : cdsVelo > 3 ? 'Melebar' : cdsVelo > 0 ? 'Watch' : 'Stabil') : '—',
+    },
+    {
+      fw: 'Dornbusch Overshoot',
+      theory: 'IDR vol tinggi = overshooting — reverts ke fundamental',
+      signal: idrVol != null ? fmtNum(idrVol,1)+'% annualized 30d realized vol' : '—',
+      cls: volCls,
+      label: idrVol != null ? (idrVol > 15 ? 'Overshoot' : idrVol > 10 ? 'Elevated' : idrVol > 7 ? 'Watch' : 'Normal') : '—',
+    },
+  ];
+
+  const rows = frameworks.map(f => \`<tr>
+    <td><b>\${f.fw}</b><span class="fw-theory">\${f.theory}</span></td>
+    <td>\${f.signal}</td>
+    <td><span class="tag \${f.cls}">\${f.label}</span></td>
+  </tr>\`).join('');
+
+  const stressed = frameworks.filter(f => ['red','orange','yellow'].includes(f.cls)).length;
+  const stressedCls = stressed >= 5 ? 'red' : stressed >= 3 ? 'orange' : stressed >= 2 ? 'yellow' : 'green';
+
+  return \`
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">
+      <span class="big-num \${stressedCls}">\${stressed}/7</span>
+      <span style="color:var(--muted);font-size:11px">frameworks dalam stress zone</span>
+    </div>
+    <table class="fw-table">
+      <thead><tr><th>Framework (R&R)</th><th>Signal Live</th><th>Status</th></tr></thead>
+      <tbody>\${rows}</tbody>
+    </table>
+    <div class="hist-note" style="margin-top:10px">Mundell-Fleming &amp; 2nd-gen confidence gate: hanya tersedia via stress-sim (bukan live signal). Invoke skill <code>shock-scenario</code> untuk analisis.</div>
+  \`;
+}
+
+async function refresh() {
+  const snap = await fetch('/api/snapshot').then(r => r.json());
+  document.getElementById('panel-gg').innerHTML = '<div class="card-title">G-G Shield — Greenspan-Guidotti Ratio</div>' + renderGG(snap);
+  document.getElementById('panel-rr').innerHTML = '<div class="card-title">R&R Open Economy — 7 Frameworks Live</div>' + renderRR(snap);
+  document.getElementById('last-updated-rr').textContent = 'Updated ' + new Date().toLocaleTimeString('id-ID');
+}
+
+refresh();
+setInterval(refresh, 60_000);
+</script>
+</body>
+</html>`;
+
 // ── Server ────────────────────────────────────────────────────────────────────
 
 const server = Bun.serve({
@@ -991,6 +1231,10 @@ const server = Bun.serve({
 
     if (url.pathname === '/') {
       return new Response(HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    }
+
+    if (url.pathname === '/rr') {
+      return new Response(RR_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     }
 
     if (url.pathname === '/api/snapshot') {
