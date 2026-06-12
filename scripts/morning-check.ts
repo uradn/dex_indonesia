@@ -16,6 +16,7 @@ import { runDomesticPressureEngine } from '../src/tools/macro/domestic-pressure-
 import { runPoliticalRiskEngine } from '../src/tools/macro/political-risk-engine.js';
 import { runUlnEngine } from '../src/tools/macro/uln-engine.js';
 import { runSilentCrisisDetector } from '../src/tools/macro/silent-crisis-detector.js';
+import { getLatestThesis, getLatestPoint, updateThesisStatus } from '../src/tools/macro/time-series-db.js';
 
 const DATE = new Date().toISOString().slice(0, 10);
 const BAR = '━'.repeat(50);
@@ -237,3 +238,33 @@ if (crisis.stressVectors.length > 0) {
   for (const v of crisis.stressVectors) console.log(`  • ${v}`);
 }
 console.log(`\n${BAR}\n`);
+
+// ─── THESIS TRIGGER CHECK ─────────────────────────────────────────────────
+try {
+  const thesis = await getLatestThesis();
+  if (thesis) {
+    const trigVal = thesis.triggerIndicator === 'political_risk_score'
+      ? (crisis.moduleScores.find(m => m.module === 'political_risk')?.score ?? 0)
+      : ((await getLatestPoint(thesis.triggerIndicator))?.value ?? 0);
+    const fired = thesis.triggerDirection === 'above'
+      ? trigVal >= thesis.triggerThreshold
+      : trigVal <= thesis.triggerThreshold;
+    const daysSince = Math.round((Date.now() - new Date(thesis.createdAt).getTime()) / 86400000);
+    console.log(`## Thesis Monitor — ID ${thesis.id} [${thesis.status.toUpperCase()}] (${daysSince}d old)`);
+    console.log(`  Divergence: ${thesis.primaryDivergence.replace(/_/g,' ')}`);
+    console.log(`  Trigger: ${thesis.triggerIndicator} ${thesis.triggerDirection} ${thesis.triggerThreshold} | Current: ${trigVal.toFixed(1)} → ${fired ? '🔴 FIRED' : '🟡 ARMED'}`);
+    if (fired && thesis.status === 'armed') {
+      await updateThesisStatus(thesis.id!, 'triggered');
+      console.log(`  ✓ Status updated: armed → triggered`);
+    }
+    // Kill switch #1 auto-check: political < 55
+    const polScore = crisis.moduleScores.find(m => m.module === 'political_risk')?.score ?? 0;
+    if (polScore < 55 && (thesis.status === 'armed' || thesis.status === 'triggered')) {
+      console.log(`  ⚠️  KILL SWITCH #1 candidate: political_risk ${polScore}/100 < 55 — verify 14-day sustained drop before killing`);
+    }
+    console.log(`  EV estimate: ${thesis.evEstimate != null ? (thesis.evEstimate > 0 ? '+' : '') + thesis.evEstimate.toFixed(1) + '%' : '—'} | P(crisis): ${thesis.crisisProbability ?? '—'}%`);
+    console.log(`\n${BAR}\n`);
+  }
+} catch {
+  // thesis table may not exist yet — silent fail
+}

@@ -1374,7 +1374,8 @@ const RR_HTML = `<!DOCTYPE html>
 <header>
   <h1>🇮🇩 R&R / G-G — Theoretical Framework Monitor</h1>
   <span id="last-updated-rr">—</span>
-  <a href="/" class="back">← Dashboard Utama</a>
+  <a href="/" class="back">← Dashboard</a>
+  <a href="/bs" class="back" style="margin-left:6px">Big Short →</a>
 </header>
 <div class="page">
   <div class="card" id="panel-gg">

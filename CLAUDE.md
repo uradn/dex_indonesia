@@ -36,10 +36,26 @@ bun scripts/check-m12-divergence.ts       # M12 divergence check (exit 0=ok, 1=s
 bun scripts/dashboard.ts                  # start dashboard server (port 6080)
 #   GET /          → main dashboard — all 13 module panels, charts, SCD gauge
 #   GET /rr        → R&R / G-G framework page — Greenspan-Guidotti + 7 R&R live signals
+#   GET /bs        → Big Short Thesis page — Burry-mode contrarian tracker
+#     Panels: divergence scanner (5 ranked gaps), trigger monitor (live ARMED/TRIGGERED),
+#     transmission chain (7 nodes colored by module stress), timeline T+0/3/6/12,
+#     kill switch status, market expression table, EV calculator, historical analog,
+#     contrarian validation (3-question Burry method), archive of past theses
+#     Actions: ARM THESIS (saves to macro_theses DB), KILL THESIS (records kill switch)
+#   POST /api/thesis/arm   → compute thesis from live module scores → save to macro_theses
+#   POST /api/thesis/kill/:id → mark thesis killed (kill switch fired)
+#   GET /api/thesis/compute → compute thesis JSON (no DB write, no LLM)
+#   GET /api/thesis/all    → all theses from DB (for archive + backtest)
 #   POST /api/run-scd → trigger SCD scan (saves module scores to macro_scores DB)
 # Module scores: written to macro_scores table after every SCD/morning-check run via
 #   saveModuleScore() in time-series-db.ts; read by dashboard to show real engine scores
 #   (not proxy). Dashboard SCD gauge uses weighted sum of stored module scores.
+# Thesis lifecycle: armed → triggered (trigger fires) → confirmed/killed/closed
+#   macro_theses table stores predictions + actuals for walk-forward backtest accuracy.
+#   morning-check.ts auto-updates thesis status (armed→triggered) after each run.
+bun scripts/check-thesis.ts               # T+3/T+6/T+12 milestone check + kill switch auto-detect
+#   Compares actual CDS/IDR/SBN vs predicted at each milestone, writes accuracy to notes.
+#   Auto-kills thesis if kill switch #1 fires (political_risk <55 sustained 14d).
 
 # Cron job registration (run once; idempotent)
 bun scripts/add-morning-brief-cron.ts     # daily 08:00 WIB Mon-Fri — 13 modules + SCD via asean-morning-brief skill
