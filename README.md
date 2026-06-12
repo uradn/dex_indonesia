@@ -314,7 +314,19 @@ bun scripts/dashboard.ts   # start server
 | `/rr` | R&R / Greenspan-Guidotti page — 7 live R&R signals |
 | `/bs` | **Big Short Thesis** — Burry-mode contrarian tracker |
 
-**`/bs` — Big Short Thesis page:**
+**`/` — Main Dashboard:**
+
+![Main Dashboard](docs/screenshots/dashboard-main.png)
+
+**`/rr` — R&R / Greenspan-Guidotti:**
+
+![R&R Framework Monitor](docs/screenshots/dashboard-rr.png)
+
+**`/bs` — Big Short Thesis:**
+
+![Big Short Thesis](docs/screenshots/dashboard-bs.png)
+
+**`/bs` — Panel utama:**
 
 Panel utama:
 - **Divergence Scanner** — 5 gap teratas (political vs financial, IDR vs APBN, CDS vs narrative, dll), ranked by magnitude
@@ -360,14 +372,53 @@ bun scripts/add-thesis-check-cron.ts      # 07:30 WIB Senin — thesis milestone
 
 ## Prerequisites
 
-- [Bun](https://bun.com) v1.0+
-- Minimal satu LLM API key (OpenAI / Anthropic / Google / DeepSeek / OpenRouter)
-- Exa API key — untuk Module 12 political risk news sentiment
+**Runtime:**
+- [Bun](https://bun.sh) v1.0+ (`curl -fsSL https://bun.sh/install | bash`)
+- Playwright Chromium — di-install otomatis via `bun install` (postinstall hook)
+- SQLite — built into Bun, tidak perlu install terpisah
 
-Optional (premium data):
-- Bloomberg REST proxy — CDS 5Y, SBN yield akurat
-- Refinitiv/LSEG — EMBI spread
-- BPS API key — webapi.bps.go.id (gratis, tapi Cloudflare block direct curl)
+**API Keys — Required (minimal 1 LLM):**
+
+| Key | Provider | Catatan |
+|-----|----------|---------|
+| `ANTHROPIC_API_KEY` | [Anthropic](https://console.anthropic.com) | Recommended — default model `claude-sonnet-4-6` |
+| `OPENAI_API_KEY` | [OpenAI](https://platform.openai.com) | Alternatif — default model `gpt-5.5` |
+| `GOOGLE_API_KEY` | [Google AI Studio](https://aistudio.google.com) | Alternatif — `gemini-2.5-pro` |
+| `EXASEARCH_API_KEY` | [Exa](https://exa.ai) | **Required** untuk M12 Political Risk news sentiment + SRBI auction data |
+
+**API Keys — Recommended (data kualitas lebih baik):**
+
+| Key | Provider | Digunakan di |
+|-----|----------|-------------|
+| `TAVILY_API_KEY` | [Tavily](https://tavily.com) | M12 fallback — Indonesian portal coverage (Detik, Kompas, Tempo) |
+| `EODHD_API_KEY` | [EODHD](https://eodhd.com) | USDIDR tertiary fallback + IHSG price (IDR.FOREX, JKSE.INDX) |
+| `BPS_API_KEY` | [BPS WebAPI](https://webapi.bps.go.id) | M12 BPS unemployment rate (gratis, daftar di webapi.bps.go.id) |
+| `X_BEARER_TOKEN` | [X Developer](https://developer.twitter.com) | M12 real-time social unrest feed (Basic plan $100/mo, 20 tweets/call) |
+
+**API Keys — Optional (premium/institutional data):**
+
+| Key | Provider | Digunakan di |
+|-----|----------|-------------|
+| `BLOOMBERG_API_URL` + `BLOOMBERG_API_KEY` | Bloomberg B-PIPE REST proxy | CDS 5Y, SBN yield akurat (tier 1 source) |
+| `REFINITIV_APP_KEY` + `REFINITIV_USERNAME` + `REFINITIV_PASSWORD` | LSEG/Refinitiv | EMBI spread, fallback sovereign data |
+| `FINANCIAL_DATASETS_API_KEY` | [Financial Datasets](https://financialdatasets.ai) | US equity fundamentals (DCF skill) |
+| `OPENROUTER_API_KEY` | [OpenRouter](https://openrouter.ai) | Multi-model routing |
+| `XAI_API_KEY` | [xAI](https://console.x.ai) | Grok models |
+
+**BBM Price Overrides (update tanpa redeploy):**
+```bash
+PERTALITE_PRICE_IDR=10000       # default — update jika ada kenaikan harga
+SOLAR_PRICE_IDR=6800
+PERTAMAX_PRICE_IDR=16250        # naik +Rp3,950 per 10 Jun 2026
+PERTAMAX_GREEN_PRICE_IDR=17000  # naik +Rp4,100 per 10 Jun 2026
+```
+
+**Policy/Classification Flags (operator-updated):**
+```bash
+BI_BUYS_LONG_SBN=false                       # Perry Warjiyo statement 10 Jun 2026
+MSCI_CLASSIFICATION_STATUS=under_review      # 'confirmed' | 'under_review' | 'downgrade_risk'
+MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN=1.8  # estimasi passive outflow rebalancing Mei 2026
+```
 
 ## Install
 
