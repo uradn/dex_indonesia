@@ -59,7 +59,8 @@ const SNAPSHOT_INDICATORS = [
   'eido_price', 'idx_foreign_net_buy_idr_bn', 'sbn_foreign_ownership_pct',
   'srbi_bid_cover_ratio', 'srbi_outstanding_trn_idr',
   'brent_price_usd', 'bbm_subsidy_gap_idr_liter', 'bbm_cost_recovery_idr_liter',
-  'pertalite_price_idr_liter', 'bi_fx_reserves_bn', 'trade_balance_bn',
+  'pertalite_price_idr_liter', 'pertamax_price_idr_liter', 'pertamax_green_price_idr_liter',
+  'bi_fx_reserves_bn', 'trade_balance_bn',
   'bank_npl_gross_pct', 'bank_car_pct', 'bank_ldr_pct', 'indonia_3m_pct',
   'unemployment_rate_pct', 'inflation_cpi_pct', 'gdp_growth_pct',
   'greenspan_guidotti', 'uln_dsr_pct', 'uln_gdp_ratio_pct',
@@ -399,18 +400,24 @@ function renderFlow(d) {
 
 function renderFiscal(d) {
   const ind = d.indicators;
-  const brent = ind['brent_price_usd']?.value;
-  const gap = ind['bbm_subsidy_gap_idr_liter']?.value;
-  const cr = ind['bbm_cost_recovery_idr_liter']?.value;
+  const brent    = ind['brent_price_usd']?.value;
+  const gap      = ind['bbm_subsidy_gap_idr_liter']?.value;
+  const cr       = ind['bbm_cost_recovery_idr_liter']?.value;
+  const pertalite = ind['pertalite_price_idr_liter']?.value;
+  const pertamax  = ind['pertamax_price_idr_liter']?.value;
+  const pertamaxG = ind['pertamax_green_price_idr_liter']?.value;
   const reserves = ind['bi_fx_reserves_bn']?.value;
-  const trade = ind['trade_balance_bn']?.value;
-  const gg = ind['greenspan_guidotti']?.value;
-  const dsr = ind['uln_dsr_pct']?.value;
+  const trade    = ind['trade_balance_bn']?.value;
+  const gg       = ind['greenspan_guidotti']?.value;
+  const dsr      = ind['uln_dsr_pct']?.value;
 
   return [
     kv('Brent', brent ? '$' + fmtNum(brent, 1) + '/bbl' : '—', brent > 100 ? 'red' : brent > 90 ? 'orange' : brent > 80 ? 'yellow' : 'green'),
     kv('BBM Subsidy Gap', gap ? 'Rp' + fmtK(gap) + '/L' : '—', gap > 7000 ? 'red' : gap > 4000 ? 'orange' : gap > 2000 ? 'yellow' : 'green'),
     kv('Cost Recovery', cr ? 'Rp' + fmtK(cr) + '/L' : '—'),
+    kv('Pertalite', pertalite ? 'Rp' + Math.round(pertalite).toLocaleString('id') + '/L' : '—'),
+    kv('Pertamax', pertamax ? 'Rp' + Math.round(pertamax).toLocaleString('id') + '/L' : '—'),
+    kv('Pertamax Green', pertamaxG ? 'Rp' + Math.round(pertamaxG).toLocaleString('id') + '/L' : '—'),
     kv('FX Reserves', reserves ? '$' + fmtNum(reserves, 1) + 'bn' : '—', reserves < 100 ? 'red' : reserves < 120 ? 'orange' : reserves < 130 ? 'yellow' : 'green'),
     kv('Trade Balance', trade != null ? (trade > 0 ? '+' : '') + fmtNum(trade, 1) + 'bn' : '—', trade < -5 ? 'red' : trade < 0 ? 'orange' : 'green'),
     kv('G-G Ratio', gg ? fmtNum(gg, 2) + 'x' : '—', gg < 1.0 ? 'red' : gg < 1.5 ? 'orange' : gg < 2.0 ? 'yellow' : 'green'),
