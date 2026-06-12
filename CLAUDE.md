@@ -32,6 +32,15 @@ bun run src/evals/run.ts --sample 10  # random sample
 bun scripts/morning-check.ts              # full 13-module morning brief (manual run)
 bun scripts/check-m12-divergence.ts       # M12 divergence check (exit 0=ok, 1=stale, 2=keyword audit needed)
 
+# Dashboard (localhost:6080)
+bun scripts/dashboard.ts                  # start dashboard server (port 6080)
+#   GET /          → main dashboard — all 13 module panels, charts, SCD gauge
+#   GET /rr        → R&R / G-G framework page — Greenspan-Guidotti + 7 R&R live signals
+#   POST /api/run-scd → trigger SCD scan (saves module scores to macro_scores DB)
+# Module scores: written to macro_scores table after every SCD/morning-check run via
+#   saveModuleScore() in time-series-db.ts; read by dashboard to show real engine scores
+#   (not proxy). Dashboard SCD gauge uses weighted sum of stored module scores.
+
 # Cron job registration (run once; idempotent)
 bun scripts/add-morning-brief-cron.ts     # daily 08:00 WIB Mon-Fri — 13 modules + SCD via asean-morning-brief skill
 bun scripts/add-weekly-deepdive-cron.ts   # Monday 07:00 WIB — 13 modules + sovereign memo + Hormuz shock (Brent $105 + IDR 19,000)

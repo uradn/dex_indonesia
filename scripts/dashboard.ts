@@ -361,6 +361,15 @@ function kv(label, value, cls='', tag=false) {
   return \`<div class="kv"><span class="kv-label">\${label}</span>\${valHtml}</div>\`;
 }
 
+// Returns stale warning suffix if date older than thresholdDays
+function stale(dateStr, thresholdDays=180) {
+  if (!dateStr) return '';
+  const ageDays = Math.round((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  if (ageDays <= thresholdDays) return '';
+  const color = ageDays > 365 ? 'var(--orange)' : 'var(--muted)';
+  return \` <span style="font-size:9px;color:\${color}">⚠ \${ageDays}d old</span>\`;
+}
+
 function renderMonetary(d) {
   const { indicators: ind, derived } = d;
   const usdidr = ind['usdidr_spot']?.value;
@@ -421,9 +430,11 @@ function renderFiscal(d) {
   const pertamax  = ind['pertamax_price_idr_liter']?.value;
   const pertamaxG = ind['pertamax_green_price_idr_liter']?.value;
   const reserves = ind['bi_fx_reserves_bn']?.value;
+  const resDate  = ind['bi_fx_reserves_bn']?.date;
   const trade    = ind['trade_balance_bn']?.value;
   const gg       = ind['greenspan_guidotti']?.value;
   const dsr      = ind['uln_dsr_pct']?.value;
+  const dsrDate  = ind['uln_dsr_pct']?.date;
 
   return [
     kv('Brent', brent ? '$' + fmtNum(brent, 1) + '/bbl' : '—', brent > 100 ? 'red' : brent > 90 ? 'orange' : brent > 80 ? 'yellow' : 'green'),
@@ -432,30 +443,34 @@ function renderFiscal(d) {
     kv('Pertalite', pertalite ? 'Rp' + Math.round(pertalite).toLocaleString('id') + '/L' : '—'),
     kv('Pertamax', pertamax ? 'Rp' + Math.round(pertamax).toLocaleString('id') + '/L' : '—'),
     kv('Pertamax Green', pertamaxG ? 'Rp' + Math.round(pertamaxG).toLocaleString('id') + '/L' : '—'),
-    kv('FX Reserves', reserves ? '$' + fmtNum(reserves, 1) + 'bn' : '—', reserves < 100 ? 'red' : reserves < 120 ? 'orange' : reserves < 130 ? 'yellow' : 'green'),
+    kv('FX Reserves', reserves ? '$' + fmtNum(reserves, 1) + 'bn' + stale(resDate, 90) : '—', reserves < 100 ? 'red' : reserves < 120 ? 'orange' : reserves < 130 ? 'yellow' : 'green'),
     kv('Trade Balance', trade != null ? (trade > 0 ? '+' : '') + fmtNum(trade, 1) + 'bn' : '—', trade < -5 ? 'red' : trade < 0 ? 'orange' : 'green'),
     kv('G-G Ratio', gg ? fmtNum(gg, 2) + 'x' : '—', gg < 1.0 ? 'red' : gg < 1.5 ? 'orange' : gg < 2.0 ? 'yellow' : 'green'),
-    kv('ULN DSR', dsr ? fmtNum(dsr, 1) + '%' : '—', dsr > 30 ? 'red' : dsr > 25 ? 'orange' : dsr > 20 ? 'yellow' : 'green'),
+    kv('ULN DSR', dsr ? fmtNum(dsr, 1) + '%' + stale(dsrDate, 365) : '—', dsr > 30 ? 'red' : dsr > 25 ? 'orange' : dsr > 20 ? 'yellow' : 'green'),
   ].join('');
 }
 
 function renderBanking(d) {
   const ind = d.indicators;
-  const npl = ind['bank_npl_gross_pct']?.value;
-  const car = ind['bank_car_pct']?.value;
-  const ldr = ind['bank_ldr_pct']?.value;
-  const indonia = ind['indonia_3m_pct']?.value;
+  const npl     = ind['bank_npl_gross_pct']?.value;
+  const nplDate = ind['bank_npl_gross_pct']?.date;
+  const car     = ind['bank_car_pct']?.value;
+  const carDate = ind['bank_car_pct']?.date;
+  const ldr     = ind['bank_ldr_pct']?.value;
+  const ldrDate = ind['bank_ldr_pct']?.date;
+  const indonia     = ind['indonia_3m_pct']?.value;
+  const indoniaDate = ind['indonia_3m_pct']?.date;
   const fintechNpl = ind['fintech_npl_pct']?.value;
   const pe = ind['ihsg_pe_ratio']?.value;
   const ad = ind['idx_advance_decline_ratio']?.value;
 
   return [
-    kv('NPL Gross', npl ? fmtNum(npl, 2) + '%' : '—', npl > 5 ? 'red' : npl > 3 ? 'orange' : npl > 2 ? 'yellow' : 'green'),
-    kv('CAR', car ? fmtNum(car, 1) + '%' : '—', car < 14 ? 'red' : car < 16 ? 'orange' : car < 18 ? 'yellow' : 'green'),
-    kv('LDR', ldr ? fmtNum(ldr, 1) + '%' : '—', ldr > 92 ? 'red' : ldr > 85 ? 'orange' : ldr > 78 ? 'yellow' : 'green'),
-    kv('IndONIA 3M', indonia ? fmtNum(indonia, 2) + '%' : '—'),
+    kv('NPL Gross', npl ? fmtNum(npl, 2) + '%' + stale(nplDate, 365) : '—', npl > 5 ? 'red' : npl > 3 ? 'orange' : npl > 2 ? 'yellow' : 'green'),
+    kv('CAR', car ? fmtNum(car, 1) + '%' + stale(carDate, 270) : '—', car < 14 ? 'red' : car < 16 ? 'orange' : car < 18 ? 'yellow' : 'green'),
+    kv('LDR', ldr ? fmtNum(ldr, 1) + '%' + stale(ldrDate, 180) : '—', ldr > 92 ? 'red' : ldr > 85 ? 'orange' : ldr > 78 ? 'yellow' : 'green'),
+    kv('IndONIA 3M', indonia ? fmtNum(indonia, 2) + '%' + stale(indoniaDate, 180) : '—'),
     kv('Fintech NPL', fintechNpl ? fmtNum(fintechNpl, 1) + '%' : '—', fintechNpl > 5 ? 'orange' : fintechNpl > 3 ? 'yellow' : 'green'),
-    kv('IHSG P/E (EIDO)', pe ? fmtNum(pe, 1) + 'x' : '—', pe > 12 ? 'orange' : pe > 10 ? 'yellow' : ''),
+    kv('IHSG P/E', pe ? fmtNum(pe, 1) + 'x' : '—', pe > 12 ? 'orange' : pe > 10 ? 'yellow' : ''),
     kv('A/D Ratio', ad ? fmtNum(ad, 2) : '—', ad < 0.5 ? 'red' : ad < 0.67 ? 'orange' : ad < 0.8 ? 'yellow' : 'green'),
   ].join('');
 }
@@ -783,7 +798,9 @@ function renderPolRisk(d) {
 
   // Economic Context — unique signals not shown in other panels
   const inflCpi    = ind['inflation_cpi_pct']?.value ?? null;
+  const inflDate   = ind['inflation_cpi_pct']?.date ?? null;
   const gdpGrowth  = ind['gdp_growth_pct']?.value ?? null;
+  const gdpDate    = ind['gdp_growth_pct']?.date ?? null;
   const foodInfl   = ind['food_inflation_yoy_pct']?.value ?? null;
   const pmi        = ind['indonesia_pmi_manufacturing']?.value ?? null;
   const now = new Date(), mo = now.getMonth()+1, dy = now.getDate(), yr = now.getFullYear();
@@ -799,9 +816,9 @@ function renderPolRisk(d) {
   const ctxSection = \`
     <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px">
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px">Macro Context</div>
-      \${kv('CPI Inflation', inflCpi !== null ? fmtNum(inflCpi,1)+'% <span style="color:var(--muted)">(target 2.5%)</span>' : '—', inflCls)}
+      \${kv('CPI Inflation', inflCpi !== null ? fmtNum(inflCpi,1)+'%'+stale(inflDate,90)+' <span style="color:var(--muted)">(target 2.5%)</span>' : '—', inflCls)}
       \${kv('Food Inflation', foodInfl !== null ? fmtNum(foodInfl,2)+'% YoY' : '—', foodInflCls)}
-      \${kv('GDP Growth', gdpGrowth !== null ? fmtNum(gdpGrowth,1)+'%' : '—', gdpCls)}
+      \${kv('GDP Growth', gdpGrowth !== null ? fmtNum(gdpGrowth,1)+'%'+stale(gdpDate,90) : '—', gdpCls)}
       \${kv('PMI Manufaktur', pmi !== null ? fmtNum(pmi,1)+(pmi >= 50 ? ' ▲ ekspansi' : ' ▼ kontraksi') : '—', pmiCls)}
       \${seasonal ? \`<div style="margin-top:4px;font-size:9px;color:var(--yellow);padding:2px 5px;background:rgba(210,153,34,.08);border-radius:2px;border:1px solid rgba(210,153,34,.15)">⚡ \${seasonal}: food stress −30% seasonal discount active</div>\` : ''}
     </div>
