@@ -663,7 +663,7 @@ function renderPolRisk(d) {
 
   // 1998 analog: 5 distinct macro conditions (none overlap with M12 score bars above)
   const t98 = [
-    { label: 'Food unaffordable',      detail: gap != null ? 'Rp'+Math.round(gap).toLocaleString('id')+'/L gap' : food != null ? 'score '+food : '',       active: (food ?? 0) > 50 || (gap ?? 0) > 4000 },
+    { label: 'Food unaffordable',      detail: food != null ? 'food stress '+food+'/100' : '—',                                                             active: (food ?? 0) > 50 },
     { label: 'IDR lemah (>17,000)',    detail: usdidr != null ? fmtK(usdidr) : '',                                                                            active: (usdidr ?? 0) > 17000 },
     { label: 'Unemployment (>4.8%)',   detail: unemp != null ? fmtNum(unemp,2)+'% ['+(unempDate ?? 'n/a')+'] BPS' : 'BPS quarterly',                         active: (unemp ?? 0) > 4.8 },
     { label: 'CDS widening (>100bps)', detail: cds != null ? fmtNum(cds,1)+'bps' : '—',                                                                      active: (cds ?? 0) > 100 },
@@ -700,6 +700,36 @@ function renderPolRisk(d) {
     </div>\`
   ).join('');
 
+  // Economic Context section
+  const inflCpi   = ind['inflation_cpi_pct']?.value ?? null;
+  const gdpGrowth = ind['gdp_growth_pct']?.value ?? null;
+  const pertPrice = ind['pertalite_price_idr_liter']?.value ?? null;
+  const cr        = ind['bbm_cost_recovery_idr_liter']?.value ?? null;
+  const biRate    = ind['bi_rate_pct']?.value ?? null;
+  const cdsVelo   = ind['cds_velocity_bps_week']?.value ?? null;
+  const now = new Date(), mo = now.getMonth()+1, dy = now.getDate(), yr = now.getFullYear();
+  const seasonal = (yr===2026 && mo===6 && dy>=1 && dy<=15) ? 'Iduladha Jun 1–15'
+                 : (yr===2027 && mo===5 && dy>=22) || (yr===2027 && mo===6 && dy<=5) ? 'Iduladha 2027'
+                 : (mo===12 && dy>=20) || (mo===1 && dy<=7) ? 'Natal/Tahun Baru' : null;
+
+  const inflCls   = inflCpi !== null ? (inflCpi > 5 ? 'red' : inflCpi > 3.5 ? 'orange' : inflCpi > 2.5 ? 'yellow' : 'green') : '';
+  const gdpCls    = gdpGrowth !== null ? (gdpGrowth < 4 ? 'red' : gdpGrowth < 4.5 ? 'orange' : 'green') : '';
+  const crCls     = (cr !== null && pertPrice !== null) ? (cr - pertPrice > 7000 ? 'red' : cr - pertPrice > 4000 ? 'orange' : cr - pertPrice > 2000 ? 'yellow' : 'green') : '';
+  const veloCls   = cdsVelo !== null ? (cdsVelo > 7 ? 'red' : cdsVelo > 3 ? 'orange' : cdsVelo > 0 ? 'yellow' : 'green') : '';
+
+  const ctxSection = \`
+    <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px">Economic Context</div>
+      \${kv('CPI Inflation', inflCpi !== null ? fmtNum(inflCpi,1)+'% <span style="color:var(--muted)">(target 2.5%)</span>' : '—', inflCls)}
+      \${kv('GDP Growth', gdpGrowth !== null ? fmtNum(gdpGrowth,1)+'%' : '—', gdpCls)}
+      \${kv('BI Rate', biRate !== null ? fmtNum(biRate,2)+'% (RDG Jun 9 inter-cycle hike)' : '—')}
+      \${kv('Pertalite', pertPrice !== null ? 'Rp'+Math.round(pertPrice).toLocaleString('id')+'/L' : '—')}
+      \${kv('Cost Recovery', cr !== null ? 'Rp'+Math.round(cr).toLocaleString('id')+'/L' : '—', crCls)}
+      \${kv('CDS Velocity', cdsVelo !== null ? (cdsVelo > 0 ? '+' : '')+fmtNum(cdsVelo,1)+' bps/wk' : '—', veloCls)}
+      \${seasonal ? \`<div style="margin-top:4px;font-size:9px;color:var(--yellow);padding:2px 5px;background:rgba(210,153,34,.08);border-radius:2px;border:1px solid rgba(210,153,34,.15)">⚡ \${seasonal}: food stress −30% seasonal discount active</div>\` : ''}
+    </div>
+  \`;
+
   const env = d.envFlags ?? {};
   const missingFeed = [];
   if (!env.hasX) missingFeed.push('X (real-time demo)');
@@ -712,6 +742,7 @@ function renderPolRisk(d) {
     \${scoreRows}
     <div style="margin-top:8px;font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">1998 Template Checklist</div>
     \${t98rows}
+    \${ctxSection}
     \${feedWarning}
   \`;
 }
