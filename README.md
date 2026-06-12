@@ -300,6 +300,64 @@ bash env-check.sh                         # live ping semua API key di .env
 
 ---
 
+### Dashboard (localhost:6080)
+
+```bash
+bun scripts/dashboard.ts   # start server
+```
+
+3 halaman:
+
+| Route | Deskripsi |
+|-------|-----------|
+| `/` | Main dashboard — 13 panel modul, chart time-series, SCD gauge |
+| `/rr` | R&R / Greenspan-Guidotti page — 7 live R&R signals |
+| `/bs` | **Big Short Thesis** — Burry-mode contrarian tracker |
+
+**`/bs` — Big Short Thesis page:**
+
+Panel utama:
+- **Divergence Scanner** — 5 gap teratas (political vs financial, IDR vs APBN, CDS vs narrative, dll), ranked by magnitude
+- **Trigger Monitor** — status live thesis yang sedang ARMED / TRIGGERED
+- **Transmission Chain** — 7 node berurutan (M12→M10→M2→M5→M3→M8→terminal), hover untuk keterangan per modul
+- **Timeline T+0/3/6/12** — prediksi CDS/IDR/SBN di setiap milestone
+- **Kill Switch Status** — 3 kondisi falsifikasi thesis
+- **EV Calculator** — P(crisis)×25 + P(stress)×8 + P(base)×(−1.44)
+- **Burry Method** — 3-pertanyaan contrarian validation
+- **Archive** — semua thesis historis + akurasi walk-forward
+
+**Thesis lifecycle:**
+```
+armed → triggered (trigger indicator breaches threshold)
+      → confirmed (thesis terbukti — T+12 payoff)
+      → killed    (kill switch fired)
+      → closed    (expired / closed manually)
+```
+
+**ARM THESIS — dua cara:**
+
+1. **Via CLI skill** (LLM-powered, recommended): jalankan `big-short-thesis` skill di `bun start` → agent analisis 6 modul → output thesis lengkap → **otomatis call `arm_thesis` tool** → save ke DB → muncul di `/bs`
+
+2. **Via tombol dashboard** (`/bs` → ARM THESIS): compute thesis dari cached module scores (no LLM, template-based) → save ke DB
+
+**Walk-forward backtest otomatis:**
+
+Setiap Senin 07:30 WIB, cron job mengecek semua thesis ARMED/TRIGGERED:
+- Apakah sudah T+3 (90d), T+6 (180d), atau T+12 (365d)? (window ±5 hari)
+- Bandingkan actual CDS/IDR/SBN vs predicted saat ARM
+- Auto-kill jika kill switch #1 fired (political_risk_score <55 sustained 14 hari)
+- Hasil akurasi ditulis ke notes thesis → visible di archive `/bs`
+
+**Registrasi cron (run once):**
+```bash
+bun scripts/add-morning-brief-cron.ts     # 08:00 WIB Mon-Fri — morning brief
+bun scripts/add-weekly-deepdive-cron.ts   # 07:00 WIB Senin — weekly deep dive
+bun scripts/add-monthly-deepdive-cron.ts  # 08:00 WIB tgl 1 — monthly deep dive
+bun scripts/add-thesis-check-cron.ts      # 07:30 WIB Senin — thesis milestone check
+```
+
+---
+
 ## Prerequisites
 
 - [Bun](https://bun.com) v1.0+
