@@ -2085,7 +2085,7 @@ function renderResearch() {
       cat: 'Primary Methodology',
       items: [
         { title: 'Michael Burry — Scion Capital Shareholder Letters', meta: '2001–2008. Source: "The Big Short" (Lewis, 2010). Methodology: read prospectus, compute structural default prob, find mis-priced CDS.', link: null },
-        { title: 'Michael Lewis — The Big Short', meta: 'W.W. Norton, 2010. ISBN 978-0393072235. Narrative account of Burry\'s 2005 CDS trade.', link: null },
+        { title: 'Michael Lewis — The Big Short', meta: 'W.W. Norton, 2010. ISBN 978-0393072235. Narrative account of the 2005 Scion CDS trade.', link: null },
       ],
     },
     {
