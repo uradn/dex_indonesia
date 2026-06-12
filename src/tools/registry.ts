@@ -38,6 +38,7 @@ import { fxRateRefreshTool, FX_RATE_REFRESH_DESCRIPTION } from './macro/fx-rate-
 import { domesticPressureEngine, DOMESTIC_PRESSURE_DESCRIPTION } from './macro/domestic-pressure-engine.js';
 import { politicalRiskEngine, POLITICAL_RISK_DESCRIPTION } from './macro/political-risk-engine.js';
 import { ulnEngine, ULN_DESCRIPTION } from './macro/uln-engine.js';
+import { armThesisTool, ARM_THESIS_DESCRIPTION } from './macro/arm-thesis-tool.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -231,6 +232,13 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       description: POLITICAL_RISK_DESCRIPTION,
       compactDescription: 'Political Risk Engine: BPS unemployment + Exa news sentiment (food pressure, labor protests, governance). Political Risk Index 0-100. Detects social contract stress before it reprices into sovereign spreads.',
       concurrencySafe: true,
+    },
+    {
+      name: 'arm_thesis',
+      tool: armThesisTool,
+      description: ARM_THESIS_DESCRIPTION,
+      compactDescription: 'ARM Big Short thesis to DB (status: armed). Call at end of big-short-thesis skill. Enables walk-forward T+3/6/12 backtesting and /bs dashboard tracking.',
+      concurrencySafe: false,
     },
     {
       name: 'web_fetch',

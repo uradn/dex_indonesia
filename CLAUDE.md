@@ -61,6 +61,7 @@ bun scripts/check-thesis.ts               # T+3/T+6/T+12 milestone check + kill 
 bun scripts/add-morning-brief-cron.ts     # daily 08:00 WIB Mon-Fri — 13 modules + SCD via asean-morning-brief skill
 bun scripts/add-weekly-deepdive-cron.ts   # Monday 07:00 WIB — 13 modules + sovereign memo + Hormuz shock (Brent $105 + IDR 19,000)
 bun scripts/add-monthly-deepdive-cron.ts  # 1st of month 08:00 WIB — 13 modules + APBN realisasi + ULN/DSR + compound shock (Brent $120 + IDR 20,500 + VIX 45) + backtest analog
+bun scripts/add-thesis-check-cron.ts      # Monday 07:30 WIB — T+3/6/12 milestone check + kill switch auto-detect for armed/triggered theses
 ```
 
 CI runs `bun run typecheck` and `bun test` on every push/PR.

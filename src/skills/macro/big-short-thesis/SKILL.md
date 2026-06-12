@@ -123,6 +123,27 @@ Present your full thesis in the structured format above. Be specific. Be early. 
 End with a one-line **Conviction Statement**:
 > "I am [X]% confident this thesis plays out within [Y] months because [one specific data point]."
 
+## Step 6 — ARM to DB (mandatory final step)
+
+After outputting the thesis text, call `arm_thesis` tool with these fields extracted from your analysis:
+
+- `thesis_statement`: your Step 3 thesis statement (one sentence with a number)
+- `primary_divergence`: the divergence key you identified in Step 2 (use snake_case: `political_financial_gap`, `idr_apbn_gap`, `cds_narrative_gap`, `sbn_foreign_exit`, `narrative_credibility`)
+- `trigger_indicator`: the DB indicator name for your trigger (e.g. `political_risk_score`, `sbn_foreign_ownership_pct`, `indonesia_cds_5y_bps`, `usdidr_spot`)
+- `trigger_threshold`: the numeric threshold (from your Trigger Event section)
+- `trigger_direction`: `above` or `below`
+- `predicted_cds_bps`: your T+12 CDS prediction (bps) — omit if not in thesis
+- `predicted_usdidr`: your T+12 USDIDR prediction — omit if not in thesis
+- `predicted_sbn10y`: your T+12 SBN 10Y yield prediction (%) — omit if not in thesis
+- `crisis_probability`: your P(crisis) estimate as a number 0-100
+- `ev_estimate`: your EV from the Expected Value section (%)
+- `kill_conditions`: array of your 3 kill switch conditions (one string per condition)
+
+This saves the thesis with status `armed` and enables:
+1. Walk-forward T+3/6/12 milestone checks every Monday 07:30 WIB (automated)
+2. Dashboard tracking at http://localhost:6080/bs
+3. Morning check auto-trigger detection (armed → triggered when indicator breaches threshold)
+
 ---
 
 ## Important Constraints
