@@ -61,6 +61,7 @@
 - `web_search`: general web search (Exa → Tavily → LangSearch).
 - `browser`: Playwright-based web scraping.
 - `skill`: invokes SKILL.md-defined workflows. Each skill runs at most once per query.
+- `arm_thesis`: saves a Big Short thesis to `macro_theses` DB (status: armed). Called automatically at end of `big-short-thesis` skill (Step 6). Enables walk-forward T+3/6/12 backtesting. `src/tools/macro/arm-thesis-tool.ts`.
 - Tool registry: `src/tools/registry.ts`. Tools conditionally registered based on env vars.
 - Tools tagged `concurrencySafe: true` run in parallel; others run serially.
 
@@ -95,12 +96,33 @@
 
 Built-in skills:
 - `src/skills/dcf/SKILL.md` — DCF valuation
+- `src/skills/asean-monitor/SKILL.md` — ASEAN market monitor
+- `src/skills/x-research/SKILL.md` — X/Twitter research workflow
 - `src/skills/macro/bop/SKILL.md` — BoP analysis workflow
 - `src/skills/macro/fx-defense/SKILL.md` — FX Defense workflow
 - `src/skills/macro/klr-ews/SKILL.md` — KLR EWS 21-indicator dual-crisis matrix
 - `src/skills/macro/shock-scenario/SKILL.md` — Forward-looking stress simulator
 - `src/skills/macro/rr-framework/SKILL.md` — Rivera-Batiz theoretical framework reference
-- `src/skills/macro/asean-morning-brief/SKILL.md` — Daily cron brief (13 modules + SCD)
+- `src/skills/macro/sovereign-stress/SKILL.md` — Sovereign stress deep dive (CDS trajectory, SBN ownership, APBN credibility)
+- `src/skills/macro/positioning/SKILL.md` — Market positioning analysis
+- `src/skills/macro/backtest/SKILL.md` — Walk-forward backtest against 6 Indonesia crisis events (2013–2023)
+- `src/skills/macro/morning-brief/SKILL.md` — Morning brief workflow (13 modules + SCD)
+- `src/skills/macro/cron-setup/SKILL.md` — Cron job management workflow
+- `src/skills/macro/asean-morning-brief/SKILL.md` — Daily cron brief (13 modules + SCD) — used by daily 08:00 WIB cron
+- `src/skills/macro/big-short-thesis/SKILL.md` — Burry-mode contrarian thesis: 6-tool parallel analysis → structured thesis → **auto-ARM to DB via `arm_thesis` tool** (Step 6)
+
+## Dashboard (localhost:6080)
+
+- Start: `bun scripts/dashboard.ts`
+- Routes:
+  - `GET /` — main dashboard: 13 module panels, time-series charts, SCD gauge, module scores from DB
+  - `GET /rr` — R&R / Greenspan-Guidotti page: 7 live R&R framework signals
+  - `GET /bs` — Big Short Thesis page: Burry-mode contrarian tracker
+- `/bs` panels: divergence scanner (5 ranked gaps), trigger monitor (ARMED/TRIGGERED), transmission chain (7-node vertical stepper with hover tooltips), timeline T+0/3/6/12, kill switch status, EV calculator, Burry Method validation, thesis archive
+- Thesis lifecycle: `armed` → `triggered` → `confirmed` / `killed` / `closed`
+- `macro_theses` table in `.dexter/macro/macro.db` stores predictions at ARM time + actuals at T+3/6/12 for walk-forward accuracy
+- ARM THESIS two ways: (1) CLI `big-short-thesis` skill → `arm_thesis` tool (LLM-powered); (2) dashboard ARM THESIS button (template-based, no LLM)
+- API endpoints: `POST /api/thesis/arm`, `POST /api/thesis/kill/:id`, `GET /api/thesis/compute`, `GET /api/thesis/all`, `POST /api/run-scd`
 
 ## Agent Architecture
 
@@ -126,6 +148,7 @@ Built-in skills:
 - Active macro schedule:
   - Daily 08:00 WIB Mon-Fri: `asean-morning-brief` skill (all 13 modules)
   - Monday 07:00 WIB: deep dive + sovereign memo + Hormuz shock
+  - Monday 07:30 WIB: Big Short thesis milestone check — T+3/6/12 accuracy vs predictions + kill switch auto-detect
   - 1st of month 08:00 WIB: APBN realisasi + ULN/DSR + compound shock + backtest analog
 - Register/update: `bun scripts/add-*-cron.ts`
 
