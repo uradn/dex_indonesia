@@ -72,6 +72,10 @@ const SNAPSHOT_INDICATORS = [
   'political_social_unrest_score', 'political_food_stress_score', 'political_stability_stress_score',
   // asean fx (IDR + 5 peers)
   'usdmyr_spot', 'usdsgd_spot', 'usdthb_spot', 'usdphp_spot', 'usdvnd_spot',
+  // asean fx drivers (unique)
+  'usdidr_vol_30d', 'indonesia_pmi_manufacturing', 'indonesia_debt_gdp_pct',
+  // m12 macro context (unique)
+  'food_inflation_yoy_pct',
 ];
 
 const CHART_INDICATORS = [
@@ -704,32 +708,28 @@ function renderPolRisk(d) {
     </div>\`
   ).join('');
 
-  // Economic Context section
-  const inflCpi   = ind['inflation_cpi_pct']?.value ?? null;
-  const gdpGrowth = ind['gdp_growth_pct']?.value ?? null;
-  const pertPrice = ind['pertalite_price_idr_liter']?.value ?? null;
-  const cr        = ind['bbm_cost_recovery_idr_liter']?.value ?? null;
-  const biRate    = ind['bi_rate_pct']?.value ?? null;
-  const cdsVelo   = ind['cds_velocity_bps_week']?.value ?? null;
+  // Economic Context — unique signals not shown in other panels
+  const inflCpi    = ind['inflation_cpi_pct']?.value ?? null;
+  const gdpGrowth  = ind['gdp_growth_pct']?.value ?? null;
+  const foodInfl   = ind['food_inflation_yoy_pct']?.value ?? null;
+  const pmi        = ind['indonesia_pmi_manufacturing']?.value ?? null;
   const now = new Date(), mo = now.getMonth()+1, dy = now.getDate(), yr = now.getFullYear();
   const seasonal = (yr===2026 && mo===6 && dy>=1 && dy<=15) ? 'Iduladha Jun 1–15'
                  : (yr===2027 && mo===5 && dy>=22) || (yr===2027 && mo===6 && dy<=5) ? 'Iduladha 2027'
                  : (mo===12 && dy>=20) || (mo===1 && dy<=7) ? 'Natal/Tahun Baru' : null;
 
-  const inflCls   = inflCpi !== null ? (inflCpi > 5 ? 'red' : inflCpi > 3.5 ? 'orange' : inflCpi > 2.5 ? 'yellow' : 'green') : '';
-  const gdpCls    = gdpGrowth !== null ? (gdpGrowth < 4 ? 'red' : gdpGrowth < 4.5 ? 'orange' : 'green') : '';
-  const crCls     = (cr !== null && pertPrice !== null) ? (cr - pertPrice > 7000 ? 'red' : cr - pertPrice > 4000 ? 'orange' : cr - pertPrice > 2000 ? 'yellow' : 'green') : '';
-  const veloCls   = cdsVelo !== null ? (cdsVelo > 7 ? 'red' : cdsVelo > 3 ? 'orange' : cdsVelo > 0 ? 'yellow' : 'green') : '';
+  const inflCls    = inflCpi !== null ? (inflCpi > 5 ? 'red' : inflCpi > 3.5 ? 'orange' : inflCpi > 2.5 ? 'yellow' : 'green') : '';
+  const gdpCls     = gdpGrowth !== null ? (gdpGrowth < 4 ? 'red' : gdpGrowth < 4.5 ? 'orange' : 'green') : '';
+  const foodInflCls = foodInfl !== null ? (foodInfl > 7 ? 'red' : foodInfl > 5 ? 'orange' : foodInfl > 3.75 ? 'yellow' : 'green') : '';
+  const pmiCls     = pmi !== null ? (pmi < 48 ? 'red' : pmi < 50 ? 'orange' : pmi < 51 ? 'yellow' : 'green') : '';
 
   const ctxSection = \`
     <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px">Economic Context</div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px">Macro Context</div>
       \${kv('CPI Inflation', inflCpi !== null ? fmtNum(inflCpi,1)+'% <span style="color:var(--muted)">(target 2.5%)</span>' : '—', inflCls)}
+      \${kv('Food Inflation', foodInfl !== null ? fmtNum(foodInfl,2)+'% YoY' : '—', foodInflCls)}
       \${kv('GDP Growth', gdpGrowth !== null ? fmtNum(gdpGrowth,1)+'%' : '—', gdpCls)}
-      \${kv('BI Rate', biRate !== null ? fmtNum(biRate,2)+'% (RDG Jun 9 inter-cycle hike)' : '—')}
-      \${kv('Pertalite', pertPrice !== null ? 'Rp'+Math.round(pertPrice).toLocaleString('id')+'/L' : '—')}
-      \${kv('Cost Recovery', cr !== null ? 'Rp'+Math.round(cr).toLocaleString('id')+'/L' : '—', crCls)}
-      \${kv('CDS Velocity', cdsVelo !== null ? (cdsVelo > 0 ? '+' : '')+fmtNum(cdsVelo,1)+' bps/wk' : '—', veloCls)}
+      \${kv('PMI Manufaktur', pmi !== null ? fmtNum(pmi,1)+(pmi >= 50 ? ' ▲ ekspansi' : ' ▼ kontraksi') : '—', pmiCls)}
       \${seasonal ? \`<div style="margin-top:4px;font-size:9px;color:var(--yellow);padding:2px 5px;background:rgba(210,153,34,.08);border-radius:2px;border:1px solid rgba(210,153,34,.15)">⚡ \${seasonal}: food stress −30% seasonal discount active</div>\` : ''}
     </div>
   \`;
@@ -835,26 +835,27 @@ function renderAsean(d) {
     : '';
   document.getElementById('asean-narrative').innerHTML = '';
 
-  // FX Drivers — global forces driving ASEAN FX
+  // FX Drivers — unique signals not shown in Monetary panel
   const ind = d.indicators;
-  const dxy   = ind['dxy_index']?.value ?? null;
-  const vix   = ind['vix_level']?.value ?? null;
-  const spr   = d.derived?.sbnUstSpread ?? null;
-  const gap   = d.derived?.usdidrVsApbn ?? null;
   const bi    = ind['bi_rate_pct']?.value ?? null;
   const ust   = ind['ust_10y_yield_pct']?.value ?? null;
   const carry = bi !== null && ust !== null ? +(bi - ust).toFixed(2) : null;
+  const idrVol = ind['usdidr_vol_30d']?.value ?? null;
+  const pmi    = ind['indonesia_pmi_manufacturing']?.value ?? null;
+  const debtGdp = ind['indonesia_debt_gdp_pct']?.value ?? null;
+
+  const carryCls  = carry !== null ? (carry < 0.5 ? 'red' : carry < 1.0 ? 'orange' : carry < 1.5 ? 'yellow' : 'green') : '';
+  const idrVolCls = idrVol !== null ? (idrVol > 15 ? 'red' : idrVol > 10 ? 'orange' : idrVol > 7 ? 'yellow' : 'green') : '';
+  const pmiCls    = pmi !== null ? (pmi < 48 ? 'red' : pmi < 50 ? 'orange' : pmi < 51 ? 'yellow' : 'green') : '';
 
   const fxDrivers = \`
     <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">FX Drivers</div>
-      \${kv('DXY Index',       dxy   ? fmtNum(dxy,1)       : '—', dxy > 108 ? 'orange' : dxy > 104 ? 'yellow' : 'green')}
-      \${kv('VIX',             vix   ? fmtNum(vix,1)       : '—', vix > 35 ? 'red' : vix > 25 ? 'orange' : vix > 20 ? 'yellow' : 'green')}
-      \${kv('SBN-UST Spread',  spr   != null ? spr+'bps'  : '—', spr < 200 ? 'red' : spr < 250 ? 'orange' : '')}
-      \${kv('IDR vs APBN 16.5k', gap != null ? (gap > 0 ? '+' : '')+gap+'%' : '—', gap > 9 ? 'orange' : gap > 6 ? 'yellow' : 'green')}
-      \${kv('Carry (BI−UST)',  carry != null ? (carry > 0 ? '+' : '')+fmtNum(carry,2)+'%' : '—', carry < 0.5 ? 'red' : carry < 1.0 ? 'orange' : carry < 1.5 ? 'yellow' : 'green')}
-      \${kv('BI Rate',         bi    ? fmtNum(bi,2)+'%'   : '—')}
-      \${kv('UST 10Y',         ust   ? fmtNum(ust,2)+'%'  : '—')}
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">IDR Risk Factors</div>
+      \${kv('Carry (BI−UST)',   carry   != null ? (carry > 0 ? '+' : '')+fmtNum(carry,2)+'%'  : '—', carryCls)}
+      \${kv('UST 10Y',          ust     ? fmtNum(ust,3)+'%'                                   : '—')}
+      \${kv('IDR 30d Vol',      idrVol  ? fmtNum(idrVol,1)+'% ann.'                           : '—', idrVolCls)}
+      \${kv('PMI Manufaktur',   pmi     ? fmtNum(pmi,1)+(pmi >= 50 ? ' ▲' : ' ▼')            : '—', pmiCls)}
+      \${kv('Debt/GDP',         debtGdp ? fmtNum(debtGdp,1)+'%'                               : '—', debtGdp > 60 ? 'red' : debtGdp > 50 ? 'orange' : debtGdp > 40 ? 'yellow' : 'green')}
     </div>
   \`;
 
