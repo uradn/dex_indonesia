@@ -27,6 +27,7 @@ import { runDomesticPressureEngine } from './domestic-pressure-engine.js';
 import { runPoliticalRiskEngine } from './political-risk-engine.js';
 import { runUlnEngine } from './uln-engine.js';
 import type { AlertLevel } from './types.js';
+import { saveModuleScore } from './time-series-db.js';
 
 export const SILENT_CRISIS_DESCRIPTION = `
 MACRO INTELLIGENCE — Big Short Mode / Silent Crisis Detector
@@ -125,6 +126,7 @@ async function getModuleScores(): Promise<ModuleScore[]> {
       try {
         const result = await run();
         scores.push({ module, score: result.score, alertLevel: result.alertLevel, available: true });
+        saveModuleScore(module, result.score, result.alertLevel).catch(() => {});
       } catch {
         scores.push({ module, score: 0, alertLevel: 'green', available: false });
       }

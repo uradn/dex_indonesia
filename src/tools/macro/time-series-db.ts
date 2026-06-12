@@ -132,6 +132,32 @@ function rowToPoint(row: SeriesRow): MacroDataPoint {
   };
 }
 
+export async function saveModuleScore(
+  module: string,
+  score: number,
+  alertLevel: string,
+  components: Record<string, unknown> = {},
+): Promise<void> {
+  const db = await openDb();
+  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date().toISOString();
+  db.query(
+    `INSERT OR REPLACE INTO macro_scores (module, score_date, score, alert_level, components, computed_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(module, today, score, alertLevel, JSON.stringify(components), now);
+}
+
+export async function getLatestModuleScores(): Promise<Record<string, { score: number; alertLevel: string; computedAt: string }>> {
+  const db = await openDb();
+  const rows = db.query<{ module: string; score: number; alert_level: string; computed_at: string }>(
+    `SELECT module, score, alert_level, computed_at FROM macro_scores
+     WHERE (module, score_date) IN (SELECT module, MAX(score_date) FROM macro_scores GROUP BY module)`,
+  ).all();
+  const result: Record<string, { score: number; alertLevel: string; computedAt: string }> = {};
+  for (const r of rows) result[r.module] = { score: r.score, alertLevel: r.alert_level, computedAt: r.computed_at };
+  return result;
+}
+
 /** Latest stored USDIDR rate + staleness in days. Returns null if no data in DB. */
 export async function getLatestUsdIdr(): Promise<{ rate: number; date: string; staleDays: number } | null> {
   const point = await getLatestPoint('usdidr_spot');

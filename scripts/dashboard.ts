@@ -19,7 +19,9 @@ function triggerScd(): void {
   if (scdState.status === 'running') return;
   scdState = { status: 'running', startedAt: new Date().toISOString() };
   (silentCrisisDetector as any).invoke({ query: 'full silent crisis scan' })
-    .then((result: string) => {
+    .then((raw: string) => {
+      let result = raw;
+      try { const p = JSON.parse(raw); if (p?.data?.analysis) result = p.data.analysis; } catch {}
       scdState = { status: 'done', result, startedAt: scdState.startedAt, completedAt: new Date().toISOString() };
     })
     .catch((e: Error) => {
@@ -126,7 +128,16 @@ function buildSnapshot() {
       hasTavily: !!process.env.TAVILY_API_KEY,
       hasExa: !!process.env.EXASEARCH_API_KEY,
     };
-    return { indicators: data, derived: { termPremium, sbnUstSpread, usdidrVsApbn, cds }, aseanFx, envFlags, ts: new Date().toISOString() };
+    // Read latest module scores from DB (written by SCD / morning-check)
+    const moduleScores: Record<string, { score: number; alertLevel: string; computedAt: string }> = {};
+    try {
+      const rows = db.query<{ module: string; score: number; alert_level: string; computed_at: string }>(
+        `SELECT module, score, alert_level, computed_at FROM macro_scores
+         WHERE (module, score_date) IN (SELECT module, MAX(score_date) FROM macro_scores GROUP BY module)`
+      ).all();
+      for (const r of rows) moduleScores[r.module] = { score: r.score, alertLevel: r.alert_level, computedAt: r.computed_at };
+    } catch {}
+    return { indicators: data, derived: { termPremium, sbnUstSpread, usdidrVsApbn, cds }, aseanFx, envFlags, moduleScores, ts: new Date().toISOString() };
   } finally {
     db.close();
   }
@@ -541,16 +552,46 @@ function computeScdProxy(d) {
   return Math.min(100, Math.round(avg / 3 * 100));
 }
 
+function moduleScoreBadge(d, moduleKey) {
+  const ms = d.moduleScores?.[moduleKey];
+  if (!ms) return '';
+  const c = ms.score >= 70 ? 'red' : ms.score >= 50 ? 'orange' : ms.score >= 33 ? 'yellow' : 'green';
+  const age = ms.computedAt ? Math.round((Date.now() - new Date(ms.computedAt).getTime()) / 3600000) : null;
+  const ageTxt = age !== null ? (age < 1 ? ' <1h ago' : age+'h ago') : '';
+  return \`<span class="tag \${c}" style="font-size:9px;margin-left:6px">\${ms.score}/100\${ageTxt}</span>\`;
+}
+
 function renderScd(d) {
-  const score = computeScdProxy(d);
+  const ms = d.moduleScores ?? {};
+  // Use real SCD score if available (from last morning-check/SCD run)
+  const scdMs = Object.keys(ms).length;
+  let score, label, cls;
+  if (scdMs > 0) {
+    // Replicate SCD weighted sum from module scores
+    const W = { fx_defense:0.16, uln:0.09, bop:0.10, sovereign_risk:0.09, foreign_flow:0.09,
+                banking:0.08, commodity:0.07, fiscal:0.09, market:0.05, domestic_pressure:0.06,
+                political_risk:0.05, regime:0.05, narrative:0.02 };
+    let wsum = 0, wtotal = 0;
+    for (const [mod, w] of Object.entries(W)) {
+      if (ms[mod]) { wsum += ms[mod].score * w; wtotal += w; }
+    }
+    const stressed = Object.values(ms).filter(m => m.score >= 50).length;
+    const amp = stressed >= 5 ? 1.4 : stressed >= 3 ? 1.2 : 1.0;
+    score = Math.min(95, Math.round((wtotal > 0 ? wsum / wtotal : 0) * amp));
+    const latest = Object.values(ms).sort((a,b) => b.computedAt.localeCompare(a.computedAt))[0];
+    const age = latest ? Math.round((Date.now() - new Date(latest.computedAt).getTime()) / 3600000) : null;
+    const ageTxt = age !== null ? (age < 1 ? ' · <1h ago' : ' · '+age+'h ago') : '';
+    label = (score >= 70 ? '🔴 RED — CRISIS RISK' : score >= 50 ? '🟠 ORANGE — ELEVATED' : score >= 33 ? '🟡 YELLOW — WATCH' : '🟢 GREEN — NORMAL') + ageTxt;
+  } else {
+    score = computeScdProxy(d);
+    label = score == null ? '—' : (score >= 70 ? '🔴 RED — CRISIS RISK' : score >= 50 ? '🟠 ORANGE — ELEVATED' : score >= 33 ? '🟡 YELLOW — WATCH' : '🟢 GREEN — NORMAL') + ' (proxy)';
+    if (score == null) { document.getElementById('scd-score').textContent = '?'; return; }
+  }
+  cls = score >= 70 ? 'red' : score >= 50 ? 'orange' : score >= 33 ? 'yellow' : 'green';
   const el = document.getElementById('scd-score');
-  const alertEl = document.getElementById('scd-alert');
-  if (score == null) { el.textContent = '?'; return; }
   el.textContent = score + '%';
-  const cls = score >= 70 ? 'red' : score >= 50 ? 'orange' : score >= 33 ? 'yellow' : 'green';
   el.className = 'scd-number ' + cls;
-  const label = score >= 70 ? '🔴 RED — CRISIS RISK' : score >= 50 ? '🟠 ORANGE — ELEVATED' : score >= 33 ? '🟡 YELLOW — WATCH' : '🟢 GREEN — NORMAL';
-  alertEl.innerHTML = \`<span class="tag \${cls}">\${label}</span>\`;
+  document.getElementById('scd-alert').innerHTML = \`<span class="tag \${cls}">\${label}</span>\`;
 }
 
 function renderCharts(chartsData) {
@@ -641,6 +682,26 @@ async function refresh() {
     document.getElementById('panel-asean').innerHTML = renderAsean(snapshot);
     renderCharts(charts);
 
+    // Inject module score badges into sidebar card titles
+    const MODULE_TITLES = {
+      sovereign_risk: 'Monetary & FX',
+      foreign_flow:   'Capital Flow',
+      fiscal:         'Fiscal & External',
+      banking:        'Banking',
+    };
+    document.querySelectorAll('.card-title').forEach(el => {
+      el.querySelectorAll('.mod-badge').forEach(b => b.remove());
+      const text = el.textContent.trim();
+      for (const [mod, title] of Object.entries(MODULE_TITLES)) {
+        if (text === title) {
+          const badge = document.createElement('span');
+          badge.innerHTML = moduleScoreBadge(snapshot, mod);
+          badge.className = 'mod-badge';
+          el.appendChild(badge);
+        }
+      }
+    });
+
     document.getElementById('last-updated').textContent = 'Updated: ' + new Date().toLocaleTimeString('id-ID');
   } catch (e) {
     document.getElementById('last-updated').textContent = 'Error: ' + e.message;
@@ -657,9 +718,10 @@ function renderPolRisk(d) {
   const usdidr  = ind['usdidr_spot']?.value ?? null;
   const gap     = ind['bbm_subsidy_gap_idr_liter']?.value ?? null;
 
-  // composite score
-  const scores = [unrest, food, stab ? (100 - stab) : null].filter(x => x !== null);
-  const composite = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : null;
+  // Use module score from DB if available (accurate), else compute proxy from raw indicators
+  const msPolRisk = d.moduleScores?.['political_risk'];
+  const composite = msPolRisk ? msPolRisk.score
+    : (() => { const s = [unrest, food, stab ? (100-stab) : null].filter(x=>x!==null); return s.length ? Math.round(s.reduce((a,b)=>a+b,0)/s.length) : null; })();
 
   const scoreEl = document.getElementById('polrisk-score');
   const labelEl = document.getElementById('polrisk-label');
@@ -668,7 +730,8 @@ function renderPolRisk(d) {
     const cls = composite >= 70 ? 'red' : composite >= 50 ? 'orange' : composite >= 33 ? 'yellow' : 'green';
     scoreEl.className = 'doom-score ' + cls;
     const lbl = composite >= 70 ? 'HIGH RISK' : composite >= 50 ? 'Elevated' : composite >= 33 ? 'Watch' : 'Stable';
-    labelEl.innerHTML = \`<span class="tag \${cls}">\${lbl}</span>\`;
+    const src = msPolRisk ? '' : ' <span style="font-size:9px;color:var(--muted)">(proxy)</span>';
+    labelEl.innerHTML = \`<span class="tag \${cls}">\${lbl}</span>\${src}\`;
   } else {
     scoreEl.textContent = '?';
   }
