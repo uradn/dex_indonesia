@@ -29,6 +29,33 @@ CREATE TABLE IF NOT EXISTS macro_scores (
   computed_at TEXT NOT NULL,
   UNIQUE(module, score_date)
 );
+
+CREATE TABLE IF NOT EXISTS macro_theses (
+  id INTEGER PRIMARY KEY,
+  thesis_date TEXT NOT NULL,
+  primary_divergence TEXT NOT NULL,
+  thesis_statement TEXT NOT NULL,
+  trigger_indicator TEXT NOT NULL,
+  trigger_threshold REAL NOT NULL,
+  trigger_direction TEXT NOT NULL DEFAULT 'above',
+  predicted_cds_bps REAL,
+  predicted_usdidr REAL,
+  predicted_sbn10y REAL,
+  crisis_probability REAL,
+  ev_estimate REAL,
+  kill_conditions TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'armed',
+  triggered_at TEXT,
+  killed_at TEXT,
+  closed_at TEXT,
+  actual_cds_bps REAL,
+  actual_usdidr REAL,
+  actual_sbn10y REAL,
+  actual_pnl_pct REAL,
+  lead_time_days INTEGER,
+  notes TEXT,
+  created_at TEXT NOT NULL
+);
 `;
 
 type SqliteQuery<T> = {
@@ -164,4 +191,129 @@ export async function getLatestUsdIdr(): Promise<{ rate: number; date: string; s
   if (!point) return null;
   const staleDays = Math.floor((Date.now() - new Date(point.date).getTime()) / 86_400_000);
   return { rate: point.value, date: point.date, staleDays };
+}
+
+// ── Thesis DB ─────────────────────────────────────────────────────────────────
+
+export interface ThesisRecord {
+  id?: number;
+  thesisDate: string;
+  primaryDivergence: string;
+  thesisStatement: string;
+  triggerIndicator: string;
+  triggerThreshold: number;
+  triggerDirection: 'above' | 'below';
+  predictedCdsBps?: number | null;
+  predictedUsdidr?: number | null;
+  predictedSbn10y?: number | null;
+  crisisProbability?: number | null;
+  evEstimate?: number | null;
+  killConditions: string[];
+  status: 'armed' | 'triggered' | 'confirmed' | 'killed' | 'closed';
+  triggeredAt?: string | null;
+  killedAt?: string | null;
+  closedAt?: string | null;
+  actualCdsBps?: number | null;
+  actualUsdidr?: number | null;
+  actualSbn10y?: number | null;
+  actualPnlPct?: number | null;
+  leadTimeDays?: number | null;
+  notes?: string | null;
+  createdAt: string;
+}
+
+type ThesisRow = {
+  id: number; thesis_date: string; primary_divergence: string; thesis_statement: string;
+  trigger_indicator: string; trigger_threshold: number; trigger_direction: string;
+  predicted_cds_bps: number | null; predicted_usdidr: number | null; predicted_sbn10y: number | null;
+  crisis_probability: number | null; ev_estimate: number | null; kill_conditions: string;
+  status: string; triggered_at: string | null; killed_at: string | null; closed_at: string | null;
+  actual_cds_bps: number | null; actual_usdidr: number | null; actual_sbn10y: number | null;
+  actual_pnl_pct: number | null; lead_time_days: number | null; notes: string | null; created_at: string;
+};
+
+function rowToThesis(r: ThesisRow): ThesisRecord {
+  return {
+    id: r.id,
+    thesisDate: r.thesis_date,
+    primaryDivergence: r.primary_divergence,
+    thesisStatement: r.thesis_statement,
+    triggerIndicator: r.trigger_indicator,
+    triggerThreshold: r.trigger_threshold,
+    triggerDirection: r.trigger_direction as 'above' | 'below',
+    predictedCdsBps: r.predicted_cds_bps,
+    predictedUsdidr: r.predicted_usdidr,
+    predictedSbn10y: r.predicted_sbn10y,
+    crisisProbability: r.crisis_probability,
+    evEstimate: r.ev_estimate,
+    killConditions: JSON.parse(r.kill_conditions || '[]') as string[],
+    status: r.status as ThesisRecord['status'],
+    triggeredAt: r.triggered_at,
+    killedAt: r.killed_at,
+    closedAt: r.closed_at,
+    actualCdsBps: r.actual_cds_bps,
+    actualUsdidr: r.actual_usdidr,
+    actualSbn10y: r.actual_sbn10y,
+    actualPnlPct: r.actual_pnl_pct,
+    leadTimeDays: r.lead_time_days,
+    notes: r.notes,
+    createdAt: r.created_at,
+  };
+}
+
+export async function saveThesis(t: Omit<ThesisRecord, 'id'>): Promise<number> {
+  const db = await openDb();
+  const now = new Date().toISOString();
+  db.query(
+    `INSERT INTO macro_theses
+      (thesis_date, primary_divergence, thesis_statement, trigger_indicator, trigger_threshold,
+       trigger_direction, predicted_cds_bps, predicted_usdidr, predicted_sbn10y,
+       crisis_probability, ev_estimate, kill_conditions, status, created_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+  ).run(
+    t.thesisDate, t.primaryDivergence, t.thesisStatement, t.triggerIndicator, t.triggerThreshold,
+    t.triggerDirection, t.predictedCdsBps ?? null, t.predictedUsdidr ?? null, t.predictedSbn10y ?? null,
+    t.crisisProbability ?? null, t.evEstimate ?? null, JSON.stringify(t.killConditions), t.status, now,
+  );
+  const row = db.query<{ id: number }>('SELECT last_insert_rowid() AS id').get();
+  return row?.id ?? 0;
+}
+
+export async function updateThesisStatus(
+  id: number,
+  status: ThesisRecord['status'],
+  actuals?: { actualCdsBps?: number; actualUsdidr?: number; actualSbn10y?: number; actualPnlPct?: number; notes?: string },
+): Promise<void> {
+  const db = await openDb();
+  const now = new Date().toISOString();
+  const triggeredAt = status === 'triggered' ? now : null;
+  const killedAt = status === 'killed' ? now : null;
+  const closedAt = (status === 'closed' || status === 'confirmed') ? now : null;
+  db.query(
+    `UPDATE macro_theses SET status=?, triggered_at=COALESCE(triggered_at,?),
+     killed_at=COALESCE(killed_at,?), closed_at=COALESCE(closed_at,?),
+     actual_cds_bps=COALESCE(?,actual_cds_bps), actual_usdidr=COALESCE(?,actual_usdidr),
+     actual_sbn10y=COALESCE(?,actual_sbn10y), actual_pnl_pct=COALESCE(?,actual_pnl_pct),
+     notes=COALESCE(?,notes)
+     WHERE id=?`,
+  ).run(
+    status, triggeredAt, killedAt, closedAt,
+    actuals?.actualCdsBps ?? null, actuals?.actualUsdidr ?? null,
+    actuals?.actualSbn10y ?? null, actuals?.actualPnlPct ?? null,
+    actuals?.notes ?? null, id,
+  );
+}
+
+export async function getLatestThesis(): Promise<ThesisRecord | null> {
+  const db = await openDb();
+  const row = db.query<ThesisRow>(
+    `SELECT * FROM macro_theses WHERE status IN ('armed','triggered') ORDER BY created_at DESC LIMIT 1`,
+  ).get();
+  return row ? rowToThesis(row) : null;
+}
+
+export async function getAllTheses(limit = 20): Promise<ThesisRecord[]> {
+  const db = await openDb();
+  const rows = db.query<ThesisRow>(`SELECT * FROM macro_theses ORDER BY created_at DESC LIMIT ?`).all(limit);
+  return rows.map(rowToThesis);
 }

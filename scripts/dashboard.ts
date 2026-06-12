@@ -6,6 +6,10 @@
 import { Database } from 'bun:sqlite';
 import { join } from 'node:path';
 import { silentCrisisDetector } from '../src/tools/macro/silent-crisis-detector.ts';
+import {
+  saveThesis, updateThesisStatus, getLatestThesis, getAllTheses,
+} from '../src/tools/macro/time-series-db.ts';
+import type { ThesisRecord } from '../src/tools/macro/time-series-db.ts';
 
 const DB_PATH = join(import.meta.dir, '../.dexter/macro/macro.db');
 const PORT = 6080;
@@ -143,6 +147,263 @@ function buildSnapshot() {
   }
 }
 
+// ── Big Short Thesis Computation ──────────────────────────────────────────────
+
+interface Divergence {
+  id: string; label: string; market: string; structural: string;
+  gap: number; unit: string; cls: string;
+}
+
+interface ComputedThesis {
+  primaryDivergence: string;
+  thesisStatement: string;
+  triggerIndicator: string;
+  triggerThreshold: number;
+  triggerDirection: 'above' | 'below';
+  triggerLabel: string;
+  triggerFired: boolean;
+  predictedCdsBps: number | null;
+  predictedUsdidr: number | null;
+  predictedSbn10y: number | null;
+  crisisProbability: number;
+  evEstimate: number;
+  killConditions: string[];
+  divergences: Divergence[];
+  transmissionChain: Array<{ module: string; score: number; cls: string; label: string }>;
+  marketExpression: Array<{ instrument: string; direction: string; rationale: string; carry: string; liq: string }>;
+  contrarian: { consensus: string; whyWrong: string; whyNotPriced: string };
+  conviction: number;
+  analog: { name: string; year: string; similarity: string };
+}
+
+function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
+  const ms = snap.moduleScores ?? {};
+  const ind = snap.indicators ?? {};
+  const der = snap.derived ?? {};
+
+  const FINANCIAL = ['fx_defense','uln','bop','sovereign_risk','foreign_flow','banking','commodity','fiscal','market'];
+  const financialScores = FINANCIAL.map(m => ms[m]?.score).filter((s): s is number => s != null);
+  const financialAvg = financialScores.length
+    ? Math.round(financialScores.reduce((a, b) => a + b, 0) / financialScores.length) : 0;
+
+  const polScore   = ms['political_risk']?.score ?? 0;
+  const narScore   = ms['narrative']?.score ?? 0;
+  const fiscalScore = ms['fiscal']?.score ?? 0;
+  const cds        = der.cds ?? null;
+  const usdidr     = ind['usdidr_spot']?.value ?? null;
+  const sbn        = ind['sbn_10y_yield_pct']?.value ?? null;
+  const sbnOwn     = ind['sbn_foreign_ownership_pct']?.value ?? null;
+  const srbiB      = ind['srbi_sterilization_burden_pct']?.value ?? null;
+  const usdidrVsApbn = der.usdidrVsApbn ?? null;
+
+  // ── Build divergence list ────────────────────────────────────────────────────
+  const divs: Divergence[] = [];
+
+  const polGap = polScore - financialAvg;
+  divs.push({
+    id: 'political_financial_gap',
+    label: 'Political vs Financial',
+    market: `Financial avg ${financialAvg}/100`,
+    structural: `Political risk ${polScore}/100 RED`,
+    gap: polGap,
+    unit: 'pp',
+    cls: polGap > 40 ? 'red' : polGap > 25 ? 'orange' : polGap > 10 ? 'yellow' : 'green',
+  });
+
+  if (usdidrVsApbn !== null) {
+    const g = Math.abs(usdidrVsApbn);
+    divs.push({
+      id: 'idr_apbn_gap',
+      label: 'IDR vs APBN 16,500',
+      market: 'APBN assumes 16,500',
+      structural: `Actual ${usdidr ? Math.round(usdidr).toLocaleString('id') : '—'} (+${g.toFixed(1)}%)`,
+      gap: g,
+      unit: '%',
+      cls: g > 15 ? 'red' : g > 10 ? 'orange' : g > 5 ? 'yellow' : 'green',
+    });
+  }
+
+  if (narScore > 0) {
+    divs.push({
+      id: 'narrative_credibility',
+      label: 'Narrative vs Market',
+      market: `Credibility ${100 - narScore}/100`,
+      structural: `${narScore} stress pts vs official claims`,
+      gap: narScore,
+      unit: '/100',
+      cls: narScore > 60 ? 'red' : narScore > 40 ? 'orange' : 'yellow',
+    });
+  }
+
+  if (cds !== null) {
+    const g = Math.max(0, cds - 60);
+    divs.push({
+      id: 'cds_narrative_gap',
+      label: 'CDS vs "Stable Macro"',
+      market: 'BI claims macro stable',
+      structural: `CDS ${cds.toFixed(0)}bps (+${g.toFixed(0)}bps above stable baseline)`,
+      gap: g,
+      unit: 'bps',
+      cls: cds > 150 ? 'red' : cds > 100 ? 'orange' : cds > 70 ? 'yellow' : 'green',
+    });
+  }
+
+  if (sbnOwn !== null) {
+    const g = 25 - sbnOwn;
+    divs.push({
+      id: 'sbn_foreign_exit',
+      label: 'SBN Foreign Exit',
+      market: `Current ownership ${sbnOwn.toFixed(1)}%`,
+      structural: `Peak 25% in 2019; exit ${g.toFixed(1)}pp`,
+      gap: Math.max(0, g),
+      unit: 'pp',
+      cls: sbnOwn < 10 ? 'red' : sbnOwn < 12 ? 'orange' : sbnOwn < 15 ? 'yellow' : 'green',
+    });
+  }
+
+  divs.sort((a, b) => b.gap - a.gap);
+  const primary = divs[0] ?? { id: 'political_financial_gap', label: '—', gap: 0, unit: '', market: '', structural: '', cls: 'green' };
+
+  // ── Thesis & trigger from primary divergence ─────────────────────────────────
+  let thesisStatement = '';
+  let triggerIndicator = 'political_risk_score';
+  let triggerThreshold = 75;
+  let triggerDirection: 'above' | 'below' = 'above';
+  let triggerLabel = '';
+
+  if (primary.id === 'political_financial_gap') {
+    thesisStatement = `Market prices Indonesia sovereign risk at ${financialAvg}/100 while political stress reads ${polScore}/100 — ${polGap}pp divergence. Demo BBM 12 Jun 2026 confirms social contract fracture. Political stress historically leads financial repricing 2-3 quarters.`;
+    triggerIndicator = 'political_risk_score'; triggerThreshold = 75; triggerDirection = 'above';
+    triggerLabel = 'Political risk score stays >75 for 30d OR SBN foreign ownership <11%';
+  } else if (primary.id === 'idr_apbn_gap') {
+    thesisStatement = `IDR trading ${usdidrVsApbn?.toFixed(1)}% above APBN 16,500 assumption. Fiscal math built on stale FX rate; each +1,000 IDR/USD adds ~IDR 4-5T to debt service. Convergence requires either fiscal rebase or IDR crash.`;
+    triggerIndicator = 'usdidr_spot'; triggerThreshold = 19000; triggerDirection = 'above';
+    triggerLabel = 'USDIDR breaks above 19,000 (APBN +15.2%)';
+  } else if (primary.id === 'cds_narrative_gap') {
+    thesisStatement = `Indonesia CDS at ${cds?.toFixed(0)}bps while BI claims macro stability. Market already pricing stress the official narrative denies. CDS velocity positive — momentum toward repricing.`;
+    triggerIndicator = 'indonesia_cds_5y_bps'; triggerThreshold = 150; triggerDirection = 'above';
+    triggerLabel = 'CDS breaks above 150bps (S&P watch zone)';
+  } else {
+    thesisStatement = `${primary.label}: market at ${primary.market} vs structural reality ${primary.structural}. Gap ${primary.gap.toFixed(1)}${primary.unit} exceeds noise threshold — repricing risk elevated.`;
+    triggerLabel = `${primary.label} gap widens further`;
+  }
+
+  // Live trigger check vs current indicators
+  const triggerCurrentVal = triggerIndicator === 'political_risk_score'
+    ? (ms['political_risk']?.score ?? 0)
+    : (ind[triggerIndicator]?.value ?? 0);
+  const triggerFired = triggerDirection === 'above'
+    ? triggerCurrentVal >= triggerThreshold
+    : triggerCurrentVal <= triggerThreshold;
+
+  // ── SCD-based crisis probability ─────────────────────────────────────────────
+  const W: Record<string, number> = {
+    fx_defense:0.16,uln:0.09,bop:0.10,sovereign_risk:0.09,foreign_flow:0.09,
+    banking:0.08,commodity:0.07,fiscal:0.09,market:0.05,domestic_pressure:0.06,
+    political_risk:0.05,regime:0.05,narrative:0.02,
+  };
+  let wsum = 0, wtotal = 0;
+  for (const [mod, w] of Object.entries(W)) {
+    if (ms[mod]) { wsum += ms[mod].score * w; wtotal += w; }
+  }
+  const stressed = Object.values(ms).filter(m => m.score >= 50).length;
+  const amp = stressed >= 5 ? 1.4 : stressed >= 3 ? 1.2 : stressed >= 2 ? 1.1 : 1.0;
+  const crisisProbability = Math.min(90, Math.round((wtotal > 0 ? wsum / wtotal : 30) * amp));
+
+  // ── EV estimate (blended 4-instrument portfolio) ─────────────────────────────
+  // Carry: CDS ~8bps/mo + EIDO borrow ~0.25%/mo + NDF ~0.5%/mo → blended ~0.12%/mo
+  // Stress (partial): +8% | Crisis (full): CDS 97→200 + IDR 18→20k + EIDO -30% ≈ +25%
+  const p = crisisProbability / 100;
+  const pStress = 0.20;
+  const pBase = Math.max(0, 1 - p - pStress);
+  const evEstimate = Math.round((pBase * -1.44 + pStress * 8 + p * 25) * 10) / 10;
+
+  // ── Kill conditions ───────────────────────────────────────────────────────────
+  const killConditions = [
+    `Political risk score drops below 55 for 14 consecutive days (Demo BBM resolves without policy response)`,
+    `BI announces coordinated package: fiscal support letter + reserves defense ≥$5bn + BI Rate guidance stable`,
+    `MSCI confirms Indonesia EM retention (June 2026 review) AND SBN foreign ownership stabilizes above 13%`,
+  ];
+
+  // ── Transmission chain ────────────────────────────────────────────────────────
+  const CHAIN = [
+    { module: 'political_risk', label: 'M12 Political' },
+    { module: 'domestic_pressure', label: 'M11 Food/BBM' },
+    { module: 'fiscal', label: 'M10 Fiscal' },
+    { module: 'sovereign_risk', label: 'M2 Sovereign' },
+    { module: 'foreign_flow', label: 'M5 Foreign Flow' },
+    { module: 'fx_defense', label: 'M3 FX Defense' },
+    { module: 'banking', label: 'M8 Banking' },
+  ];
+  const transmissionChain = CHAIN.map(({ module, label }) => {
+    const score = ms[module]?.score ?? 0;
+    const c = score >= 70 ? 'red' : score >= 50 ? 'orange' : score >= 33 ? 'yellow' : 'green';
+    return { module, score, cls: c, label };
+  });
+
+  // ── Market expression ─────────────────────────────────────────────────────────
+  const marketExpression = [
+    {
+      instrument: 'Indonesia CDS 5Y',
+      direction: 'Long protection (buyer)',
+      rationale: `Entry ~${cds?.toFixed(0) ?? '97'}bps → target 200bps. Implied P(crisis) ${crisisProbability}%`,
+      carry: `~${cds ? (cds/12).toFixed(0) : '8'}bps/mo`,
+      liq: '~$50m/day',
+    },
+    {
+      instrument: 'EIDO ETF',
+      direction: 'Short',
+      rationale: 'IDX foreign exit proxy. MSCI uncertainty + passive outflow dual cause',
+      carry: '~0.25%/mo borrow',
+      liq: '~$15m/day',
+    },
+    {
+      instrument: 'USDIDR NDF 6M',
+      direction: 'Long USD',
+      rationale: `IDR ${usdidrVsApbn ? usdidrVsApbn.toFixed(1)+'% above APBN' : 'elevated vs APBN'}. Political→fiscal transmission → depreciation`,
+      carry: '~0.5%/mo NDF premium',
+      liq: '>$500m/day',
+    },
+    {
+      instrument: 'SBN 10Y duration',
+      direction: 'Underweight',
+      rationale: `Yield ${sbn?.toFixed(2) ?? '7.3'}%. Foreign exit + fiscal deficit → yield spike. Term premium borderline ORANGE`,
+      carry: 'Negative (yield holder)',
+      liq: 'Domestic only',
+    },
+  ];
+
+  // ── Contrarian validation ─────────────────────────────────────────────────────
+  const contrarian = {
+    consensus: `BI: macro stable; IDR weakness is global DXY story not ID-specific. Markets price CDS ${cds?.toFixed(0) ?? '97'}bps = moderate risk, not crisis. S&P/Fitch maintain BBB- stable. Bloomberg consensus: no sovereign event 12mo.`,
+    whyWrong: `Political risk ${polScore}/100 RED vs financial avg ${financialAvg}/100 — ${polGap}pp divergence ignored by financial models. Demo BBM 12 Jun 2026 (Jakarta HI + Monas, Makassar) = social contract fracture visible. SRBI sterilization ${srbiB ? srbiB.toFixed(0)+'%' : '36%'} of FX reserves = pseudo-stability masking reserve depletion. Fiscal deficit trajectory 4.23% GDP → above 3% constitutional limit. S&P interest/revenue ratio 20.4% = 5.4pp above negative-action threshold.`,
+    whyNotPriced: `Three structural lags: (1) Political leads financial 2-3 quarters — sell-side models are financial-first, political risk treated as exogenous noise; (2) MSCI EM review creates uncertainty paralysis — foreign funds wait-and-see rather than exit; (3) BI SRBI program maintains surface IDR calm through sterilization, hiding reserve depletion from casual observers.`,
+  };
+
+  // ── Historical analog ─────────────────────────────────────────────────────────
+  // Simple rule: political stress dominant → 2018 EM selloff analog (EM-specific, not global)
+  // If fiscal > 60 + political > 70 → 2022 (fiscal + rate shock combo)
+  const analog = fiscalScore > 60 && polScore > 70
+    ? { name: '2022 Fed Tightening Cycle', year: '2022', similarity: 'Fiscal stress + IDR depreciation + rate shock. SCD peaked at 90/100. IDR −9.6%.' }
+    : polScore > 75
+    ? { name: '2018 EM Selloff', year: '2018', similarity: 'Political uncertainty + capital outflow + IDR pressure. SCD peaked at 84/100. IDR −5.8%.' }
+    : { name: '2013 Taper Tantrum', year: '2013', similarity: 'SBN yield spike + foreign exit + IDR weakness. SCD peaked at 81/100. IDR −20.8%.' };
+
+  // Conviction = crisis probability amplified by political-financial divergence
+  const conviction = Math.min(95, Math.round(crisisProbability * (1 + polGap / 200)));
+
+  return {
+    primaryDivergence: primary.id,
+    thesisStatement, triggerIndicator, triggerThreshold, triggerDirection, triggerLabel, triggerFired,
+    predictedCdsBps: cds ? Math.round(cds * 2) : 200,
+    predictedUsdidr: usdidr ? Math.round(usdidr * 1.12) : 20000,
+    predictedSbn10y: sbn ? +(sbn + 1.5).toFixed(2) : 8.8,
+    crisisProbability, evEstimate, killConditions,
+    divergences: divs, transmissionChain, marketExpression, contrarian,
+    conviction, analog,
+  };
+}
+
 function buildCharts() {
   const db = openDb();
   try {
@@ -242,6 +503,7 @@ const HTML = `<!DOCTYPE html>
   <span id="last-updated">—</span>
   <button id="refresh-btn" onclick="refresh()">↻ Refresh</button>
   <a href="/rr" style="margin-left:auto;font-size:11px;color:var(--muted);text-decoration:none;padding:4px 8px;border:1px solid var(--border);border-radius:4px;white-space:nowrap" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">R&amp;R / G-G →</a>
+  <a href="/bs" style="font-size:11px;color:var(--muted);text-decoration:none;padding:4px 8px;border:1px solid var(--border);border-radius:4px;white-space:nowrap" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">Big Short →</a>
 </header>
 <div class="layout">
   <div class="sidebar">
@@ -1302,11 +1564,509 @@ setInterval(refresh, 60_000);
 </body>
 </html>`;
 
+// ── Big Short Dashboard Page ──────────────────────────────────────────────────
+
+const BS_HTML = `<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dexter — Big Short Thesis</title>
+<style>
+  :root {
+    --bg:#0d1117; --surface:#161b22; --border:#30363d; --fg:#e6edf3;
+    --muted:#8b949e; --green:#3fb950; --yellow:#d29922; --orange:#e3721c; --red:#f85149;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--fg); font-family:'SF Mono',monospace; font-size:12px; }
+  header { padding:12px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  header h1 { font-size:14px; font-weight:600; }
+  .nav-links { display:flex; gap:6px; margin-left:auto; align-items:center; }
+  a.nav { font-size:11px; color:var(--muted); text-decoration:none; padding:3px 8px; border:1px solid var(--border); border-radius:4px; }
+  a.nav:hover { color:var(--fg); }
+  a.nav.active { color:var(--fg); border-color:var(--fg); }
+  .conviction-bar { padding:10px 20px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:16px; }
+  .conv-gauge { position:relative; }
+  .conv-num { font-size:28px; font-weight:700; line-height:1; }
+  .conv-label { font-size:9px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-top:2px; }
+  .thesis-status { font-size:11px; padding:4px 10px; border-radius:4px; font-weight:600; }
+  .thesis-status.armed { background:rgba(210,153,34,.15); color:var(--yellow); border:1px solid rgba(210,153,34,.3); }
+  .thesis-status.triggered { background:rgba(248,81,73,.15); color:var(--red); border:1px solid rgba(248,81,73,.3); }
+  .thesis-status.killed { background:rgba(139,148,158,.1); color:var(--muted); border:1px solid var(--border); }
+  .thesis-status.none { background:rgba(139,148,158,.1); color:var(--muted); border:1px solid var(--border); }
+  .page { display:grid; grid-template-columns:1fr 1.4fr 1fr; gap:12px; padding:14px 20px; max-width:1500px; margin:0 auto; }
+  .col { display:flex; flex-direction:column; gap:10px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px; }
+  .card-title { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:10px; }
+  .tag { font-size:10px; padding:2px 7px; border-radius:3px; font-weight:600; text-transform:uppercase; }
+  .green { color:var(--green); } .yellow { color:var(--yellow); } .orange { color:var(--orange); } .red { color:var(--red); }
+  .tag.green { background:rgba(63,185,80,.12); } .tag.yellow { background:rgba(210,153,34,.12); }
+  .tag.orange { background:rgba(227,114,28,.12); } .tag.red { background:rgba(248,81,73,.12); }
+  .kv { display:flex; justify-content:space-between; align-items:baseline; padding:3px 0; border-bottom:1px solid var(--border); font-size:11px; }
+  .kv:last-child { border-bottom:none; }
+  .kv-label { color:var(--muted); flex-shrink:0; }
+  .kv-val { font-weight:500; text-align:right; }
+  /* Divergence bars */
+  .div-row { margin-bottom:8px; }
+  .div-header { display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px; }
+  .div-bar-bg { height:6px; background:rgba(48,54,61,.8); border-radius:3px; overflow:hidden; }
+  .div-bar { height:6px; border-radius:3px; transition:width .4s; }
+  .div-sub { font-size:9px; color:var(--muted); margin-top:2px; }
+  /* Transmission chain */
+  .chain { display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin:6px 0; }
+  .chain-node { padding:5px 8px; border-radius:4px; font-size:10px; font-weight:600; border:1px solid transparent; }
+  .chain-node.green { background:rgba(63,185,80,.1); border-color:rgba(63,185,80,.3); color:var(--green); }
+  .chain-node.yellow { background:rgba(210,153,34,.1); border-color:rgba(210,153,34,.3); color:var(--yellow); }
+  .chain-node.orange { background:rgba(227,114,28,.1); border-color:rgba(227,114,28,.3); color:var(--orange); }
+  .chain-node.red { background:rgba(248,81,73,.1); border-color:rgba(248,81,73,.3); color:var(--red); }
+  .chain-arrow { color:var(--muted); font-size:10px; }
+  /* Market expression table */
+  .mkt-table { width:100%; border-collapse:collapse; }
+  .mkt-table th { font-size:9px; text-transform:uppercase; color:var(--muted); text-align:left; padding:3px 5px; border-bottom:1px solid var(--border); font-weight:400; }
+  .mkt-table td { padding:5px 5px; border-bottom:1px solid rgba(48,54,61,.4); font-size:10px; vertical-align:top; }
+  .mkt-table tr:last-child td { border-bottom:none; }
+  /* Kill switches */
+  .kill-row { display:flex; gap:8px; align-items:flex-start; padding:5px 0; border-bottom:1px solid var(--border); font-size:11px; }
+  .kill-row:last-child { border-bottom:none; }
+  .kill-icon { flex-shrink:0; font-size:13px; }
+  /* EV calculator */
+  .ev-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px; }
+  .ev-cell { background:rgba(48,54,61,.4); border-radius:4px; padding:6px 8px; }
+  .ev-cell-label { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  .ev-cell-val { font-size:16px; font-weight:700; margin-top:2px; }
+  .ev-total { background:rgba(48,54,61,.6); border-radius:4px; padding:8px 10px; text-align:center; border:1px solid var(--border); }
+  .ev-total-label { font-size:9px; color:var(--muted); text-transform:uppercase; }
+  .ev-total-val { font-size:22px; font-weight:700; margin-top:2px; }
+  /* Archive table */
+  .arch-table { width:100%; border-collapse:collapse; }
+  .arch-table th { font-size:9px; text-transform:uppercase; color:var(--muted); text-align:left; padding:3px 5px; border-bottom:1px solid var(--border); font-weight:400; }
+  .arch-table td { padding:4px 5px; border-bottom:1px solid rgba(48,54,61,.4); font-size:10px; }
+  .arch-table tr:last-child td { border-bottom:none; }
+  /* Timeline */
+  .timeline { display:flex; flex-direction:column; gap:6px; }
+  .tl-row { display:flex; gap:10px; align-items:flex-start; }
+  .tl-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:3px; }
+  .tl-dot.past { background:var(--green); }
+  .tl-dot.now { background:var(--yellow); }
+  .tl-dot.future { background:var(--border); }
+  .tl-content { flex:1; }
+  .tl-label { font-size:10px; font-weight:600; color:var(--muted); }
+  .tl-text { font-size:11px; margin-top:2px; }
+  /* Analog */
+  .analog-box { background:rgba(48,54,61,.3); border-radius:4px; padding:8px 10px; border-left:3px solid var(--yellow); }
+  .analog-name { font-size:12px; font-weight:600; margin-bottom:4px; }
+  .analog-sim { font-size:10px; color:var(--muted); }
+  /* Contrarian box */
+  .ctr-block { margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+  .ctr-block:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
+  .ctr-q { font-size:9px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:3px; }
+  .ctr-a { font-size:11px; line-height:1.5; }
+  /* Arm button */
+  .arm-btn { width:100%; padding:10px; border-radius:6px; border:none; font-size:12px; font-weight:600;
+             font-family:inherit; cursor:pointer; transition:.15s; }
+  .arm-btn.arm { background:rgba(210,153,34,.2); color:var(--yellow); border:1px solid rgba(210,153,34,.4); }
+  .arm-btn.arm:hover { background:rgba(210,153,34,.3); }
+  .arm-btn.kill { background:rgba(248,81,73,.1); color:var(--red); border:1px solid rgba(248,81,73,.3); }
+  .arm-btn.kill:hover { background:rgba(248,81,73,.2); }
+  #ts { font-size:10px; color:var(--muted); }
+  #status-msg { font-size:10px; color:var(--muted); min-height:16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🇮🇩 Big Short — Indonesia Contrarian Thesis</h1>
+  <span id="ts">—</span>
+  <div class="nav-links">
+    <a href="/" class="nav">Dashboard</a>
+    <a href="/rr" class="nav">R&amp;R / G-G</a>
+    <a href="/bs" class="nav active">Big Short</a>
+  </div>
+</header>
+
+<!-- Conviction bar -->
+<div class="conviction-bar">
+  <div class="conv-gauge">
+    <div class="conv-num" id="conv-num" style="color:var(--yellow)">—</div>
+    <div class="conv-label">Conviction Score / 95</div>
+  </div>
+  <div style="flex:1;padding:0 16px">
+    <div id="thesis-stmt" style="font-size:11px;line-height:1.6;color:var(--fg)">Loading thesis…</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+    <span id="thesis-badge" class="thesis-status none">No Active Thesis</span>
+    <span id="status-msg"></span>
+  </div>
+</div>
+
+<div class="page">
+  <!-- ── Left column ──────────────────────────────────────────────────────── -->
+  <div class="col">
+    <div class="card">
+      <div class="card-title">Divergence Scanner — 5 Ranked Gaps</div>
+      <div id="panel-divs">Loading…</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Kill Switch Status</div>
+      <div id="panel-kill">Loading…</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Historical Analog</div>
+      <div id="panel-analog">Loading…</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Archive — Past Theses</div>
+      <div id="panel-archive">Loading…</div>
+    </div>
+  </div>
+
+  <!-- ── Center column ────────────────────────────────────────────────────── -->
+  <div class="col">
+    <div class="card">
+      <div class="card-title">Trigger Monitor</div>
+      <div id="panel-trigger">Loading…</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Transmission Chain</div>
+      <div id="panel-chain">Loading…</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Timeline — T+0 / T+3 / T+6 / T+12</div>
+      <div id="panel-timeline">Loading…</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Contrarian Validation (Burry Method)</div>
+      <div id="panel-ctr">Loading…</div>
+    </div>
+  </div>
+
+  <!-- ── Right column ─────────────────────────────────────────────────────── -->
+  <div class="col">
+    <div class="card">
+      <div class="card-title">Market Expression</div>
+      <div id="panel-mkt">Loading…</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Expected Value Calculator</div>
+      <div id="panel-ev">Loading…</div>
+    </div>
+    <div class="card" style="padding-bottom:14px">
+      <div class="card-title">Thesis Actions</div>
+      <div id="panel-actions">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentThesis = null;
+let activeArmed = null;
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmt(v,d=2){ return v!=null ? (+v).toFixed(d) : '—'; }
+function cls(v,g,y,o){ return v>=o?'red':v>=y?'orange':v>=g?'yellow':'green'; }
+function tag(l,c){ return \`<span class="tag \${c}">\${esc(l)}</span>\`; }
+function kv(l,v,c=''){ return \`<div class="kv"><span class="kv-label">\${esc(l)}</span><span class="kv-val \${c}">\${v}</span></div>\`; }
+
+function renderDivs(t) {
+  if (!t || !t.divergences || !t.divergences.length) return '<span style="color:var(--muted)">No module scores — run SCD first</span>';
+  const maxGap = Math.max(...t.divergences.map(d => d.gap), 1);
+  return t.divergences.map((d, i) => {
+    const pct = Math.min(100, Math.round(d.gap / maxGap * 100));
+    const barColor = d.cls === 'red' ? 'var(--red)' : d.cls === 'orange' ? 'var(--orange)' : d.cls === 'yellow' ? 'var(--yellow)' : 'var(--green)';
+    const isPrimary = i === 0;
+    return \`<div class="div-row">
+      <div class="div-header">
+        <span class="\${d.cls}" style="font-weight:\${isPrimary?'700':'400'}">\${esc(d.label)}\${isPrimary?' ★':''}</span>
+        <span class="\${d.cls}" style="font-weight:600">\${fmt(d.gap,1)}\${esc(d.unit)}</span>
+      </div>
+      <div class="div-bar-bg"><div class="div-bar" style="width:\${pct}%;background:\${barColor}"></div></div>
+      <div class="div-sub">\${esc(d.market)} → \${esc(d.structural)}</div>
+    </div>\`;
+  }).join('');
+}
+
+function renderTrigger(t) {
+  if (!t) return '—';
+  const fired = t.triggerFired;
+  const fireColor = fired ? 'var(--red)' : 'var(--yellow)';
+  const fireIcon = fired ? '🔴' : '🟡';
+  const fireStatus = fired ? 'FIRED — Thesis TRIGGERED' : 'ARMED — Monitoring';
+  return \`
+    <div style="text-align:center;padding:8px 0;margin-bottom:10px">
+      <div style="font-size:24px">\${fireIcon}</div>
+      <div style="font-size:13px;font-weight:700;color:\${fireColor};margin-top:4px">\${fireStatus}</div>
+    </div>
+    \${kv('Trigger Condition', esc(t.triggerLabel), fired ? 'red' : 'yellow')}
+    \${kv('Indicator', esc(t.triggerIndicator), 'kv-val')}
+    \${kv('Threshold', fmt(t.triggerThreshold, 0) + ' (' + t.triggerDirection + ')')}
+    \${kv('Target CDS', fmt(t.predictedCdsBps, 0) + ' bps')}
+    \${kv('Target IDR', t.predictedUsdidr ? Math.round(t.predictedUsdidr).toLocaleString('id') : '—')}
+    \${kv('Target SBN 10Y', fmt(t.predictedSbn10y, 2) + '%')}
+  \`;
+}
+
+function renderChain(t) {
+  if (!t || !t.transmissionChain) return '—';
+  const nodes = t.transmissionChain.map((n, i) => {
+    const arr = i < t.transmissionChain.length - 1 ? '<span class="chain-arrow">→</span>' : '';
+    return \`<span class="chain-node \${n.cls}">\${esc(n.label)}<br><span style="font-size:9px;font-weight:400">\${n.score}/100</span></span>\${arr}\`;
+  }).join('');
+  const fired = t.transmissionChain.filter(n => n.cls === 'red' || n.cls === 'orange').length;
+  return \`
+    <div class="chain">\${nodes}</div>
+    <div style="font-size:10px;color:var(--muted);margin-top:6px">
+      \${fired}/\${t.transmissionChain.length} nodes activated (orange+red). Full crisis = 5+ nodes.
+    </div>
+  \`;
+}
+
+function renderTimeline(t) {
+  if (!t) return '—';
+  const now = new Date().toISOString().slice(0,10);
+  const t3 = new Date(Date.now() + 90*864e5).toISOString().slice(0,7);
+  const t6 = new Date(Date.now() + 180*864e5).toISOString().slice(0,7);
+  const t12 = new Date(Date.now() + 365*864e5).toISOString().slice(0,7);
+  return \`<div class="timeline">
+    <div class="tl-row">
+      <div class="tl-dot now"></div>
+      <div class="tl-content">
+        <div class="tl-label">T+0 — NOW (\${now})</div>
+        <div class="tl-text">Political risk \${t.transmissionChain?.[0]?.score ?? '—'}/100 RED. Financial avg ~\${fmt(t.divergences?.[0]?.gap > 0 ? t.transmissionChain?.[0]?.score - t.divergences?.[0]?.gap : 0, 0)}/100. Crisis prob \${t.crisisProbability}%. Thesis \${t.triggerFired ? 'TRIGGERED' : 'ARMED'}.</div>
+      </div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-dot future"></div>
+      <div class="tl-content">
+        <div class="tl-label">T+3 — Early Warning (\${t3})</div>
+        <div class="tl-text">Watch: SBN foreign ownership &lt;11%, CDS &gt;130bps, IDR &gt;18,500, M10 Fiscal &gt;70/100. Any 2 of 4 = stress confirmation.</div>
+      </div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-dot future"></div>
+      <div class="tl-content">
+        <div class="tl-label">T+6 — Stress Confirmation (\${t6})</div>
+        <div class="tl-text">If fiscal deficit hits 3% GDP limit, BI forced hike cycle, EIDO −15% from entry. Transmission chain: M12→M10→M2 activated.</div>
+      </div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-dot future"></div>
+      <div class="tl-content">
+        <div class="tl-label">T+12 — Payoff Zone (\${t12})</div>
+        <div class="tl-text">Terminal: CDS \${fmt(t.predictedCdsBps,0)}bps, IDR \${t.predictedUsdidr ? Math.round(t.predictedUsdidr).toLocaleString('id') : '—'}, SBN 10Y \${fmt(t.predictedSbn10y,2)}%. Full PnL ~+25% blended portfolio.</div>
+      </div>
+    </div>
+  </div>\`;
+}
+
+function renderKill(t, armed) {
+  if (!t || !t.killConditions) return '—';
+  // Check kill conditions live vs current data (simplified: political drop = kill #1)
+  const polScore = t.transmissionChain?.[0]?.score ?? 0;
+  const killFired = [polScore < 55, false, false]; // #2 and #3 require manual check
+  return t.killConditions.map((k, i) => {
+    const fired = killFired[i];
+    const icon = fired ? '✅' : '❌';
+    const color = fired ? 'var(--green)' : 'var(--muted)';
+    return \`<div class="kill-row">
+      <span class="kill-icon">\${icon}</span>
+      <span style="color:\${color}">\${esc(k)}\${fired ? ' — <b style=\\"color:var(--red)\\">KILL SWITCH FIRED</b>' : ''}</span>
+    </div>\`;
+  }).join('') + (armed ? \`<div style="margin-top:8px;font-size:10px;color:var(--muted)">Kill switch #2 and #3 require manual review. Mark killed via action button.</div>\` : '');
+}
+
+function renderMkt(t) {
+  if (!t || !t.marketExpression) return '—';
+  return \`<table class="mkt-table">
+    <thead><tr><th>Instrument</th><th>Direction</th><th>Carry/Mo</th><th>Liq</th></tr></thead>
+    <tbody>\${t.marketExpression.map(m => \`<tr>
+      <td style="font-weight:600">\${esc(m.instrument)}</td>
+      <td style="color:var(--yellow)">\${esc(m.direction)}</td>
+      <td style="color:var(--muted)">\${esc(m.carry)}</td>
+      <td style="color:var(--muted)">\${esc(m.liq)}</td>
+    </tr>
+    <tr><td colspan="4" style="font-size:9px;color:var(--muted);padding-top:0;padding-bottom:6px">\${esc(m.rationale)}</td></tr>
+    \`).join('')}</tbody>
+  </table>\`;
+}
+
+function renderEv(t) {
+  if (!t) return '—';
+  const p = t.crisisProbability; const ps = 20; const pb = Math.max(0, 100 - p - ps);
+  const evColor = t.evEstimate > 0 ? 'var(--green)' : 'var(--red)';
+  const be = (1.44 / (25 - 1.44) * 100).toFixed(1);
+  return \`
+    <div class="ev-grid">
+      <div class="ev-cell">
+        <div class="ev-cell-label">P(Crisis)</div>
+        <div class="ev-cell-val \${p > 40 ? 'orange' : 'yellow'}">\${p}%</div>
+      </div>
+      <div class="ev-cell">
+        <div class="ev-cell-label">P(Stress)</div>
+        <div class="ev-cell-val yellow">\${ps}%</div>
+      </div>
+      <div class="ev-cell">
+        <div class="ev-cell-label">P(Base)</div>
+        <div class="ev-cell-val green">\${pb}%</div>
+      </div>
+      <div class="ev-cell">
+        <div class="ev-cell-label">Carry/yr</div>
+        <div class="ev-cell-val red">−1.44%</div>
+      </div>
+    </div>
+    <div class="ev-total">
+      <div class="ev-total-label">Expected Value</div>
+      <div class="ev-total-val" style="color:\${evColor}">\${t.evEstimate > 0 ? '+' : ''}\${fmt(t.evEstimate,1)}%</div>
+    </div>
+    <div style="margin-top:8px;font-size:10px;color:var(--muted)">
+      EV = \${pb}% × (−1.44%) + \${ps}% × (+8%) + \${p}% × (+25%)<br>
+      Break-even P(crisis): \${be}% | \${p > +be ? '<span class=\\"green\\">ACTIONABLE</span>' : '<span class=\\"yellow\\">MARGINAL</span>'}
+    </div>
+  \`;
+}
+
+function renderAnalog(t) {
+  if (!t || !t.analog) return '—';
+  return \`<div class="analog-box">
+    <div class="analog-name">\${esc(t.analog.name)}</div>
+    <div class="analog-sim">\${esc(t.analog.similarity)}</div>
+  </div>
+  <div style="margin-top:8px;font-size:10px;color:var(--muted)">
+    Similarity based on: political stress level, fiscal score, IDR deviation from APBN assumption.<br>
+    Not a guarantee — analog informs transmission sequence, not magnitude.
+  </div>\`;
+}
+
+function renderCtr(t) {
+  if (!t || !t.contrarian) return '—';
+  const q = ['What does consensus believe?', 'Why is consensus wrong?', 'Why hasn\\'t market priced this?'];
+  const a = [t.contrarian.consensus, t.contrarian.whyWrong, t.contrarian.whyNotPriced];
+  return q.map((q, i) => \`<div class="ctr-block">
+    <div class="ctr-q">\${esc(q)}</div>
+    <div class="ctr-a">\${esc(a[i])}</div>
+  </div>\`).join('');
+}
+
+function renderArchive(theses) {
+  if (!theses || !theses.length) {
+    return '<span style="color:var(--muted);font-size:11px">No archived theses yet. Arm a thesis to begin tracking.</span>';
+  }
+  return \`<table class="arch-table">
+    <thead><tr><th>Date</th><th>Divergence</th><th>P%</th><th>EV</th><th>Status</th></tr></thead>
+    <tbody>\${theses.map(t => {
+      const sc = t.status === 'armed' ? 'yellow' : t.status === 'triggered' || t.status === 'confirmed' ? 'orange' : t.status === 'killed' ? '' : 'muted';
+      return \`<tr>
+        <td>\${t.thesisDate}</td>
+        <td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${esc(t.primaryDivergence.replace(/_/g,' '))}</td>
+        <td>\${t.crisisProbability ?? '—'}%</td>
+        <td class="\${t.evEstimate > 0 ? 'green' : 'red'}">\${t.evEstimate != null ? (t.evEstimate > 0 ? '+' : '') + t.evEstimate.toFixed(1)+'%' : '—'}</td>
+        <td><span class="tag \${sc}">\${t.status}</span></td>
+      </tr>\`;
+    }).join('')}</tbody>
+  </table>\`;
+}
+
+function renderActions(t, armed) {
+  const today = new Date().toISOString().slice(0,10);
+  const hasArmed = armed && (armed.status === 'armed' || armed.status === 'triggered');
+  return \`
+    \${!hasArmed ? \`<button class="arm-btn arm" onclick="armThesis()">⚡ ARM THESIS (\${today})</button>\` : ''}
+    \${hasArmed ? \`<button class="arm-btn arm" onclick="armThesis()">🔄 Re-ARM (update thesis)</button>\` : ''}
+    \${hasArmed ? \`<button class="arm-btn kill" style="margin-top:8px" onclick="killThesis(\${armed.id})">❌ KILL THESIS (kill switch fired)</button>\` : ''}
+    <div id="action-msg" style="margin-top:8px;font-size:10px;color:var(--muted)"></div>
+  \`;
+}
+
+async function armThesis() {
+  document.getElementById('action-msg').textContent = 'Arming thesis…';
+  try {
+    const r = await fetch('/api/thesis/arm', { method:'POST' }).then(x => x.json());
+    if (r.ok) {
+      document.getElementById('action-msg').textContent = 'Thesis armed ✓ ID: ' + r.id;
+      await loadData();
+    } else {
+      document.getElementById('action-msg').textContent = 'Error: ' + (r.error ?? 'unknown');
+    }
+  } catch (e) {
+    document.getElementById('action-msg').textContent = 'Error: ' + e.message;
+  }
+}
+
+async function killThesis(id) {
+  if (!confirm('Kill this thesis? This records kill switch fired.')) return;
+  document.getElementById('action-msg').textContent = 'Killing thesis…';
+  try {
+    const r = await fetch('/api/thesis/kill/' + id, { method:'POST' }).then(x => x.json());
+    if (r.ok) {
+      document.getElementById('action-msg').textContent = 'Thesis killed ✓';
+      await loadData();
+    } else {
+      document.getElementById('action-msg').textContent = 'Error: ' + (r.error ?? 'unknown');
+    }
+  } catch (e) {
+    document.getElementById('action-msg').textContent = 'Error: ' + e.message;
+  }
+}
+
+async function loadData() {
+  try {
+    const [thesis, archive] = await Promise.all([
+      fetch('/api/thesis/compute').then(x => x.json()),
+      fetch('/api/thesis/all').then(x => x.json()),
+    ]);
+    currentThesis = thesis;
+    activeArmed = archive.find(t => t.status === 'armed' || t.status === 'triggered') ?? null;
+
+    // Conviction bar
+    const convEl = document.getElementById('conv-num');
+    const convVal = thesis.conviction ?? 0;
+    const convCls = convVal >= 70 ? 'var(--red)' : convVal >= 50 ? 'var(--orange)' : convVal >= 35 ? 'var(--yellow)' : 'var(--green)';
+    convEl.textContent = convVal;
+    convEl.style.color = convCls;
+
+    // Thesis statement
+    document.getElementById('thesis-stmt').textContent = thesis.thesisStatement ?? '—';
+
+    // Status badge
+    const badge = document.getElementById('thesis-badge');
+    const trigFired = thesis.triggerFired;
+    const hasArmed = activeArmed && (activeArmed.status === 'armed' || activeArmed.status === 'triggered');
+    if (hasArmed && trigFired) {
+      badge.className = 'thesis-status triggered'; badge.textContent = '🔴 TRIGGERED';
+    } else if (hasArmed) {
+      badge.className = 'thesis-status armed'; badge.textContent = '🟡 ARMED';
+    } else {
+      badge.className = 'thesis-status none'; badge.textContent = 'Not Armed';
+    }
+
+    // Panels
+    document.getElementById('panel-divs').innerHTML = renderDivs(thesis);
+    document.getElementById('panel-trigger').innerHTML = renderTrigger(thesis);
+    document.getElementById('panel-chain').innerHTML = renderChain(thesis);
+    document.getElementById('panel-timeline').innerHTML = renderTimeline(thesis);
+    document.getElementById('panel-kill').innerHTML = renderKill(thesis, activeArmed);
+    document.getElementById('panel-mkt').innerHTML = renderMkt(thesis);
+    document.getElementById('panel-ev').innerHTML = renderEv(thesis);
+    document.getElementById('panel-analog').innerHTML = renderAnalog(thesis);
+    document.getElementById('panel-ctr').innerHTML = renderCtr(thesis);
+    document.getElementById('panel-archive').innerHTML = renderArchive(archive);
+    document.getElementById('panel-actions').innerHTML = renderActions(thesis, activeArmed);
+
+    document.getElementById('ts').textContent = 'Updated ' + new Date().toLocaleTimeString('id-ID');
+  } catch (e) {
+    document.getElementById('status-msg').textContent = 'Load error: ' + e.message;
+  }
+}
+
+loadData();
+setInterval(loadData, 120_000);
+</script>
+</body>
+</html>`;
+
 // ── Server ────────────────────────────────────────────────────────────────────
 
 const server = Bun.serve({
   port: PORT,
-  fetch(req) {
+  async fetch(req) {
     const url = new URL(req.url);
 
     if (url.pathname === '/') {
@@ -1315,6 +2075,65 @@ const server = Bun.serve({
 
     if (url.pathname === '/rr') {
       return new Response(RR_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    }
+
+    if (url.pathname === '/bs') {
+      return new Response(BS_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    }
+
+    if (url.pathname === '/api/thesis/compute') {
+      try {
+        const snap = buildSnapshot();
+        return Response.json(computeThesis(snap));
+      } catch (e) {
+        return Response.json({ error: String(e) }, { status: 500 });
+      }
+    }
+
+    if (url.pathname === '/api/thesis/all') {
+      try {
+        const theses = await getAllTheses(30);
+        return Response.json(theses);
+      } catch (e) {
+        return Response.json({ error: String(e) }, { status: 500 });
+      }
+    }
+
+    if (url.pathname === '/api/thesis/arm' && req.method === 'POST') {
+      try {
+        const snap = buildSnapshot();
+        const t = computeThesis(snap);
+        const today = new Date().toISOString().slice(0, 10);
+        const id = await saveThesis({
+          thesisDate: today,
+          primaryDivergence: t.primaryDivergence,
+          thesisStatement: t.thesisStatement,
+          triggerIndicator: t.triggerIndicator,
+          triggerThreshold: t.triggerThreshold,
+          triggerDirection: t.triggerDirection,
+          predictedCdsBps: t.predictedCdsBps,
+          predictedUsdidr: t.predictedUsdidr,
+          predictedSbn10y: t.predictedSbn10y,
+          crisisProbability: t.crisisProbability,
+          evEstimate: t.evEstimate,
+          killConditions: t.killConditions,
+          status: t.triggerFired ? 'triggered' : 'armed',
+          createdAt: new Date().toISOString(),
+        });
+        return Response.json({ ok: true, id });
+      } catch (e) {
+        return Response.json({ ok: false, error: String(e) }, { status: 500 });
+      }
+    }
+
+    if (url.pathname.startsWith('/api/thesis/kill/') && req.method === 'POST') {
+      try {
+        const id = parseInt(url.pathname.slice('/api/thesis/kill/'.length));
+        await updateThesisStatus(id, 'killed');
+        return Response.json({ ok: true });
+      } catch (e) {
+        return Response.json({ ok: false, error: String(e) }, { status: 500 });
+      }
     }
 
     if (url.pathname === '/api/snapshot') {
