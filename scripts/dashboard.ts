@@ -457,10 +457,13 @@ function computeDoomLoop(d) {
   items.push({ label: 'Fiscal pressures rising', active: (gap != null && gap > 4000) || (brent != null && brent > 90) });
 
   const unemp = ind['unemployment_rate_pct']?.value;
-  items.push({ label: 'Labor market deteriorating', active: unemp != null && unemp > 5.5 });
+  items.push({ label: 'Labor market deteriorating', active: unemp != null && unemp > 5.0, detail: unemp != null ? unemp.toFixed(2)+'% (>5.0%)' : null });
 
-  const npl = ind['bank_npl_gross_pct']?.value;
-  items.push({ label: 'Credit stress building', active: npl != null && npl > 3.0 });
+  const npl      = ind['bank_npl_gross_pct']?.value;
+  const nplDate  = ind['bank_npl_gross_pct']?.date ?? null;
+  const nplStale = nplDate ? (Date.now() - new Date(nplDate).getTime()) > 365*86400_000 : false;
+  const nplDetail = npl != null ? npl.toFixed(2)+'%' + (nplStale ? ' ⚠ stale ('+nplDate+')' : '') : null;
+  items.push({ label: 'Credit stress building', active: npl != null && npl > 3.0, detail: nplDetail });
 
   const score = items.filter(i => i.active).length;
   return { items, score };
@@ -475,8 +478,9 @@ function renderDoom(d) {
 
   return items.map(item =>
     \`<div class="doom-item">
-      <span>\${item.label}</span>
-      <span class="\${item.active ? 'red' : 'green'}">\${item.active ? '▲ YES' : '○ no'}</span>
+      <span style="flex:1">\${item.label}</span>
+      \${item.detail ? \`<span style="color:var(--muted);font-size:9px;flex:1;text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">\${item.detail}</span>\` : ''}
+      <span class="\${item.active ? 'red' : 'green'}" style="flex:0 0 42px;text-align:right">\${item.active ? '▲ YES' : '○ no'}</span>
     </div>\`
   ).join('');
 }
