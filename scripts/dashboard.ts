@@ -665,7 +665,7 @@ function renderPolRisk(d) {
   const t98 = [
     { label: 'Food unaffordable',      detail: food != null ? 'food stress '+food+'/100' : '—',                                                             active: (food ?? 0) > 50 },
     { label: 'IDR lemah (>17,000)',    detail: usdidr != null ? fmtK(usdidr) : '',                                                                            active: (usdidr ?? 0) > 17000 },
-    { label: 'Unemployment (>4.8%)',   detail: unemp != null ? fmtNum(unemp,2)+'% ['+(unempDate ?? 'n/a')+'] BPS' : 'BPS quarterly',                         active: (unemp ?? 0) > 4.8 },
+    { label: 'Pengangguran naik',       detail: unemp != null ? fmtNum(unemp,2)+'% ['+(unempDate ?? 'n/a')+'] BPS' : 'BPS quarterly',                         active: (unemp ?? 0) > 4.8 },
     { label: 'CDS widening (>100bps)', detail: cds != null ? fmtNum(cds,1)+'bps' : '—',                                                                      active: (cds ?? 0) > 100 },
     { label: 'Capital exit signal',    detail: eido != null ? 'EIDO $'+fmtNum(eido,2) : idxFlow != null ? fmtK(idxFlow)+'B IDR' : '—',                       active: (eido ?? 999) < 12 || (idxFlow ?? 0) < -1000 },
   ];
@@ -854,7 +854,9 @@ function renderAsean(d) {
     </div>
   \`;
 
-  return summaryHtml + bars + narrativeHtml + fxDrivers;
+  const coverageNote = \`<div style="margin-top:6px;font-size:9px;color:var(--muted);padding:2px 4px">Coverage: 6 dari 10 ASEAN — 4 lainnya: BND=SGD peg, MMK/KHR/LAK non-float</div>\`;
+
+  return summaryHtml + bars + narrativeHtml + fxDrivers + coverageNote;
 }
 
 // ── Markdown → HTML (minimal, SCD-tuned) ─────────────────────────────────────
