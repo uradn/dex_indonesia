@@ -1682,20 +1682,39 @@ const BS_HTML = `<!DOCTYPE html>
   .analog-box { background:rgba(48,54,61,.3); border-radius:4px; padding:8px 10px; border-left:3px solid var(--yellow); }
   .analog-name { font-size:12px; font-weight:600; margin-bottom:4px; }
   .analog-sim { font-size:10px; color:var(--muted); }
-  /* Contrarian box */
-  .ctr-block { margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid var(--border); }
-  .ctr-block:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
-  .ctr-q { font-size:9px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:3px; }
-  .ctr-a { font-size:11px; line-height:1.5; }
-  /* Arm button */
-  .arm-btn { width:100%; padding:10px; border-radius:6px; border:none; font-size:12px; font-weight:600;
-             font-family:inherit; cursor:pointer; transition:.15s; }
-  .arm-btn.arm { background:rgba(210,153,34,.2); color:var(--yellow); border:1px solid rgba(210,153,34,.4); }
-  .arm-btn.arm:hover { background:rgba(210,153,34,.3); }
-  .arm-btn.kill { background:rgba(248,81,73,.1); color:var(--red); border:1px solid rgba(248,81,73,.3); }
-  .arm-btn.kill:hover { background:rgba(248,81,73,.2); }
+  /* Contrarian / Burry Method */
+  .burry-quote { font-style:italic; font-size:11px; color:var(--muted); border-left:3px solid var(--yellow);
+    padding:6px 10px; margin-bottom:12px; background:rgba(210,153,34,.05); border-radius:0 4px 4px 0; line-height:1.5; }
+  .burry-quote cite { display:block; font-style:normal; font-size:9px; color:var(--muted); margin-top:4px; }
+  .ctr-block { margin-bottom:8px; }
+  .ctr-block:last-child { margin-bottom:0; }
+  .ctr-q { font-size:9px; text-transform:uppercase; letter-spacing:.07em; margin-bottom:4px; font-weight:600; }
+  .ctr-q.q1 { color:var(--muted); }
+  .ctr-q.q2 { color:var(--orange); }
+  .ctr-q.q3 { color:var(--red); }
+  .ctr-a { font-size:11px; line-height:1.55; padding:6px 8px; border-radius:4px; }
+  .ctr-a.q1 { color:var(--fg); background:rgba(48,54,61,.3); }
+  .ctr-a.q2 { color:var(--fg); background:rgba(227,114,28,.07); border-left:2px solid rgba(227,114,28,.5); }
+  .ctr-a.q3 { color:var(--fg); background:rgba(248,81,73,.07); border-left:2px solid rgba(248,81,73,.5); }
+  /* Research Foundation */
+  .research-item { padding:6px 0; border-bottom:1px solid rgba(48,54,61,.6); }
+  .research-item:last-child { border-bottom:none; }
+  .research-cat { font-size:9px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:3px; }
+  .research-title { font-size:11px; font-weight:500; line-height:1.4; }
+  .research-meta { font-size:9px; color:var(--muted); margin-top:2px; }
+  .research-link { font-size:9px; color:var(--yellow); text-decoration:none; }
+  .research-link:hover { text-decoration:underline; }
+  /* ARM/KILL inline buttons */
+  .action-btn { padding:5px 12px; border-radius:5px; border:none; font-size:11px; font-weight:600;
+    font-family:inherit; cursor:pointer; transition:.15s; white-space:nowrap; }
+  .action-btn.arm { background:rgba(210,153,34,.2); color:var(--yellow); border:1px solid rgba(210,153,34,.4); }
+  .action-btn.arm:hover { background:rgba(210,153,34,.35); }
+  .action-btn.kill { background:rgba(248,81,73,.1); color:var(--red); border:1px solid rgba(248,81,73,.3); }
+  .action-btn.kill:hover { background:rgba(248,81,73,.2); }
+  /* Archive full-width */
+  .archive-row { padding:10px 20px 20px; max-width:1500px; margin:0 auto; }
   #ts { font-size:10px; color:var(--muted); }
-  #status-msg { font-size:10px; color:var(--muted); min-height:16px; }
+  #action-msg-bar { font-size:10px; color:var(--muted); }
 </style>
 </head>
 <body>
@@ -1713,14 +1732,17 @@ const BS_HTML = `<!DOCTYPE html>
 <div class="conviction-bar">
   <div class="conv-gauge">
     <div class="conv-num" id="conv-num" style="color:var(--yellow)">—</div>
-    <div class="conv-label">Conviction Score / 95</div>
+    <div class="conv-label">Conviction / 95</div>
   </div>
-  <div style="flex:1;padding:0 16px">
-    <div id="thesis-stmt" style="font-size:11px;line-height:1.6;color:var(--fg)">Loading thesis…</div>
+  <div style="flex:1;padding:0 14px">
+    <div id="thesis-stmt" style="font-size:11px;line-height:1.55;color:var(--fg)">Loading thesis…</div>
   </div>
-  <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-    <span id="thesis-badge" class="thesis-status none">No Active Thesis</span>
-    <span id="status-msg"></span>
+  <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span id="thesis-badge" class="thesis-status none">No Active Thesis</span>
+      <div id="conv-actions" style="display:flex;gap:6px"></div>
+    </div>
+    <span id="action-msg-bar"></span>
   </div>
 </div>
 
@@ -1739,10 +1761,6 @@ const BS_HTML = `<!DOCTYPE html>
       <div class="card-title">Historical Analog</div>
       <div id="panel-analog">Loading…</div>
     </div>
-    <div class="card">
-      <div class="card-title">Archive — Past Theses</div>
-      <div id="panel-archive">Loading…</div>
-    </div>
   </div>
 
   <!-- ── Center column ────────────────────────────────────────────────────── -->
@@ -1759,8 +1777,8 @@ const BS_HTML = `<!DOCTYPE html>
       <div class="card-title">Timeline — T+0 / T+3 / T+6 / T+12</div>
       <div id="panel-timeline">Loading…</div>
     </div>
-    <div class="card">
-      <div class="card-title">Contrarian Validation (Burry Method)</div>
+    <div class="card" style="border-left:3px solid var(--yellow)">
+      <div class="card-title" style="color:var(--yellow)">Burry Method — Contrarian Validation</div>
       <div id="panel-ctr">Loading…</div>
     </div>
   </div>
@@ -1775,10 +1793,18 @@ const BS_HTML = `<!DOCTYPE html>
       <div class="card-title">Expected Value Calculator</div>
       <div id="panel-ev">Loading…</div>
     </div>
-    <div class="card" style="padding-bottom:14px">
-      <div class="card-title">Thesis Actions</div>
-      <div id="panel-actions">Loading…</div>
+    <div class="card">
+      <div class="card-title">Research Foundation</div>
+      <div id="panel-research">Loading…</div>
     </div>
+  </div>
+</div>
+
+<!-- ── Archive full-width ────────────────────────────────────────────────── -->
+<div class="archive-row">
+  <div class="card">
+    <div class="card-title">Archive — Thesis Lifecycle & Backtest Record</div>
+    <div id="panel-archive">Loading…</div>
   </div>
 </div>
 
@@ -2036,12 +2062,66 @@ function renderAnalog(t) {
 
 function renderCtr(t) {
   if (!t || !t.contrarian) return '—';
-  const q = ['What does consensus believe?', 'Why is consensus wrong?', 'Why hasn\\'t market priced this?'];
-  const a = [t.contrarian.consensus, t.contrarian.whyWrong, t.contrarian.whyNotPriced];
-  return q.map((q, i) => \`<div class="ctr-block">
-    <div class="ctr-q">\${esc(q)}</div>
-    <div class="ctr-a">\${esc(a[i])}</div>
-  </div>\`).join('');
+  const qs = [
+    { label:'Consensus believes', cls:'q1', a: t.contrarian.consensus },
+    { label:'Why consensus is WRONG', cls:'q2', a: t.contrarian.whyWrong },
+    { label:'Why market hasn\\'t priced this yet', cls:'q3', a: t.contrarian.whyNotPriced },
+  ];
+  return \`
+    <blockquote class="burry-quote">
+      "My edge was not that I was smarter — it was that I read the prospectus when no one else did."
+      <cite>— Michael Burry, Scion Capital (2005)</cite>
+    </blockquote>
+    \${qs.map(q => \`<div class="ctr-block">
+      <div class="ctr-q \${q.cls}">\${esc(q.label)}</div>
+      <div class="ctr-a \${q.cls}">\${esc(q.a)}</div>
+    </div>\`).join('')}
+  \`;
+}
+
+function renderResearch() {
+  const refs = [
+    {
+      cat: 'Primary Methodology',
+      items: [
+        { title: 'Michael Burry — Scion Capital Shareholder Letters', meta: '2001–2008. Source: "The Big Short" (Lewis, 2010). Methodology: read prospectus, compute structural default prob, find mis-priced CDS.', link: null },
+        { title: 'Michael Lewis — The Big Short', meta: 'W.W. Norton, 2010. ISBN 978-0393072235. Narrative account of Burry\'s 2005 CDS trade.', link: null },
+      ],
+    },
+    {
+      cat: 'Exchange Rate & Currency Crisis',
+      items: [
+        { title: 'Dornbusch (1976) — Expectations and Exchange Rate Dynamics', meta: 'J. Political Economy 84(6), 1161–1176. Overshooting model — IDR post-shock reversion basis.', link: 'https://doi.org/10.1086/260580' },
+        { title: 'Morris & Shin (1998) — Unique Equilibrium in Self-Fulfilling Currency Attacks', meta: 'AER 88(3), 587–597. 2nd-gen confidence gate model used in M3 FX Defense.', link: null },
+        { title: 'Kaminsky, Lizondo & Reinhart (1998) — Leading Indicators of Currency Crises', meta: 'IMF Staff Papers 45(1), 1–48. KLR 21-indicator EWS — basis of klr-ews skill.', link: null },
+      ],
+    },
+    {
+      cat: 'Sovereign & Financial Crises',
+      items: [
+        { title: 'Reinhart & Rogoff (2009) — This Time Is Different', meta: 'Princeton UP. 8 centuries of financial folly. R-G debt dynamics (Ch.13-16), PPP (Ch.4-5), UIP carry (Ch.3) — core of R&R framework page.', link: null },
+        { title: 'Kindleberger & Aliber (2011) — Manias, Panics, and Crashes', meta: 'Palgrave Macmillan, 6th ed. Minsky 5-stage cycle: displacement→boom→euphoria→distress→revulsion.', link: null },
+        { title: 'Corsetti, Pesenti & Roubini (1999) — Paper Tigers? Asian Crisis Model', meta: 'European Economic Review 43(7), 1211–1236. Fundamental + self-fulfilling hybrid — basis of 1997 analog.', link: null },
+      ],
+    },
+    {
+      cat: 'Indonesia-Specific',
+      items: [
+        { title: 'Radelet & Sachs (1998) — The East Asian Financial Crisis', meta: 'NBER WP 6680. Sudden stop mechanism, capital flow reversal — informs M5 Foreign Flow thresholds.', link: null },
+      ],
+    },
+  ];
+  return refs.map(section => \`
+    <div style="margin-bottom:10px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px;padding-bottom:3px;border-bottom:1px solid var(--border)">\${esc(section.cat)}</div>
+      \${section.items.map(r => \`
+        <div class="research-item">
+          <div class="research-title">\${r.link ? \`<a href="\${r.link}" target="_blank" rel="noopener" class="research-link">\${esc(r.title)} ↗</a>\` : esc(r.title)}</div>
+          <div class="research-meta">\${esc(r.meta)}</div>
+        </div>
+      \`).join('')}
+    </div>
+  \`).join('');
 }
 
 function renderArchive(theses) {
@@ -2063,46 +2143,35 @@ function renderArchive(theses) {
   </table>\`;
 }
 
-function renderActions(t, armed) {
+function renderConvActions(armed) {
   const today = new Date().toISOString().slice(0,10);
   const hasArmed = armed && (armed.status === 'armed' || armed.status === 'triggered');
-  return \`
-    \${!hasArmed ? \`<button class="arm-btn arm" onclick="armThesis()">⚡ ARM THESIS (\${today})</button>\` : ''}
-    \${hasArmed ? \`<button class="arm-btn arm" onclick="armThesis()">🔄 Re-ARM (update thesis)</button>\` : ''}
-    \${hasArmed ? \`<button class="arm-btn kill" style="margin-top:8px" onclick="killThesis(\${armed.id})">❌ KILL THESIS (kill switch fired)</button>\` : ''}
-    <div id="action-msg" style="margin-top:8px;font-size:10px;color:var(--muted)"></div>
-  \`;
+  return (!hasArmed
+    ? \`<button class="action-btn arm" onclick="armThesis()">⚡ ARM (\${today})</button>\`
+    : \`<button class="action-btn arm" onclick="armThesis()">🔄 Re-ARM</button>
+       <button class="action-btn kill" onclick="killThesis(\${armed.id})">❌ KILL</button>\`
+  );
 }
 
+function setMsg(txt) { const el = document.getElementById('action-msg-bar'); if (el) el.textContent = txt; }
+
 async function armThesis() {
-  document.getElementById('action-msg').textContent = 'Arming thesis…';
+  setMsg('Arming…');
   try {
     const r = await fetch('/api/thesis/arm', { method:'POST' }).then(x => x.json());
-    if (r.ok) {
-      document.getElementById('action-msg').textContent = 'Thesis armed ✓ ID: ' + r.id;
-      await loadData();
-    } else {
-      document.getElementById('action-msg').textContent = 'Error: ' + (r.error ?? 'unknown');
-    }
-  } catch (e) {
-    document.getElementById('action-msg').textContent = 'Error: ' + e.message;
-  }
+    setMsg(r.ok ? 'Armed ✓ ID: ' + r.id : 'Error: ' + (r.error ?? 'unknown'));
+    if (r.ok) await loadData();
+  } catch (e) { setMsg('Error: ' + e.message); }
 }
 
 async function killThesis(id) {
-  if (!confirm('Kill this thesis? This records kill switch fired.')) return;
-  document.getElementById('action-msg').textContent = 'Killing thesis…';
+  if (!confirm('Kill this thesis? Records kill switch fired.')) return;
+  setMsg('Killing…');
   try {
     const r = await fetch('/api/thesis/kill/' + id, { method:'POST' }).then(x => x.json());
-    if (r.ok) {
-      document.getElementById('action-msg').textContent = 'Thesis killed ✓';
-      await loadData();
-    } else {
-      document.getElementById('action-msg').textContent = 'Error: ' + (r.error ?? 'unknown');
-    }
-  } catch (e) {
-    document.getElementById('action-msg').textContent = 'Error: ' + e.message;
-  }
+    setMsg(r.ok ? 'Killed ✓' : 'Error: ' + (r.error ?? 'unknown'));
+    if (r.ok) await loadData();
+  } catch (e) { setMsg('Error: ' + e.message); }
 }
 
 async function loadData() {
@@ -2147,11 +2216,12 @@ async function loadData() {
     document.getElementById('panel-analog').innerHTML = renderAnalog(thesis);
     document.getElementById('panel-ctr').innerHTML = renderCtr(thesis);
     document.getElementById('panel-archive').innerHTML = renderArchive(archive);
-    document.getElementById('panel-actions').innerHTML = renderActions(thesis, activeArmed);
+    document.getElementById('panel-research').innerHTML = renderResearch();
+    document.getElementById('conv-actions').innerHTML = renderConvActions(activeArmed);
 
     document.getElementById('ts').textContent = 'Updated ' + new Date().toLocaleTimeString('id-ID');
   } catch (e) {
-    document.getElementById('status-msg').textContent = 'Load error: ' + e.message;
+    document.getElementById('action-msg-bar').textContent = 'Load error: ' + e.message;
   }
 }
 
