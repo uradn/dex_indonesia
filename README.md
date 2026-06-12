@@ -316,19 +316,16 @@ bun scripts/dashboard.ts   # start server
 
 **`/` — Main Dashboard:**
 
-![Main Dashboard](docs/screenshots/dashboard-main.png)
+<img src="docs/screenshots/dashboard-main.png" width="100%" alt="Main Dashboard — SCD gauge, 13 module panels, time-series charts">
 
-**`/rr` — R&R / Greenspan-Guidotti:**
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/dashboard-rr.png" width="100%" alt="R&R Framework Monitor"><br><sub><b>/rr</b> — R&R / Greenspan-Guidotti: 7 live signals</sub></td>
+<td width="50%"><img src="docs/screenshots/dashboard-bs.png" width="100%" alt="Big Short Thesis"><br><sub><b>/bs</b> — Big Short Thesis: divergence scanner + thesis tracker</sub></td>
+</tr>
+</table>
 
-![R&R Framework Monitor](docs/screenshots/dashboard-rr.png)
-
-**`/bs` — Big Short Thesis:**
-
-![Big Short Thesis](docs/screenshots/dashboard-bs.png)
-
-**`/bs` — Panel utama:**
-
-Panel utama:
+**`/bs` — Panel:**
 - **Divergence Scanner** — 5 gap teratas (political vs financial, IDR vs APBN, CDS vs narrative, dll), ranked by magnitude
 - **Trigger Monitor** — status live thesis yang sedang ARMED / TRIGGERED
 - **Transmission Chain** — 7 node berurutan (M12→M10→M2→M5→M3→M8→terminal), hover untuk keterangan per modul
