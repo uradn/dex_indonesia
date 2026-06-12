@@ -1613,12 +1613,37 @@ const BS_HTML = `<!DOCTYPE html>
   .div-bar-bg { height:6px; background:rgba(48,54,61,.8); border-radius:3px; overflow:hidden; }
   .div-bar { height:6px; border-radius:3px; transition:width .4s; }
   .div-sub { font-size:9px; color:var(--muted); margin-top:2px; }
-  /* Transmission chain */
-  .chain { display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin:6px 0; }
-  .chain-node { padding:5px 8px; border-radius:4px; font-size:10px; font-weight:600; border:1px solid transparent; }
-  .chain-node.green { background:rgba(63,185,80,.1); border-color:rgba(63,185,80,.3); color:var(--green); }
-  .chain-node.yellow { background:rgba(210,153,34,.1); border-color:rgba(210,153,34,.3); color:var(--yellow); }
-  .chain-node.orange { background:rgba(227,114,28,.1); border-color:rgba(227,114,28,.3); color:var(--orange); }
+  /* Transmission chain — vertical stepper */
+  .chain-step { display:flex; gap:0; }
+  .chain-spine { display:flex; flex-direction:column; align-items:center; flex-shrink:0; width:28px; }
+  .chain-num { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; border:1px solid transparent; }
+  .chain-num.green { background:rgba(63,185,80,.15); border-color:rgba(63,185,80,.4); color:var(--green); }
+  .chain-num.yellow { background:rgba(210,153,34,.15); border-color:rgba(210,153,34,.4); color:var(--yellow); }
+  .chain-num.orange { background:rgba(227,114,28,.2); border-color:rgba(227,114,28,.5); color:var(--orange); }
+  .chain-num.red { background:rgba(248,81,73,.2); border-color:rgba(248,81,73,.5); color:var(--red); }
+  .chain-connector { width:2px; flex:1; min-height:10px; margin:2px 0; border-radius:1px; }
+  .chain-connector.green { background:rgba(63,185,80,.2); }
+  .chain-connector.yellow { background:rgba(210,153,34,.25); }
+  .chain-connector.orange { background:rgba(227,114,28,.5); }
+  .chain-connector.red { background:rgba(248,81,73,.6); }
+  .chain-body { flex:1; padding:0 0 10px 10px; position:relative; }
+  .chain-row { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+  .chain-label { font-size:11px; font-weight:600; }
+  .chain-score-badge { font-size:10px; font-weight:700; padding:2px 6px; border-radius:3px; }
+  .chain-status { font-size:9px; text-transform:uppercase; letter-spacing:.05em; }
+  /* Tooltip */
+  .chain-wrap { position:relative; cursor:default; }
+  .chain-tip {
+    display:none; position:absolute; left:0; top:100%; margin-top:4px; z-index:200;
+    background:#1c2128; border:1px solid var(--border); border-radius:6px;
+    padding:10px 12px; width:260px; font-size:10px; line-height:1.55;
+    box-shadow:0 6px 20px rgba(0,0,0,.6); pointer-events:none;
+  }
+  .chain-wrap:hover .chain-tip { display:block; }
+  .chain-tip-row { margin-bottom:5px; }
+  .chain-tip-row:last-child { margin-bottom:0; }
+  .chain-tip-label { font-size:9px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:1px; }
+  .chain-tip-val { color:var(--fg); }
   .chain-node.red { background:rgba(248,81,73,.1); border-color:rgba(248,81,73,.3); color:var(--red); }
   .chain-arrow { color:var(--muted); font-size:10px; }
   /* Market expression table */
@@ -1805,17 +1830,90 @@ function renderTrigger(t) {
   \`;
 }
 
+const CHAIN_META = {
+  political_risk: {
+    tracks: 'Social unrest, demo massa, food affordability, Prabowo approval',
+    readings: 'Unemployment 4.68% | Unrest 30/30 | Demo BBM Jakarta+Makassar 12 Jun',
+    fires: 'Social contract fractures → govt forced into fiscal response (subsidi, bansos)',
+    lag: 'Leads financial modules by 2-3 quarters historically',
+  },
+  domestic_pressure: {
+    tracks: 'PIHPS food basket (10 commodities), BBM subsidy gap, ICP threshold',
+    readings: 'Food Stress 57/100 | BBM gap Rp3,973/L | 4 komoditas spiked',
+    fires: 'Food+energy spike → CPI overshoot → BI terpaksa hike → SBN yield naik',
+    lag: 'Contemporaneous signal; feeds Narrative & Regime engines',
+  },
+  fiscal: {
+    tracks: 'APBN deficit trajectory, revenue absorption, S&P interest/revenue ratio',
+    readings: 'Deficit 4.23% GDP | S&P ratio 20.4% (threshold 15%) | Overrun 179%',
+    fires: 'Deficit >3% GDP (constitutional limit) → S&P negative watch → CDS repricing',
+    lag: '~1-2 quarters to S&P action; deficit realization is monthly',
+  },
+  sovereign_risk: {
+    tracks: 'CDS 5Y velocity, SBN 10Y yield, EMBI spread, foreign SBN ownership cliff',
+    readings: 'CDS 97.4bps (+vel. positive) | SBN 7.29% | Term premium 1.9%',
+    fires: 'CDS >150bps → S&P watch zone → panic exit → yield spiral → rollover stress',
+    lag: 'CDS reprices within days; S&P action ~1 quarter after fiscal deterioration',
+  },
+  foreign_flow: {
+    tracks: 'EIDO ETF, SBN foreign ownership %, IDX daily net sell, silent exit prob.',
+    readings: 'SBN ownership 12.6% | IDX net sell −2,750bn IDR | MSCI review pending',
+    fires: 'Ownership <10% → sudden stop risk | BI/bank absorption fails → yield spike',
+    lag: 'DJPPR data monthly lag; EIDO = daily proxy; sudden stop = days not weeks',
+  },
+  fx_defense: {
+    tracks: 'USDIDR spot+vol, FX reserves burn, SRBI sterilization burden, confidence gate',
+    readings: 'USDIDR 17,900 | Vol 7.25% (z=3.61) | SRBI 36% of FX reserves | GG 2.27',
+    fires: 'Reserves depleted by SRBI cost → Morris-Shin confidence gate tips → IDR attack',
+    lag: 'Self-fulfilling once confidence breaks; no advance warning by design (2nd-gen model)',
+  },
+  banking: {
+    tracks: 'NPL, CAR, LDR, SBN-nexus CAR erosion, fintech NPL leading indicator',
+    readings: 'NPL 1.96% | CAR 25.8% | SBN nexus −0.9pp CAR | Fintech NPL 5.0% (2.5× banks)',
+    fires: 'SBN yield spike → CAR erosion → NPL rise; fintech NPL = 2-3Q leading indicator',
+    lag: 'Longest lag in chain — banking stress lags sovereign/FX by 2-4 quarters',
+  },
+};
+
+const STATUS_LABEL = { red: 'FIRED', orange: 'ACTIVATED', yellow: 'WARMING', green: 'DORMANT' };
+
 function renderChain(t) {
   if (!t || !t.transmissionChain) return '—';
-  const nodes = t.transmissionChain.map((n, i) => {
-    const arr = i < t.transmissionChain.length - 1 ? '<span class="chain-arrow">→</span>' : '';
-    return \`<span class="chain-node \${n.cls}">\${esc(n.label)}<br><span style="font-size:9px;font-weight:400">\${n.score}/100</span></span>\${arr}\`;
-  }).join('');
   const fired = t.transmissionChain.filter(n => n.cls === 'red' || n.cls === 'orange').length;
+  const steps = t.transmissionChain.map((n, i) => {
+    const isLast = i === t.transmissionChain.length - 1;
+    const meta = CHAIN_META[n.module] ?? {};
+    const connCls = isLast ? '' : (t.transmissionChain[i + 1]?.cls ?? 'green');
+    const tip = \`
+      <div class="chain-tip">
+        <div class="chain-tip-row"><div class="chain-tip-label">Tracks</div><div class="chain-tip-val">\${esc(meta.tracks ?? '—')}</div></div>
+        <div class="chain-tip-row"><div class="chain-tip-label">Current readings</div><div class="chain-tip-val">\${esc(meta.readings ?? '—')}</div></div>
+        <div class="chain-tip-row"><div class="chain-tip-label">Fires when</div><div class="chain-tip-val">\${esc(meta.fires ?? '—')}</div></div>
+        <div class="chain-tip-row"><div class="chain-tip-label">Lag</div><div class="chain-tip-val">\${esc(meta.lag ?? '—')}</div></div>
+      </div>\`;
+    return \`
+      <div class="chain-step">
+        <div class="chain-spine">
+          <div class="chain-num \${n.cls}">\${i + 1}</div>
+          \${!isLast ? \`<div class="chain-connector \${connCls}"></div>\` : ''}
+        </div>
+        <div class="chain-body">
+          <div class="chain-wrap">
+            <div class="chain-row">
+              <span class="chain-label \${n.cls}">\${esc(n.label)}</span>
+              <span class="chain-score-badge \${n.cls}" style="background:rgba(0,0,0,.2)">\${n.score}/100</span>
+              <span class="chain-status \${n.cls}">\${STATUS_LABEL[n.cls] ?? ''}</span>
+            </div>
+            \${tip}
+          </div>
+        </div>
+      </div>\`;
+  }).join('');
   return \`
-    <div class="chain">\${nodes}</div>
-    <div style="font-size:10px;color:var(--muted);margin-top:6px">
-      \${fired}/\${t.transmissionChain.length} nodes activated (orange+red). Full crisis = 5+ nodes.
+    <div style="margin-bottom:4px;font-size:9px;color:var(--muted)">Hover tiap node untuk detail modul ↓</div>
+    \${steps}
+    <div style="margin-top:6px;font-size:10px;color:var(--muted)">
+      \${fired}/\${t.transmissionChain.length} node aktif. Full crisis = 5+ nodes activated.
     </div>
   \`;
 }
