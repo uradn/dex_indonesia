@@ -2247,7 +2247,7 @@ const server = Bun.serve({
     }
 
     if (url.pathname === '/bs') {
-      return new Response(BS_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+      return new Response(BS_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
     }
 
     if (url.pathname === '/api/thesis/compute') {
