@@ -367,6 +367,136 @@ bun scripts/add-thesis-check-cron.ts      # 07:30 WIB Senin — thesis milestone
 
 ---
 
+## Arsitektur
+
+### Technical Stack
+
+| Layer | Teknologi | Keterangan |
+|-------|-----------|------------|
+| **Runtime** | [Bun](https://bun.sh) | JavaScript runtime + package manager + test runner (bukan Node) |
+| **Language** | TypeScript 5.9 (ESM strict) | No `any`. Semua types explicit. |
+| **Terminal UI** | `@mariozechner/pi-tui` | Reactive TUI — bukan React/Ink |
+| **LLM Abstraction** | `@langchain/core` + provider adapters | Multi-provider: OpenAI, Anthropic, Google, xAI, Moonshot, DeepSeek, OpenRouter, Ollama |
+| **Database** | `better-sqlite3` | Time-series scores, memory, thesis archive — `.dexter/macro/macro.db` |
+| **Web Scraping** | Playwright (Chromium) | BI, OJK, BPS, Trading Economics, WGB — di-install otomatis via `bun install` |
+| **Finance Data** | `yahoo-finance2` | USDIDR, IHSG, EIDO ETF, commodity futures (BZ=F, NI=F, dll) |
+| **WhatsApp** | `@whiskeysockets/baileys` | Gateway — self-chat mode + group routing |
+| **Cron** | `croner` | Scheduled macro jobs, state persisted via SQLite |
+| **Search** | `exa-js`, `@langchain/tavily` | Exa neural → Tavily fallback → LangSearch last resort |
+| **Validation** | `zod` | Tool input schemas + structured LLM output |
+| **Skill parsing** | `gray-matter` | YAML frontmatter untuk SKILL.md files |
+| **PDF parsing** | `pdf-parse` | Filing reader (SEC 10-K/10-Q) |
+| **HTML parsing** | `linkedom`, `@mozilla/readability` | Browser tool scraping pipeline |
+
+**Provider detection (prefix-based, `src/providers.ts`):**
+
+```
+claude-*      → Anthropic
+gemini-*      → Google
+grok-*        → xAI
+kimi-*        → Moonshot
+deepseek-*    → DeepSeek
+openrouter:*  → OpenRouter
+ollama:*      → Ollama
+(no prefix)   → OpenAI  ← default: gpt-5.5
+```
+
+### Diagram Arsitektur (High-Level)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                       INPUT LAYER                           │
+│                                                             │
+│   ┌─────────────┐   ┌──────────────┐   ┌───────────────┐  │
+│   │  CLI (Bun)  │   │  WhatsApp    │   │   Cron Jobs   │  │
+│   │  pi-tui TUI │   │  (Baileys)   │   │   (croner)    │  │
+│   └──────┬──────┘   └──────┬───────┘   └───────┬───────┘  │
+└──────────┼─────────────────┼───────────────────┼───────────┘
+           └─────────────────▼───────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────┐
+│                       AGENT LOOP                            │
+│   src/agent/agent.ts                                        │
+│                                                             │
+│   microcompact → strip old thinking → stream LLM            │
+│   → execute tools → context threshold check → iterate       │
+│                                                             │
+│   Context mgmt (3 layer):                                   │
+│   microcompact (per-turn) → compaction (LLM summarize)      │
+│   → hard truncation (drop oldest rounds)                    │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+              ┌──────────────▼──────────────┐
+              │       TOOL REGISTRY         │
+              │      src/tools/registry.ts  │
+              │                             │
+              │  ┌──────────┐ ┌──────────┐  │
+              │  │ Finance  │ │  Macro   │  │
+              │  │ yahoo-   │ │  M1–M13  │  │
+              │  │ finance2 │ │  + SCD   │  │
+              │  └──────────┘ └──────────┘  │
+              │  ┌──────────┐ ┌──────────┐  │
+              │  │  Search  │ │  Skills  │  │
+              │  │ Exa →    │ │ SKILL.md │  │
+              │  │ Tavily   │ │ workflows│  │
+              │  └──────────┘ └──────────┘  │
+              └──────────────┬──────────────┘
+                             │
+              ┌──────────────▼──────────────┐
+              │        DATA SOURCES         │
+              │                             │
+              │  Yahoo Finance  BI website  │
+              │  Trading Econ   OJK / DJPPR │
+              │  BPS API        Kemenkeu    │
+              │  WGB Playwright IMF Data API│
+              │  Exa / Tavily   X API v2    │
+              │  Bloomberg†     Refinitiv†  │
+              │  († premium, optional)      │
+              └──────────────┬──────────────┘
+                             │
+              ┌──────────────▼──────────────┐
+              │      PERSISTENCE LAYER      │
+              │                             │
+              │  .dexter/macro/macro.db     │
+              │  ├── macro_scores           │
+              │  ├── macro_theses           │
+              │  └── macro_indicators       │
+              │  .dexter/memory/            │
+              │      SQLite + BM25/vector   │
+              │  .dexter/cron/jobs.json     │
+              └──────────────┬──────────────┘
+                             │
+              ┌──────────────▼──────────────┐
+              │   DASHBOARD  localhost:6080  │
+              │                             │
+              │  /    Main — 13 panels, SCD │
+              │  /rr  R&R / Greenspan-Guidotti│
+              │  /bs  Big Short thesis      │
+              └─────────────────────────────┘
+```
+
+**Alur data makro (M1–M13 → SCD):**
+
+```
+External sources
+      │
+      ▼
+macro sources (src/tools/macro/sources/)   ← Playwright scrape / API / Yahoo
+      │
+      ▼
+time-series-db.ts                          ← saveIndicator() ke macro.db
+      │
+      ├── Module engines (M1–M13)          ← baca DB + sumber live, score 0–100
+      │
+      ▼
+silent_crisis_detector                     ← weighted sum, non-linear amplifier
+      │
+      ├── Dashboard panels                 ← GET / via bun scripts/dashboard.ts
+      └── Morning brief output             ← bun scripts/morning-check.ts
+```
+
+---
+
 ## Prerequisites
 
 **Runtime:**
