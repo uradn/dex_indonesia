@@ -3,7 +3,11 @@
  *
  * Indonesia export commodity basket:
  *   Coal ($24.5B) · CPO ($24.4B) · Ferro-alloys/NPI ($15.9B) · Iron & Steel ($28B)
- *   Nickel ($8.4B) · LNG ($6.6B) · Copper ($11B metals) · Tin · Rubber · Gold
+ *   Nickel ($8.4B) · LNG ($6.6B) · Copper ($11B metals) · Rubber ($2.5B) · Gold
+ *
+ * Natural rubber (RB=F) — #2 world producer after Thailand. Oil shock hedge:
+ *   high Brent → synthetic rubber (SBR/NBR from butadiene) expensive → demand
+ *   shifts to natural rubber → IDR export revenue rises. Partial BoP offset.
  *
  * Indonesia import risk:
  *   Crude oil (600-700k bbl/day net importer) — Brent↑ = BoP drain
@@ -44,6 +48,9 @@ export const INDONESIA_COMMODITIES: CommoditySpec[] = [
   { ticker: 'SLX',      indicator: 'steel_etf_usd',         unit: 'USD',     role: 'export', exportValueBnUsd: 15.9 },
   // Aluminum (bauxite downstream) — COMEX ALI futures in USD/MT
   { ticker: 'ALI=F',    indicator: 'aluminum_price_usd',    unit: 'USD/MT',  role: 'export', exportValueBnUsd: 1.5  },
+  // Natural rubber — RB=F (COMEX RSS3 proxy). Indonesia #2 world producer ~$2.5B/yr.
+  // Oil shock hedge: high Brent → synthetic rubber expensive → natural rubber demand surge.
+  { ticker: 'RB=F',     indicator: 'natural_rubber_price_usd', unit: 'USD/kg', role: 'export', exportValueBnUsd: 2.5 },
   // ─── Import risk (net importer) ───────────────────────────────────
   { ticker: 'BZ=F',     indicator: 'brent_price_usd',       unit: 'USD/bbl', role: 'import_risk' },
   { ticker: 'CL=F',     indicator: 'wti_price_usd',         unit: 'USD/bbl', role: 'import_risk' },

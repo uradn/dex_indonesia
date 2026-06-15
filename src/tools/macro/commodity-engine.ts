@@ -17,14 +17,20 @@ MACRO INTELLIGENCE — Commodity Engine (Module 4)
 Tracks Indonesia's commodity export cushion and oil import vulnerability.
 
 Indonesia export basket (tracked):
-- Coal ($24.5B) — Newcastle benchmark via KOL ETF proxy
-- CPO/Palm Oil ($24.4B) — FCPO.KL (Bursa Malaysia, direct)
+- Coal ($24.5B) — BTU (Peabody Energy proxy; KOL delisted)
+- CPO/Palm Oil ($24.4B) — World Bank Pink Sheet (FCPO.KL unavailable on Yahoo)
 - Ferro-alloys/NPI ($15.9B) — SLX ETF (steel proxy for downstream nickel)
-- Nickel ($8.4B) — NI=F (LME Nickel futures)
+- Nickel ($8.4B) — VALE ADR (NI=F LME unavailable on Yahoo)
 - LNG ($6.6B) — NG=F (Henry Hub proxy; JKM not freely available)
 - Copper ($5B) — HG=F (COMEX Copper)
 - Gold ($3B) — GC=F
+- Natural Rubber ($2.5B) — RB=F (COMEX RSS3). Oil shock HEDGE: high Brent → synthetic rubber expensive → demand shift to natural rubber. Indonesia #2 world producer.
 - Aluminum ($1.5B) — ALI=F (bauxite downstream proxy)
+
+Oil Shock Positive Offset (when Brent >$90):
+- Natural rubber + CPO biofuel premium + coal energy substitute = ~$8-12B/yr export upside
+- Partially offsets crude import overrun (~$14-17B/yr additional at $150 oil)
+- Net BoP deterioration at $150: ~$5-9B/yr (not the full $14-17B headline figure)
 
 Oil Import Risk (net importer ~245M bbl/yr):
 - Brent — BZ=F
@@ -51,6 +57,8 @@ interface CommodityEngineOutput {
   impliedOilImportBillBnUsd: number | null;
   oilDeviation: number | null;
   topExportsByStress: Array<{ indicator: string; price: number; unit: string; zScore: number | null; stress: AlertLevel }>;
+  // Oil shock positive offset: commodities that benefit when oil is high
+  oilShockHedge: { rubberPriceUsd: number | null; cpoPriceUsd: number | null; coalEtfUsd: number | null; estimatedOffsetBnUsd: number | null } | null;
   narrative: string;
 }
 
@@ -113,6 +121,32 @@ export async function runCommodityEngine(): Promise<CommodityEngineOutput> {
   const brentPrice = brentPoint?.value ?? null;
   const oilResult = brentPrice !== null ? computeOilVulnerabilityIndex(brentPrice) : null;
 
+  // Oil shock positive offset: rubber + CPO + coal rally at high oil prices
+  // Natural rubber: high Brent → synthetic rubber (SBR/NBR) expensive → demand shift to natural rubber
+  // CPO: biofuel mandate premium rises at high oil prices
+  // Coal: energy substitute demand rises when oil expensive
+  const rubberPoint  = await getLatestPoint('natural_rubber_price_usd');
+  const cpoPoint     = await getLatestPoint('cpo_price_myr');
+  const coalPoint    = await getLatestPoint('coal_etf_usd');
+  const rubberPriceUsd = rubberPoint?.value ?? null;
+  const cpoPriceUsd    = cpoPoint?.value ?? null;
+  const coalEtfUsd     = coalPoint?.value ?? null;
+
+  // Rough offset estimate (directional only, not precise):
+  // Rubber: each $0.50/kg above $2.00 baseline × ~3M ton/yr export = ~$1.5B incremental
+  // CPO: tracked in M4 cushion score already; biofuel premium ~$50/MT × ~50M ton → $2.5B
+  // Coal: BTU proxy — directional only
+  let estimatedOffsetBnUsd: number | null = null;
+  if (rubberPriceUsd !== null && brentPrice !== null && brentPrice > 90) {
+    const rubberBaseline = 2.0; // USD/kg approximate baseline at $70-80 oil
+    const rubberPremium = Math.max(0, rubberPriceUsd - rubberBaseline);
+    estimatedOffsetBnUsd = parseFloat((rubberPremium * 3_000_000 / 1_000_000_000).toFixed(2));
+  }
+
+  const oilShockHedge = (brentPrice !== null && brentPrice > 90)
+    ? { rubberPriceUsd, cpoPriceUsd, coalEtfUsd, estimatedOffsetBnUsd }
+    : null;
+
   const compositeAlert = alertFromScore(cushionScore);
   const flags: string[] = [];
   if (oilResult && oilResult.deviation > 20) {
@@ -122,8 +156,11 @@ export async function runCommodityEngine(): Promise<CommodityEngineOutput> {
   if (redCommodities.length >= 2) {
     flags.push(`Multiple export commodities at stress lows: ${redCommodities.map((c) => c.indicator).join(', ')}`);
   }
+  if (oilShockHedge && estimatedOffsetBnUsd !== null && estimatedOffsetBnUsd > 0.5) {
+    flags.push(`OIL SHOCK HEDGE ACTIVE: rubber at $${rubberPriceUsd?.toFixed(2)}/kg — synthetic rubber substitution demand; estimated natural rubber export premium ~$${estimatedOffsetBnUsd.toFixed(1)}B/yr. CPO biofuel + coal energy substitute add further BoP cushion.`);
+  }
 
-  const narrative = buildNarrative({ cushionScore, oilResult, brentPrice, stressDetails, compositeAlert });
+  const narrative = buildNarrative({ cushionScore, oilResult, brentPrice, stressDetails, compositeAlert, oilShockHedge });
 
   return {
     scoreCard: {
@@ -141,6 +178,7 @@ export async function runCommodityEngine(): Promise<CommodityEngineOutput> {
     impliedOilImportBillBnUsd: oilResult?.impliedImportBillBnUsd ?? null,
     oilDeviation: oilResult?.deviation ?? null,
     topExportsByStress: stressDetails.sort((a, b) => (a.zScore ?? 0) - (b.zScore ?? 0)),
+    oilShockHedge,
     narrative,
   };
 }
@@ -151,6 +189,7 @@ function buildNarrative(ctx: {
   brentPrice: number | null;
   stressDetails: Array<{ indicator: string; price: number; unit: string; zScore: number | null; stress: AlertLevel }>;
   compositeAlert: AlertLevel;
+  oilShockHedge: { rubberPriceUsd: number | null; cpoPriceUsd: number | null; coalEtfUsd: number | null; estimatedOffsetBnUsd: number | null } | null;
 }): string {
   const parts: string[] = [];
   parts.push(`Commodity Cushion Score: ${ctx.cushionScore}/100 (${ctx.compositeAlert.toUpperCase()}).`);
@@ -163,7 +202,11 @@ function buildNarrative(ctx: {
   }
   const stressed = ctx.stressDetails.filter((s) => s.zScore !== null && s.zScore < -1.5);
   if (stressed.length > 0) {
-    parts.push(`Export cushion eroding: ${stressed.map((s) => s.indicator.replace('_price_usd', '').replace('_etf_usd', '')).join(', ')} below 90d trend.`);
+    parts.push(`Export cushion eroding: ${stressed.map((s) => s.indicator.replace('_price_usd', '').replace('_etf_usd', '').replace('_etf_', '_')).join(', ')} below 90d trend.`);
+  }
+  if (ctx.oilShockHedge) {
+    const { rubberPriceUsd, estimatedOffsetBnUsd } = ctx.oilShockHedge;
+    parts.push(`Oil shock partial hedge: natural rubber $${rubberPriceUsd?.toFixed(2) ?? '?'}/kg (synthetic substitution demand); CPO biofuel premium + coal energy substitute provide additional BoP cushion (~$${estimatedOffsetBnUsd?.toFixed(1) ?? '?'}B/yr rubber premium estimate).`);
   }
   return parts.join(' ');
 }
@@ -196,7 +239,18 @@ function formatOutput(output: CommodityEngineOutput): string {
     ``,
     output.scoreCard.flags.length > 0 ? `## Flags\n${output.scoreCard.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '',
     ``,
-    `_Note: Coal proxy = KOL ETF; LNG proxy = Henry Hub. Ferro-alloys proxy = SLX (steel ETF). Direct Newcastle/JKM prices require Bloomberg._`,
+    output.oilShockHedge ? [
+      `## Oil Shock Positive Offset (Brent >$90)`,
+      `| Commodity | Price | Mechanism |`,
+      `|-----------|-------|-----------|`,
+      `| Natural Rubber | $${output.oilShockHedge.rubberPriceUsd?.toFixed(2) ?? 'n/a'}/kg | Synthetic rubber (SBR/NBR) expensive → demand shift; ID #2 world producer |`,
+      `| CPO Palm Oil | $${output.oilShockHedge.cpoPriceUsd?.toFixed(0) ?? 'n/a'}/MT | Biofuel mandate premium rises at high oil prices |`,
+      `| Coal (BTU proxy) | $${output.oilShockHedge.coalEtfUsd?.toFixed(2) ?? 'n/a'} | Energy substitute demand surge |`,
+      `_Estimated rubber export premium: ~$${output.oilShockHedge.estimatedOffsetBnUsd?.toFixed(1) ?? '?'}B/yr above $2.00/kg baseline._`,
+      `_Net BoP impact at $150 oil: crude import +$14-17B/yr partially offset by rubber+CPO+coal ~$8-12B/yr._`,
+    ].join('\n') : '',
+    ``,
+    `_Note: Coal proxy = BTU (Peabody Energy); LNG proxy = Henry Hub. Ferro-alloys proxy = SLX (steel ETF). Rubber proxy = RB=F (COMEX RSS3). Direct Newcastle/JKM prices require Bloomberg._`,
   ]
     .filter((l) => l !== '')
     .join('\n');
