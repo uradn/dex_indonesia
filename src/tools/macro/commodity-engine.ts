@@ -9,6 +9,7 @@ import {
   computeCommodityCushionScore,
   computeOilVulnerabilityIndex,
 } from './sources/commodities.js';
+import { fetchEiaCrudeStocks, type EiaInventoryData } from './sources/eia-inventory.js';
 import type { AlertLevel, IndicatorSnapshot, ModuleScoreCard } from './types.js';
 
 export const COMMODITY_DESCRIPTION = `
@@ -47,6 +48,16 @@ Scores:
 - "What happens to Indonesia if coal/nickel prices fall?"
 - "Oil shock scenario"
 - Any time commodity prices move >5% in a session
+
+## Sawan Thesis Tracker (OECD Inventory)
+Wael Sawan (Shell CEO, May 2026): China SPR destocking 700-800k bpd ends Q3 2026
+→ OECD commercial stocks fall to 2003 lows by December 2026
+→ violent price discovery → $150-160/bbl
+US crude stocks (EIA weekly) used as OECD proxy:
+- GREEN:  >370 Mmbbl (>80 above 2003 lows)
+- YELLOW: 320-370 Mmbbl
+- ORANGE: 290-320 Mmbbl (approaching critical)
+- RED:    ≤290 Mmbbl (thesis confirmed)
 `.trim();
 
 interface CommodityEngineOutput {
@@ -59,6 +70,8 @@ interface CommodityEngineOutput {
   topExportsByStress: Array<{ indicator: string; price: number; unit: string; zScore: number | null; stress: AlertLevel }>;
   // Oil shock positive offset: commodities that benefit when oil is high
   oilShockHedge: { rubberPriceUsd: number | null; cpoPriceUsd: number | null; coalEtfUsd: number | null; estimatedOffsetBnUsd: number | null } | null;
+  // OECD inventory proxy — Sawan thesis tracker
+  eiaInventory: EiaInventoryData | null;
   narrative: string;
 }
 
@@ -113,8 +126,11 @@ export async function runCommodityEngine(): Promise<CommodityEngineOutput> {
     });
   }
 
-  // Cushion score
-  const { score: cushionScore } = computeCommodityCushionScore(currentPrices, historicalStats);
+  // Cushion score + EIA inventory (parallel)
+  const [{ score: cushionScore }, eiaInventory] = await Promise.all([
+    Promise.resolve(computeCommodityCushionScore(currentPrices, historicalStats)),
+    fetchEiaCrudeStocks(),
+  ]);
 
   // Oil vulnerability
   const brentPoint = await getLatestPoint('brent_price_usd');
@@ -159,8 +175,18 @@ export async function runCommodityEngine(): Promise<CommodityEngineOutput> {
   if (oilShockHedge && estimatedOffsetBnUsd !== null && estimatedOffsetBnUsd > 0.5) {
     flags.push(`OIL SHOCK HEDGE ACTIVE: rubber at $${rubberPriceUsd?.toFixed(2)}/kg — synthetic rubber substitution demand; estimated natural rubber export premium ~$${estimatedOffsetBnUsd.toFixed(1)}B/yr. CPO biofuel + coal energy substitute add further BoP cushion.`);
   }
+  // Sawan thesis: OECD inventory flag
+  if (eiaInventory) {
+    if (eiaInventory.sawanThesisAlert === 'red') {
+      flags.push(`SAWAN THESIS CONFIRMED: US crude stocks ${eiaInventory.usCrudeStocksMmbbl.toFixed(0)} Mmbbl — at/below 2003 lows (${eiaInventory.pctVs5yrAvg.toFixed(0)}% vs 5yr avg). Price discovery to $150-160 imminent per Sawan (Shell CEO May 2026).`);
+    } else if (eiaInventory.sawanThesisAlert === 'orange') {
+      flags.push(`SAWAN THESIS ADVANCING: US crude stocks ${eiaInventory.usCrudeStocksMmbbl.toFixed(0)} Mmbbl — ${eiaInventory.distanceToSawanLowMmbbl.toFixed(0)} Mmbbl above 2003 low trigger (${eiaInventory.pctVs5yrAvg.toFixed(0)}% vs 5yr avg). Watch Q3 2026 China SPR destocking completion.`);
+    } else if (eiaInventory.sawanThesisAlert === 'yellow') {
+      flags.push(`Sawan thesis watch: US crude stocks ${eiaInventory.usCrudeStocksMmbbl.toFixed(0)} Mmbbl (${eiaInventory.pctVs5yrAvg.toFixed(0)}% vs 5yr avg). Dec 2026 OECD-lows thesis requires further drawdown of ${eiaInventory.distanceToSawanLowMmbbl.toFixed(0)} Mmbbl.`);
+    }
+  }
 
-  const narrative = buildNarrative({ cushionScore, oilResult, brentPrice, stressDetails, compositeAlert, oilShockHedge });
+  const narrative = buildNarrative({ cushionScore, oilResult, brentPrice, stressDetails, compositeAlert, oilShockHedge, eiaInventory });
 
   return {
     scoreCard: {
@@ -179,6 +205,7 @@ export async function runCommodityEngine(): Promise<CommodityEngineOutput> {
     oilDeviation: oilResult?.deviation ?? null,
     topExportsByStress: stressDetails.sort((a, b) => (a.zScore ?? 0) - (b.zScore ?? 0)),
     oilShockHedge,
+    eiaInventory,
     narrative,
   };
 }
@@ -190,6 +217,7 @@ function buildNarrative(ctx: {
   stressDetails: Array<{ indicator: string; price: number; unit: string; zScore: number | null; stress: AlertLevel }>;
   compositeAlert: AlertLevel;
   oilShockHedge: { rubberPriceUsd: number | null; cpoPriceUsd: number | null; coalEtfUsd: number | null; estimatedOffsetBnUsd: number | null } | null;
+  eiaInventory: EiaInventoryData | null;
 }): string {
   const parts: string[] = [];
   parts.push(`Commodity Cushion Score: ${ctx.cushionScore}/100 (${ctx.compositeAlert.toUpperCase()}).`);
@@ -207,6 +235,9 @@ function buildNarrative(ctx: {
   if (ctx.oilShockHedge) {
     const { rubberPriceUsd, estimatedOffsetBnUsd } = ctx.oilShockHedge;
     parts.push(`Oil shock partial hedge: natural rubber $${rubberPriceUsd?.toFixed(2) ?? '?'}/kg (synthetic substitution demand); CPO biofuel premium + coal energy substitute provide additional BoP cushion (~$${estimatedOffsetBnUsd?.toFixed(1) ?? '?'}B/yr rubber premium estimate).`);
+  }
+  if (ctx.eiaInventory && ctx.eiaInventory.sawanThesisAlert !== 'green') {
+    parts.push(`Sawan thesis (OECD lows Dec 2026): US crude ${ctx.eiaInventory.usCrudeStocksMmbbl.toFixed(0)} Mmbbl (${ctx.eiaInventory.pctVs5yrAvg.toFixed(0)}% vs 5yr avg) — ${ctx.eiaInventory.distanceToSawanLowMmbbl.toFixed(0)} Mmbbl above critical level.`);
   }
   return parts.join(' ');
 }
@@ -250,6 +281,17 @@ function formatOutput(output: CommodityEngineOutput): string {
       `_Net BoP impact at $150 oil: crude import +$14-17B/yr partially offset by rubber+CPO+coal ~$8-12B/yr._`,
     ].join('\n') : '',
     ``,
+    output.eiaInventory ? [
+      `## OECD Inventory Proxy — Sawan Thesis Tracker`,
+      `| Metric | Value |`,
+      `|--------|-------|`,
+      `| US Crude Stocks (commercial) | ${output.eiaInventory.usCrudeStocksMmbbl.toFixed(1)} Mmbbl (${output.eiaInventory.date}) |`,
+      `| vs 5yr avg (~435 Mmbbl) | ${output.eiaInventory.pctVs5yrAvg >= 0 ? '+' : ''}${output.eiaInventory.pctVs5yrAvg.toFixed(1)}% |`,
+      `| Distance to 2003 lows (290 Mmbbl) | ${output.eiaInventory.distanceToSawanLowMmbbl.toFixed(1)} Mmbbl above |`,
+      `| Sawan Thesis Alert | ${output.eiaInventory.sawanThesisAlert.toUpperCase()} |`,
+      `_Sawan thesis (Shell CEO, May 2026): China SPR destocking 700-800k bpd ends Q3 2026 → OECD stocks → 2003 lows Dec 2026 → violent price discovery $150-160/bbl._`,
+      `_Indonesia transmission: each $10/bbl above $70 APBN = +$2.45B/yr import bill + IDR depreciation pressure._`,
+    ].join('\n') : '',
     `_Note: Coal proxy = BTU (Peabody Energy); LNG proxy = Henry Hub. Ferro-alloys proxy = SLX (steel ETF). Rubber proxy = RB=F (COMEX RSS3). Direct Newcastle/JKM prices require Bloomberg._`,
   ]
     .filter((l) => l !== '')
