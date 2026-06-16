@@ -21,6 +21,7 @@ import { formatToolResult } from '../types.js';
 import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchFiscalRealization } from './sources/kemenkeu.js';
+import { fetchSubsidiRealisasi } from './sources/subsidi.js';
 import type { AlertLevel } from './types.js';
 
 export const FISCAL_DESCRIPTION = `
@@ -37,6 +38,8 @@ Detects:
 - Spending overrun: actual pace above approved budget
 - Deficit widening: trajectory exceeds 3% GDP constitutional limit
 - Fiscal drag: below-target revenue constrains economic stimulus capacity
+- Subsidi energi overshoot: BBM+LPG run rate >110% of APBN target (Rp87T) — oil shock pass-through
+- Subsidi pupuk overshoot: fertilizer run rate >120% of APBN target (Rp46.8T)
 
 ## When to Use
 
@@ -45,6 +48,8 @@ Detects:
 - "Revenue absorption rate?"
 - "Government spending pace vs target"
 - Monthly budget monitoring
+- "Subsidi BBM berapa realisasinya?"
+- "Is the subsidy budget blowing out?"
 `.trim();
 
 // APBN 2026 annual targets (IDR trillion) — UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025
@@ -64,6 +69,9 @@ const APBN_2026 = {
   // SBN annual rollover estimate for BI rate uplift calc (~Rp1,200T/yr)
   sbnAnnualRolloverTrn: 1200,
   biRateBaselinePct: 4.75, // BI Rate at start of 2026 hike cycle
+  // Subsidi realisasi targets (UU No.17/2025)
+  subsidiBbmLpgTrn: 87.0,    // Subsidi BBM + LPG energi annual target
+  subsidiPupukTrn: 46.8,      // Subsidi pupuk annual target
 };
 
 interface FiscalOutput {
@@ -96,6 +104,12 @@ interface FiscalOutput {
   biRateInterestUpliftTrn: number;
   spInterestRevenuePct: number | null;
   spThresholdBreached: boolean;
+  // Subsidi realisasi
+  subsidiBbmLpgYtdTrn: number | null;
+  subsidiPupukYtdTrn: number | null;
+  subsidiBbmLpgRunRatePct: number | null;  // annualized YTD / APBN target × 100
+  subsidiPupukRunRatePct: number | null;
+  subsidiDataDate: string | null;
   // Alerts
   revenueShortfall: boolean;
   spendingOverrun: boolean;
@@ -147,8 +161,11 @@ async function sumCurrentYearPoints(indicator: string): Promise<{ total: number;
 const ANNUAL_DATA_THRESHOLD_TRN = 1000;
 
 export async function runFiscalEngine(): Promise<FiscalOutput> {
-  // 1. Fetch live data
-  const { revenue, spending, budgetBalance } = await fetchFiscalRealization();
+  // 1. Fetch live data (subsidi in parallel with fiscal realization)
+  const [{ revenue, spending, budgetBalance }, subsidyData] = await Promise.all([
+    fetchFiscalRealization(),
+    fetchSubsidiRealisasi(),
+  ]);
 
   const pointsToSave = [revenue, spending, budgetBalance].filter(Boolean);
   if (pointsToSave.length > 0) await upsertPoints(pointsToSave as NonNullable<typeof revenue>[]);
@@ -244,6 +261,20 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     : null;
   const spThresholdBreached = spInterestRevenuePct !== null && spInterestRevenuePct > APBN_2026.spInterestThresholdPct;
 
+  // 4d. Subsidi realisasi run-rate
+  // Run rate = (YTD value / months_elapsed * 12) / APBN_target × 100
+  // >100% = on pace; >110% = YELLOW; >130% = ORANGE (overshoot)
+  const subsidiBbmLpgYtdTrn = subsidyData?.subsidiBbmLpgYtdTrn ?? (await getLatestPoint('subsidi_energi_ytd_idr_t'))?.value ?? null;
+  const subsidiPupukYtdTrn = subsidyData?.subsidiPupukYtdTrn ?? (await getLatestPoint('subsidi_pupuk_ytd_idr_t'))?.value ?? null;
+  const subsidiDataDate = subsidyData?.date ?? null;
+
+  const subsidiBbmLpgRunRatePct = subsidiBbmLpgYtdTrn !== null && monthsElapsed > 0
+    ? parseFloat(((subsidiBbmLpgYtdTrn / monthsElapsed * 12) / APBN_2026.subsidiBbmLpgTrn * 100).toFixed(1))
+    : null;
+  const subsidiPupukRunRatePct = subsidiPupukYtdTrn !== null && monthsElapsed > 0
+    ? parseFloat(((subsidiPupukYtdTrn / monthsElapsed * 12) / APBN_2026.subsidiPupukTrn * 100).toFixed(1))
+    : null;
+
   // 5. Stress score
   const components: Array<[number, number]> = [];
   if (revenueAbsorptionPct !== null) components.push([scoreRevenueAbsorption(revenueAbsorptionPct), 0.50]);
@@ -257,6 +288,12 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   if (components.length > 0) {
     const totalWeight = components.reduce((s, [, w]) => s + w, 0);
     stressScore = Math.round(components.reduce((s, [score, w]) => s + score * w, 0) / totalWeight);
+  }
+
+  // Subsidi run-rate stress contribution (weight 0.15 of total)
+  if (subsidiBbmLpgRunRatePct !== null && subsidiBbmLpgRunRatePct > 100) {
+    const subsidyStress = subsidiBbmLpgRunRatePct >= 130 ? 65 : subsidiBbmLpgRunRatePct >= 110 ? 40 : 15;
+    components.push([subsidyStress, 0.15]);
   }
 
   // Constitutional breach floors: 3% GDP ceiling = YELLOW min; >4% = ORANGE min
@@ -291,6 +328,18 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   }
   if (latestRevenueTrn === null && latestSpendingTrn === null) {
     flags.push('No fiscal data available — TE scrape failed. Check tradingeconomics.com/indonesia/government-revenues');
+  }
+
+  // Subsidi run-rate flags
+  if (subsidiBbmLpgRunRatePct !== null) {
+    if (subsidiBbmLpgRunRatePct >= 130) {
+      flags.push(`SUBSIDI ENERGI OVERSHOOT: run rate ${subsidiBbmLpgRunRatePct.toFixed(0)}% of APBN target (Rp${APBN_2026.subsidiBbmLpgTrn}T) — high oil+IDR forcing fiscal rescue choice: hike BBM or blow deficit`);
+    } else if (subsidiBbmLpgRunRatePct >= 110) {
+      flags.push(`Subsidi energi elevated: run rate ${subsidiBbmLpgRunRatePct.toFixed(0)}% of APBN target — monitor for blowout if Brent stays above APBN $70/bbl assumption`);
+    }
+  }
+  if (subsidiPupukRunRatePct !== null && subsidiPupukRunRatePct >= 120) {
+    flags.push(`Subsidi pupuk overshoot: run rate ${subsidiPupukRunRatePct.toFixed(0)}% of APBN target (Rp${APBN_2026.subsidiPupukTrn}T) — LNG feedstock cost pass-through`);
   }
 
   if (srbiCostAsPctDeficit !== null && srbiCostAsPctDeficit > 10) {
@@ -346,6 +395,8 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     projectedAnnualRevenueTrn, projectedDeficitPctGdp,
     srbiOutstandingTrn, biRatePct, srbiAnnualCostTrn, srbiCostAsPctDeficit,
     adjustedInterestTrn, biRateInterestUpliftTrn, spInterestRevenuePct, spThresholdBreached,
+    subsidiBbmLpgYtdTrn, subsidiPupukYtdTrn,
+    subsidiBbmLpgRunRatePct, subsidiPupukRunRatePct, subsidiDataDate,
     revenueShortfall, spendingOverrun, deficitRisk,
     flags, narrative,
   };
@@ -409,6 +460,15 @@ function formatFiscalOutput(output: FiscalOutput): string {
           ``,
         ].join('\n')
       : '',
+    output.subsidiBbmLpgYtdTrn !== null || output.subsidiPupukYtdTrn !== null ? [
+      `### Subsidi Realisasi`,
+      `| Subsidi | APBN 2026 Target | YTD Actual | Ann. Run Rate |`,
+      `|---------|--------|-----------|--------------|`,
+      `| BBM+LPG (energi) | IDR ${APBN_2026.subsidiBbmLpgTrn}T | ${output.subsidiBbmLpgYtdTrn !== null ? `IDR ${output.subsidiBbmLpgYtdTrn.toFixed(1)}T` : 'n/a'} | ${output.subsidiBbmLpgRunRatePct !== null ? `${output.subsidiBbmLpgRunRatePct.toFixed(0)}%` : 'n/a'} |`,
+      `| Pupuk | IDR ${APBN_2026.subsidiPupukTrn}T | ${output.subsidiPupukYtdTrn !== null ? `IDR ${output.subsidiPupukYtdTrn.toFixed(1)}T` : 'n/a'} | ${output.subsidiPupukRunRatePct !== null ? `${output.subsidiPupukRunRatePct.toFixed(0)}%` : 'n/a'} |`,
+      output.subsidiDataDate ? `_Data date: ${output.subsidiDataDate} (source: APBN Kita / media)_` : '',
+      `_Run rate = annualized YTD / APBN target. >110% = elevated; >130% = overshoot alert._`,
+    ].filter(Boolean).join('\n') : '',
     `_Data: Trading Economics monthly IDR trillion (government-revenues, government-spending)._`,
     `_YTD = sum of all current-year monthly entries in macro DB. Pro-rata = target × (months_elapsed/12)._`,
     `_Targets: APBN 2026 (UU No.17/2025 / Perpres No.118/2025). Post-efisiensi spending ~3,534T. YTD April 2026 deficit realization: 0.64% GDP (Rp164.4T)._`,
