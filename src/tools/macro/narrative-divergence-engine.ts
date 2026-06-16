@@ -6,6 +6,7 @@ import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchSbn10yTradingEconomics, fetchBiRateTradingEconomics } from './sources/sovereign-scraper.js';
 import { fetchFoodInflationTe } from './sources/pihps.js';
 import { computeCostRecovery, DOMESTIC_FUEL_PRICES } from './sources/pertamina.js';
+import { fetchDubaiCrude } from './sources/dubai-crude.js';
 import type { AlertLevel } from './types.js';
 
 export const NARRATIVE_DIVERGENCE_DESCRIPTION = `
@@ -71,12 +72,14 @@ const US_CPI_APPROX = 3.0;
 export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenceOutput> {
   const checks: DivergenceCheck[] = [];
 
-  // Seed fresh data from Trading Economics
-  const [sbnFresh, biRateFresh, foodInflFresh] = await Promise.allSettled([
+  // Seed fresh data (parallel)
+  const [sbnFresh, biRateFresh, foodInflFresh, dubaiResult] = await Promise.allSettled([
     fetchSbn10yTradingEconomics(),
     fetchBiRateTradingEconomics(),
     fetchFoodInflationTe(),
+    fetchDubaiCrude(),
   ]);
+  const dubaiData = dubaiResult.status === 'fulfilled' ? dubaiResult.value : null;
   const toUpsert = [
     sbnFresh.status === 'fulfilled' ? sbnFresh.value : null,
     biRateFresh.status === 'fulfilled' ? biRateFresh.value : null,
@@ -248,6 +251,37 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
       marketSignal: `Pertamax IDR ${pertamaxPoint.value.toLocaleString('id-ID')}/liter — +${stepChangePct.toFixed(1)}% single-step dari baseline pre-Hormuz IDR ${PERTAMAX_PRE_HORMUZ_BASELINE.toLocaleString('id-ID')}${flagged ? ' — catch-up hike setelah 18+ bulan suppressed; implied CPI transportasi overshoot' : ''}`,
       divergenceScore,
       flagged,
+    });
+  }
+
+  // 11. Dubai physical crude vs APBN ICP + Brent-Dubai spread (Haye framework)
+  // ICP formula is Brent-linked (for royalty/revenue calculation).
+  // Pertamina's actual physical crude procurement = Dubai/Oman spot + freight + risk premium.
+  // During Hormuz disruption: Brent (paper) spikes on fear; Dubai (physical) discounts
+  // on delivery risk → Brent-Dubai spread widens to $10-27/bbl (vs normal $1-3/bbl).
+  // Signal: Dubai still +30% above APBN $70 even when deeply discounted vs Brent.
+  if (dubaiData !== null) {
+    const dubaiVsApbn = ((dubaiData.dubaiPriceUsd - APBN_ASSUMPTIONS.oilPrice) / APBN_ASSUMPTIONS.oilPrice) * 100;
+    const spread = dubaiData.brentDubaiSpreadUsd;
+    const spreadStr = spread !== null
+      ? (() => {
+          if (spread > 10) return `Brent-Dubai spread: +$${spread.toFixed(1)}/bbl — EXTREME: paper spike vs physical discount (Hormuz delivery risk)`;
+          if (spread > 5)  return `Brent-Dubai spread: +$${spread.toFixed(1)}/bbl — elevated: paper/physical market disconnection`;
+          if (spread < -2) return `Brent-Dubai spread: $${spread.toFixed(1)}/bbl — INVERTED: physical Dubai premium above Brent (supply crunch)`;
+          return `Brent-Dubai spread: +$${spread.toFixed(1)}/bbl (normal range)`;
+        })()
+      : '';
+    const sourceNote = dubaiData.source === 'brent_proxy' ? ' [estimated via Brent−$1.50]' : dubaiData.source === 'worldbank_pinksheet' ? ' [WB Pink Sheet, ~1mo lag]' : '';
+    const divergenceScore = Math.min(100,
+      Math.abs(dubaiVsApbn) * 1.5 +                                                         // cost overrun
+      (dubaiData.brentDubaiSpreadUsd !== null && dubaiData.hormuzFlag ? Math.min(30, dubaiData.brentDubaiSpreadUsd * 2) : 0), // spread penalty
+    );
+    checks.push({
+      dimension: 'Dubai Physical Crude vs APBN ICP + Brent-Dubai Spread (Haye)',
+      officialClaim: `APBN ICP basis: $${APBN_ASSUMPTIONS.oilPrice}/bbl (Brent-linked royalty formula). Pertamina buys physical at Dubai spot + freight.`,
+      marketSignal: `Dubai: $${dubaiData.dubaiPriceUsd.toFixed(1)}/bbl (${dubaiVsApbn >= 0 ? '+' : ''}${dubaiVsApbn.toFixed(1)}% vs APBN)${sourceNote}. ${spreadStr}`.trim(),
+      divergenceScore: Math.round(divergenceScore),
+      flagged: Math.abs(dubaiVsApbn) > 10 || dubaiData.hormuzFlag,
     });
   }
 

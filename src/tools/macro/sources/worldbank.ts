@@ -6,9 +6,13 @@
  *                  Monthly, JSON, no auth, confirmed working.
  *                  https://api.worldbank.org/v2/country/IDN/indicator/TOTRESV?source=15
  *
- *   CPO Price     — World Bank Pink Sheet XLSX (Monthly Prices sheet)
- *                  No JSON API exists for this. Downloads CMO-Historical-Data-Monthly.xlsx,
- *                  extracts "PALM_OIL" column (USD/MT, Malaysia CIF NW Europe).
+ *   Pink Sheet    — World Bank Commodity Price Data (Monthly Prices sheet)
+ *                  CMO-Historical-Data-Monthly.xlsx, downloaded once per session (1h cache).
+ *                  Sheet 2 (index 1) = "Monthly Prices" — verified column layout:
+ *                    col 2: Crude oil, Brent  ($/bbl)
+ *                    col 3: Crude oil, Dubai  ($/bbl)   ← M4/M6 use this
+ *                    col 4: Crude oil, WTI    ($/bbl)
+ *                    col 22: Palm oil         ($/MT)    ← CPO proxy
  *                  Landing page: https://www.worldbank.org/en/research/commodity-markets
  *                  Direct file URL updated monthly — fetch landing page to get current link.
  */
@@ -23,6 +27,96 @@ const PINK_SHEET_FALLBACK = 'https://thedocs.worldbank.org/en/doc/74e8be41ceb20f
 
 const NOW = () => new Date().toISOString();
 const TODAY = () => new Date().toISOString().slice(0, 10);
+
+// ─── Pink Sheet shared cache ──────────────────────────────────────────────────
+// Downloading the ~1MB XLSX is slow. Cache parsed rows for 1h so multiple
+// commodity fetches (CPO, Dubai, Brent) share a single download per session.
+let _pinkSheetCache: { rows: unknown[][]; fetchedAt: number } | null = null;
+const PINK_SHEET_CACHE_TTL_MS = 3_600_000; // 1 hour
+
+async function getOrFetchPinkSheetRows(): Promise<unknown[][]> {
+  if (_pinkSheetCache && Date.now() - _pinkSheetCache.fetchedAt < PINK_SHEET_CACHE_TTL_MS) {
+    return _pinkSheetCache.rows;
+  }
+  const xlsxUrl = await resolvePinkSheetUrl();
+  const buf = await fetch(xlsxUrl).then((r) => {
+    if (!r.ok) throw new Error(`Pink Sheet fetch ${r.status}`);
+    return r.arrayBuffer();
+  });
+  const { read, utils } = await import('xlsx');
+  const wb = read(new Uint8Array(buf), { type: 'array', dense: false });
+  const sheetName = wb.SheetNames[1];
+  const ws = wb.Sheets[sheetName];
+  if (!ws) throw new Error('Pink Sheet: Monthly Prices sheet not found');
+  const rows = utils.sheet_to_json(ws, { header: 1, defval: null }) as unknown[][];
+  _pinkSheetCache = { rows, fetchedAt: Date.now() };
+  return rows;
+}
+
+/**
+ * Generic Pink Sheet column extractor.
+ * Searches header row (rows 0-10) for a cell matching colKeyword (case-insensitive),
+ * then extracts that column for the given number of trailing months.
+ */
+async function extractPinkSheetColumn(
+  colKeyword: string,
+  months: number,
+  indicator: string,
+  unit: string,
+  category: 'commodity' | 'sovereign',
+): Promise<MacroDataPoint[]> {
+  const rows = await getOrFetchPinkSheetRows();
+  const cutoff = new Date(Date.now() - months * 30 * 86_400_000);
+  const fetchedAt = NOW();
+
+  // Find header row and column index
+  let headerRowIdx = -1;
+  let colIdx = -1;
+  let dateColIdx = 0;
+
+  for (let i = 0; i < Math.min(10, rows.length); i++) {
+    const row = rows[i] as (string | null)[];
+    const idx = row.findIndex(
+      (c) => typeof c === 'string' && c.toUpperCase().includes(colKeyword.toUpperCase()),
+    );
+    if (idx !== -1) {
+      headerRowIdx = i;
+      colIdx = idx;
+      const dcIdx = row.findIndex((c) => typeof c === 'string' && /year|month|date/i.test(c));
+      dateColIdx = dcIdx !== -1 ? dcIdx : 0;
+      break;
+    }
+  }
+
+  if (colIdx === -1) throw new Error(`Pink Sheet: column '${colKeyword}' not found`);
+
+  const results: MacroDataPoint[] = [];
+  for (let i = headerRowIdx + 2; i < rows.length; i++) { // +2 to skip units row
+    const row = rows[i] as (string | number | null)[];
+    const dateCell = row[dateColIdx];
+    const priceCell = row[colIdx];
+
+    if (!dateCell || priceCell === null || priceCell === undefined) continue;
+    const price = typeof priceCell === 'number' ? priceCell : parseFloat(String(priceCell));
+    if (isNaN(price) || price <= 0) continue;
+
+    const isoDate = parsePinkSheetDate(dateCell);
+    if (!isoDate) continue;
+    if (new Date(isoDate) < cutoff) continue;
+
+    results.push({
+      indicator,
+      category,
+      date: isoDate,
+      value: parseFloat(price.toFixed(4)),
+      unit,
+      source: 'worldbank_pinksheet',
+      fetchedAt,
+    });
+  }
+
+  return results.sort((a, b) => a.date.localeCompare(b.date));
+}
 
 // ─── FX Reserves ─────────────────────────────────────────────────────────────
 
@@ -82,72 +176,26 @@ function wbMonthToIsoDate(wbDate: string): string {
  * Downloads the XLSX, extracts PALM_OIL column (USD/MT).
  * Tries the current URL from the landing page first; falls back to hardcoded URL.
  */
+/**
+ * Fetch CPO (Palm Oil) monthly prices from World Bank Pink Sheet.
+ * Column keyword: "Palm oil" (col 22 in current layout).
+ * Bug fix: previous code searched "PALM_OIL" (underscore) but header is "Palm oil" (space).
+ */
 export async function fetchCpoPriceWorldBank(months = 48): Promise<MacroDataPoint[]> {
-  const xlsxUrl = await resolvePinkSheetUrl();
-  const buf = await fetch(xlsxUrl).then((r) => {
-    if (!r.ok) throw new Error(`Pink Sheet fetch ${r.status}`);
-    return r.arrayBuffer();
-  });
+  const points = await extractPinkSheetColumn('Palm oil', months, 'cpo_price_myr', 'USD/MT', 'commodity');
+  return points;
+}
 
-  const { read, utils } = await import('xlsx');
-  const wb = read(new Uint8Array(buf), { type: 'array', dense: false });
-
-  // Sheet 2 (index 1) = "Monthly Prices"
-  const sheetName = wb.SheetNames[1];
-  const ws = wb.Sheets[sheetName];
-  if (!ws) throw new Error('Pink Sheet: Monthly Prices sheet not found');
-
-  const rows: unknown[][] = utils.sheet_to_json(ws, { header: 1, defval: null });
-
-  // Find header row — look for row containing "PALM_OIL"
-  let headerRowIdx = -1;
-  let palmColIdx = -1;
-  let dateColIdx = -1;
-
-  for (let i = 0; i < Math.min(10, rows.length); i++) {
-    const row = rows[i] as (string | null)[];
-    const palmIdx = row.findIndex((c) => typeof c === 'string' && c.toUpperCase().includes('PALM_OIL'));
-    if (palmIdx !== -1) {
-      headerRowIdx = i;
-      palmColIdx = palmIdx;
-      // Date column is typically column 0 or first non-empty
-      dateColIdx = row.findIndex((c) => typeof c === 'string' && /year|month|date/i.test(c));
-      if (dateColIdx === -1) dateColIdx = 0;
-      break;
-    }
-  }
-
-  if (palmColIdx === -1) throw new Error('Pink Sheet: PALM_OIL column not found');
-
-  const cutoff = new Date(Date.now() - months * 30 * 86400_000);
-  const fetchedAt = NOW();
-  const results: MacroDataPoint[] = [];
-
-  for (let i = headerRowIdx + 1; i < rows.length; i++) {
-    const row = rows[i] as (string | number | null)[];
-    const dateCell = row[dateColIdx];
-    const priceCell = row[palmColIdx];
-
-    if (!dateCell || priceCell === null || priceCell === undefined) continue;
-    const price = typeof priceCell === 'number' ? priceCell : parseFloat(String(priceCell));
-    if (isNaN(price) || price <= 0) continue;
-
-    const isoDate = parsePinkSheetDate(dateCell);
-    if (!isoDate) continue;
-    if (new Date(isoDate) < cutoff) continue;
-
-    results.push({
-      indicator: 'cpo_price_myr',
-      category: 'commodity',
-      date: isoDate,
-      value: price,
-      unit: 'USD/MT',
-      source: 'worldbank_pinksheet',
-      fetchedAt,
-    });
-  }
-
-  return results.sort((a, b) => a.date.localeCompare(b.date));
+/**
+ * Fetch Dubai crude oil monthly spot price from World Bank Pink Sheet.
+ * Column keyword: "Dubai" (col 3 in current layout). Unit: USD/bbl.
+ * Physical MEG→Asia benchmark — more accurate than Brent for Pertamina procurement cost.
+ * Brent-Dubai spread: normally $1-3 Brent premium; widens >$10 during Hormuz disruption
+ * (paper Brent spikes on war fear; physical Dubai discounts on delivery risk).
+ */
+export async function fetchDubaiCrudeWorldBank(months = 6): Promise<MacroDataPoint[]> {
+  const points = await extractPinkSheetColumn('Dubai', months, 'dubai_crude_spot_usd', 'USD/bbl', 'commodity');
+  return points;
 }
 
 /**
