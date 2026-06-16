@@ -85,6 +85,8 @@ const SNAPSHOT_INDICATORS = [
   'food_inflation_yoy_pct',
   // rr/gg page
   'uln_shortterm_pct', 'indonesia_external_debt_bn',
+  // m10 subsidi realisasi
+  'subsidi_energi_ytd_idr_t', 'subsidi_pupuk_ytd_idr_t',
 ];
 
 const CHART_INDICATORS = [
@@ -292,9 +294,22 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
   const triggerCurrentVal = triggerIndicator === 'political_risk_score'
     ? (ms['political_risk']?.score ?? 0)
     : (ind[triggerIndicator]?.value ?? 0);
-  const triggerFired = triggerDirection === 'above'
+  const primaryTriggerFired = triggerDirection === 'above'
     ? triggerCurrentVal >= triggerThreshold
     : triggerCurrentVal <= triggerThreshold;
+
+  // Secondary trigger: subsidi energi run rate >135% of APBN target (Rp87T)
+  // Fires when oil shock forces fiscal rescue beyond APBN subsidi allocation
+  const subsidiBbmLpgYtd = ind['subsidi_energi_ytd_idr_t']?.value ?? null;
+  const subsidyMonthsNow = new Date().getMonth() + 1; // 1-12
+  const subsidyRunRatePct = subsidiBbmLpgYtd !== null && subsidyMonthsNow > 0
+    ? (subsidiBbmLpgYtd / subsidyMonthsNow * 12) / 87 * 100
+    : null;
+  const subsidyTriggerFired = subsidyRunRatePct !== null && subsidyRunRatePct >= 135;
+  const triggerFired = primaryTriggerFired || subsidyTriggerFired;
+  if (subsidyTriggerFired) {
+    triggerLabel += ` | Subsidi energi run rate ${subsidyRunRatePct!.toFixed(0)}% (>135% FIRED — fiscal rescue underway)`;
+  }
 
   // ── SCD-based crisis probability ─────────────────────────────────────────────
   const W: Record<string, number> = {
