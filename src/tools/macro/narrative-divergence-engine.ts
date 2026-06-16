@@ -91,7 +91,7 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
   const usdIdrSpot = await getLatestPoint('usdidr_spot');
   if (usdIdrSpot) {
     const marketVsApbn = ((usdIdrSpot.value - APBN_ASSUMPTIONS.usdIdr) / APBN_ASSUMPTIONS.usdIdr) * 100;
-    const divergenceScore = Math.min(100, Math.max(0, Math.abs(marketVsApbn) * 5));
+    const divergenceScore = Math.round(Math.min(100, Math.max(0, Math.abs(marketVsApbn) * 5)));
     checks.push({
       dimension: 'USDIDR vs APBN Assumption',
       officialClaim: `APBN baseline: IDR ${APBN_ASSUMPTIONS.usdIdr.toLocaleString()}/USD`,
@@ -105,7 +105,7 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
   const brentSpot = await getLatestPoint('brent_price_usd');
   if (brentSpot) {
     const marketVsApbn = ((brentSpot.value - APBN_ASSUMPTIONS.oilPrice) / APBN_ASSUMPTIONS.oilPrice) * 100;
-    const divergenceScore = Math.min(100, Math.max(0, Math.abs(marketVsApbn) * 2));
+    const divergenceScore = Math.round(Math.min(100, Math.max(0, Math.abs(marketVsApbn) * 2)));
     checks.push({
       dimension: 'Oil Price (ICP) vs APBN Assumption',
       officialClaim: `APBN baseline ICP: $${APBN_ASSUMPTIONS.oilPrice}/bbl`,
@@ -166,7 +166,7 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
   const foodInflationPoint = await getLatestPoint('food_inflation_yoy_pct');
   if (foodInflationPoint) {
     const foodDev = foodInflationPoint.value - APBN_IMPLIED_FOOD_CPI;
-    const divergenceScore = Math.min(100, Math.max(0, Math.abs(foodDev) * 10));
+    const divergenceScore = Math.round(Math.min(100, Math.max(0, Math.abs(foodDev) * 10)));
     const flagged = foodInflationPoint.value > 6.0 || foodInflationPoint.value < 0;
     checks.push({
       dimension: 'Food CPI vs APBN Inflation Assumption',
