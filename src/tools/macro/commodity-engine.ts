@@ -10,6 +10,7 @@ import {
   computeOilVulnerabilityIndex,
 } from './sources/commodities.js';
 import { fetchEiaCrudeStocks, type EiaInventoryData } from './sources/eia-inventory.js';
+import { fetchHormuzGhostTransit, formatGhostTransit, type GhostTransitData } from './sources/ghost-transit.js';
 import type { AlertLevel, IndicatorSnapshot, ModuleScoreCard } from './types.js';
 
 export const COMMODITY_DESCRIPTION = `
@@ -72,6 +73,8 @@ interface CommodityEngineOutput {
   oilShockHedge: { rubberPriceUsd: number | null; cpoPriceUsd: number | null; coalEtfUsd: number | null; estimatedOffsetBnUsd: number | null } | null;
   // OECD inventory proxy — Sawan thesis tracker
   eiaInventory: EiaInventoryData | null;
+  // Hormuz ghost transit — dark shipping / AIS-invisible tanker flow
+  ghostTransit: GhostTransitData | null;
   narrative: string;
 }
 
@@ -126,10 +129,11 @@ export async function runCommodityEngine(): Promise<CommodityEngineOutput> {
     });
   }
 
-  // Cushion score + EIA inventory (parallel)
-  const [{ score: cushionScore }, eiaInventory] = await Promise.all([
+  // Cushion score + EIA inventory + ghost transit (parallel)
+  const [{ score: cushionScore }, eiaInventory, ghostTransit] = await Promise.all([
     Promise.resolve(computeCommodityCushionScore(currentPrices, historicalStats)),
     fetchEiaCrudeStocks(),
+    fetchHormuzGhostTransit(),
   ]);
 
   // Oil vulnerability
@@ -175,6 +179,17 @@ export async function runCommodityEngine(): Promise<CommodityEngineOutput> {
   if (oilShockHedge && estimatedOffsetBnUsd !== null && estimatedOffsetBnUsd > 0.5) {
     flags.push(`OIL SHOCK HEDGE ACTIVE: rubber at $${rubberPriceUsd?.toFixed(2)}/kg — synthetic rubber substitution demand; estimated natural rubber export premium ~$${estimatedOffsetBnUsd.toFixed(1)}B/yr. CPO biofuel + coal energy substitute add further BoP cushion.`);
   }
+  // Ghost transit: Hormuz dark shipping signal
+  if (ghostTransit) {
+    const gt = ghostTransit;
+    if (gt.alert === 'red' || gt.alert === 'orange') {
+      const ghostStr = gt.ghostTransitMbpd !== null ? ` Ghost transits ~${gt.ghostTransitMbpd.toFixed(1)}M bbl/d (off-AIS, risk premium embedded).` : '';
+      flags.push(`HORMUZ SUPPLY VISIBILITY: visible traffic ${gt.visiblePctPrewar?.toFixed(0) ?? '?'}% of pre-war [${gt.alert.toUpperCase()}].${ghostStr} Physical supply worse than paper Brent implies — compounding M6 check #11 Brent-Dubai spread signal.`);
+    } else if (gt.alert === 'yellow') {
+      flags.push(`Hormuz watch: visible traffic ${gt.visiblePctPrewar?.toFixed(0) ?? '?'}% of pre-war. ${gt.ghostTransitMbpd !== null ? `~${gt.ghostTransitMbpd.toFixed(1)}M bbl/d dark shipping.` : ''}`);
+    }
+  }
+
   // Sawan thesis: OECD inventory flag
   if (eiaInventory) {
     if (eiaInventory.sawanThesisAlert === 'red') {
@@ -186,7 +201,7 @@ export async function runCommodityEngine(): Promise<CommodityEngineOutput> {
     }
   }
 
-  const narrative = buildNarrative({ cushionScore, oilResult, brentPrice, stressDetails, compositeAlert, oilShockHedge, eiaInventory });
+  const narrative = buildNarrative({ cushionScore, oilResult, brentPrice, stressDetails, compositeAlert, oilShockHedge, eiaInventory, ghostTransit });
 
   return {
     scoreCard: {
@@ -206,6 +221,7 @@ export async function runCommodityEngine(): Promise<CommodityEngineOutput> {
     topExportsByStress: stressDetails.sort((a, b) => (a.zScore ?? 0) - (b.zScore ?? 0)),
     oilShockHedge,
     eiaInventory,
+    ghostTransit,
     narrative,
   };
 }
@@ -218,6 +234,7 @@ function buildNarrative(ctx: {
   compositeAlert: AlertLevel;
   oilShockHedge: { rubberPriceUsd: number | null; cpoPriceUsd: number | null; coalEtfUsd: number | null; estimatedOffsetBnUsd: number | null } | null;
   eiaInventory: EiaInventoryData | null;
+  ghostTransit: GhostTransitData | null;
 }): string {
   const parts: string[] = [];
   parts.push(`Commodity Cushion Score: ${ctx.cushionScore}/100 (${ctx.compositeAlert.toUpperCase()}).`);
@@ -238,6 +255,9 @@ function buildNarrative(ctx: {
   }
   if (ctx.eiaInventory && ctx.eiaInventory.sawanThesisAlert !== 'green') {
     parts.push(`Sawan thesis (OECD lows Dec 2026): US crude ${ctx.eiaInventory.usCrudeStocksMmbbl.toFixed(0)} Mmbbl (${ctx.eiaInventory.pctVs5yrAvg.toFixed(0)}% vs 5yr avg) — ${ctx.eiaInventory.distanceToSawanLowMmbbl.toFixed(0)} Mmbbl above critical level.`);
+  }
+  if (ctx.ghostTransit && ctx.ghostTransit.alert !== 'green') {
+    parts.push(formatGhostTransit(ctx.ghostTransit));
   }
   return parts.join(' ');
 }

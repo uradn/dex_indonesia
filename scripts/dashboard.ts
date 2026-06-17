@@ -75,6 +75,8 @@ const SNAPSHOT_INDICATORS = [
   'pihps_bawang_merah_idr', 'pihps_minyak_goreng_idr', 'pihps_telur_ayam_idr',
   'pihps_daging_sapi_idr', 'pihps_gula_pasir_idr',
   'nickel_price_usd', 'coal_etf_usd', 'cpo_price_myr', 'gold_price_usd',
+  'copper_price_usd', 'silver_price_usd', 'natgas_price_usd',
+  'steel_etf_usd', 'aluminum_price_usd', 'wti_price_usd',
   'fintech_npl_pct', 'ihsg_pe_ratio', 'idx_advance_decline_ratio',
   // political risk (m12)
   'political_social_unrest_score', 'political_food_stress_score', 'political_stability_stress_score',
@@ -92,8 +94,9 @@ const SNAPSHOT_INDICATORS = [
   'subsidi_energi_ytd_idr_t', 'subsidi_pupuk_ytd_idr_t',
   // m6 morris-shin signal precision
   'narrative_ms_cv_pct',
-  // m4 eia inventory + rubber (oil shock hedge)
+  // m4 eia inventory + rubber + hormuz ghost transit
   'us_crude_stocks_mmbbl', 'natural_rubber_price_usd',
+  'hormuz_visible_traffic_pct_prewar', 'hormuz_ghost_transit_mbpd',
   // m8 bnpl/fintech lending (npl leading indicator 2-3q lag)
   'fintech_lending_outstanding_idr_t', 'fintech_lending_growth_yoy_pct',
   // m10 fiscal monthly realisasi
