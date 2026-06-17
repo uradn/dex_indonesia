@@ -285,6 +285,29 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     });
   }
 
+  // 12. O&G import bill: BPS actuals vs APBN-implied (Haye/BPS validation)
+  // Official claim: APBN $70/bbl ICP implies manageable O&G import bill.
+  // Error: media/INDEF use crude-only formula (~$20-27B) — misses 72% refined+LPG+kondensat.
+  // BPS HS27 2025 actual: $32.77B even when ICP ~$70 avg. 2026 post-Hormuz: $38.8B annualized.
+  // True gap vs APBN implied ~$26B midpoint = $12-17B/yr hidden BoP pressure.
+  // Data source: BPS trade statistics HS27 (minyak, gas, produk pertambangan), verified Apr 2026.
+  // Update when new BPS monthly trade release publishes (~6-8wk lag).
+  {
+    const BPS_2025_ACTUAL = 32.77;      // full-year 2025 BPS actual ($B)
+    const BPS_2026_ANNUALIZED = 38.8;   // Jan-Apr 2026 × 12/4 ($B)
+    const BPS_APR_2026_ALONE = 4.60;    // April 2026 spike ($B, +82.5% YoY)
+    const APBN_IMPLIED = 26;            // APBN $70 ICP-implied bill midpoint ($B) — crude+refined
+    const overrunPct = (BPS_2026_ANNUALIZED - APBN_IMPLIED) / APBN_IMPLIED * 100;
+    const divergenceScore = Math.round(Math.min(100, overrunPct * 1.2));
+    checks.push({
+      dimension: "O&G Import Bill Actual vs APBN Implied (BPS HS27)",
+      officialClaim: `APBN ICP $${APBN_ASSUMPTIONS.oilPrice}/bbl → implied O&G import bill ~$${APBN_IMPLIED}B/yr. Media formula: crude-only (misses 72% refined+LPG component).`,
+      marketSignal: `BPS 2025 actual: $${BPS_2025_ACTUAL}B (at ICP ~$70 avg). 2026 run-rate: ~$${BPS_2026_ANNUALIZED}B (+${overrunPct.toFixed(0)}% vs APBN implied). Apr 2026 alone: $${BPS_APR_2026_ALONE}B (+82.5% YoY, post-Hormuz). Hidden BoP drain: ~$${(BPS_2026_ANNUALIZED - APBN_IMPLIED).toFixed(0)}B/yr above APBN budget. [BPS HS27, last update Apr 2026]`,
+      divergenceScore,
+      flagged: overrunPct > 30,
+    });
+  }
+
   // Compute overall credibility score (inverted average divergence)
   const avgDivergence = checks.length > 0
     ? checks.reduce((s, c) => s + c.divergenceScore, 0) / checks.length

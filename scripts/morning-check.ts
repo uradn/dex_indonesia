@@ -246,13 +246,26 @@ try {
     const trigVal = thesis.triggerIndicator === 'political_risk_score'
       ? (crisis.moduleScores.find(m => m.module === 'political_risk')?.score ?? 0)
       : ((await getLatestPoint(thesis.triggerIndicator))?.value ?? 0);
-    const fired = thesis.triggerDirection === 'above'
+    const primaryFired = thesis.triggerDirection === 'above'
       ? trigVal >= thesis.triggerThreshold
       : trigVal <= thesis.triggerThreshold;
+
+    // Secondary trigger #2: subsidi energi annualized run rate > 135% of APBN Rp87T target
+    const subsidiBbmLpgYtd = (await getLatestPoint('subsidi_energi_ytd_idr_t'))?.value ?? null;
+    const subsidyMonthsNow = new Date().getMonth() + 1;
+    const subsidyRunRatePct = subsidiBbmLpgYtd !== null
+      ? (subsidiBbmLpgYtd / subsidyMonthsNow * 12) / 87 * 100
+      : null;
+    const subsidyFired = subsidyRunRatePct !== null && subsidyRunRatePct >= 135;
+    const fired = primaryFired || subsidyFired;
+
     const daysSince = Math.round((Date.now() - new Date(thesis.createdAt).getTime()) / 86400000);
     console.log(`## Thesis Monitor — ID ${thesis.id} [${thesis.status.toUpperCase()}] (${daysSince}d old)`);
     console.log(`  Divergence: ${thesis.primaryDivergence.replace(/_/g,' ')}`);
-    console.log(`  Trigger: ${thesis.triggerIndicator} ${thesis.triggerDirection} ${thesis.triggerThreshold} | Current: ${trigVal.toFixed(1)} → ${fired ? '🔴 FIRED' : '🟡 ARMED'}`);
+    console.log(`  Trigger #1: ${thesis.triggerIndicator} ${thesis.triggerDirection} ${thesis.triggerThreshold} | Current: ${trigVal.toFixed(1)} → ${primaryFired ? '🔴 FIRED' : '🟡 armed'}`);
+    if (subsidyRunRatePct !== null) {
+      console.log(`  Trigger #2: subsidi_energi run rate ${subsidyRunRatePct.toFixed(0)}% vs APBN 100% → ${subsidyFired ? '🔴 FIRED (>135%)' : '🟡 armed'}`);
+    }
     if (fired && thesis.status === 'armed') {
       await updateThesisStatus(thesis.id!, 'triggered');
       console.log(`  ✓ Status updated: armed → triggered`);
