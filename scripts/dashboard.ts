@@ -1801,6 +1801,10 @@ const BS_HTML = `<!DOCTYPE html>
       <div class="card-title">Kill Switch Status</div>
       <div id="panel-kill">Loading…</div>
     </div>
+    <div class="card" style="border-left:3px solid var(--orange)">
+      <div class="card-title" style="color:var(--orange)">Haye Oil Framework — Delivered Cost & BoP Drain</div>
+      <div id="panel-haye">Loading…</div>
+    </div>
     <div class="card">
       <div class="card-title">Historical Analog</div>
       <div id="panel-analog">Loading…</div>
@@ -2055,6 +2059,64 @@ function renderKill(t, armed, snap) {
   }).join('') + (armed ? \`<div style="margin-top:8px;font-size:10px;color:var(--muted)">auto-kill: #1/#3/#4 via check-thesis.ts Monday 07:30 WIB. #2 = manual only.</div>\` : '');
 }
 
+function renderHaye(snap) {
+  const ind = snap?.indicators ?? {};
+  const brent  = ind['brent_price_usd']?.value ?? null;
+  const dubai  = ind['dubai_crude_spot_usd']?.value ?? null;
+  const spread = ind['brent_dubai_spread_usd']?.value ?? null;
+  const msCv   = ind['narrative_ms_cv_pct']?.value ?? null;
+
+  const L1 = 70, L2 = 80;
+  const L3 = brent;
+  const L4 = dubai != null ? +(dubai + 20).toFixed(1) : null;
+  const maxP = Math.max(L1, L2, L3 ?? L1, L4 ?? L1, 100);
+  const pct = p => p != null ? Math.min(100, Math.round(p / maxP * 100)) : 0;
+  const bg  = c => c==='red'?'var(--red)':c==='orange'?'var(--orange)':c==='yellow'?'var(--yellow)':'rgba(255,255,255,.18)';
+
+  const bCls = brent == null ? '' : brent > 100 ? 'red' : brent > 90 ? 'orange' : brent > 80 ? 'yellow' : 'green';
+  const dCls = L4   == null ? '' : L4 > 120 ? 'red' : L4 > 110 ? 'orange' : L4 > 90 ? 'yellow' : 'green';
+  const bGap = brent != null ? '+'+((brent-L1)/L1*100).toFixed(1)+'% vs APBN' : '';
+  const dGap = L4   != null ? '+'+((L4  -L1)/L1*100).toFixed(1)+'% vs APBN' : '';
+  const spCls   = spread == null ? '' : spread > 10 ? 'red' : spread > 7 ? 'orange' : spread > 3 ? 'yellow' : 'green';
+  const spLabel = spread == null ? '—' : spread > 10 ? 'EXTREME' : spread > 7 ? 'HIGH' : spread > 3 ? 'ELEVATED' : 'NORMAL';
+  const cvCls   = msCv == null ? '' : msCv > 25 ? 'red' : msCv > 15 ? 'orange' : msCv > 8 ? 'yellow' : 'green';
+  const cvLabel = msCv == null ? '—' : msCv > 25 ? 'HIGH DISPERSION — threshold region' : msCv > 15 ? 'ELEVATED — coordination risk' : msCv > 8 ? 'MODERATE' : 'LOW';
+
+  function brow(label, price, note, c) {
+    return \`<div style="margin-bottom:5px">
+      <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px">
+        <span style="color:var(--muted)">\${esc(label)}</span>
+        <span class="\${c}" style="font-weight:600">\${price!=null?'$'+price.toFixed(1)+'/bbl':'—'}\${note?' <span style="color:var(--muted);font-weight:400">'+esc(note)+'</span>':''}</span>
+      </div>
+      <div style="height:8px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden">
+        <div style="height:100%;width:\${pct(price)}%;background:\${bg(c)};border-radius:2px"></div>
+      </div>
+    </div>\`;
+  }
+
+  return \`
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px">4-Level Belief Stack</div>
+    \${brow('L1 — APBN Official', L1, null, 'green')}
+    \${brow('L2 — Stale Analyst Consensus', L2, null, 'yellow')}
+    \${brow('L3 — ICP Actual (Brent proxy)', L3, bGap, bCls)}
+    \${brow('L4 — Pertamina Delivered (Dubai+$20)', L4, dGap, dCls)}
+    <div style="margin-top:10px;font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">Brent-Dubai Spread (Hormuz Proxy)</div>
+    \${kv('B-D Spread', spread!=null?'$'+fmt(spread,1)+'/bbl':'—', spCls)}
+    \${kv('Signal', spLabel, spCls)}
+    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">&lt;$3 normal · $3-7 elevated · $7-10 HIGH · &gt;$10 EXTREME</div>
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">BPS HS27 O&amp;G Import Bill</div>
+    \${kv('2025 Actual', '$32.77B', 'orange')}
+    \${kv('APBN Implied', '$26.0B (crude-only)', 'green')}
+    \${kv('Hidden BoP Gap', '+$6.77B/yr', 'red')}
+    \${kv('2026 Run-Rate', '$38.8B (+49%)', 'red')}
+    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">APBN formula misses 72% refined+LPG. True BoP drain ~$13B/yr above APBN baseline.</div>
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">Morris-Shin CV% (M6)</div>
+    \${kv('CV% Dispersion', msCv!=null?fmt(msCv,1)+'%':'—', cvCls)}
+    \${kv('Regime', cvLabel, cvCls)}
+    <div style="font-size:9px;color:var(--muted)">High CV = low signal precision → coordination attack self-fulfilling. Sudden disclosure collapses CV → discontinuous CDS jump.</div>
+  \`;
+}
+
 function renderMkt(t) {
   if (!t || !t.marketExpression) return '—';
   return \`<table class="mkt-table">
@@ -2269,6 +2331,7 @@ async function loadData() {
     document.getElementById('panel-chain').innerHTML = renderChain(thesis);
     document.getElementById('panel-timeline').innerHTML = renderTimeline(thesis);
     document.getElementById('panel-kill').innerHTML = renderKill(thesis, activeArmed, snap);
+    document.getElementById('panel-haye').innerHTML = renderHaye(snap);
     document.getElementById('panel-mkt').innerHTML = renderMkt(thesis);
     document.getElementById('panel-ev').innerHTML = renderEv(thesis);
     document.getElementById('panel-analog').innerHTML = renderAnalog(thesis);
