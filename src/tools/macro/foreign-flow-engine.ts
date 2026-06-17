@@ -272,13 +272,13 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
 
   // MSCI classification flags
   if (msciStatus === 'under_review') {
-    flags.push(`MSCI June 2026 classification review ongoing — EM status unconfirmed; passive fund uncertainty elevated (+8 score)`);
+    flags.push(`MSCI June 2026 classification review: Global Market Accessibility Review Jun 18; Classification result Jun 23 — EM status unconfirmed until then; passive fund uncertainty elevated (+8 score)`);
     if (idxNetSellingHeavy) flags.push('MSCI uncertainty amplifying foreign equity exit — EIDO weakness = sentiment + passive repositioning (dual cause)');
   } else if (msciStatus === 'downgrade_risk') {
     flags.push('CRITICAL: MSCI Frontier downgrade risk — systematic EM fund forced-sell would dwarf May 2026 rebalancing (+20 score)');
   }
   if (msciRebalancingOutflowUsd !== null) {
-    flags.push(`MSCI May 29 rebalancing: ~$${msciRebalancingOutflowUsd}bn passive outflow (19 companies removed) — explains part of EIDO weakness; June review outcome pending`);
+    flags.push(`MSCI May 29 rebalancing: ~$${msciRebalancingOutflowUsd}bn passive outflow (19 companies removed) — explains part of EIDO weakness; classification result Jun 23 (watch: frontier downgrade = forced-sell > May rebalancing magnitude)`);
   }
 
   const narrative = buildNarrative({ eidoSnap, sbnSnap, divergenceFlag, domesticAbsorptionFlag, silentExitProbability, ssviIndex, ssviPhase });

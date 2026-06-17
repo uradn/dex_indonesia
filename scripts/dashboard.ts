@@ -76,20 +76,30 @@ const SNAPSHOT_INDICATORS = [
   'pihps_daging_sapi_idr', 'pihps_gula_pasir_idr',
   'nickel_price_usd', 'coal_etf_usd', 'cpo_price_myr', 'gold_price_usd',
   'fintech_npl_pct', 'ihsg_pe_ratio', 'idx_advance_decline_ratio',
-  // political risk
+  // political risk (m12)
   'political_social_unrest_score', 'political_food_stress_score', 'political_stability_stress_score',
+  'political_x_social_score', 'political_tavily_social_score',
   // asean fx (IDR + 5 peers)
   'usdmyr_spot', 'usdsgd_spot', 'usdthb_spot', 'usdphp_spot', 'usdvnd_spot',
   // asean fx drivers (unique)
   'usdidr_vol_30d', 'indonesia_pmi_manufacturing', 'indonesia_debt_gdp_pct',
   // m12 macro context (unique)
   'food_inflation_yoy_pct',
-  // rr/gg page
+  // uln/gg page — full indicator set
   'uln_shortterm_pct', 'indonesia_external_debt_bn',
+  'uln_yoy_growth_pct', 'uln_hedging_compliance_pct',
   // m10 subsidi realisasi
   'subsidi_energi_ytd_idr_t', 'subsidi_pupuk_ytd_idr_t',
   // m6 morris-shin signal precision
   'narrative_ms_cv_pct',
+  // m4 eia inventory + rubber (oil shock hedge)
+  'us_crude_stocks_mmbbl', 'natural_rubber_price_usd',
+  // m8 bnpl/fintech lending (npl leading indicator 2-3q lag)
+  'fintech_lending_outstanding_idr_t', 'fintech_lending_growth_yoy_pct',
+  // m10 fiscal monthly realisasi
+  'apbn_revenue_monthly_trn', 'apbn_spending_monthly_trn', 'apbn_budget_balance_monthly_trn',
+  // regime engine
+  'ihsg_level',
 ];
 
 const CHART_INDICATORS = [
