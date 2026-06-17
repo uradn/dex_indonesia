@@ -341,6 +341,16 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
       divergenceScore,
       flagged: cvPct > 12,
     });
+    // Persist CV% for time-series charting (Morris-Shin threshold evolution over time)
+    await upsertPoints([{
+      indicator: 'narrative_ms_cv_pct',
+      category: 'sovereign',
+      date: new Date().toISOString().slice(0, 10),
+      value: parseFloat(cvPct.toFixed(2)),
+      unit: '%',
+      source: 'computed_morris_shin',
+      fetchedAt: new Date().toISOString(),
+    }]);
   }
 
   // Compute overall credibility score (inverted average divergence)

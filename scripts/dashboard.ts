@@ -64,7 +64,8 @@ const SNAPSHOT_INDICATORS = [
   'cds_velocity_bps_week', 'dxy_index', 'vix_level', 'ust_10y_yield_pct',
   'eido_price', 'idx_foreign_net_buy_idr_bn', 'sbn_foreign_ownership_pct',
   'srbi_bid_cover_ratio', 'srbi_outstanding_trn_idr',
-  'brent_price_usd', 'bbm_subsidy_gap_idr_liter', 'bbm_cost_recovery_idr_liter',
+  'brent_price_usd', 'dubai_crude_spot_usd', 'brent_dubai_spread_usd',
+  'bbm_subsidy_gap_idr_liter', 'bbm_cost_recovery_idr_liter',
   'pertalite_price_idr_liter', 'pertamax_price_idr_liter', 'pertamax_green_price_idr_liter',
   'bi_fx_reserves_bn', 'trade_balance_bn',
   'bank_npl_gross_pct', 'bank_car_pct', 'bank_ldr_pct', 'indonia_3m_pct',
@@ -87,6 +88,8 @@ const SNAPSHOT_INDICATORS = [
   'uln_shortterm_pct', 'indonesia_external_debt_bn',
   // m10 subsidi realisasi
   'subsidi_energi_ytd_idr_t', 'subsidi_pupuk_ytd_idr_t',
+  // m6 morris-shin signal precision
+  'narrative_ms_cv_pct',
 ];
 
 const CHART_INDICATORS = [

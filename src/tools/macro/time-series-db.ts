@@ -185,6 +185,15 @@ export async function getLatestModuleScores(): Promise<Record<string, { score: n
   return result;
 }
 
+/** Module score history from macro_scores table (not macro_series). Use for kill switch checks. */
+export async function getModuleScoreHistory(module: string, days: number): Promise<{ date: string; score: number }[]> {
+  const db = await openDb();
+  const since = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+  return db.query<{ score_date: string; score: number }>(
+    `SELECT score_date, score FROM macro_scores WHERE module = ? AND score_date >= ? ORDER BY score_date ASC`,
+  ).all(module, since).map(r => ({ date: r.score_date, score: r.score }));
+}
+
 /** Latest stored USDIDR rate + staleness in days. Returns null if no data in DB. */
 export async function getLatestUsdIdr(): Promise<{ rate: number; date: string; staleDays: number } | null> {
   const point = await getLatestPoint('usdidr_spot');

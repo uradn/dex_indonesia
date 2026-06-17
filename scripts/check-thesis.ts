@@ -9,7 +9,7 @@
  *   - Auto-detects kill switch #1 (political<55 sustained 14d) and #3 (SBN own>13%)
  *   - Writes accuracy report to thesis notes
  */
-import { getAllTheses, updateThesisStatus, getLatestPoint, getHistory } from '../src/tools/macro/time-series-db.js';
+import { getAllTheses, updateThesisStatus, getLatestPoint, getModuleScoreHistory } from '../src/tools/macro/time-series-db.js';
 
 const MILESTONES = [
   { days: 90,  label: 'T+3' },
@@ -39,21 +39,21 @@ async function main() {
     getLatestPoint('indonesia_cds_5y_bps'),
     getLatestPoint('usdidr_spot'),
     getLatestPoint('sbn_10y_yield_pct'),
-    getHistory('political_risk_score', 20),  // last 20 days for kill switch #1
+    getModuleScoreHistory('political_risk', 20),  // macro_scores table, not macro_series
     getLatestPoint('sbn_foreign_ownership_pct'),
   ]);
 
-  const cdsActual   = cdsPoint?.value ?? null;
-  const idrActual   = idrPoint?.value ?? null;
-  const sbnActual   = sbnPoint?.value ?? null;
+  const cdsActual    = cdsPoint?.value ?? null;
+  const idrActual    = idrPoint?.value ?? null;
+  const sbnActual    = sbnPoint?.value ?? null;
   const sbnOwnActual = sbnOwnPoint?.value ?? null;
 
-  // Kill switch #1: political_risk_score < 55 for last 14d
+  // Kill switch #1: political_risk module score < 55 for last 14d
   const polLast14 = polScores.filter(p => {
     const age = (today.getTime() - new Date(p.date).getTime()) / 86400000;
     return age <= 14;
   });
-  const killSwitch1Sustained = polLast14.length >= 5 && polLast14.every(p => p.value < 55);
+  const killSwitch1Sustained = polLast14.length >= 5 && polLast14.every(p => p.score < 55);
 
   // Kill switch #3: SBN foreign ownership > 13%
   const killSwitch3 = sbnOwnActual != null && sbnOwnActual > 13;
@@ -105,7 +105,7 @@ async function main() {
     if (killSwitch1Sustained) {
       console.log(`  ✅ #1 FIRED: Political risk < 55 sustained 14d (${polLast14.length} readings)`);
     } else {
-      const minPol = polLast14.length > 0 ? Math.min(...polLast14.map(p => p.value)) : null;
+      const minPol = polLast14.length > 0 ? Math.min(...polLast14.map(p => p.score)) : null;
       console.log(`  ❌ #1 clear: Political risk min ${minPol?.toFixed(0) ?? '—'}/100 over last ${polLast14.length}d (need <55 sustained 14d)`);
     }
     console.log(`  ❌ #2 manual: BI coordinated package — check BI website for announcement`);
