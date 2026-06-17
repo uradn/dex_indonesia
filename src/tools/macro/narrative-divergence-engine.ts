@@ -308,6 +308,41 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     });
   }
 
+  // 13. Morris-Shin Signal Precision Index
+  // Four oil price beliefs float simultaneously in public discourse, creating dispersion:
+  //   L1: $70 APBN official (UU No.17/2025) — state-anchored public signal
+  //   L2: $80 analyst/media focal point (EIA Mar 10 $79 → Kemenkeu Apr 6 → INDEF sensitivity)
+  //   L3: ICP actual (live Brent proxy — CNBC Jun 9: Jan-May 2026 avg = $91.86)
+  //   L4: Full delivered cost = Dubai spot + MOPS/LPG/freight ~$20/bbl premium (BPS-verified)
+  // CV = σ/μ across 4 levels. High CV → low public signal precision (τ_z) → Morris-Shin (2002):
+  //   when τ_z < threshold, coordination attack self-fulfilling regardless of fundamentals.
+  // "Sudden revelation" events (Pertamina loss disclosure, APBN Kita quarterly release)
+  //   collapse dispersion instantly → discontinuous CDS jump. CDS velocity (M2) = observable proxy.
+  {
+    const l1 = APBN_ASSUMPTIONS.oilPrice;                            // $70 official
+    const l2 = 80;                                                    // $80 stale consensus
+    const brentLive = (await getLatestPoint('brent_price_usd'))?.value ?? null;
+    const l3 = brentLive ?? 91.86;                                    // ICP actual (Brent proxy)
+    const l4 = (dubaiData?.dubaiPriceUsd ?? l3 - 1.5) + 20;         // Dubai + MOPS+freight
+    const levels = [l1, l2, l3, l4];
+    const mean = levels.reduce((s, v) => s + v, 0) / levels.length;
+    const variance = levels.reduce((s, v) => s + (v - mean) ** 2, 0) / levels.length;
+    const cvPct = (Math.sqrt(variance) / mean) * 100;
+    const divergenceScore = Math.round(Math.min(100, cvPct * 4));
+    const fragility =
+      cvPct > 20 ? 'EXTREME — self-fulfilling attack threshold (Morris-Shin)' :
+      cvPct > 15 ? 'HIGH — fragile equilibrium, sudden revelation risk' :
+      cvPct > 10 ? 'ELEVATED — dispersion above warning threshold' :
+                   'LOW — belief stack reasonably aligned';
+    checks.push({
+      dimension: 'Oil Price Belief Dispersion — Morris-Shin Signal Precision',
+      officialClaim: `APBN $${l1}/bbl official anchor. Media/analyst consensus ~$${l2} (EIA Mar 10, Kemenkeu Apr 6). Government: "APBN macro assumptions adequate."`,
+      marketSignal: `4-level belief stack: $${l1} APBN | $${l2} analyst | $${l3.toFixed(1)} ICP actual | $${l4.toFixed(1)} full-cost (Dubai+MOPS+freight). CV=${cvPct.toFixed(1)}% → precision index ${Math.max(0, 100 - Math.round(cvPct * 4))}/100. ${fragility}. Revelation risk: Pertamina loss or APBN Kita data → dispersion collapse → CDS jump.`,
+      divergenceScore,
+      flagged: cvPct > 12,
+    });
+  }
+
   // Compute overall credibility score (inverted average divergence)
   const avgDivergence = checks.length > 0
     ? checks.reduce((s, c) => s + c.divergenceScore, 0) / checks.length
