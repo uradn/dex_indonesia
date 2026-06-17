@@ -76,6 +76,8 @@ export interface FxDefenseEngineOutput {
   usdIdrVol30d: IndicatorSnapshot;
   fxReserves: IndicatorSnapshot;
   reserveBurnRate: number | null;
+  dndfOutstandingBn: number | null;       // BI DNDF contingent liability (USD bn, off-balance-sheet)
+  effectiveReserveBn: number | null;      // cadev − DNDF = true firing power
   srbiOutstanding: IndicatorSnapshot | null;
   srbiSterilizationRatio: number | null;  // SRBI outstanding / FX reserves in IDR — >0.5 = stretched
   srbiAuction: import('./sources/srbi-auction.js').SrbiAuctionData | null;

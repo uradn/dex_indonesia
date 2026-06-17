@@ -78,6 +78,10 @@ if (fx.status === 'fulfilled') {
   const res = r.fxReserves?.current;
   console.log(`### 1. FX Defense  ${emoji(r.scoreCard.alertLevel)} ${r.scoreCard.score}/100`);
   console.log(`  USDIDR: ${spot?.toLocaleString() ?? 'n/a'} | Vol 30d: ${vol?.toFixed(2) ?? 'n/a'}% | Reserves: ${res?.toFixed(1) ?? 'n/a'} bn USD`);
+  if (r.dndfOutstandingBn !== null) {
+    const dndfPct = res !== undefined && res > 0 ? ((r.dndfOutstandingBn / res) * 100).toFixed(0) : 'n/a';
+    console.log(`  DNDF: $${r.dndfOutstandingBn.toFixed(1)}bn contingent (${dndfPct}% of cadev) → effective reserves $${r.effectiveReserveBn?.toFixed(1) ?? 'n/a'}bn`);
+  }
   if (r.pseudoStabilityFlag) console.log('  ⚠️  PSEUDO-STABILITY: low vol while reserves depleting');
   for (const f of r.scoreCard.flags ?? []) console.log(`  ⚠️  ${f}`);
 } else {

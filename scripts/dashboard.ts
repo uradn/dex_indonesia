@@ -103,6 +103,10 @@ const SNAPSHOT_INDICATORS = [
   'apbn_revenue_monthly_trn', 'apbn_spending_monthly_trn', 'apbn_budget_balance_monthly_trn',
   // regime engine
   'ihsg_level',
+  // m3 dndf — off-balance-sheet FX contingent liability
+  'bi_dndf_outstanding_bn',
+  // m5 msci classification — auto-detected post-Jun23 (0=confirmed, 1=under_review, 2=frontier)
+  'msci_classification_numeric',
 ];
 
 const CHART_INDICATORS = [
@@ -351,9 +355,10 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
 
   // ── Kill conditions ───────────────────────────────────────────────────────────
   const killConditions = [
-    `Political risk score drops below 55 for 14 consecutive days (Demo BBM resolves without policy response)`,
-    `BI announces coordinated package: fiscal support letter + reserves defense ≥$5bn + BI Rate guidance stable`,
-    `MSCI confirms Indonesia EM retention (June 2026 review) AND SBN foreign ownership stabilizes above 13%`,
+    `#1 — Political risk < 55 sustained 14d (social contract stress eased; BBM demo resolves)`,
+    `#2 — BI announces coordinated stabilization package (fiscal letter + reserves defense ≥$5bn + rate guidance) [MANUAL CONFIRM]`,
+    `#3 — SBN foreign ownership > 13% (capital return; inflows reversed crisis narrative)`,
+    `#4 — CDS 5Y < 100bps sustained 7d (market stopped pricing crisis; thesis invalidated)`,
   ];
 
   // ── Transmission chain ────────────────────────────────────────────────────────
@@ -1430,6 +1435,8 @@ function renderGG(d) {
   const ind = d.indicators;
   const gg      = ind['greenspan_guidotti']?.value ?? null;
   const res     = ind['bi_fx_reserves_bn']?.value ?? null;
+  const dndf    = ind['bi_dndf_outstanding_bn']?.value ?? null;
+  const effRes  = (res != null && dndf != null) ? +(res - dndf).toFixed(1) : null;
   const dsr     = ind['uln_dsr_pct']?.value ?? null;
   const ulnGdp  = ind['uln_gdp_ratio_pct']?.value ?? null;
   const stPct   = ind['uln_shortterm_pct']?.value ?? null;
@@ -1438,6 +1445,9 @@ function renderGG(d) {
   const rg      = (sbn != null && gdp != null) ? +(sbn - gdp).toFixed(2) : null;
   const extDebt = ind['indonesia_external_debt_bn']?.value ?? null;
   const stDebt  = (extDebt != null && stPct != null) ? +(extDebt * stPct / 100).toFixed(1) : null;
+  // Adjusted GG using effective reserves (cadev − DNDF)
+  const adjGG   = (effRes != null && stDebt != null && stDebt > 0) ? +(effRes / stDebt).toFixed(2) : null;
+  const adjGGCls = adjGG != null ? (adjGG < 1.0 ? 'red' : adjGG < 1.5 ? 'orange' : adjGG < 2.0 ? 'yellow' : 'green') : '';
 
   const ggCls  = gg != null ? (gg < 1.0 ? 'red' : gg < 1.5 ? 'orange' : gg < 2.0 ? 'yellow' : 'green') : '';
   const ggLbl  = gg != null ? (gg < 1.0 ? 'KRITIS' : gg < 1.5 ? 'Elevated' : gg < 2.0 ? 'Watch' : 'Aman') : '—';
@@ -1471,7 +1481,10 @@ function renderGG(d) {
         <div style="font-size:9px;color:var(--muted);margin-top:3px">Threshold kritis: &lt;1.0x</div>
       </div>
     </div>
-    \${kv('FX Reserves', res ? '$'+fmtNum(res,1)+'bn' : '—')}
+    \${kv('FX Reserves (published)', res ? '$'+fmtNum(res,1)+'bn' : '—')}
+    \${dndf != null ? kv('DNDF Outstanding', '-$'+fmtNum(dndf,1)+'bn (off-balance-sheet)', 'orange') : ''}
+    \${effRes != null ? kv('Effective Reserves', '$'+fmtNum(effRes,1)+'bn (cadev − DNDF)', effRes < 100 ? 'red' : effRes < 120 ? 'orange' : 'green') : ''}
+    \${adjGG != null ? kv('GG Adjusted (eff.)', fmtNum(adjGG,2)+'x vs published '+fmtNum(gg,2)+'x', adjGGCls) : ''}
     \${kv('External Debt', extDebt ? '$'+fmtNum(extDebt,1)+'bn' : '—')}
     \${kv('Short-term ULN', stDebt ? '$'+fmtNum(stDebt,1)+'bn ('+fmtNum(stPct,1)+'%)' : stPct ? stPct+'%' : '—')}
     \${kv('ULN DSR', dsr ? fmtNum(dsr,2)+'%' : '—', dsrCls)}
@@ -2013,20 +2026,33 @@ function renderTimeline(t) {
   </div>\`;
 }
 
-function renderKill(t, armed) {
+function renderKill(t, armed, snap) {
   if (!t || !t.killConditions) return '—';
-  // Check kill conditions live vs current data (simplified: political drop = kill #1)
-  const polScore = t.transmissionChain?.[0]?.score ?? 0;
-  const killFired = [polScore < 55, false, false]; // #2 and #3 require manual check
+  const ind = snap?.indicators ?? {};
+  // Live checks — #1 from transmission chain, #3/#4 from snapshot indicators
+  const polScore  = t.transmissionChain?.[0]?.score ?? 999;
+  const sbnOwn    = ind['sbn_foreign_ownership_pct']?.value ?? null;
+  const cds       = ind['indonesia_cds_5y_bps']?.value ?? null;
+  // #4 uses current point only (sustained check done in check-thesis.ts; here = early indicator)
+  const killFired = [
+    polScore < 55,
+    false,                              // #2: manual confirm always required
+    sbnOwn != null && sbnOwn > 13,
+    cds != null && cds < 100,
+  ];
+  const manualOnly = [false, true, false, false];
   return t.killConditions.map((k, i) => {
     const fired = killFired[i];
-    const icon = fired ? '✅' : '❌';
-    const color = fired ? 'var(--green)' : 'var(--muted)';
+    const manual = manualOnly[i];
+    const icon = manual ? '🔍' : fired ? '✅' : '❌';
+    const color = fired ? 'var(--green)' : manual ? 'var(--yellow)' : 'var(--muted)';
+    const badge = fired ? \` — <b style="color:var(--red)">KILL SWITCH FIRED</b>\`
+      : manual ? \` — <span style="color:var(--yellow)">manual confirm required</span>\` : '';
     return \`<div class="kill-row">
       <span class="kill-icon">\${icon}</span>
-      <span style="color:\${color}">\${esc(k)}\${fired ? ' — <b style=\\"color:var(--red)\\">KILL SWITCH FIRED</b>' : ''}</span>
+      <span style="color:\${color}">\${esc(k)}\${badge}</span>
     </div>\`;
-  }).join('') + (armed ? \`<div style="margin-top:8px;font-size:10px;color:var(--muted)">Kill switch #2 and #3 require manual review. Mark killed via action button.</div>\` : '');
+  }).join('') + (armed ? \`<div style="margin-top:8px;font-size:10px;color:var(--muted)">auto-kill: #1/#3/#4 via check-thesis.ts Monday 07:30 WIB. #2 = manual only.</div>\` : '');
 }
 
 function renderMkt(t) {
@@ -2207,9 +2233,10 @@ async function killThesis(id) {
 
 async function loadData() {
   try {
-    const [thesis, archive] = await Promise.all([
+    const [thesis, archive, snap] = await Promise.all([
       fetch('/api/thesis/compute').then(x => x.json()),
       fetch('/api/thesis/all').then(x => x.json()),
+      fetch('/api/snapshot').then(x => x.json()),
     ]);
     currentThesis = thesis;
     activeArmed = archive.find(t => t.status === 'armed' || t.status === 'triggered') ?? null;
@@ -2241,7 +2268,7 @@ async function loadData() {
     document.getElementById('panel-trigger').innerHTML = renderTrigger(thesis);
     document.getElementById('panel-chain').innerHTML = renderChain(thesis);
     document.getElementById('panel-timeline').innerHTML = renderTimeline(thesis);
-    document.getElementById('panel-kill').innerHTML = renderKill(thesis, activeArmed);
+    document.getElementById('panel-kill').innerHTML = renderKill(thesis, activeArmed, snap);
     document.getElementById('panel-mkt').innerHTML = renderMkt(thesis);
     document.getElementById('panel-ev').innerHTML = renderEv(thesis);
     document.getElementById('panel-analog').innerHTML = renderAnalog(thesis);

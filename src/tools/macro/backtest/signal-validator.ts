@@ -230,7 +230,7 @@ export function formatBacktestReport(result: BacktestResult): string {
     }),
     ``,
     `_Note: Sovereign CDS from WorldGovernmentBonds.com (Playwright). Data starts Sep 2018 — pre-2018 crises use neutral sovereign baseline._`,
-    `_SBN yield historical not yet wired. Configure Bloomberg (BLOOMBERG_API_URL) for SBN sovereign signals._`,
+    `_SBN 10Y yield from WGB Playwright (\`bond-historical-data/indonesia/10-years/\`). Coverage from Sep 2016 — contributes to 2018/2020/2022/2023 crises. Pre-2016 crises (2013/2015) use neutral sovereign baseline (score 30)._`,
   ];
 
   return lines.filter((l) => l !== '').join('\n');

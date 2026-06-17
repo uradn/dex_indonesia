@@ -8,6 +8,7 @@ import { fetchBiFxReserves, fetchSrbiOutstanding } from './sources/bi.js';
 import { fetchBbgFxReserves, bloombergAvailable } from './sources/bloomberg.js';
 import { fetchUsdIdrRdp, refinitivAvailable } from './sources/refinitiv.js';
 import { fetchSrbiAuction, formatSrbiAuction } from './sources/srbi-auction.js';
+import { fetchDndf } from './sources/dndf.js';
 import type { FxDefenseEngineOutput, ShadowRateData, ConfidenceGateData, IndicatorSnapshot, AlertLevel } from './types.js';
 import type { SrbiAuctionData } from './sources/srbi-auction.js';
 
@@ -63,10 +64,11 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   reservePoint ??= await fetchBiFxReserves();
   if (reservePoint) await upsertPoints([reservePoint]);
 
-  // 4. SRBI outstanding + weekly auction demand (Exa/Tavily — capital flow proxy)
-  const [srbiPoint, srbiAuction] = await Promise.all([
+  // 4. SRBI outstanding + weekly auction demand (Exa/Tavily — capital flow proxy) + DNDF
+  const [srbiPoint, srbiAuction, dndfData] = await Promise.all([
     fetchSrbiOutstanding(),
     fetchSrbiAuction(),
+    fetchDndf(),
   ]);
   if (srbiPoint) await upsertPoints([srbiPoint]);
 
@@ -81,6 +83,12 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
 
   const currentReserve = await getLatestPoint('bi_fx_reserves_bn');
   const prevReserve = (await getLastN('bi_fx_reserves_bn', 3)).slice(-2)[0] ?? null;
+
+  // Effective reserves = cadev − DNDF outstanding (contingent USD liability)
+  const dndfOutstandingBn = dndfData?.outstandingBn ?? null;
+  const effectiveReserveBn = currentReserve && dndfOutstandingBn !== null
+    ? parseFloat((currentReserve.value - dndfOutstandingBn).toFixed(1))
+    : currentReserve?.value ?? null;
 
   const currentSrbi = await getLatestPoint('srbi_outstanding_trn_idr');
   const prevSrbi = (await getLastN('srbi_outstanding_trn_idr', 3)).slice(-2)[0] ?? null;
@@ -148,9 +156,14 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     : null;
 
   // Pseudo-stability: IDR volatility low but reserves depleting fast
+  // Enhanced: DNDF rising while cadev stable = off-balance-sheet intervention masking true pressure
+  const dndfPrevPoint = (await getLastN('bi_dndf_outstanding_bn', 3)).slice(-2)[0] ?? null;
+  const dndfRising = dndfOutstandingBn !== null && dndfPrevPoint !== null
+    && dndfOutstandingBn > dndfPrevPoint.value * 1.05; // >5% increase
+  const cadevStable = reserveSnapshot !== null && Math.abs(reserveSnapshot.roc) < 2;
   const pseudoStabilityFlag =
-    (volSnapshot?.current ?? 10) < 8 &&
-    (reserveSnapshot?.roc ?? 0) < -3;
+    ((volSnapshot?.current ?? 10) < 8 && (reserveSnapshot?.roc ?? 0) < -3)
+    || (dndfRising && cadevStable && (volSnapshot?.current ?? 10) < 10);
 
   // Depreciation metrics
   const dep3m = spot3MoAgo
@@ -178,7 +191,9 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   if (currentReserve && reserveBurnRate !== null && reserveBurnRate > 0 && shortTermUlnBn !== null) {
     const monthlyBurn = currentReserve.value / reserveBurnRate;
     if (monthlyBurn > 0) {
-      const bufferAboveFloor = currentReserve.value - shortTermUlnBn;
+      // Use effective reserves (cadev − DNDF) so shadow rate reflects true firing power
+      const adjReserves = effectiveReserveBn ?? currentReserve.value;
+      const bufferAboveFloor = adjReserves - shortTermUlnBn;
       monthsToGgBreach = bufferAboveFloor > 0
         ? parseFloat((bufferAboveFloor / monthlyBurn).toFixed(1))
         : 0;
@@ -235,7 +250,27 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   let alertLevel = alertFromScore(score);
   const flags = detectFlags(validSnapshots);
 
-  if (pseudoStabilityFlag) flags.push('PSEUDO-STABILITY: Low vol but reserves depleting — surface calm may be deceptive');
+  if (pseudoStabilityFlag) {
+    if (dndfRising && cadevStable) {
+      flags.push('PSEUDO-STABILITY (DNDF): cadev flat but DNDF rising — BI shifting intervention off-balance-sheet; effective reserves lower than published figure');
+    } else {
+      flags.push('PSEUDO-STABILITY: Low vol but reserves depleting — surface calm may be deceptive');
+    }
+  }
+
+  // DNDF contingent liability flag
+  if (dndfOutstandingBn !== null && currentReserve) {
+    const dndfPct = (dndfOutstandingBn / currentReserve.value) * 100;
+    if (dndfPct >= 15) {
+      flags.push(`DNDF CONTINGENT LIABILITY: $${dndfOutstandingBn.toFixed(1)}bn (${dndfPct.toFixed(0)}% of published cadev) — effective reserves $${effectiveReserveBn?.toFixed(1) ?? 'n/a'}bn vs headline $${currentReserve.value.toFixed(1)}bn [off-balance-sheet, not in official cadev]`);
+    } else if (dndfPct >= 7) {
+      flags.push(`DNDF forward position: $${dndfOutstandingBn.toFixed(1)}bn (${dndfPct.toFixed(0)}% of cadev) — effective reserves $${effectiveReserveBn?.toFixed(1) ?? 'n/a'}bn`);
+    }
+    if (dndfRising) {
+      flags.push(`DNDF RISING: BI increasing off-balance-sheet FX commitments — watch for cadev drawdown when contracts mature`);
+    }
+  }
+
   if (biInterventionProxy === 'active_sterilized') flags.push('BI active sterilized intervention detected (reserves↓ + SRBI↑)');
   if (reserveBurnRate !== null && reserveBurnRate < 6) flags.push(`Reserve runway <6 months at current burn rate: ${reserveBurnRate.toFixed(1)} months`);
 
@@ -355,6 +390,8 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     usdIdrVol30d: volSnapshot ?? placeholderSnapshot('usdidr_vol_30d', '%_annualized'),
     fxReserves: reserveSnapshot ?? placeholderSnapshot('bi_fx_reserves_bn', 'bn_USD'),
     reserveBurnRate,
+    dndfOutstandingBn,
+    effectiveReserveBn,
     srbiOutstanding: srbiSnapshot,
     srbiSterilizationRatio,
     srbiAuction: srbiAuction ?? null,
@@ -415,10 +452,13 @@ function placeholderSnapshot(indicator: string, unit: string): IndicatorSnapshot
 }
 
 function formatOutput(output: FxDefenseEngineOutput): string {
-  const { scoreCard, reserveBurnRate, biInterventionProxy, pseudoStabilityFlag, interventionSustainability, srbiSterilizationRatio } = output;
+  const { scoreCard, reserveBurnRate, biInterventionProxy, pseudoStabilityFlag, interventionSustainability, srbiSterilizationRatio, dndfOutstandingBn, effectiveReserveBn } = output;
   const srbiRatioStr = srbiSterilizationRatio !== null
     ? `${(srbiSterilizationRatio * 100).toFixed(1)}% ${srbiSterilizationRatio > 0.50 ? '⚠️ CRITICAL' : srbiSterilizationRatio > 0.35 ? '— elevated' : '— normal'}`
     : 'n/a';
+  const dndfStr = dndfOutstandingBn !== null
+    ? `$${dndfOutstandingBn.toFixed(1)}bn (effective cadev: $${effectiveReserveBn?.toFixed(1) ?? 'n/a'}bn)`
+    : 'n/a (not found in search)';
   return [
     `# FX Defense Engine — Indonesia`,
     `**Date:** ${scoreCard.scoreDate}`,
@@ -439,6 +479,7 @@ function formatOutput(output: FxDefenseEngineOutput): string {
     `- **Intervention Sustainability:** ${interventionSustainability.toUpperCase()}`,
     `- **Reserve Burn Rate:** ${reserveBurnRate !== null ? `${reserveBurnRate.toFixed(1)} months` : 'n/a'}`,
     `- **SRBI/Reserve Ratio:** ${srbiRatioStr}`,
+    `- **DNDF Outstanding:** ${dndfStr} _(contingent liability, off-balance-sheet — reduces true firing power)_`,
     `- **Pseudo-Stability Flag:** ${pseudoStabilityFlag ? '⚠️ YES — covert reserve depletion detected' : 'No'}`,
     output.srbiAuction ? `- **SRBI Auction Demand:** ${formatSrbiAuction(output.srbiAuction).join(' | ')}` : '',
     ``,

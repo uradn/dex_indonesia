@@ -6,6 +6,7 @@ import { buildSnapshot, compositeScore, alertFromScore, alertLabel } from './sco
 import { fetchEidoProxy } from './sources/yahoo-macro.js';
 import { fetchSbnForeignOwnership } from './sources/bi.js';
 import { fetchIdxForeignNetFlow } from './sources/idx.js';
+import { fetchMsciClassification } from './sources/msci-classification.js';
 import type { AlertLevel, IndicatorSnapshot, ModuleScoreCard } from './types.js';
 
 export const FOREIGN_FLOW_DESCRIPTION = `
@@ -112,10 +113,12 @@ function computeSsvi(components: SsviComponents): { index: number; phase: Sudden
 }
 
 export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
-  // MSCI classification risk — update MSCI_CLASSIFICATION_STATUS when review outcome changes
+  // MSCI classification risk — auto-detected via Exa/Tavily after Jun 23 result date.
+  // Falls back to env var MSCI_CLASSIFICATION_STATUS if search unavailable.
   // 'confirmed': EM status secure | 'under_review': evaluation ongoing | 'downgrade_risk': downgrade likely
   // MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN: passive outflow from May 29 rebalancing (19 cos removed)
-  const msciStatus = (process.env.MSCI_CLASSIFICATION_STATUS ?? 'confirmed') as 'confirmed' | 'under_review' | 'downgrade_risk';
+  const msciResult = await fetchMsciClassification();
+  const msciStatus = msciResult.status;
   const msciRebalancingOutflowUsd = process.env.MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN
     ? parseFloat(process.env.MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN)
     : null;
