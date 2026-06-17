@@ -239,6 +239,27 @@ if (crisis.stressVectors.length > 0) {
 }
 console.log(`\n${BAR}\n`);
 
+// ─── MORRIS-SHIN CROSS-SIGNAL ─────────────────────────────────────────────
+// Fires when M6 belief dispersion (CV>12%) AND M2 CDS velocity (>3bps/wk) both active.
+// That combination = public signal precision τ_z breached + market already repricing =
+// self-fulfilling coordination attack threshold, not just latent stress.
+{
+  const msCvFlagged = narrative.status === 'fulfilled'
+    && narrative.value.checks.some(c => c.dimension.includes('Morris-Shin') && c.flagged);
+  const cdsVelFlagged = sov.status === 'fulfilled'
+    && (sov.value.cdsVelocity?.bpsPerWeek ?? 0) > 3;
+
+  if (msCvFlagged && cdsVelFlagged) {
+    const vel = sov.value.cdsVelocity!;
+    const countdown = vel.daysTo200 !== null ? ` — 200bps watch zone in ~${vel.daysTo200}d` : '';
+    console.log(`\n${'⚠️ '.repeat(3)} MORRIS-SHIN THRESHOLD ALERT ${'⚠️ '.repeat(3)}`);
+    console.log(`  Oil price belief dispersion (CV>12%) + CDS repricing (+${vel.bpsPerWeek.toFixed(1)}bps/wk${countdown})`);
+    console.log(`  Self-fulfilling attack threshold: low signal precision × active market move.`);
+    console.log(`  Catalyst watch: Pertamina loss disclosure, APBN Kita quarterly, Pertamina import cost report.`);
+    console.log(`  → Monitor M2 CDS velocity daily. Any sudden revelation → discontinuous CDS jump.\n`);
+  }
+}
+
 // ─── THESIS TRIGGER CHECK ─────────────────────────────────────────────────
 try {
   const thesis = await getLatestThesis();
