@@ -2104,12 +2104,17 @@ function renderHaye(snap) {
     \${kv('B-D Spread', spread!=null?'$'+fmt(spread,1)+'/bbl':'—', spCls)}
     \${kv('Signal', spLabel, spCls)}
     <div style="font-size:9px;color:var(--muted);margin-bottom:8px">&lt;$3 normal · $3-7 elevated · $7-10 HIGH · &gt;$10 EXTREME</div>
-    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">BPS HS27 O&amp;G Import Bill</div>
-    \${kv('2025 Actual', '$32.77B', 'orange')}
-    \${kv('APBN Implied', '$26.0B (crude-only)', 'green')}
-    \${kv('Hidden BoP Gap', '+$6.77B/yr', 'red')}
-    \${kv('2026 Run-Rate', '$38.8B (+49%)', 'red')}
-    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">APBN formula misses 72% refined+LPG. True BoP drain ~$13B/yr above APBN baseline.</div>
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">BPS Impor Migas — Komposisi 2025</div>
+    \${kv('Total 2025', '$32.77B', 'orange')}
+    \${kv('Crude (28%)', '$9.31B', 'yellow')}
+    \${kv('Refined + LPG (72%)', '$23.46B', 'red')}
+    \${kv('2026 Run-Rate', '$38.8B (+49% YoY)', 'red')}
+    \${kv('Apr 2026 YoY', '+82.5% (crude +67%, refined +88%)', 'red')}
+    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">Crude = 28% saja. 72% adalah refined+LPG — tidak terlihat dalam formula publik berbasis ICP crude. Migas BPS tidak termasuk batubara (non-migas).</div>
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">Subsidi BBM+LPG Realisasi 2026</div>
+    \${kv('APBN Target (full-year)', 'Rp 105.4T', 'green')}
+    \${kv('Realisasi Q1 (Jan–Mar)', 'Rp 118.7T (+266%)', 'red')}
+    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">3 bulan sudah lewati target tahunan. Price shock Hormuz → subsidi blow-through → fiscal constraint binding.</div>
     <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">Morris-Shin CV% (M6)</div>
     \${kv('CV% Dispersion', msCv!=null?fmt(msCv,1)+'%':'—', cvCls)}
     \${kv('Regime', cvLabel, cvCls)}
