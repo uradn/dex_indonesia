@@ -252,12 +252,13 @@ SOLAR_PRICE_IDR            # default 6800
 PERTAMAX_PRICE_IDR         # default 16250 (non-subsidi, +Rp3,950 Jun 10 2026)
 PERTAMAX_GREEN_PRICE_IDR   # default 17000 (RON 95, +Rp4,100 Jun 10 2026)
 
-# BI DNDF outstanding — quarterly manual update (no automated scrape path exists)
-# BI SULNI PDF is JS-rendered and not machine-readable; DNDF notional absent from public news.
-# Source: BI SULNI PDF at bi.go.id/id/statistik/statistik-utang-luar-negeri-indonesia
-#   Open latest quarterly PDF → search "DNDF" or "forward" → find USD notional (bn).
-# Historical: 2018 peak ~$17bn; 2023 ~$5-10bn; 2026 H1 (active IDR defense) est. $10-15bn.
-# Update when BI publishes new quarterly SULNI (Jan/Apr/Jul/Oct).
+# BI DNDF outstanding — annual manual update (no automated scrape path exists)
+# DNDF NOT in SULNI (SULNI = external debt stats only). DNDF is on BI's OWN balance sheet.
+# Source: BI Laporan Keuangan Tahunan (LKT) — neraca BI + catatan instrumen derivatif.
+#   Published Mar–Apr each year for prior fiscal year. Note number varies year-to-year.
+#   Satu-satunya sumber resmi; tidak ada publikasi bulanan/mingguan DNDF outstanding.
+# Historical: 2018 peak ~$17bn; 2023 ~$5-10bn; 2026 H1 (active IDR defense) est. $8-12bn.
+# Update when BI publishes LKT (Mar/Apr annually for prior year). Current: est. Jun 2026.
 BI_DNDF_OUTSTANDING_BN     # USD billion — effectiveReserves = cadev − DNDF in FX Defense engine
 
 # LangSmith tracing (optional)
