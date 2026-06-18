@@ -47,15 +47,15 @@ async function fetchText(url: string, timeoutMs = 10_000): Promise<string | null
 }
 
 /**
- * Fetch FX reserves — BI website scraper with World Bank GEM API fallback.
- * Returns the latest available monthly figure (bn USD).
+ * Fetch FX reserves — 3-tier fallback chain.
  *
  * Priority:
- *   1. BI website scraper (real-time, but breaks when site changes)
- *   2. World Bank GEM API (monthly JSON, ~1-2 month lag, always works)
+ *   1. BI SEKI I1 Playwright scraper (real-time, breaks when site changes)
+ *   2. World Bank GEM API source=15 (BROKEN as of Jun 2026 — returns zeros for 2025-2026)
+ *   3. Trading Economics scrape (monthly, ~1-month BI publication lag, reliable)
  */
 export async function fetchBiFxReserves(): Promise<MacroDataPoint | null> {
-  // Try BI's SEKI table I1 — plain fetch first, Playwright fallback if blocked
+  // Tier 1: BI SEKI I1 — plain fetch first, Playwright fallback if blocked
   let html = await fetchText(BI_RESERVES_URL);
   if (!html) html = await fetchHtmlWithBrowser(BI_RESERVES_URL);
   if (html) {
@@ -79,14 +79,91 @@ export async function fetchBiFxReserves(): Promise<MacroDataPoint | null> {
     }
   }
 
-  // Fallback: World Bank GEM API (free, monthly, confirmed working)
+  // Tier 2: World Bank GEM API — NOTE: source=15 returns zeros for 2025-2026 (broken as of Jun 2026)
   try {
     const wbPoints = await fetchBiFxReservesWorldBank(6);
-    if (wbPoints.length > 0) {
-      return wbPoints[wbPoints.length - 1]; // most recent
+    const nonZero = wbPoints.filter(p => p.value > 0);
+    if (nonZero.length > 0) {
+      return nonZero[nonZero.length - 1]!;
     }
   } catch {
     // ignore
+  }
+
+  // Tier 3: Trading Economics scrape — source: Bank Indonesia, monthly, ~1-month lag
+  try {
+    const te = await fetchFxReservesTe();
+    if (te) return te;
+  } catch {
+    // ignore
+  }
+
+  return null;
+}
+
+/**
+ * Fetch FX reserves from Trading Economics.
+ * Source data: Bank Indonesia, monthly, published ~4-6 weeks after reference month.
+ * Pattern: "Foreign Exchange Reserves in Indonesia increased to 151890.00 USD Million in April of 2026"
+ */
+async function fetchFxReservesTe(): Promise<MacroDataPoint | null> {
+  const text = await fetchRenderedTextWithBrowser(
+    'https://tradingeconomics.com/indonesia/foreign-exchange-reserves',
+  );
+  if (!text) return null;
+
+  const MONTHS: Record<string, string> = {
+    january: '01', february: '02', march: '03', april: '04',
+    may: '05', june: '06', july: '07', august: '08',
+    september: '09', october: '10', november: '11', december: '12',
+  };
+
+  // Primary: prose sentence pattern
+  const prose = text.match(
+    /Foreign Exchange Reserves in Indonesia (?:increased|decreased|remained unchanged) (?:to|at)\s+([\d,]+\.?\d*)\s+USD Million\s+in\s+(?:the\s+)?(\w+)\s+of\s+(\d{4})/i,
+  );
+  if (prose) {
+    const val = parseFloat(prose[1]!.replace(/,/g, '')) / 1000;
+    const monthName = prose[2]!.toLowerCase();
+    const year = prose[3]!;
+    const mm = MONTHS[monthName];
+    if (mm && val > 50 && val < 500) {
+      const lastDay = new Date(parseInt(year), parseInt(mm), 0).getDate();
+      return {
+        indicator: 'bi_fx_reserves_bn',
+        category: 'bop' as MacroDataPoint['category'],
+        date: `${year}-${mm}-${String(lastDay).padStart(2, '0')}`,
+        value: parseFloat(val.toFixed(2)),
+        unit: 'bn_USD',
+        source: 'trading_economics_scrape',
+        fetchedAt: NOW(),
+      };
+    }
+  }
+
+  // Fallback: table pattern "Foreign Exchange Reserves  151890  148200  USD Million  Apr/26"
+  const table = text.match(/Foreign Exchange Reserves\s+([\d,.]+)\s+[\d,.]+\s+USD Million\s+(\w{3})\/(\d{2,4})/i);
+  if (table) {
+    const val = parseFloat(table[1]!.replace(/,/g, '')) / 1000;
+    const mon = table[2]!;
+    const yr = table[3]!.length === 2 ? `20${table[3]}` : table[3]!;
+    const monthMap: Record<string, string> = {
+      Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',
+      Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12',
+    };
+    const mm = monthMap[mon];
+    if (mm && val > 50 && val < 500) {
+      const lastDay = new Date(parseInt(yr), parseInt(mm), 0).getDate();
+      return {
+        indicator: 'bi_fx_reserves_bn',
+        category: 'bop' as MacroDataPoint['category'],
+        date: `${yr}-${mm}-${String(lastDay).padStart(2, '0')}`,
+        value: parseFloat(val.toFixed(2)),
+        unit: 'bn_USD',
+        source: 'trading_economics_scrape',
+        fetchedAt: NOW(),
+      };
+    }
   }
 
   return null;

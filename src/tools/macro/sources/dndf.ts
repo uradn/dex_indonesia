@@ -25,6 +25,7 @@
  */
 
 import { getLatestPoint, upsertPoints } from '../time-series-db.js';
+import { fetchRenderedTextWithBrowser } from './playwright-browser.js';
 
 const FRESHNESS_DAYS = 7;
 
@@ -157,6 +158,43 @@ async function fetchViaTavily(): Promise<DndfData | null> {
 }
 
 /**
+ * Fetch DNDF from BI SEKI E2 (Monetary Statistics — Foreign Exchange).
+ * BI SEKI page renders ASP.NET — try rendered text for forward position figures.
+ * Also tries BI's ULN/Stabilitas page which sometimes has intervention commentary.
+ *
+ * Fallback patterns from BI press releases / statistik pages:
+ *   "net foreign exchange forward position ... USD X.X billion"
+ *   "DNDF ... USD X.X miliar"
+ */
+async function fetchViaBiSeki(): Promise<DndfData | null> {
+  const urls = [
+    // BI intervention commentary sometimes in monetary policy pages
+    'https://www.bi.go.id/en/statistik/ekonomi-keuangan/seki/Default.aspx?seki=E2',
+    // BI financial stability publications sometimes include DNDF
+    'https://www.bi.go.id/en/statistik/statistik-utang-luar-negeri-indonesia/Default.aspx',
+  ];
+
+  for (const url of urls) {
+    try {
+      const text = await fetchRenderedTextWithBrowser(url);
+      if (!text) continue;
+      const val = parseDndfText(text);
+      if (val !== null) {
+        return {
+          outstandingBn: val,
+          date: new Date().toISOString().slice(0, 10),
+          sourceUrl: url,
+          fetchedAt: new Date().toISOString(),
+        };
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+/**
  * Fetch BI DNDF outstanding (USD bn). Returns null if no data found or data too stale to update.
  * Uses cached DB value if within 7-day freshness gate.
  */
@@ -174,7 +212,7 @@ export async function fetchDndf(): Promise<DndfData | null> {
     }
   }
 
-  const data = await fetchViaExa() ?? await fetchViaTavily();
+  const data = await fetchViaExa() ?? await fetchViaTavily() ?? await fetchViaBiSeki();
   if (!data) return null;
 
   await upsertPoints([{

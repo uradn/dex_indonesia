@@ -3,7 +3,9 @@
  *
  * Sources:
  *   FX Reserves  — World Bank GEM API (indicator TOTRESV, source=15)
- *                  Monthly, JSON, no auth, confirmed working.
+ *                  Monthly, JSON, no auth. BROKEN as of Jun 2026 — returns zero values
+ *                  for all 2025-2026 months (Indonesia data not updated in GEM).
+ *                  Kept as Tier 2 fallback but filtered for non-zero values; Tier 3 = Trading Economics.
  *                  https://api.worldbank.org/v2/country/IDN/indicator/TOTRESV?source=15
  *
  *   Pink Sheet    — World Bank Commodity Price Data (Monthly Prices sheet)
