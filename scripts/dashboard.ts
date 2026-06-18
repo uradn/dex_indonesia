@@ -2077,10 +2077,17 @@ function renderHaye(snap) {
   const dCls = L4   == null ? '' : L4 > 120 ? 'red' : L4 > 110 ? 'orange' : L4 > 90 ? 'yellow' : 'green';
   const bGap = brent != null ? '+'+((brent-L1)/L1*100).toFixed(1)+'% vs APBN' : '';
   const dGap = L4   != null ? '+'+((L4  -L1)/L1*100).toFixed(1)+'% vs APBN' : '';
-  const spCls   = spread == null ? '' : spread > 10 ? 'red' : spread > 7 ? 'orange' : spread > 3 ? 'yellow' : 'green';
-  const spLabel = spread == null ? '—' : spread > 10 ? 'EXTREME' : spread > 7 ? 'HIGH' : spread > 3 ? 'ELEVATED' : 'NORMAL';
-  const cvCls   = msCv == null ? '' : msCv > 25 ? 'red' : msCv > 15 ? 'orange' : msCv > 8 ? 'yellow' : 'green';
-  const cvLabel = msCv == null ? '—' : msCv > 25 ? 'HIGH DISPERSION — threshold region' : msCv > 15 ? 'ELEVATED — coordination risk' : msCv > 8 ? 'MODERATE' : 'LOW';
+  const absSpread = spread != null ? Math.abs(spread) : null;
+  const spCls   = absSpread == null ? '' : absSpread > 10 ? 'red' : absSpread > 7 ? 'orange' : absSpread > 3 ? 'yellow' : 'green';
+  const spLabel = absSpread == null ? '—' : (absSpread > 10 ? 'EXTREME' : absSpread > 7 ? 'HIGH' : absSpread > 3 ? 'ELEVATED' : 'NORMAL') + (spread < 0 ? ' (Dubai>Brent — Hormuz premium)' : '');
+  // Compute CV% from 4-level belief stack directly (no DB dependency)
+  const cvLevels = [L1, L2, ...(L3 != null ? [L3] : []), ...(L4 != null ? [L4] : [])];
+  const cvMean = cvLevels.reduce((a, b) => a + b, 0) / cvLevels.length;
+  const cvStd  = Math.sqrt(cvLevels.reduce((a, b) => a + (b - cvMean) ** 2, 0) / cvLevels.length);
+  const cvComputed = cvLevels.length >= 3 ? +(cvStd / cvMean * 100).toFixed(1) : null;
+  const cvFinal = cvComputed ?? msCv;  // prefer live-computed; fall back to DB if levels missing
+  const cvCls   = cvFinal == null ? '' : cvFinal > 25 ? 'red' : cvFinal > 15 ? 'orange' : cvFinal > 8 ? 'yellow' : 'green';
+  const cvLabel = cvFinal == null ? '—' : cvFinal > 25 ? 'HIGH DISPERSION — threshold region' : cvFinal > 15 ? 'ELEVATED — coordination risk' : cvFinal > 8 ? 'MODERATE' : 'LOW';
 
   function brow(label, price, note, c) {
     return \`<div style="margin-bottom:5px">
@@ -2099,7 +2106,7 @@ function renderHaye(snap) {
     \${brow('L1 — APBN Official', L1, null, 'green')}
     \${brow('L2 — Stale Analyst Consensus', L2, null, 'yellow')}
     \${brow('L3 — ICP Actual (Brent proxy)', L3, bGap, bCls)}
-    \${brow('L4 — Pertamina Delivered (Dubai+$20)', L4, dGap, dCls)}
+    \${brow('L4 — Structural Floor, Illustrative (Dubai+$20)', L4, dGap, dCls)}
     <div style="margin-top:10px;font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">Brent-Dubai Spread (Hormuz Proxy)</div>
     \${kv('B-D Spread', spread!=null?'$'+fmt(spread,1)+'/bbl':'—', spCls)}
     \${kv('Signal', spLabel, spCls)}
@@ -2116,7 +2123,7 @@ function renderHaye(snap) {
     \${kv('Realisasi Q1 (Jan–Mar)', 'Rp 118.7T (+266%)', 'red')}
     <div style="font-size:9px;color:var(--muted);margin-bottom:8px">3 bulan sudah lewati target tahunan. Price shock Hormuz → subsidi blow-through → fiscal constraint binding.</div>
     <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">Morris-Shin CV% (M6)</div>
-    \${kv('CV% Dispersion', msCv!=null?fmt(msCv,1)+'%':'—', cvCls)}
+    \${kv('CV% Dispersion', cvFinal!=null?fmt(cvFinal,1)+'%':'—', cvCls)}
     \${kv('Regime', cvLabel, cvCls)}
     <div style="font-size:9px;color:var(--muted)">High CV = low signal precision → coordination attack self-fulfilling. Sudden disclosure collapses CV → discontinuous CDS jump.</div>
   \`;
