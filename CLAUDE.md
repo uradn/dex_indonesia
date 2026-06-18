@@ -154,7 +154,7 @@ Decomposes IDR weakness into global DXY story vs Indonesia-specific repricing. P
 - `src/tools/macro/scoring.ts` — rolling z-score, composite scoring, alert classification (GREEN/YELLOW/ORANGE/RED)
 - `src/tools/macro/sources/` — data adapters:
   - `yahoo-macro` — USDIDR spot/history, FX/ETF prices, realized vol
-  - `bi` — BI website scraper: FX reserves, SRBI outstanding, hedging compliance (SULNI)
+  - `bi` — BI website scraper: FX reserves (3-tier: BI SEKI → WB GEM non-zero → Trading Economics), SRBI outstanding, hedging compliance (SULNI)
   - `srbi-auction` — Exa/Tavily: hasil lelang SRBI (bid-cover, demand, allotment, cutoff rate); 3d freshness
   - `bps` — BPS WebAPI: trade balance, CPI, unemployment
   - `imf` — IMF Data API: GDP growth, inflation, debt/GDP (annual)
@@ -251,6 +251,14 @@ PERTALITE_PRICE_IDR        # default 10000 (Kepmen ESDM 245.K/MG.01/MEM.M/2022)
 SOLAR_PRICE_IDR            # default 6800
 PERTAMAX_PRICE_IDR         # default 16250 (non-subsidi, +Rp3,950 Jun 10 2026)
 PERTAMAX_GREEN_PRICE_IDR   # default 17000 (RON 95, +Rp4,100 Jun 10 2026)
+
+# BI DNDF outstanding — quarterly manual update (no automated scrape path exists)
+# BI SULNI PDF is JS-rendered and not machine-readable; DNDF notional absent from public news.
+# Source: BI SULNI PDF at bi.go.id/id/statistik/statistik-utang-luar-negeri-indonesia
+#   Open latest quarterly PDF → search "DNDF" or "forward" → find USD notional (bn).
+# Historical: 2018 peak ~$17bn; 2023 ~$5-10bn; 2026 H1 (active IDR defense) est. $10-15bn.
+# Update when BI publishes new quarterly SULNI (Jan/Apr/Jul/Oct).
+BI_DNDF_OUTSTANDING_BN     # USD billion — effectiveReserves = cadev − DNDF in FX Defense engine
 
 # LangSmith tracing (optional)
 LANGSMITH_API_KEY

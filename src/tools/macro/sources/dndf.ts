@@ -196,9 +196,42 @@ async function fetchViaBiSeki(): Promise<DndfData | null> {
 
 /**
  * Fetch BI DNDF outstanding (USD bn). Returns null if no data found or data too stale to update.
- * Uses cached DB value if within 7-day freshness gate.
+ *
+ * Source priority:
+ *   1. BI_DNDF_OUTSTANDING_BN env var — manual quarterly update from BI SULNI PDF.
+ *      Update when BI publishes quarterly SULNI (bi.go.id/id/statistik/statistik-utang-luar-negeri-indonesia).
+ *      BI SULNI PDF is not machine-readable: page is JS-rendered and blocks Playwright;
+ *      PDF URL is not indexable by Exa; no automated scrape path exists.
+ *   2. DB cache (7-day freshness gate)
+ *   3. Exa → Tavily → BI SEKI Playwright (rarely succeed — DNDF notional not in public news)
  */
 export async function fetchDndf(): Promise<DndfData | null> {
+  // Tier 1: env var override (manual quarterly update — most reliable path for this indicator)
+  const envVal = process.env.BI_DNDF_OUTSTANDING_BN;
+  if (envVal) {
+    const val = parseFloat(envVal);
+    if (!isNaN(val) && val > 0 && val < 100) {
+      const today = new Date().toISOString().slice(0, 10);
+      const data: DndfData = {
+        outstandingBn: val,
+        date: today,
+        sourceUrl: null,
+        fetchedAt: new Date().toISOString(),
+      };
+      await upsertPoints([{
+        indicator: 'bi_dndf_outstanding_bn',
+        category: 'fx' as const,
+        date: today,
+        value: val,
+        unit: 'bn_USD',
+        source: 'env_manual',
+        fetchedAt: data.fetchedAt,
+      }]);
+      return data;
+    }
+  }
+
+  // Tier 2: DB cache
   const cached = await getLatestPoint('bi_dndf_outstanding_bn');
   if (cached) {
     const ageDays = (Date.now() - new Date(cached.fetchedAt ?? cached.date).getTime()) / 86_400_000;
@@ -212,6 +245,7 @@ export async function fetchDndf(): Promise<DndfData | null> {
     }
   }
 
+  // Tier 3: automated search (rarely succeeds — kept for opportunistic catches)
   const data = await fetchViaExa() ?? await fetchViaTavily() ?? await fetchViaBiSeki();
   if (!data) return null;
 
