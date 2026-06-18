@@ -285,24 +285,25 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     });
   }
 
-  // 12. O&G import bill: BPS actuals vs APBN-implied (Haye/BPS validation)
+  // 12. O&G import bill: BPS actuals vs APBN price-implied baseline (validated Jun 2026)
   // Official claim: APBN $70/bbl ICP implies manageable O&G import bill.
-  // Error: media/INDEF use crude-only formula (~$20-27B) — misses 72% refined+LPG+kondensat.
-  // BPS HS27 2025 actual: $32.77B even when ICP ~$70 avg. 2026 post-Hormuz: $38.8B annualized.
-  // True gap vs APBN implied ~$26B midpoint = $12-17B/yr hidden BoP pressure.
-  // Data source: BPS trade statistics HS27 (minyak, gas, produk pertambangan), verified Apr 2026.
-  // Update when new BPS monthly trade release publishes (~6-8wk lag).
+  // Gap is PRICE-BASED: $26B = estimated volume × ICP $70 (not a document figure; not in APBN).
+  // Not a composition gap — APBN subsidi BBM partial-accounts refined via cost-recovery formula.
+  // BPS "impor migas" breakdown 2025: crude $9.31B (28%) + refined+LPG $23.46B (72%) = $32.77B total.
+  // BPS "migas" excludes batubara (coal = non-migas in BPS classification).
+  // Subsidi BBM+LPG realisasi Q1 2026: Rp 118.7T vs APBN full-year target Rp 105.4T (+266% YoY).
+  // Data source: BPS impor migas monthly (6-8wk lag). Update when new BPS release publishes.
   {
-    const BPS_2025_ACTUAL = 32.77;      // full-year 2025 BPS actual ($B)
-    const BPS_2026_ANNUALIZED = 38.8;   // Jan-Apr 2026 × 12/4 ($B)
-    const BPS_APR_2026_ALONE = 4.60;    // April 2026 spike ($B, +82.5% YoY)
-    const APBN_IMPLIED = 26;            // APBN $70 ICP-implied bill midpoint ($B) — crude+refined
+    const BPS_2025_ACTUAL = 32.77;      // full-year 2025 BPS actual ($B); crude $9.31B + refined+LPG $23.46B
+    const BPS_2026_ANNUALIZED = 38.8;   // Jan-Apr 2026 annualized × 12/4 ($B)
+    const BPS_APR_2026_ALONE = 4.60;    // April 2026 spike ($B, +82.5% YoY; crude +67%, refined +88%)
+    const APBN_IMPLIED = 26;            // price-implied: est. volume × ICP $70 — NOT an official APBN figure
     const overrunPct = (BPS_2026_ANNUALIZED - APBN_IMPLIED) / APBN_IMPLIED * 100;
     const divergenceScore = Math.round(Math.min(100, overrunPct * 1.2));
     checks.push({
-      dimension: "O&G Import Bill Actual vs APBN Implied (BPS HS27)",
-      officialClaim: `APBN ICP $${APBN_ASSUMPTIONS.oilPrice}/bbl → implied O&G import bill ~$${APBN_IMPLIED}B/yr. Media formula: crude-only (misses 72% refined+LPG component).`,
-      marketSignal: `BPS 2025 actual: $${BPS_2025_ACTUAL}B (at ICP ~$70 avg). 2026 run-rate: ~$${BPS_2026_ANNUALIZED}B (+${overrunPct.toFixed(0)}% vs APBN implied). Apr 2026 alone: $${BPS_APR_2026_ALONE}B (+82.5% YoY, post-Hormuz). Hidden BoP drain: ~$${(BPS_2026_ANNUALIZED - APBN_IMPLIED).toFixed(0)}B/yr above APBN budget. [BPS HS27, last update Apr 2026]`,
+      dimension: "O&G Import Bill Actual vs APBN ICP Price-Implied (BPS impor migas)",
+      officialClaim: `APBN ICP $${APBN_ASSUMPTIONS.oilPrice}/bbl assumption → price-implied O&G import bill ~$${APBN_IMPLIED}B/yr (est. volume × ICP; not an official APBN line item).`,
+      marketSignal: `BPS 2025 actual: $${BPS_2025_ACTUAL}B (crude 28% + refined+LPG 72%). 2026 run-rate: ~$${BPS_2026_ANNUALIZED}B (+${overrunPct.toFixed(0)}% vs ICP-implied). Apr 2026: $${BPS_APR_2026_ALONE}B (+82.5% YoY post-Hormuz). Price shock above APBN ICP: ~$${(BPS_2026_ANNUALIZED - APBN_IMPLIED).toFixed(0)}B/yr. Subsidi Q1 realisasi: Rp 118.7T vs full-year APBN Rp 105.4T. [BPS impor migas, last update Apr 2026]`,
       divergenceScore,
       flagged: overrunPct > 30,
     });
