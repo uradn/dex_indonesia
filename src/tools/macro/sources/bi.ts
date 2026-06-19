@@ -79,12 +79,16 @@ export async function fetchBiFxReserves(): Promise<MacroDataPoint | null> {
     }
   }
 
-  // Tier 2: World Bank GEM API — NOTE: source=15 returns zeros for 2025-2026 (broken as of Jun 2026)
+  // Tier 2: World Bank GEM API — returns zeros for 2025-2026 (broken as of Jun 2026).
+  // Also fails freshness: GEM may return real but stale data (>60d old) — fall through if so.
   try {
     const wbPoints = await fetchBiFxReservesWorldBank(6);
     const nonZero = wbPoints.filter(p => p.value > 0);
     if (nonZero.length > 0) {
-      return nonZero[nonZero.length - 1]!;
+      const latest = nonZero[nonZero.length - 1]!;
+      const ageMs = Date.now() - new Date(latest.date).getTime();
+      const ageDays = ageMs / (1000 * 60 * 60 * 24);
+      if (ageDays <= 60) return latest;
     }
   } catch {
     // ignore
@@ -118,30 +122,32 @@ async function fetchFxReservesTe(): Promise<MacroDataPoint | null> {
     september: '09', october: '10', november: '11', december: '12',
   };
 
-  // Primary: prose sentence pattern
-  const prose = text.match(
-    /Foreign Exchange Reserves in Indonesia (?:increased|decreased|remained unchanged) (?:to|at)\s+([\d,]+\.?\d*)\s+USD Million\s+in\s+(?:the\s+)?(\w+)\s+of\s+(\d{4})/i,
-  );
-  if (prose) {
-    const val = parseFloat(prose[1]!.replace(/,/g, '')) / 1000;
-    const monthName = prose[2]!.toLowerCase();
-    const year = prose[3]!;
-    const mm = MONTHS[monthName];
-    if (mm && val > 50 && val < 500) {
-      const lastDay = new Date(parseInt(year), parseInt(mm), 0).getDate();
-      return {
-        indicator: 'bi_fx_reserves_bn',
-        category: 'bop' as MacroDataPoint['category'],
-        date: `${year}-${mm}-${String(lastDay).padStart(2, '0')}`,
-        value: parseFloat(val.toFixed(2)),
-        unit: 'bn_USD',
-        source: 'trading_economics_scrape',
-        fetchedAt: NOW(),
-      };
-    }
+  // Primary: TE prose — "Indonesia's foreign exchange reserves fell to USD 144.9 billion in May 2026"
+  // Use matchAll + pick latest date (page may have multiple historical sentences).
+  const proseRe = /Indonesia.{1,3}s foreign exchange reserves (?:fell|rose|increased|decreased|remained[^.]*?) to USD\s+([\d.]+)\s+billion\s+in\s+(\w+)\s+(\d{4})/gi;
+  let bestProse: { val: number; date: string } | null = null;
+  for (const m of text.matchAll(proseRe)) {
+    const val = parseFloat(m[1]!);
+    const mm = MONTHS[m[2]!.toLowerCase()];
+    const year = m[3]!;
+    if (!mm || val <= 50 || val >= 500) continue;
+    const lastDay = new Date(parseInt(year), parseInt(mm), 0).getDate();
+    const date = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`;
+    if (!bestProse || date > bestProse.date) bestProse = { val, date };
+  }
+  if (bestProse) {
+    return {
+      indicator: 'bi_fx_reserves_bn',
+      category: 'bop' as MacroDataPoint['category'],
+      date: bestProse.date,
+      value: parseFloat(bestProse.val.toFixed(2)),
+      unit: 'bn_USD',
+      source: 'trading_economics_scrape',
+      fetchedAt: NOW(),
+    };
   }
 
-  // Fallback: table pattern "Foreign Exchange Reserves  151890  148200  USD Million  Apr/26"
+  // Fallback: table row "Foreign Exchange Reserves  144900  146200  USD Million  May/26"
   const table = text.match(/Foreign Exchange Reserves\s+([\d,.]+)\s+[\d,.]+\s+USD Million\s+(\w{3})\/(\d{2,4})/i);
   if (table) {
     const val = parseFloat(table[1]!.replace(/,/g, '')) / 1000;
