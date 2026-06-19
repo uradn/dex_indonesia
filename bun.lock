@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "dexter-ts",
@@ -987,7 +988,7 @@
 
     "leven": ["leven@3.1.0", "", {}, "sha512-qsda+H8jTaUaN/x5vzW2rzc+8Rw4TAQ/4KjB46IwK5VH+IlVeeeje/EoZRpiXvIqjFgK84QffqPztGI3VBLG1A=="],
 
-    "libsignal": ["libsignal@github:whiskeysockets/libsignal-node#bcea72d", { "dependencies": { "curve25519-js": "^0.0.4", "protobufjs": "^7.5.5" } }, "WhiskeySockets-libsignal-node-bcea72d"],
+    "libsignal": ["libsignal@github:whiskeysockets/libsignal-node#bcea72d", { "dependencies": { "curve25519-js": "^0.0.4", "protobufjs": "^7.5.5" } }, "WhiskeySockets-libsignal-node-bcea72d", "sha512-zKDaKfYGwQ/ALHPan2W2KZq/6njngElVNcqQQmQy0rl3fZbaqjiIchbPaJyCVwkTwHx1+s3Li1U/tf+f+AbCQA=="],
 
     "lines-and-columns": ["lines-and-columns@1.2.4", "", {}, "sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg=="],
 
