@@ -536,6 +536,7 @@ const HTML = `<!DOCTYPE html>
 <body>
 <header>
   <h1>🇮🇩 Dexter — Indonesia Macro Dashboard</h1>
+  <span id="msci-overhang" style="font-size:10px;padding:3px 8px;border-radius:3px;display:none"></span>
   <span id="last-updated">—</span>
   <button id="refresh-btn" onclick="refresh()">↻ Refresh</button>
   <a href="/rr" style="margin-left:auto;font-size:11px;color:var(--muted);text-decoration:none;padding:4px 8px;border:1px solid var(--border);border-radius:4px;white-space:nowrap" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">R&amp;R / G-G →</a>
@@ -974,6 +975,31 @@ function renderCharts(chartsData) {
   }
 }
 
+function renderMsciBadge(snap) {
+  const el = document.getElementById('msci-overhang');
+  if (!el) return;
+  const ind = snap.indicators?.['msci_classification_numeric'];
+  if (!ind) { el.style.display = 'none'; return; }
+  const NEXT_REVIEW = new Date('2026-11-12');
+  const days = Math.round((NEXT_REVIEW.getTime() - Date.now()) / 86400000);
+  const status = ind.value === 2 ? 'FRONTIER' : ind.value === 1 ? 'UNDER REVIEW' : 'EM CONFIRMED';
+  const cls = ind.value === 2 ? 'red' : ind.value === 1 ? 'orange' : (days > 0 && days < 60 ? 'orange' : 'green');
+  let txt;
+  if (ind.value === 2) {
+    txt = '🔴 MSCI FRONTIER — forced-sell active';
+  } else if (ind.value === 1) {
+    txt = '🟠 MSCI UNDER REVIEW';
+  } else if (days > 0) {
+    txt = '🟢 MSCI: EM (Jun 23) · Nov ' + days + 'd overhang';
+  } else {
+    txt = '🟢 MSCI: EM confirmed';
+  }
+  el.textContent = txt;
+  el.className = 'tag ' + cls;
+  el.style.display = 'inline-block';
+  el.title = 'EM status maintained Jun 23 2026; MSCI extended review to ~Nov 12 2026. Reforms tracked: free-float compliance, shareholding transparency, anti-coordinated trading.';
+}
+
 async function refresh() {
   document.getElementById('last-updated').textContent = 'Loading...';
   try {
@@ -984,6 +1010,7 @@ async function refresh() {
     snapshot = snap;
     charts = chrt;
 
+    renderMsciBadge(snapshot);
     renderScd(snapshot);
     document.getElementById('panel-monetary').innerHTML = renderMonetary(snapshot);
     document.getElementById('panel-flow').innerHTML = renderFlow(snapshot);

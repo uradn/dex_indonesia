@@ -235,8 +235,18 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
 
   const validSnapshots = [eidoSnap, sbnSnap, idxFlowSnap].filter((s): s is IndicatorSnapshot => s !== null);
   const baseScore = compositeScore(validSnapshots);
-  // MSCI classification risk score bump — uncertainty = passive fund repositioning risk
-  const msciScoreBump = msciStatus === 'downgrade_risk' ? 20 : msciStatus === 'under_review' ? 8 : 0;
+  // MSCI classification risk score bump.
+  //   downgrade_risk: +20 (forced-sell tail).
+  //   under_review: +8 (passive fund uncertainty paralysis).
+  //   confirmed: +3 if Nov 2026 re-assessment <60d away (overhang re-emerges) else 0.
+  // Indonesia EM status maintained Jun 23 2026 but MSCI extended review to Nov 2026
+  // — reforms must demonstrate progress (free-float, transparency, anti-coordinated trading).
+  const NEXT_MSCI_REVIEW = new Date('2026-11-12');
+  const daysToNextMsciReview = Math.round((NEXT_MSCI_REVIEW.getTime() - Date.now()) / 86_400_000);
+  let msciScoreBump = 0;
+  if (msciStatus === 'downgrade_risk') msciScoreBump = 20;
+  else if (msciStatus === 'under_review') msciScoreBump = 8;
+  else if (msciStatus === 'confirmed' && daysToNextMsciReview > 0 && daysToNextMsciReview < 60) msciScoreBump = 3;
   // SSVI alert floor: imminent (≥75) → orange min; critical (≥90) → red min
   const ALERT_ORDER: AlertLevel[] = ['green', 'yellow', 'orange', 'red'];
   const ssviFloorAlert: AlertLevel = ssviIndex >= 90 ? 'red' : ssviIndex >= 75 ? 'orange' : ssviIndex >= 50 ? 'yellow' : 'green';
@@ -275,10 +285,13 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
 
   // MSCI classification flags
   if (msciStatus === 'under_review') {
-    flags.push(`MSCI June 2026 classification review: Global Market Accessibility Review Jun 18; Classification result Jun 23 — EM status unconfirmed until then; passive fund uncertainty elevated (+8 score)`);
+    flags.push(`MSCI classification under review: passive fund uncertainty elevated (+8 score)`);
     if (idxNetSellingHeavy) flags.push('MSCI uncertainty amplifying foreign equity exit — EIDO weakness = sentiment + passive repositioning (dual cause)');
   } else if (msciStatus === 'downgrade_risk') {
     flags.push('CRITICAL: MSCI Frontier downgrade risk — systematic EM fund forced-sell would dwarf May 2026 rebalancing (+20 score)');
+  } else if (msciStatus === 'confirmed' && daysToNextMsciReview > 0) {
+    const bumpNote = msciScoreBump > 0 ? ` (+${msciScoreBump} score, <60d window)` : '';
+    flags.push(`MSCI Nov 2026 overhang: EM maintained Jun 23 but review extended ${daysToNextMsciReview}d ahead — reforms tracked: free-float compliance, shareholding transparency, anti-coordinated trading${bumpNote}`);
   }
   if (msciRebalancingOutflowUsd !== null) {
     flags.push(`MSCI May 29 rebalancing: ~$${msciRebalancingOutflowUsd}bn passive outflow (19 companies removed) — explains part of EIDO weakness; classification result Jun 23 (watch: frontier downgrade = forced-sell > May rebalancing magnitude)`);
