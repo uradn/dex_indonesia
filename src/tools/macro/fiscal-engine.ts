@@ -22,6 +22,8 @@ import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchFiscalRealization } from './sources/kemenkeu.js';
 import { fetchSubsidiRealisasi } from './sources/subsidi.js';
+import { fetchMbgRealisasi, MBG_APBN_2026_TARGET_TRN } from './sources/mbg.js';
+import { fetchBiodieselStatus } from './sources/biodiesel.js';
 import type { AlertLevel } from './types.js';
 
 export const FISCAL_DESCRIPTION = `
@@ -110,6 +112,13 @@ interface FiscalOutput {
   subsidiBbmLpgRunRatePct: number | null;  // annualized YTD / APBN target × 100
   subsidiPupukRunRatePct: number | null;
   subsidiDataDate: string | null;
+  // MBG (Makan Bergizi Gratis) — 8.7% of APBN spending
+  mbgRealisasiYtdTrn: number | null;
+  mbgBurnRatePct: number | null;          // annualized YTD / Rp335T target × 100
+  mbgDataDate: string | null;
+  // Biodiesel BPDPKS insentif
+  biodieselSubsidyYtdTrn: number | null;
+  b50StatusNumeric: number | null;        // 40 (B40), 45, 50
   // Alerts
   revenueShortfall: boolean;
   spendingOverrun: boolean;
@@ -161,10 +170,12 @@ async function sumCurrentYearPoints(indicator: string): Promise<{ total: number;
 const ANNUAL_DATA_THRESHOLD_TRN = 1000;
 
 export async function runFiscalEngine(): Promise<FiscalOutput> {
-  // 1. Fetch live data (subsidi in parallel with fiscal realization)
-  const [{ revenue, spending, budgetBalance }, subsidyData] = await Promise.all([
+  // 1. Fetch live data (subsidi + MBG + biodiesel in parallel with fiscal realization)
+  const [{ revenue, spending, budgetBalance }, subsidyData, mbgData, biodieselData] = await Promise.all([
     fetchFiscalRealization(),
     fetchSubsidiRealisasi(),
+    fetchMbgRealisasi(),
+    fetchBiodieselStatus(),
   ]);
 
   const pointsToSave = [revenue, spending, budgetBalance].filter(Boolean);
@@ -275,6 +286,17 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     ? parseFloat(((subsidiPupukYtdTrn / monthsElapsed * 12) / APBN_2026.subsidiPupukTrn * 100).toFixed(1))
     : null;
 
+  // 4d.b — MBG run-rate (largest discretionary spend Rp 335T)
+  const mbgRealisasiYtdTrn = mbgData?.realisasiYtdTrn ?? (await getLatestPoint('mbg_realisasi_ytd_idr_t'))?.value ?? null;
+  const mbgDataDate = mbgData?.date ?? null;
+  const mbgBurnRatePct = mbgRealisasiYtdTrn !== null && monthsElapsed > 0
+    ? parseFloat(((mbgRealisasiYtdTrn / monthsElapsed * 12) / MBG_APBN_2026_TARGET_TRN * 100).toFixed(1))
+    : null;
+
+  // 4d.c — Biodiesel BPDPKS subsidy + B50 status (M4 ↔ M10 cross-feed)
+  const biodieselSubsidyYtdTrn = biodieselData?.subsidyYtdIdrT ?? (await getLatestPoint('biodiesel_subsidy_ytd_idr_t'))?.value ?? null;
+  const b50StatusNumeric = biodieselData?.b50StatusNumeric ?? (await getLatestPoint('b50_status_numeric'))?.value ?? null;
+
   // 5. Stress score
   const components: Array<[number, number]> = [];
   if (revenueAbsorptionPct !== null) components.push([scoreRevenueAbsorption(revenueAbsorptionPct), 0.50]);
@@ -294,6 +316,11 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   if (subsidiBbmLpgRunRatePct !== null && subsidiBbmLpgRunRatePct > 100) {
     const subsidyStress = subsidiBbmLpgRunRatePct >= 130 ? 65 : subsidiBbmLpgRunRatePct >= 110 ? 40 : 15;
     components.push([subsidyStress, 0.15]);
+  }
+  // MBG burn rate stress (Rp 335T = 4× subsidy magnitude, weight 0.10)
+  if (mbgBurnRatePct !== null && mbgBurnRatePct > 100) {
+    const mbgStress = mbgBurnRatePct >= 130 ? 70 : mbgBurnRatePct >= 115 ? 45 : 20;
+    components.push([mbgStress, 0.10]);
   }
 
   // Constitutional breach floors: 3% GDP ceiling = YELLOW min; >4% = ORANGE min
@@ -340,6 +367,31 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   }
   if (subsidiPupukRunRatePct !== null && subsidiPupukRunRatePct >= 120) {
     flags.push(`Subsidi pupuk overshoot: run rate ${subsidiPupukRunRatePct.toFixed(0)}% of APBN target (Rp${APBN_2026.subsidiPupukTrn}T) — LNG feedstock cost pass-through`);
+  }
+  // MBG burn-rate flags
+  if (mbgBurnRatePct !== null) {
+    if (mbgBurnRatePct >= 130) {
+      flags.push(`MBG BURN-RATE OVERSHOOT: ${mbgBurnRatePct.toFixed(0)}% of APBN target (Rp${MBG_APBN_2026_TARGET_TRN}T) — discretionary spending blow-out; ~Rp${Math.round((mbgBurnRatePct / 100 - 1) * MBG_APBN_2026_TARGET_TRN)}T over budget`);
+    } else if (mbgBurnRatePct >= 115) {
+      flags.push(`MBG run rate elevated: ${mbgBurnRatePct.toFixed(0)}% of APBN target (Rp${MBG_APBN_2026_TARGET_TRN}T) — track SPPG operational scale-up`);
+    }
+  }
+  // Biodiesel BPDPKS subsidy + B50 mandate transition (Jul 1 2026)
+  const today = new Date();
+  const b50Mandate = new Date('2026-07-01');
+  const daysToB50 = Math.round((b50Mandate.getTime() - today.getTime()) / 86_400_000);
+  if (b50StatusNumeric !== null) {
+    if (b50StatusNumeric === 50) {
+      flags.push(`B50 mandate ACTIVE — CPO feedstock demand ~18M mt vs 19.6M kL capacity; biodiesel subsidi BPDPKS upside; CPO export volume diversion risk to BoP`);
+    } else if (b50StatusNumeric === 45) {
+      flags.push(`B45 de-facto (B50 mandate not met) — quota ~15.6M kL flat; signals supply constraint vs APBN biodiesel program assumption`);
+    }
+  }
+  if (daysToB50 > 0 && daysToB50 <= 30) {
+    flags.push(`B50 mandate ${daysToB50}d ahead (Jul 1 2026) — feedstock gap risk: 2026 quota flat at 15.6M kL vs B50 need ~19M kL; expect de-facto B45 or BPDPKS subsidy surge`);
+  }
+  if (biodieselSubsidyYtdTrn !== null && biodieselSubsidyYtdTrn > 15) {
+    flags.push(`BPDPKS biodiesel insentif YTD Rp${biodieselSubsidyYtdTrn.toFixed(1)}T — CPO levy + APBN drag; rising with B50 transition`);
   }
 
   if (srbiCostAsPctDeficit !== null && srbiCostAsPctDeficit > 10) {
@@ -397,6 +449,8 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     adjustedInterestTrn, biRateInterestUpliftTrn, spInterestRevenuePct, spThresholdBreached,
     subsidiBbmLpgYtdTrn, subsidiPupukYtdTrn,
     subsidiBbmLpgRunRatePct, subsidiPupukRunRatePct, subsidiDataDate,
+    mbgRealisasiYtdTrn, mbgBurnRatePct, mbgDataDate,
+    biodieselSubsidyYtdTrn, b50StatusNumeric,
     revenueShortfall, spendingOverrun, deficitRisk,
     flags, narrative,
   };

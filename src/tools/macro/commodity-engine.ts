@@ -11,6 +11,8 @@ import {
 } from './sources/commodities.js';
 import { fetchEiaCrudeStocks, type EiaInventoryData } from './sources/eia-inventory.js';
 import { fetchHormuzGhostTransit, formatGhostTransit, type GhostTransitData } from './sources/ghost-transit.js';
+import { fetchBiodieselStatus, B50_MANDATE_DATE } from './sources/biodiesel.js';
+import { fetchCoalDmoStatus } from './sources/coal-dmo.js';
 import type { AlertLevel, IndicatorSnapshot, ModuleScoreCard } from './types.js';
 
 export const COMMODITY_DESCRIPTION = `
@@ -129,11 +131,13 @@ export async function runCommodityEngine(): Promise<CommodityEngineOutput> {
     });
   }
 
-  // Cushion score + EIA inventory + ghost transit (parallel)
-  const [{ score: cushionScore }, eiaInventory, ghostTransit] = await Promise.all([
+  // Cushion score + EIA inventory + ghost transit + biodiesel + DMO (parallel)
+  const [{ score: cushionScore }, eiaInventory, ghostTransit, biodieselData, coalDmoData] = await Promise.all([
     Promise.resolve(computeCommodityCushionScore(currentPrices, historicalStats)),
     fetchEiaCrudeStocks(),
     fetchHormuzGhostTransit(),
+    fetchBiodieselStatus(),
+    fetchCoalDmoStatus(),
   ]);
 
   // Oil vulnerability
@@ -187,6 +191,37 @@ export async function runCommodityEngine(): Promise<CommodityEngineOutput> {
       flags.push(`HORMUZ SUPPLY VISIBILITY: visible traffic ${gt.visiblePctPrewar?.toFixed(0) ?? '?'}% of pre-war [${gt.alert.toUpperCase()}].${ghostStr} Physical supply worse than paper Brent implies — compounding M6 check #11 Brent-Dubai spread signal.`);
     } else if (gt.alert === 'yellow') {
       flags.push(`Hormuz watch: visible traffic ${gt.visiblePctPrewar?.toFixed(0) ?? '?'}% of pre-war. ${gt.ghostTransitMbpd !== null ? `~${gt.ghostTransitMbpd.toFixed(1)}M bbl/d dark shipping.` : ''}`);
+    }
+  }
+
+  // B50 biodiesel mandate (Jul 1 2026) — CPO export diversion risk to BoP
+  const today = new Date();
+  const daysToB50 = Math.round((new Date(B50_MANDATE_DATE).getTime() - today.getTime()) / 86_400_000);
+  if (biodieselData) {
+    if (biodieselData.b50StatusNumeric === 50) {
+      flags.push(`B50 mandate ACTIVE — CPO feedstock demand ~18M mt vs capacity 19.6M kL; export volume diversion → BoP drain (CPO export $24.4B basket); domestic CPO shortage risk → minyak goreng spike (M11)`);
+    } else if (biodieselData.b50StatusNumeric === 45) {
+      flags.push(`B45 de-facto (B50 mandate not met by Jul 1) — 2026 quota flat at 15.6M kL signals feedstock constraint; less BoP drag than B50 but BPDPKS subsidy still elevated`);
+    }
+  }
+  if (daysToB50 > 0 && daysToB50 <= 14) {
+    flags.push(`B50 mandate Jul 1 2026 (${daysToB50}d ahead) — watch CPO domestic diversion + BPDPKS levy + minyak goreng knock-on; industry expects de-facto B45`);
+  }
+
+  // Coal DMO compliance + PLN supply — domestic energy security cross-feed (M10 TDL, M11 input cost, M12 political)
+  if (coalDmoData) {
+    if (coalDmoData.plnSecuredPct !== null && coalDmoData.plnSecuredPct < 90) {
+      flags.push(`PLN coal secured ${coalDmoData.plnSecuredPct.toFixed(0)}% of 2026 need — shortfall risk: TDL hike pressure (M10) or imported coal at HBA (BoP drag, M11 input cost)`);
+    }
+    if (coalDmoData.dmoCompliancePct !== null && coalDmoData.dmoCompliancePct < 90) {
+      flags.push(`Coal DMO compliance ${coalDmoData.dmoCompliancePct.toFixed(0)}% — producers diverting to export at HBA premium; subsidi listrik pressure rising`);
+    }
+    if (coalDmoData.hbaUsdTon !== null) {
+      const dmoFixed = 70;
+      const gap = ((coalDmoData.hbaUsdTon - dmoFixed) / coalDmoData.hbaUsdTon) * 100;
+      if (gap > 40) {
+        flags.push(`Coal DMO-HBA gap ${gap.toFixed(0)}% (HBA $${coalDmoData.hbaUsdTon.toFixed(0)}/ton vs DMO $70 fixed) — producer disincentive widening; ESDM evaluating DMO revision`);
+      }
     }
   }
 
