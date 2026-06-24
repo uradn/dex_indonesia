@@ -37,6 +37,7 @@ import {
   type SentimentResult,
 } from './sources/political-risk.js';
 import { fetchXSocialSentiment, type XSentimentResult } from './sources/x-social.js';
+import { fetchPhkRelokasi, type PhkRelokasiData } from './sources/phk-relokasi.js';
 import type { AlertLevel } from './types.js';
 
 export const POLITICAL_RISK_DESCRIPTION = `
@@ -81,6 +82,7 @@ export interface PoliticalRiskOutput {
   xSocialResult: XSentimentResult | null;
   xSocialScore: number | null;   // raw X score before blending
   tavilyUnrestScore: number | null; // raw Tavily score before blending
+  phkRelokasi: PhkRelokasiData | null;
   sentimentResults: SentimentResult[];
   seasonalContext: string | null;
   topHeadlines: string[];
@@ -111,7 +113,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
   const [
     foodResult, unrestResult, stabilityResult,
     tavilyFoodResult, tavilyUnrestResult, tavilyStabilityResult,
-    xResult,
+    xResult, phkResult,
   ] = await Promise.allSettled([
     searchNewsSentiment('food_pressure'),
     searchNewsSentiment('social_unrest'),
@@ -120,6 +122,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     searchNewsSentimentTavily('social_unrest'),
     searchNewsSentimentTavily('political_stability'),
     fetchXSocialSentiment(),
+    fetchPhkRelokasi(),
   ]);
 
   const foodSentiment       = foodResult.status           === 'fulfilled' ? foodResult.value           : null;
@@ -129,6 +132,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
   const tavilyUnrest        = tavilyUnrestResult.status   === 'fulfilled' ? tavilyUnrestResult.value   : null;
   const tavilyStability     = tavilyStabilityResult.status === 'fulfilled' ? tavilyStabilityResult.value : null;
   const xSentiment          = xResult.status              === 'fulfilled' ? xResult.value              : null;
+  const phkData             = phkResult.status            === 'fulfilled' ? phkResult.value            : null;
 
   // Blended unrest score: best of Exa + Tavily for DB storage (represents combined news coverage)
   const blendedUnrestScore = Math.max(
@@ -210,6 +214,13 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     flags.push(`X social feed elevated (score ${xSentiment.stressScore}/100) above Exa news (${exaUnrestScore}/100) — minute-zero unrest signal active`);
   }
 
+  if (phkData && phkData.workersAtRisk30d >= 5000) {
+    const url = phkData.topUrl ? ` (${phkData.topUrl})` : '';
+    flags.push(`PHK MASSAL/RELOKASI EVENT (30d): ${phkData.workersAtRisk30d.toLocaleString('id')} workers at risk across ${phkData.eventCount30d} reported event(s) — FDI exit + industrial-region stress concentration. Top: ${phkData.topHeadline}${url}`);
+  } else if (phkData && phkData.workersAtRisk30d >= 1000) {
+    flags.push(`PHK watch (30d): ${phkData.workersAtRisk30d.toLocaleString('id')} workers at risk across ${phkData.eventCount30d} event(s) — single-event scale below 5k threshold but trend signal`);
+  }
+
   if (xSentiment && xSentiment.highSeverityCount > 0) {
     flags.push(`X social: ${xSentiment.highSeverityCount} high-severity tweet(s) — structural/riot signals on X`);
   }
@@ -271,6 +282,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     xSocialResult: xSentiment,
     xSocialScore: xSentiment?.stressScore ?? null,
     tavilyUnrestScore: tavilyUnrest?.stressScore ?? null,
+    phkRelokasi: phkData,
     sentimentResults,
     seasonalContext: seasonal,
     topHeadlines,

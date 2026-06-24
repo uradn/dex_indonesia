@@ -1449,6 +1449,10 @@ const RR_HTML = `<!DOCTYPE html>
     <div class="card-title">R&R Open Economy — 9 Frameworks Live</div>
     <div style="color:var(--muted)">Loading…</div>
   </div>
+  <div class="card" id="panel-msci-reforms">
+    <div class="card-title">MSCI Nov 2026 Reform Tracker</div>
+    <div style="color:var(--muted)">Loading…</div>
+  </div>
 </div>
 <script>
 function fmtNum(v,d=2){ return v != null ? (+v).toFixed(d) : '—'; }
@@ -1623,10 +1627,57 @@ function renderRR(d) {
   \`;
 }
 
+function renderMsciReforms(d) {
+  const ind = d.indicators ?? {};
+  const status = ind['msci_classification_numeric']?.value;
+  const NEXT_REVIEW = new Date('2026-11-12');
+  const days = Math.round((NEXT_REVIEW.getTime() - Date.now()) / 86400000);
+  const statusLabel = status === 2 ? 'FRONTIER' : status === 1 ? 'UNDER REVIEW' : 'EM CONFIRMED (Jun 23 2026)';
+  const statusCls = status === 2 ? 'red' : status === 1 ? 'orange' : 'green';
+  const overhangCls = days > 0 && days < 60 ? 'orange' : days > 0 ? 'yellow' : 'green';
+
+  // 3 reform tracks — qualitative narrative based on June 2026 MSCI concerns
+  const tracks = [
+    { name: 'Free-Float Compliance', target: 'IDX double minimum free-float requirements (post-Jan 2026 warning)',
+      watch: 'Bursa Efek Indonesia member-firm filings, OJK disclosures, IDX listing rule revisions',
+      lastNote: 'BEI doubled minimum free-float requirements + named concentrated-ownership firms (post-Jan 2026 warning).' },
+    { name: 'Shareholding Transparency', target: 'Beneficial-owner disclosure depth (MSCI Jun 18 downgrade: information flow → NEGATIVE)',
+      watch: 'OJK POJK on beneficial ownership, public registry expansion, related-party disclosure',
+      lastNote: 'MSCI Jun 18 2026: information flow criterion downgraded to NEGATIVE despite other criteria stable.' },
+    { name: 'Anti-Coordinated Trading', target: 'Enforcement actions against suspected coordinated trading patterns',
+      watch: 'OJK enforcement bulletin, BEI suspension counts, criminal referrals',
+      lastNote: 'MSCI cited opacity in shareholding + suspected coordinated trading (Jun 18 Accessibility Review).' },
+  ];
+
+  const trackRows = tracks.map(function(t){
+    return '<div style="border-bottom:1px solid var(--border);padding:8px 0">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline">'
+      + '<span style="font-weight:600">' + t.name + '</span>'
+      + '<span style="font-size:10px;color:var(--muted)">watch ' + days + 'd</span>'
+      + '</div>'
+      + '<div style="font-size:10px;color:var(--muted);margin-top:2px"><b>Target:</b> ' + t.target + '</div>'
+      + '<div style="font-size:10px;color:var(--muted);margin-top:2px"><b>Watch:</b> ' + t.watch + '</div>'
+      + '<div style="font-size:10px;margin-top:4px">' + t.lastNote + '</div>'
+      + '</div>';
+  }).join('');
+
+  return '<div style="display:flex;gap:12px;align-items:baseline;margin-bottom:8px">'
+    + '<div class="big-num ' + statusCls + '">' + statusLabel + '</div>'
+    + '<div style="font-size:11px;color:var(--muted)">Result Jun 23 2026 • Review extended ke Nov 12 2026</div>'
+    + '</div>'
+    + kv('Hari ke Review Berikut', days + 'd ahead', overhangCls)
+    + kv('Reform Window', days > 0 ? days + ' hari' : 'expired', overhangCls)
+    + kv('Tail Risk', '$13bn forced passive outflow jika frontier', status === 2 ? 'red' : 'orange')
+    + '<div class="section-title">3 Reform Tracks</div>'
+    + trackRows
+    + '<div class="hist-note">MSCI mempertahankan EM Jun 23 dengan catatan: bila Nov 2026 review tidak menunjukkan kemajuan cukup → konsultasi reklasifikasi Frontier. Cross-check ke M5 foreign_flow (otomatis +3 score saat &lt;60d).</div>';
+}
+
 async function refresh() {
   const snap = await fetch('/api/snapshot').then(r => r.json());
   document.getElementById('panel-gg').innerHTML = '<div class="card-title">G-G Shield — Greenspan-Guidotti Ratio</div>' + renderGG(snap);
   document.getElementById('panel-rr').innerHTML = '<div class="card-title">R&R Open Economy — 7 Frameworks Live</div>' + renderRR(snap);
+  document.getElementById('panel-msci-reforms').innerHTML = '<div class="card-title">MSCI Nov 2026 Reform Tracker</div>' + renderMsciReforms(snap);
   document.getElementById('last-updated-rr').textContent = 'Updated ' + new Date().toLocaleTimeString('id-ID');
 }
 

@@ -28,6 +28,7 @@ import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchExternalDebtTe } from './sources/sovereign-scraper.js';
 import { fetchUlnDsrWorldBank, fetchUlnShorttermPctWorldBank } from './sources/sovereign-scraper.js';
 import { fetchHedgingComplianceBi } from './sources/bi.js';
+import { fetchHedgingComplianceNews } from './sources/hedging-news.js';
 import type { AlertLevel } from './types.js';
 
 export const ULN_DESCRIPTION = `
@@ -167,8 +168,11 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
     if (wbPoints.length > 0) await upsertPoints(wbPoints);
   }
 
-  // 3. Hedging compliance (Playwright, graceful degradation) — always try (quarterly BI data)
-  const hedgingPoint = await fetchHedgingComplianceBi().catch(() => null);
+  // 3. Hedging compliance — BI SULNI Playwright primary, Exa/Tavily news fallback.
+  //    SULNI page often blocks Playwright in CI; news scrape catches the same number
+  //    from Bisnis/Kontan/CNBC press recaps within ~1 week of BI quarterly release.
+  let hedgingPoint = await fetchHedgingComplianceBi().catch(() => null);
+  if (!hedgingPoint) hedgingPoint = await fetchHedgingComplianceNews().catch(() => null);
   if (hedgingPoint) await upsertPoints([hedgingPoint]);
 
   // 4. Retrieve from DB
