@@ -1661,16 +1661,35 @@ function renderMsciReforms(d) {
       + '</div>';
   }).join('');
 
+  // Cross-ref M5 foreign flow live state from snapshot
+  const m5Score = d.moduleScores?.['foreign_flow']?.score;
+  const m5Alert = d.moduleScores?.['foreign_flow']?.alertLevel;
+  const m5Cls = m5Alert === 'red' ? 'red' : m5Alert === 'orange' ? 'orange' : m5Alert === 'yellow' ? 'yellow' : 'green';
+  const m5Display = m5Score != null ? m5Score + '/100 ' + (m5Alert || '').toUpperCase() : '—';
+
+  // Score-bump activation: M5 gets +3 once days_to_review <60.
+  const bumpAt = days - 60;
+  const bumpDisplay = days <= 60 ? 'ACTIVE (+3 bump on)' : 'in ' + bumpAt + 'd (M5 +3)';
+  const bumpCls = days <= 60 ? 'orange' : days <= 90 ? 'yellow' : 'green';
+
+  // Data-cutoff window: MSCI Nov reviews historically snapshot last business day of Oct.
+  // Reforms not visible in market data by Oct 30 effectively won't count for Nov decision.
+  const NOV_CUTOFF = new Date('2026-10-30');
+  const cutoffDays = Math.round((NOV_CUTOFF.getTime() - Date.now()) / 86400000);
+  const cutoffCls = cutoffDays < 30 ? 'red' : cutoffDays < 60 ? 'orange' : cutoffDays < 90 ? 'yellow' : 'green';
+
   return '<div style="display:flex;gap:12px;align-items:baseline;margin-bottom:8px">'
     + '<div class="big-num ' + statusCls + '">' + statusLabel + '</div>'
     + '<div style="font-size:11px;color:var(--muted)">Result Jun 23 2026 • Review extended ke Nov 12 2026</div>'
     + '</div>'
-    + kv('Hari ke Review Berikut', days + 'd ahead', overhangCls)
-    + kv('Reform Window', days > 0 ? days + ' hari' : 'expired', overhangCls)
+    + kv('Hari ke Nov Review', days + 'd (Nov 12 2026)', overhangCls)
+    + kv('Reform Data Cutoff', cutoffDays + 'd (~Oct 30 — last day reforms terlihat)', cutoffCls)
+    + kv('M5 Score Bump', bumpDisplay, bumpCls)
+    + kv('M5 Foreign Flow', m5Display, m5Cls)
     + kv('Tail Risk', '$13bn forced passive outflow jika frontier', status === 2 ? 'red' : 'orange')
     + '<div class="section-title">3 Reform Tracks</div>'
     + trackRows
-    + '<div class="hist-note">MSCI mempertahankan EM Jun 23 dengan catatan: bila Nov 2026 review tidak menunjukkan kemajuan cukup → konsultasi reklasifikasi Frontier. Cross-check ke M5 foreign_flow (otomatis +3 score saat &lt;60d).</div>';
+    + '<div class="hist-note">MSCI mempertahankan EM Jun 23 dengan catatan: bila Nov 2026 review tidak menunjukkan kemajuan cukup → konsultasi reklasifikasi Frontier. Cross-check M5 foreign_flow di atas (otomatis +3 score saat &lt;60d).</div>';
 }
 
 async function refresh() {
