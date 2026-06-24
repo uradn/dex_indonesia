@@ -41,16 +41,16 @@ Cross-confirmed modules: 1/13
 | M1 | BoP | Trade balance, FX reserves, synthetic CAD risk, Greenspan-Guidotti cross-feed |
 | M2 | Sovereign Risk | CDS 5Y + velocity (bps/week), SBN yield, foreign SBN %, term premium (ORANGE ≥2%), **BI yield policy flag** (Perry Jun 10 2026), **S&P interest/revenue proximity risk** (>15% = negative watch; current: 20.4%) |
 | M3 | FX Defense | USDIDR z-score, pseudo-stability, BI intervention, **SRBI auction bid-cover** (weekly capital flow proxy — 1wk lead vs DJPPR), 1st/2nd-gen crisis gates |
-| M4 | Commodity | Ekspor basket (coal/CPO/nickel/LNG), oil import vulnerability, ICP threshold watch |
-| M5 | Foreign Flow | EIDO ETF, silent exit detection, SSVI (Sudden Stop Vulnerability Index), **MSCI EM classification risk** (June 2026 review), May 2026 rebalancing outflow |
+| M4 | Commodity | Ekspor basket (coal/CPO/nickel/LNG), oil import vulnerability, ICP threshold watch, **B50 biodiesel mandate** (Jul 1 2026 CPO diversion → BoP), **PLN coal DMO compliance** (HBA gap, TDL hike risk) |
+| M5 | Foreign Flow | EIDO ETF, silent exit detection, SSVI (Sudden Stop Vulnerability Index), **MSCI EM status** (confirmed Jun 23 2026; Nov 2026 re-review overhang with +3 score-bump at <60d), May 2026 rebalancing outflow |
 | M6 | Narrative Divergence | Official guidance vs market — APBN assumptions vs aktual, BBM narrative vs cost recovery |
 | M7 | ASEAN Relative Value | IDR idiosyncratic component vs ASEAN peers (supplementary — not in SCD weight) |
 | M8 | Banking Stress | NPL (OJK/World Bank API), LDR, CAR, IndONIA corridor (DFR = BI Rate −100bps / LF = BI Rate +75bps), FSAP nexus (implied CAR hit), KLR signals, M2/FX reserves ratio, **BNPL sub-indicator** (OJK IKNB fintech NPL) |
 | M9 | Market Stress | IHSG P/E + breadth, valuation disconnect |
-| M10 | Fiscal | APBN realisasi vs target, revenue shortfall, deficit trajectory, **S&P interest/revenue threshold** (≥15% = negative action watch; BI hike cycle uplift computed) |
+| M10 | Fiscal | APBN realisasi vs target, revenue shortfall, deficit trajectory, **S&P interest/revenue threshold** (≥15% = negative action watch; BI hike cycle uplift computed), **MBG burn rate** (Rp 335T = 8.7% APBN, 4× subsidi energi), **BPDPKS biodiesel insentif** (B50 transition cost) |
 | M11 | Domestic Pressure | PIHPS 10 komoditas pangan + BBM subsidy gap (cost recovery vs Pertalite) + ICP threshold watch |
-| M12 | Political Risk | Unemployment + Exa news sentiment + **X API v2 real-time social feed** (unrest detection, minute-zero before Exa publishes) |
-| M13 | ULN / External Debt | DSR (IMF threshold 25%), Greenspan-Guidotti ratio, ULN/GDP, BI hedging compliance (PBI 21/14/2019), 1997 transmission mechanism |
+| M12 | Political Risk | Unemployment + Exa news sentiment + **X API v2 real-time social feed** (unrest detection, minute-zero before Exa publishes) + **PHK/relokasi event tracker** (worker-count magnitude per event, flags ≥5,000 workers = FDI exit signal) |
+| M13 | ULN / External Debt | DSR (IMF threshold 25%), Greenspan-Guidotti ratio, ULN/GDP, BI hedging compliance (PBI 21/14/2019; BI SULNI Playwright + Exa/Tavily news fallback), 1997 transmission mechanism |
 
 **Logika inti:** Satu modul di RED bisa noise. Dua modul di ORANGE = deteriorasi struktural. Tiga+ = systemic fragility.
 

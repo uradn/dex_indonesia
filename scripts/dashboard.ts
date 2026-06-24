@@ -107,6 +107,14 @@ const SNAPSHOT_INDICATORS = [
   'bi_dndf_outstanding_bn',
   // m5 msci classification — auto-detected post-Jun23 (0=confirmed, 1=under_review, 2=frontier)
   'msci_classification_numeric',
+  // m10 MBG (Makan Bergizi Gratis) — Rp 335T APBN, 8.7% spending
+  'mbg_realisasi_ytd_idr_t',
+  // m4 + m10 biodiesel — B50 Jul 1 2026 mandate
+  'b50_status_numeric', 'biodiesel_quota_kl_m', 'biodiesel_subsidy_ytd_idr_t',
+  // m4 coal DMO + PLN supply
+  'hba_price_usd_ton', 'coal_dmo_compliance_pct', 'pln_coal_secured_pct',
+  // m12 PHK + relokasi
+  'phk_workers_at_risk_30d', 'phk_events_30d_count',
 ];
 
 const CHART_INDICATORS = [
