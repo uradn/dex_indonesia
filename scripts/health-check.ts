@@ -27,6 +27,9 @@ const ENV_VARS: Array<{ name: string; required: boolean; feature: string }> = [
   // Manual overrides
   { name: 'BI_DNDF_OUTSTANDING_BN',             required: false, feature: 'M3 FX defense DNDF off-balance-sheet adjustment (annual LKT manual update)' },
   { name: 'BI_HEDGING_COMPLIANCE_PCT',          required: false, feature: 'M13 ULN hedging compliance override (quarterly BI SULNI press release; pin when auto-fetch fails)' },
+  { name: 'BANK_NPL_GROSS_PCT',                 required: false, feature: 'M8 banking NPL override (monthly OJK SPI press release; pin when OJK Playwright/news fail)' },
+  { name: 'BANK_CAR_PCT',                       required: false, feature: 'M8 banking CAR override (same OJK source)' },
+  { name: 'BANK_LDR_PCT',                       required: false, feature: 'M8 banking LDR override (same OJK source)' },
   { name: 'MSCI_CLASSIFICATION_STATUS',         required: false, feature: 'M5 MSCI status override (default: auto-detect)' },
   { name: 'PERTALITE_PRICE_IDR',                required: false, feature: 'M11 BBM subsidy gap override on price hike' },
 ];

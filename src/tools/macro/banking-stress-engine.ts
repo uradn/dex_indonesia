@@ -5,6 +5,7 @@ import { upsertPoints, getLatestPoint } from './time-series-db.js';
 import { getFreshPoint, stalenessFlag } from './freshness.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchBankingRatiosOjk } from './sources/ojk.js';
+import { fetchBankingKpisNews } from './sources/banking-news.js';
 import { fetchFintechLendingOjkIknb } from './sources/ojk-iknb.js';
 import { fetchIndoniaRateTe, fetchExternalDebtTe, fetchIhprTe, fetchNplTe, fetchLdrTe, fetchCarTe, fetchM2MoneySupplyTe, fetchDpkDepositsTe, fetchNplWorldBank, fetchM2WorldBank } from './sources/sovereign-scraper.js';
 import type { AlertLevel, MacroDataPoint } from './types.js';
@@ -138,19 +139,53 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     p !== null && Date.now() - new Date(p.fetchedAt).getTime() < BANKING_KPI_TTL_MS;
   const kpisFresh = isKpiFresh(cachedNpl) && isKpiFresh(cachedLdr) && isKpiFresh(cachedCar);
 
-  // 1b. OJK + TE KPI fetch: only when cache is stale (saves 3 Playwright instances under parallel load)
+  // 1b. KPI fetch tier order:
+  //   Tier 0: env overrides — ALWAYS applied (zero cost, user-explicit, range-validated)
+  //   Tier 1+: OJK Playwright → news scrape → WB API → TE — only when 48h cache stale
   let ratios: { npl: MacroDataPoint | null; ldr: MacroDataPoint | null; car: MacroDataPoint | null; sectorNpl: Record<string, number> }
     = { npl: null, ldr: null, car: null, sectorNpl: {} };
+
+  // Tier 0: env overrides — instant manual pin from OJK monthly press release
+  const envOverride = (envName: string, indicator: string, lo: number, hi: number): MacroDataPoint | null => {
+    const raw = process.env[envName];
+    if (!raw) return null;
+    const v = parseFloat(raw);
+    if (isNaN(v) || v < lo || v > hi) return null;
+    return {
+      indicator, category: 'banking', date: new Date().toISOString().slice(0, 10),
+      value: v, unit: '%', source: 'env_manual', fetchedAt: new Date().toISOString(),
+    };
+  };
+  ratios.npl = envOverride('BANK_NPL_GROSS_PCT', 'bank_npl_gross_pct', 0.5, 12);
+  ratios.ldr = envOverride('BANK_LDR_PCT', 'bank_ldr_pct', 60, 110);
+  ratios.car = envOverride('BANK_CAR_PCT', 'bank_car_pct', 12, 35);
+
   if (!kpisFresh) {
-    const ojkResult = await fetchBankingRatiosOjk().catch(() => null);
-    if (ojkResult) ratios = ojkResult;
-    // Tier 2: World Bank API (annual, 2-3yr lag, no Playwright, free) — NPL only
+    // Tier 1: OJK SPI Playwright (legacy portal, stuck at Jun 2025; new data.ojk.go.id WAF-blocked)
+    if (!ratios.npl || !ratios.ldr || !ratios.car) {
+      const ojkResult = await fetchBankingRatiosOjk().catch(() => null);
+      if (ojkResult) {
+        ratios.npl ??= ojkResult.npl;
+        ratios.ldr ??= ojkResult.ldr;
+        ratios.car ??= ojkResult.car;
+        ratios.sectorNpl = ojkResult.sectorNpl;
+      }
+    }
+    // Tier 2: News scrape (OJK press release recaps via Exa/Tavily)
+    if (!ratios.npl || !ratios.ldr || !ratios.car) {
+      const newsResult = await fetchBankingKpisNews().catch(() => null);
+      if (newsResult) {
+        ratios.npl ??= newsResult.npl;
+        ratios.ldr ??= newsResult.ldr;
+        ratios.car ??= newsResult.car;
+      }
+    }
+    // Tier 3: World Bank API (NPL only, annual lag)
     if (!ratios.npl) {
       const wbNpl = await fetchNplWorldBank().catch(() => null);
       if (wbNpl) ratios.npl = wbNpl;
     }
-    // Tier 3: TE Playwright (monthly OJK mirror) — only if World Bank also missing
-    // Note: TE Indonesia NPL page currently returns "no data" — kept as future safety net
+    // Tier 4: TE Playwright (monthly OJK mirror) — currently returns "no data"; future safety net
     if (!ratios.npl && !ratios.ldr && !ratios.car) {
       const [teNpl, teLdr, teCar] = await Promise.allSettled([fetchNplTe(), fetchLdrTe(), fetchCarTe()]);
       if (teNpl.status === 'fulfilled' && teNpl.value) ratios.npl = teNpl.value;
