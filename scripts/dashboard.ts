@@ -163,13 +163,20 @@ function buildSnapshot() {
       hasExa: !!process.env.EXASEARCH_API_KEY,
     };
     // Read latest module scores from DB (written by SCD / morning-check)
-    const moduleScores: Record<string, { score: number; alertLevel: string; computedAt: string }> = {};
+    const moduleScores: Record<string, { score: number; alertLevel: string; computedAt: string; flags: string[] }> = {};
     try {
-      const rows = db.query<{ module: string; score: number; alert_level: string; computed_at: string }>(
-        `SELECT module, score, alert_level, computed_at FROM macro_scores
+      const rows = db.query<{ module: string; score: number; alert_level: string; computed_at: string; components: string }>(
+        `SELECT module, score, alert_level, computed_at, components FROM macro_scores
          WHERE (module, score_date) IN (SELECT module, MAX(score_date) FROM macro_scores GROUP BY module)`
       ).all();
-      for (const r of rows) moduleScores[r.module] = { score: r.score, alertLevel: r.alert_level, computedAt: r.computed_at };
+      for (const r of rows) {
+        let flags: string[] = [];
+        try {
+          const comp = JSON.parse(r.components || '{}');
+          if (Array.isArray(comp.flags)) flags = comp.flags;
+        } catch {}
+        moduleScores[r.module] = { score: r.score, alertLevel: r.alert_level, computedAt: r.computed_at, flags };
+      }
     } catch {}
     return { indicators: data, derived: { termPremium, sbnUstSpread, usdidrVsApbn, cds }, aseanFx, envFlags, moduleScores, ts: new Date().toISOString() };
   } finally {
@@ -771,7 +778,14 @@ function renderBanking(d) {
   const pe = ind['ihsg_pe_ratio']?.value;
   const ad = ind['idx_advance_decline_ratio']?.value;
 
-  return [
+  // Low-confidence banner: surface engine staleness flags written by SCD via macro_scores.components
+  const flags = (d.moduleScores && d.moduleScores.banking && d.moduleScores.banking.flags) || [];
+  const lowConf = flags.find(f => f.startsWith('LOW CONFIDENCE'));
+  const banner = lowConf
+    ? \`<div class="tag red" style="display:block;padding:6px 8px;font-size:10px;line-height:1.3;white-space:normal;margin-bottom:6px">⚠ \${lowConf}</div>\`
+    : '';
+
+  return banner + [
     kv('NPL Gross', npl ? fmtNum(npl, 2) + '%' + stale(nplDate, 365) : '—', npl > 5 ? 'red' : npl > 3 ? 'orange' : npl > 2 ? 'yellow' : 'green'),
     kv('CAR', car ? fmtNum(car, 1) + '%' + stale(carDate, 270) : '—', car < 14 ? 'red' : car < 16 ? 'orange' : car < 18 ? 'yellow' : 'green'),
     kv('LDR', ldr ? fmtNum(ldr, 1) + '%' + stale(ldrDate, 180) : '—', ldr > 92 ? 'red' : ldr > 85 ? 'orange' : ldr > 78 ? 'yellow' : 'green'),

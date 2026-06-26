@@ -7,63 +7,10 @@
  * Exit code: 0 if no critical issues, 1 if any RED-tier gaps detected.
  */
 import { Database } from 'bun:sqlite';
+import { INDICATORS, type IndicatorFreshnessSpec } from '../src/tools/macro/freshness.js';
 
 const showAll = process.argv.includes('--all');
-
-interface IndicatorSpec {
-  name: string;
-  module: string;
-  freshDays: number;       // GREEN ≤ this
-  yellowDays: number;      // YELLOW ≤ this
-  redDays: number;         // anything past this = RED critical
-}
-
-// Expected freshness per indicator. Aligned with source freshness gates.
-const INDICATORS: IndicatorSpec[] = [
-  // Yahoo / EODHD daily
-  { name: 'usdidr_spot',                 module: 'M3',  freshDays: 2,  yellowDays: 4,   redDays: 7 },
-  { name: 'brent_price_usd',             module: 'M4',  freshDays: 2,  yellowDays: 4,   redDays: 7 },
-  { name: 'ihsg_level',                  module: 'M9',  freshDays: 4,  yellowDays: 7,   redDays: 14 },
-  { name: 'vix_level',                   module: 'M0',  freshDays: 2,  yellowDays: 4,   redDays: 7 },
-  { name: 'dxy_index',                   module: 'M0',  freshDays: 2,  yellowDays: 4,   redDays: 7 },
-  { name: 'eido_price',                  module: 'M5',  freshDays: 4,  yellowDays: 7,   redDays: 14 },
-  // Sovereign scrape
-  { name: 'indonesia_cds_5y_bps',        module: 'M2',  freshDays: 3,  yellowDays: 7,   redDays: 14 },
-  { name: 'sbn_10y_yield_pct',           module: 'M2',  freshDays: 3,  yellowDays: 7,   redDays: 14 },
-  { name: 'sbn_foreign_ownership_pct',   module: 'M5',  freshDays: 30, yellowDays: 45,  redDays: 60 },
-  // BI monthly
-  { name: 'bi_fx_reserves_bn',           module: 'M1',  freshDays: 35, yellowDays: 50,  redDays: 75 },
-  { name: 'bi_rate_pct',                 module: 'M2',  freshDays: 30, yellowDays: 45,  redDays: 60 },
-  { name: 'srbi_outstanding_trn_idr',    module: 'M3',  freshDays: 35, yellowDays: 50,  redDays: 75 },
-  // SRBI auction weekly
-  { name: 'srbi_bid_cover_ratio',        module: 'M3',  freshDays: 7,  yellowDays: 14,  redDays: 30 },
-  // Kemenkeu monthly
-  { name: 'apbn_revenue_monthly_trn',    module: 'M10', freshDays: 35, yellowDays: 50,  redDays: 75 },
-  { name: 'subsidi_energi_ytd_idr_t',    module: 'M10', freshDays: 35, yellowDays: 50,  redDays: 75 },
-  { name: 'mbg_realisasi_ytd_idr_t',     module: 'M10', freshDays: 35, yellowDays: 50,  redDays: 75 },
-  // OJK / fintech
-  { name: 'fintech_npl_pct',             module: 'M8',  freshDays: 35, yellowDays: 50,  redDays: 75 },
-  { name: 'bank_npl_gross_pct',          module: 'M8',  freshDays: 400,yellowDays: 730, redDays: 1000 },
-  { name: 'bank_car_pct',                module: 'M8',  freshDays: 120,yellowDays: 200, redDays: 365 },
-  { name: 'bank_ldr_pct',                module: 'M8',  freshDays: 60, yellowDays: 120, redDays: 240 },
-  // ULN quarterly
-  { name: 'indonesia_external_debt_bn',  module: 'M13', freshDays: 100,yellowDays: 130, redDays: 180 },
-  { name: 'uln_dsr_pct',                 module: 'M13', freshDays: 400,yellowDays: 540, redDays: 730 },
-  // Political quarterly
-  { name: 'unemployment_rate_pct',       module: 'M12', freshDays: 100,yellowDays: 130, redDays: 180 },
-  { name: 'phk_workers_at_risk_30d',     module: 'M12', freshDays: 5,  yellowDays: 14,  redDays: 30 },
-  // Food daily (Playwright)
-  { name: 'pihps_beras_medium_idr',      module: 'M11', freshDays: 3,  yellowDays: 7,   redDays: 14 },
-  // M4 commodity supplementary
-  { name: 'b50_status_numeric',          module: 'M4',  freshDays: 21, yellowDays: 45,  redDays: 90 },
-  { name: 'hba_price_usd_ton',           module: 'M4',  freshDays: 21, yellowDays: 45,  redDays: 90 },
-  { name: 'pln_coal_secured_pct',        module: 'M4',  freshDays: 21, yellowDays: 45,  redDays: 90 },
-  // MSCI status — auto-refresh after Jun 23 2026 cutoff
-  { name: 'msci_classification_numeric', module: 'M5',  freshDays: 14, yellowDays: 21,  redDays: 30 },
-  // DNDF — env_manual annual update from BI LKT
-  { name: 'bi_dndf_outstanding_bn',      module: 'M3',  freshDays: 100,yellowDays: 200, redDays: 400 },
-  { name: 'uln_hedging_compliance_pct',  module: 'M13', freshDays: 120,yellowDays: 200, redDays: 365 },
-];
+type IndicatorSpec = IndicatorFreshnessSpec;
 
 // Env vars and the features they enable.
 const ENV_VARS: Array<{ name: string; required: boolean; feature: string }> = [

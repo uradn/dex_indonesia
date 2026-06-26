@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
 import { upsertPoints, getLatestPoint } from './time-series-db.js';
+import { getFreshPoint, stalenessFlag } from './freshness.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchBankingRatiosOjk } from './sources/ojk.js';
 import { fetchFintechLendingOjkIknb } from './sources/ojk-iknb.js';
@@ -196,10 +197,12 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   if (sectorNplPoints.length > 0) await upsertPoints(sectorNplPoints);
 
   // 3. Read from DB (use cached if live fetch failed)
-  const [dbNpl, dbLdr, dbCar, dbIndonia, dbBiRate, dbExtDebt, dbIhpr, dbSbn10y, dbCpi, dbSrbi, dbM2Idr, dbFxReserves, dbUsdidr, dbFintechNpl, dbFintechOutstanding, dbFintechGrowth] = await Promise.all([
-    getLatestPoint('bank_npl_gross_pct'),
-    getLatestPoint('bank_ldr_pct'),
-    getLatestPoint('bank_car_pct'),
+  // Critical banking KPIs (NPL/LDR/CAR) gated by freshness — RED-stale data treated as
+  // missing so engine doesn't report a false GREEN score from a different macro era.
+  const [freshNpl, freshLdr, freshCar, dbIndonia, dbBiRate, dbExtDebt, dbIhpr, dbSbn10y, dbCpi, dbSrbi, dbM2Idr, dbFxReserves, dbUsdidr, dbFintechNpl, dbFintechOutstanding, dbFintechGrowth] = await Promise.all([
+    getFreshPoint('bank_npl_gross_pct', { treatStaleAsMissing: true }),
+    getFreshPoint('bank_ldr_pct', { treatStaleAsMissing: true }),
+    getFreshPoint('bank_car_pct', { treatStaleAsMissing: true }),
     getLatestPoint('indonia_3m_pct'),
     getLatestPoint('bi_rate_pct'),
     getLatestPoint('indonesia_external_debt_bn'),
@@ -214,6 +217,9 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     getLatestPoint('fintech_lending_outstanding_idr_t'),
     getLatestPoint('fintech_lending_growth_yoy_pct'),
   ]);
+  const dbNpl = freshNpl.point;
+  const dbLdr = freshLdr.point;
+  const dbCar = freshCar.point;
 
   const nplPct = dbNpl?.value ?? null;
   const ldrPct = dbLdr?.value ?? null;
@@ -299,6 +305,19 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
 
   // 6. Flags
   const flags: string[] = [];
+
+  // Freshness gate: RED-stale → treated as missing (null) above. ORANGE/RED stale
+  // critical inputs still surface as flags so the alert level isn't misread as
+  // current-state GREEN. When ≥2/3 are ORANGE+ the score loses representativeness.
+  for (const fp of [freshNpl, freshLdr, freshCar] as const) {
+    if ((fp.cls === 'red' || fp.cls === 'orange') && fp.spec && fp.ageDays != null) {
+      flags.push(stalenessFlag(fp.spec.name, fp.ageDays, fp.spec, fp.cls));
+    }
+  }
+  const criticalInputsStale = [freshNpl, freshLdr, freshCar].filter(fp => fp.cls === 'red' || fp.cls === 'orange').length;
+  if (criticalInputsStale >= 2) {
+    flags.unshift(`LOW CONFIDENCE: ${criticalInputsStale}/3 critical banking KPIs ORANGE/RED-stale — alert level not representative of current banking sector`);
+  }
 
   // KLR NPL thresholds (Kaminsky-Reinhart EM calibration: 3% early warning, 5% acute)
   if (nplPct !== null && nplPct > 3 && nplPct <= 5) {

@@ -174,14 +174,21 @@ export async function saveModuleScore(
   ).run(module, today, score, alertLevel, JSON.stringify(components), now);
 }
 
-export async function getLatestModuleScores(): Promise<Record<string, { score: number; alertLevel: string; computedAt: string }>> {
+export async function getLatestModuleScores(): Promise<Record<string, { score: number; alertLevel: string; computedAt: string; flags: string[] }>> {
   const db = await openDb();
-  const rows = db.query<{ module: string; score: number; alert_level: string; computed_at: string }>(
-    `SELECT module, score, alert_level, computed_at FROM macro_scores
+  const rows = db.query<{ module: string; score: number; alert_level: string; computed_at: string; components: string }>(
+    `SELECT module, score, alert_level, computed_at, components FROM macro_scores
      WHERE (module, score_date) IN (SELECT module, MAX(score_date) FROM macro_scores GROUP BY module)`,
   ).all();
-  const result: Record<string, { score: number; alertLevel: string; computedAt: string }> = {};
-  for (const r of rows) result[r.module] = { score: r.score, alertLevel: r.alert_level, computedAt: r.computed_at };
+  const result: Record<string, { score: number; alertLevel: string; computedAt: string; flags: string[] }> = {};
+  for (const r of rows) {
+    let flags: string[] = [];
+    try {
+      const comp = JSON.parse(r.components || '{}');
+      if (Array.isArray(comp.flags)) flags = comp.flags;
+    } catch {}
+    result[r.module] = { score: r.score, alertLevel: r.alert_level, computedAt: r.computed_at, flags };
+  }
   return result;
 }
 
