@@ -29,7 +29,7 @@ import { fetchExternalDebtTe } from './sources/sovereign-scraper.js';
 import { fetchUlnDsrWorldBank, fetchUlnShorttermPctWorldBank } from './sources/sovereign-scraper.js';
 import { fetchHedgingComplianceBi } from './sources/bi.js';
 import { fetchHedgingComplianceNews } from './sources/hedging-news.js';
-import type { AlertLevel } from './types.js';
+import type { AlertLevel, MacroDataPoint } from './types.js';
 
 export const ULN_DESCRIPTION = `
 MACRO INTELLIGENCE — ULN Engine (Module 13): Indonesia External Debt Stress
@@ -168,10 +168,25 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
     if (wbPoints.length > 0) await upsertPoints(wbPoints);
   }
 
-  // 3. Hedging compliance — BI SULNI Playwright primary, Exa/Tavily news fallback.
+  // 3. Hedging compliance — tier order: env override → BI SULNI Playwright → Exa/Tavily news.
   //    SULNI page often blocks Playwright in CI; news scrape catches the same number
   //    from Bisnis/Kontan/CNBC press recaps within ~1 week of BI quarterly release.
-  let hedgingPoint = await fetchHedgingComplianceBi().catch(() => null);
+  //    Env override (BI_HEDGING_COMPLIANCE_PCT) lets user pin the value from the BI
+  //    quarterly press release when auto-fetch fails — same pattern as BI_DNDF_OUTSTANDING_BN.
+  let hedgingPoint: MacroDataPoint | null = null;
+  const hedgingEnv = process.env.BI_HEDGING_COMPLIANCE_PCT;
+  if (hedgingEnv) {
+    const v = parseFloat(hedgingEnv);
+    if (!isNaN(v) && v >= 0 && v <= 100) {
+      hedgingPoint = {
+        indicator: 'uln_hedging_compliance_pct', category: 'uln',
+        date: new Date().toISOString().slice(0, 10),
+        value: v, unit: '%',
+        source: 'env_manual', fetchedAt: new Date().toISOString(),
+      };
+    }
+  }
+  if (!hedgingPoint) hedgingPoint = await fetchHedgingComplianceBi().catch(() => null);
   if (!hedgingPoint) hedgingPoint = await fetchHedgingComplianceNews().catch(() => null);
   if (hedgingPoint) await upsertPoints([hedgingPoint]);
 

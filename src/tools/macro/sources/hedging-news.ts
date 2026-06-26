@@ -20,9 +20,20 @@ const FRESHNESS_DAYS = 90;
 const DOMAINS = [
   'bi.go.id', 'kontan.co.id', 'bisnis.com', 'cnbcindonesia.com',
   'detik.com', 'katadata.co.id', 'antaranews.com', 'kompas.com',
+  'investor.id', 'idnfinancials.com', 'idxchannel.com', 'tempo.co',
+  'liputan6.com', 'tribunnews.com', 'medcom.id', 'sindonews.com',
 ];
 
-const QUERY = 'rasio kepatuhan pemenuhan kewajiban lindung nilai ULN korporasi BI persen 2026';
+// Multi-query: BI press releases + recaps phrase the metric differently in
+// Indonesian and English. First non-empty hit wins.
+const QUERIES = [
+  'rasio kepatuhan pemenuhan kewajiban lindung nilai ULN korporasi BI 2026',
+  'tingkat kepatuhan hedging korporasi PBI 21/14/2019 BI persen',
+  'rasio lindung nilai ULN swasta BI SULNI laporan triwulan',
+  'kepatuhan hedging utang luar negeri korporasi 25 persen BI',
+  'BI external debt hedging compliance ratio corporate Indonesia percent',
+  'PBI 21/14 hedging ratio corporate external debt Indonesia BI Q1 Q2',
+];
 
 function parseIdNumber(s: string): number | null {
   const cleaned = s.replace(/\./g, '').replace(',', '.');
@@ -54,21 +65,24 @@ async function fetchViaExa(): Promise<{ value: number; sourceUrl: string | null 
   try {
     const { default: Exa } = await import('exa-js');
     const exa = new Exa(process.env.EXASEARCH_API_KEY);
-    const startDate = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10);
+    const startDate = new Date(Date.now() - 180 * 86_400_000).toISOString().slice(0, 10);
 
-    const response = await exa.search(QUERY, {
-      numResults: 5,
-      type: 'auto',
-      startPublishedDate: startDate,
-      includeDomains: DOMAINS,
-      contents: { text: { maxCharacters: 2500 } },
-    } as Parameters<typeof exa.search>[1]);
+    for (const query of QUERIES) {
+      const response = await exa.search(query, {
+        numResults: 5,
+        type: 'auto',
+        startPublishedDate: startDate,
+        includeDomains: DOMAINS,
+        contents: { text: { maxCharacters: 2500 } },
+      } as Parameters<typeof exa.search>[1]).catch(() => null);
+      if (!response) continue;
 
-    for (const r of (response.results ?? [])) {
-      const text = (r as { text?: string }).text ?? r.title ?? '';
-      if (!text) continue;
-      const v = parseHedgingText(text);
-      if (v !== null) return { value: v, sourceUrl: r.url ?? null };
+      for (const r of (response.results ?? [])) {
+        const text = (r as { text?: string }).text ?? r.title ?? '';
+        if (!text) continue;
+        const v = parseHedgingText(text);
+        if (v !== null) return { value: v, sourceUrl: r.url ?? null };
+      }
     }
     return null;
   } catch {
@@ -81,19 +95,23 @@ async function fetchViaTavily(): Promise<{ value: number; sourceUrl: string | nu
   try {
     const { TavilySearchAPIWrapper } = await import('@langchain/tavily');
     const tavily = new TavilySearchAPIWrapper({ tavilyApiKey: process.env.TAVILY_API_KEY });
-    const response = await tavily.rawResults({
-      query: QUERY,
-      max_results: 5,
-      include_domains: DOMAINS,
-      include_raw_content: true,
-      time_range: 'year',
-    } as Parameters<typeof tavily.rawResults>[0]);
 
-    for (const r of (response.results ?? [])) {
-      const text = (r.raw_content ?? r.content ?? '') as string;
-      if (!text) continue;
-      const v = parseHedgingText(text);
-      if (v !== null) return { value: v, sourceUrl: r.url ?? null };
+    for (const query of QUERIES) {
+      const response = await tavily.rawResults({
+        query,
+        max_results: 5,
+        include_domains: DOMAINS,
+        include_raw_content: true,
+        time_range: 'year',
+      } as Parameters<typeof tavily.rawResults>[0]).catch(() => null);
+      if (!response) continue;
+
+      for (const r of (response.results ?? [])) {
+        const text = (r.raw_content ?? r.content ?? '') as string;
+        if (!text) continue;
+        const v = parseHedgingText(text);
+        if (v !== null) return { value: v, sourceUrl: r.url ?? null };
+      }
     }
     return null;
   } catch {
