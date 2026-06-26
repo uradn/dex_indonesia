@@ -67,3 +67,6 @@ coverage.json
 
 # Scratchpad files
 scratchpads/*test-srbi-*.ts
+
+# Caveman compress backups (auto-generated; pre-compression human-readable copy)
+*.original.md
