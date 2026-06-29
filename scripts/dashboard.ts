@@ -237,11 +237,12 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
   const divs: Divergence[] = [];
 
   const polGap = polScore - financialAvg;
+  const polLevel = polScore > 60 ? 'RED' : polScore > 40 ? 'ORANGE' : polScore > 25 ? 'YELLOW' : 'GREEN';
   divs.push({
     id: 'political_financial_gap',
     label: 'Political vs Financial',
     market: `Financial avg ${financialAvg}/100`,
-    structural: `Political risk ${polScore}/100 RED`,
+    structural: `Political risk ${polScore}/100 ${polLevel}`,
     gap: polGap,
     unit: 'pp',
     cls: polGap > 40 ? 'red' : polGap > 25 ? 'orange' : polGap > 10 ? 'yellow' : 'green',
@@ -427,7 +428,7 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
   // ── Contrarian validation ─────────────────────────────────────────────────────
   const contrarian = {
     consensus: `BI: macro stable; IDR weakness is global DXY story not ID-specific. Markets price CDS ${cds?.toFixed(0) ?? '97'}bps = moderate risk, not crisis. S&P/Fitch maintain BBB- stable. Bloomberg consensus: no sovereign event 12mo.`,
-    whyWrong: `Political risk ${polScore}/100 RED vs financial avg ${financialAvg}/100 — ${polGap}pp divergence ignored by financial models. Demo BBM 12 Jun 2026 (Jakarta HI + Monas, Makassar) = social contract fracture visible. SRBI sterilization ${srbiB ? srbiB.toFixed(0)+'%' : '36%'} of FX reserves = pseudo-stability masking reserve depletion. Fiscal deficit trajectory 4.23% GDP → above 3% constitutional limit. S&P interest/revenue ratio 20.4% = 5.4pp above negative-action threshold.`,
+    whyWrong: `Political risk ${polScore}/100 ${polLevel} vs financial avg ${financialAvg}/100 — ${polGap}pp divergence ignored by financial models. Demo BBM 12 Jun 2026 (Jakarta HI + Monas, Makassar) = social contract fracture visible. SRBI sterilization ${srbiB ? srbiB.toFixed(0)+'%' : '36%'} of FX reserves = pseudo-stability masking reserve depletion. Fiscal deficit trajectory 4.23% GDP → above 3% constitutional limit. S&P interest/revenue ratio 20.4% = 5.4pp above negative-action threshold.`,
     whyNotPriced: `Three structural lags: (1) Political leads financial 2-3 quarters — sell-side models are financial-first, political risk treated as exogenous noise; (2) MSCI EM review creates uncertainty paralysis — foreign funds wait-and-see rather than exit; (3) BI SRBI program maintains surface IDR calm through sterilization, hiding reserve depletion from casual observers.`,
   };
 
@@ -2122,7 +2123,7 @@ function renderTimeline(t) {
       <div class="tl-dot now"></div>
       <div class="tl-content">
         <div class="tl-label">T+0 — NOW (\${now})</div>
-        <div class="tl-text">Political risk \${t.transmissionChain?.[0]?.score ?? '—'}/100 RED. Financial avg ~\${fmt(t.divergences?.[0]?.gap > 0 ? t.transmissionChain?.[0]?.score - t.divergences?.[0]?.gap : 0, 0)}/100. Crisis prob \${t.crisisProbability}%. Thesis \${t.triggerFired ? 'TRIGGERED' : 'ARMED'}.</div>
+        <div class="tl-text">Political risk \${t.transmissionChain?.[0]?.score ?? '—'}/100 \${(() => { const s = t.transmissionChain?.[0]?.score ?? 0; return s > 60 ? 'RED' : s > 40 ? 'ORANGE' : s > 25 ? 'YELLOW' : 'GREEN'; })()}. Financial avg ~\${fmt(t.divergences?.[0]?.gap > 0 ? t.transmissionChain?.[0]?.score - t.divergences?.[0]?.gap : 0, 0)}/100. Crisis prob \${t.crisisProbability}%. Thesis \${t.triggerFired ? 'TRIGGERED' : 'ARMED'}.</div>
       </div>
     </div>
     <div class="tl-row">
