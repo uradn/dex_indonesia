@@ -24,6 +24,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
 import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
+import { getFreshPoint, stalenessFlag } from './freshness.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchExternalDebtTe } from './sources/sovereign-scraper.js';
 import { fetchUlnDsrWorldBank, fetchUlnShorttermPctWorldBank } from './sources/sovereign-scraper.js';
@@ -190,17 +191,21 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
   if (!hedgingPoint) hedgingPoint = await fetchHedgingComplianceNews().catch(() => null);
   if (hedgingPoint) await upsertPoints([hedgingPoint]);
 
-  // 4. Retrieve from DB
-  const [ulnPoint, dsrPoint, stPoint, hedgingFromDb, fxReserves, sbn10yFromDb, gdpGrowthFromDb, debtGdpFromDb] = await Promise.all([
-    getLatestPoint('indonesia_external_debt_bn'),
-    getLatestPoint('uln_dsr_pct'),
-    getLatestPoint('uln_shortterm_pct'),
+  // 4. Retrieve from DB. Critical ULN inputs (DSR/total/ST%) gated by freshness —
+  // RED-stale treated as missing so engine doesn't score against decade-old WB data.
+  const [freshUln, freshDsr, freshSt, hedgingFromDb, fxReserves, sbn10yFromDb, gdpGrowthFromDb, debtGdpFromDb] = await Promise.all([
+    getFreshPoint('indonesia_external_debt_bn', { treatStaleAsMissing: true }),
+    getFreshPoint('uln_dsr_pct', { treatStaleAsMissing: true }),
+    getFreshPoint('uln_shortterm_pct', { treatStaleAsMissing: true }),
     getLatestPoint('uln_hedging_compliance_pct'),
     getLatestPoint('bi_fx_reserves_bn'),
     getLatestPoint('sbn_10y_yield_pct'),
     getLatestPoint('gdp_growth_pct'),
     getLatestPoint('indonesia_debt_gdp_pct'),
   ]);
+  const ulnPoint = freshUln.point;
+  const dsrPoint = freshDsr.point;
+  const stPoint = freshSt.point;
 
   // ULN time series for YoY growth (quarterly, ~2 years)
   const ulnHistory = await getLastN('indonesia_external_debt_bn', 8);
@@ -293,6 +298,18 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
 
   // 9. Flags
   const flags: string[] = [];
+
+  // Freshness gate: surface DSR/ULN-total/ST% staleness so users don't misread
+  // GREEN as macro-current. Same pattern as M8 banking engine.
+  for (const fp of [freshUln, freshDsr, freshSt] as const) {
+    if ((fp.cls === 'red' || fp.cls === 'orange') && fp.spec && fp.ageDays != null) {
+      flags.push(stalenessFlag(fp.spec.name, fp.ageDays, fp.spec, fp.cls));
+    }
+  }
+  const ulnStaleCount = [freshUln, freshDsr, freshSt].filter(fp => fp.cls === 'red' || fp.cls === 'orange').length;
+  if (ulnStaleCount >= 2) {
+    flags.unshift(`LOW CONFIDENCE: ${ulnStaleCount}/3 critical ULN inputs ORANGE/RED-stale — alert level not representative of current external debt position`);
+  }
 
   if (greenspanGuidotti !== null && greenspanGuidotti < 1.0) {
     flags.push(`GREENSPAN-GUIDOTTI BREACH: FX reserves ${reserves?.toFixed(0)}bn USD < short-term ULN ${(ulnTotal! * ulnSt! / 100).toFixed(0)}bn USD — rollover risk CRITICAL`);
