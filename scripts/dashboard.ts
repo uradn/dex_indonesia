@@ -342,9 +342,18 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
     ? (subsidiBbmLpgYtd / subsidyMonthsNow * 12) / 87 * 100
     : null;
   const subsidyTriggerFired = subsidyRunRatePct !== null && subsidyRunRatePct >= 135;
-  const triggerFired = primaryTriggerFired || subsidyTriggerFired;
+
+  // Tertiary trigger: BI Governor vacancy — institutional credibility shock
+  // Set BI_GOVERNOR_VACANT=true in .env when governor resigns/not yet replaced
+  const biGovernorVacant = (process.env.BI_GOVERNOR_VACANT ?? '').toLowerCase() === 'true';
+  const biVacancyTriggerFired = biGovernorVacant;
+
+  const triggerFired = primaryTriggerFired || subsidyTriggerFired || biVacancyTriggerFired;
   if (subsidyTriggerFired) {
     triggerLabel += ` | Subsidi energi run rate ${subsidyRunRatePct!.toFixed(0)}% (>135% FIRED — fiscal rescue underway)`;
+  }
+  if (biVacancyTriggerFired) {
+    triggerLabel += ` | BI GOVERNOR VACANT — policy vacuum, IDR undefended window [ACTIVE]`;
   }
 
   // ── SCD-based crisis probability ─────────────────────────────────────────────
@@ -359,7 +368,9 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
   }
   const stressed = Object.values(ms).filter(m => m.score >= 50).length;
   const amp = stressed >= 5 ? 1.4 : stressed >= 3 ? 1.2 : stressed >= 2 ? 1.1 : 1.0;
-  const crisisProbability = Math.min(90, Math.round((wtotal > 0 ? wsum / wtotal : 30) * amp));
+  // BI vacancy adds +15pp to crisis probability — policy vacuum = undefended IDR window
+  const biVacancyBoost = biGovernorVacant ? 15 : 0;
+  const crisisProbability = Math.min(95, Math.round((wtotal > 0 ? wsum / wtotal : 30) * amp) + biVacancyBoost);
 
   // ── EV estimate (blended 4-instrument portfolio) ─────────────────────────────
   // Carry: CDS ~8bps/mo + EIDO borrow ~0.25%/mo + NDF ~0.5%/mo → blended ~0.12%/mo
@@ -375,6 +386,7 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
     `#2 — BI announces coordinated stabilization package (fiscal letter + reserves defense ≥$5bn + rate guidance) [MANUAL CONFIRM]`,
     `#3 — SBN foreign ownership > 13% (capital return; inflows reversed crisis narrative)`,
     `#4 — CDS 5Y < 100bps sustained 7d (market stopped pricing crisis; thesis invalidated)`,
+    ...(biGovernorVacant ? [`#5 — BI Governor baru dilantik + kebijakan rate definitif diumumkan (institutional vacuum resolved) [MANUAL CONFIRM]`] : []),
   ];
 
   // ── Transmission chain ────────────────────────────────────────────────────────
