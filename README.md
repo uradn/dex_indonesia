@@ -330,7 +330,7 @@ bun scripts/dashboard.ts   # start server
 - **Trigger Monitor** — status live thesis yang sedang ARMED / TRIGGERED
 - **Transmission Chain** — 7 node berurutan (M12→M10→M2→M5→M3→M8→terminal), hover untuk keterangan per modul
 - **Timeline T+0/3/6/12** — prediksi CDS/IDR/SBN di setiap milestone
-- **Kill Switch Status** — 3 kondisi falsifikasi thesis
+- **Kill Switch Status** — 4 kondisi falsifikasi thesis (KS#4 = 3-signal weighted credit-market check)
 - **EV Calculator** — P(crisis)×25 + P(stress)×8 + P(base)×(−1.44)
 - **Burry Method** — 3-pertanyaan contrarian validation
 - **Archive** — semua thesis historis + akurasi walk-forward
@@ -354,7 +354,11 @@ armed → triggered (trigger indicator breaches threshold)
 Setiap Senin 07:30 WIB, cron job mengecek semua thesis ARMED/TRIGGERED:
 - Apakah sudah T+3 (90d), T+6 (180d), atau T+12 (365d)? (window ±5 hari)
 - Bandingkan actual CDS/IDR/SBN vs predicted saat ARM
-- Auto-kill jika kill switch #1 fired (political_risk_score <55 sustained 14 hari)
+- Auto-kill jika salah satu kill switch fired:
+  - **KS#1** — political_risk_score <55 sustained 14 hari (social stress reda)
+  - **KS#3** — SBN foreign ownership >13% (capital return; inflow bantah crisis narrative)
+  - **KS#4** — 3-signal weighted credit-market benign: CDS 5Y persist <100bps (w=1) + SBN-UST spread <366bps (w=2) + IDR realized vol 30d ann <5% (w=3). Kill fires jika sum(weighted_pass) >3 dari 6. Threshold di-calibrate vs 6 crisis historis (2013-2023). Weighted design prevents single-source manipulation (thin CDS / intervention-pinned spot) dari wrongly invalidating thesis
+  - **KS#2** (candidate) — BI coordinated stabilization package terdeteksi (Exa/Tavily); manual confirm before kill
 - Hasil akurasi ditulis ke notes thesis → visible di archive `/bs`
 
 **Registrasi cron (run once):**

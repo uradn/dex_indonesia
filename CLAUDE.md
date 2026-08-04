@@ -61,7 +61,12 @@ bun scripts/check-thesis.ts               # T+3/T+6/T+12 milestone check + kill 
 #     #1 — political_risk < 55 sustained 14d (social stress eased)
 #     #2 — BI coordinated stabilization package (Exa/Tavily detect; manual confirm before kill)
 #     #3 — SBN foreign ownership > 13% (capital return; inflows reversed crisis narrative)
-#     #4 — CDS 5Y < 100bps sustained 7d (market stopped pricing crisis; thesis invalidated)
+#     #4 — 3-signal WEIGHTED credit-market benign (kill fires if weighted-pass > 3 of 6):
+#            s1 CDS 5Y persist <100bps last 3 consecutive (latest ≤10d fresh)   w=1
+#            s2 SBN-UST 10Y spread <366bps (calibrated pre-crisis quiet median)  w=2
+#            s3 IDR realized vol 30d ann <5% (below 2018 EM quiet baseline)      w=3
+#          Thresholds calibrated vs 6 historical crises. Prevents single-source
+#          manipulation (thin CDS or intervention-pinned spot) from wrongly killing.
 
 # Cron job registration (run once; idempotent)
 bun scripts/add-morning-brief-cron.ts     # daily 08:00 WIB Mon-Fri — 13 modules + SCD via asean-morning-brief skill

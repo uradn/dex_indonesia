@@ -9,7 +9,7 @@
  *   #3 — SBN foreign ownership > 13% (capital return; foreign inflows reversed crisis)
  *   #4 — CDS 5Y < 100bps sustained 7d (market stopped pricing crisis; thesis invalidated)
  */
-import { getAllTheses, updateThesisStatus, getLatestPoint, getLastN, getModuleScoreHistory } from '../src/tools/macro/time-series-db.js';
+import { getAllTheses, updateThesisStatus, getLatestPoint, getLastN, getModuleScoreHistory, getHistory } from '../src/tools/macro/time-series-db.js';
 
 const MILESTONES = [
   { days: 90,  label: 'T+3' },
@@ -83,19 +83,22 @@ async function main() {
   }
 
   // Fetch live indicators once — all in parallel
-  const [cdsPoint, idrPoint, sbnPoint, polScores, sbnOwnPoint, cdsHistory, biPkg] = await Promise.all([
+  const [cdsPoint, idrPoint, sbnPoint, ustPoint, polScores, sbnOwnPoint, cdsHistory, idrHistory, biPkg] = await Promise.all([
     getLatestPoint('indonesia_cds_5y_bps'),
     getLatestPoint('usdidr_spot'),
     getLatestPoint('sbn_10y_yield_pct'),
+    getLatestPoint('ust_10y_yield_pct'),
     getModuleScoreHistory('political_risk', 20),
     getLatestPoint('sbn_foreign_ownership_pct'),
     getLastN('indonesia_cds_5y_bps', 10),              // for KS #4 sustained CDS check
+    getHistory('usdidr_spot', 45),                     // for KS #4 IDR 30d realized vol
     detectBiCoordinatedPackage(),                       // KS #2 Exa/Tavily search
   ]);
 
   const cdsActual    = cdsPoint?.value ?? null;
   const idrActual    = idrPoint?.value ?? null;
   const sbnActual    = sbnPoint?.value ?? null;
+  const ustActual    = ustPoint?.value ?? null;
   const sbnOwnActual = sbnOwnPoint?.value ?? null;
 
   // Kill switch #1: political_risk module score < 55 for last 14d
@@ -108,12 +111,55 @@ async function main() {
   // Kill switch #3: SBN foreign ownership > 13% — capital return, crisis narrative reversed
   const killSwitch3 = sbnOwnActual != null && sbnOwnActual > 13;
 
-  // Kill switch #4: CDS < 100bps sustained 7d — market stopped pricing crisis; thesis invalidated
-  const cdsLast7 = cdsHistory.filter(p => {
-    const age = (today.getTime() - new Date(p.date).getTime()) / 86400000;
-    return age <= 7;
-  });
-  const killSwitch4 = cdsLast7.length >= 3 && cdsLast7.every(p => p.value < 100);
+  // Kill switch #4: 3-signal WEIGHTED credit-market benign check. Kill fires only when
+  // majority-weight of independent markets confirm "not pricing crisis". Prevents single-source
+  // manipulation (thin CDS or intervention-pinned spot) from wrongly invalidating thesis.
+  //
+  // Signals (weights reflect information quality):
+  //   s1 — CDS 5Y persist < 100bps (last 3 consecutive readings, latest ≤10d fresh)   w=1
+  //   s2 — SBN-UST 10Y spread < 366bps (below historical pre-crisis quiet-zone median) w=2
+  //   s3 — IDR realized vol 30d ann < 5% (below 2018 EM quiet baseline)               w=3
+  // Kill fires if sum(weights_passed) > 3 (of 6 max). Equivalent to: any 2 of {s2, s3}
+  // OR all three. Prevents kill on CDS+SBN benign only (both distortable by intervention).
+  const CDS_KILL_THRESHOLD_BPS = 100;
+  const CDS_MAX_AGE_DAYS = 10;
+  const SBN_SPREAD_THRESHOLD_BPS = 366;   // calibrated: 80% × median-of-p75 across 6 crises (real UST fix applied)
+  const IDR_VOL_THRESHOLD_PCT = 5;         // calibrated: below 2018 EM quiet-zone p75 (3.47%) buffered
+
+  // s1 — CDS
+  const cdsSorted = [...cdsHistory].sort((a, b) => b.date.localeCompare(a.date));
+  const latest3 = cdsSorted.slice(0, 3);
+  const latestAgeDays = latest3.length > 0
+    ? (today.getTime() - new Date(latest3[0].date).getTime()) / 86400000
+    : Infinity;
+  const cdsDataFresh = latestAgeDays <= CDS_MAX_AGE_DAYS;
+  const cdsPersistBelow = latest3.length >= 3 && latest3.every(p => p.value < CDS_KILL_THRESHOLD_BPS);
+  const s1_cdsPass = cdsPersistBelow && cdsDataFresh;
+  const cdsUncomputable = !cdsDataFresh || latest3.length < 3;
+
+  // s2 — SBN-UST spread
+  const sbnUstSpreadBps = (sbnActual != null && ustActual != null)
+    ? (sbnActual - ustActual) * 100
+    : null;
+  const s2_spreadPass = sbnUstSpreadBps != null && sbnUstSpreadBps < SBN_SPREAD_THRESHOLD_BPS;
+
+  // s3 — IDR realized vol 30d annualized
+  const idrSorted = [...idrHistory].sort((a, b) => a.date.localeCompare(b.date));
+  let idrVol30dAnn: number | null = null;
+  if (idrSorted.length >= 30) {
+    const rets: number[] = [];
+    for (let i = 1; i < idrSorted.length; i++) {
+      rets.push(Math.log(idrSorted[i].value / idrSorted[i - 1].value));
+    }
+    const last30 = rets.slice(-30);
+    const mean = last30.reduce((s, r) => s + r, 0) / last30.length;
+    const variance = last30.reduce((s, r) => s + (r - mean) ** 2, 0) / (last30.length - 1);
+    idrVol30dAnn = Math.sqrt(variance) * Math.sqrt(252) * 100;
+  }
+  const s3_volPass = idrVol30dAnn != null && idrVol30dAnn < IDR_VOL_THRESHOLD_PCT;
+
+  const ks4Weight = (s1_cdsPass ? 1 : 0) + (s2_spreadPass ? 2 : 0) + (s3_volPass ? 3 : 0);
+  const killSwitch4 = ks4Weight > 3;
 
   console.log(`\n## Thesis Milestone Check — ${today.toISOString().slice(0, 10)}`);
   console.log(`Active theses: ${active.length}\n`);
@@ -184,13 +230,17 @@ async function main() {
       console.log(`  ❌ #3 clear: SBN foreign ownership ${sbnOwnActual?.toFixed(1) ?? '—'}% (need >13% for capital return signal)`);
     }
 
-    // #4 — CDS below 100bps sustained (thesis invalidated)
-    if (killSwitch4) {
-      console.log(`  ✅ #4 FIRED: CDS 5Y < 100bps sustained 7d (${cdsLast7.length} readings, min ${Math.min(...cdsLast7.map(p=>p.value)).toFixed(0)}bps) → market no longer pricing crisis, auto-killing`);
-    } else {
-      const cdsMin7 = cdsLast7.length > 0 ? Math.min(...cdsLast7.map(p => p.value)) : null;
-      console.log(`  ❌ #4 clear: CDS min ${cdsMin7?.toFixed(0) ?? '—'}bps last 7d (need <100bps sustained 7d)`);
-    }
+    // #4 — 3-signal weighted market-benign check (thesis invalidated only when majority-weight confirms)
+    const s1Mark = s1_cdsPass ? '✓' : (cdsUncomputable ? '?' : '✗');
+    const s2Mark = s2_spreadPass ? '✓' : (sbnUstSpreadBps == null ? '?' : '✗');
+    const s3Mark = s3_volPass ? '✓' : (idrVol30dAnn == null ? '?' : '✗');
+    const cdsMinStr = latest3.length > 0 ? Math.min(...latest3.map(p => p.value)).toFixed(0) : '—';
+    const spreadStr = sbnUstSpreadBps?.toFixed(0) ?? '—';
+    const volStr = idrVol30dAnn?.toFixed(1) ?? '—';
+    console.log(`  ${killSwitch4 ? '✅ #4 FIRED' : '❌ #4 clear'} weighted=${ks4Weight}/6 (need >3 to kill)`);
+    console.log(`      s1 CDS<${CDS_KILL_THRESHOLD_BPS}bps persist [w=1]     ${s1Mark}  latest3 min=${cdsMinStr}bps age=${latestAgeDays.toFixed(0)}d`);
+    console.log(`      s2 SBN-UST<${SBN_SPREAD_THRESHOLD_BPS}bps         [w=2]     ${s2Mark}  current=${spreadStr}bps`);
+    console.log(`      s3 IDR vol30d<${IDR_VOL_THRESHOLD_PCT}%           [w=3]     ${s3Mark}  current=${volStr}%`);
 
     // ── Auto-kill logic ───────────────────────────────────────────────────
     const autoKillFired = killSwitch1Sustained || killSwitch3 || killSwitch4;
@@ -198,7 +248,7 @@ async function main() {
       const reasons = [
         killSwitch1Sustained ? `KS#1 political_risk<55 sustained 14d` : '',
         killSwitch3 ? `KS#3 SBN own ${sbnOwnActual?.toFixed(1)}%>13%` : '',
-        killSwitch4 ? `KS#4 CDS<100bps sustained 7d` : '',
+        killSwitch4 ? `KS#4 credit-market benign weighted=${ks4Weight}/6 (CDS ${latest3[0]?.value.toFixed(0)}bps, SBN-UST ${sbnUstSpreadBps?.toFixed(0)}bps, IDR vol ${idrVol30dAnn?.toFixed(1)}%)` : '',
       ].filter(Boolean).join(' | ');
       const note = `[AUTO-KILL ${today.toISOString().slice(0,10)}] ${reasons}`;
       await updateThesisStatus(thesis.id!, 'killed', { notes: note });
