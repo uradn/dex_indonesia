@@ -4,7 +4,8 @@
  * Run: bun scripts/dashboard.ts
  */
 import { Database } from 'bun:sqlite';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { silentCrisisDetector } from '../src/tools/macro/silent-crisis-detector.ts';
 import {
   saveThesis, updateThesisStatus, getLatestThesis, getAllTheses,
@@ -13,6 +14,83 @@ import type { ThesisRecord } from '../src/tools/macro/time-series-db.ts';
 
 const DB_PATH = join(import.meta.dir, '../.dexter/macro/macro.db');
 const PORT = 6080;
+
+// ── News cache (live Exa scan) ────────────────────────────────────────────────
+
+type NewsHeadline = { headline: string; date: string; url: string; source: string };
+type NewsCategory = 'political' | 'fiscal' | 'market' | 'fx' | 'banking';
+type NewsCache = { updatedAt: string; headlines: Record<NewsCategory, NewsHeadline[]> };
+
+const NEWS_CACHE_PATH = join(import.meta.dir, '../.dexter/macro/news-cache.json');
+const NEWS_QUERIES: Record<NewsCategory, string> = {
+  political: 'Indonesia demo protest Prabowo mahasiswa jurnalis unrest',
+  fiscal: 'Indonesia APBN defisit fiskal Kemenkeu Purbaya',
+  market: 'Indonesia IHSG JCI rupiah IDR foreign flow',
+  fx: 'Indonesia rupiah Bank Indonesia cadev intervensi',
+  banking: 'Indonesia bank NPL CAR SBN yield perbankan',
+};
+
+let newsCache: NewsCache | null = null;
+let newsRefreshing = false;
+
+function loadNewsCache(): NewsCache | null {
+  if (newsCache) return newsCache;
+  try {
+    newsCache = JSON.parse(readFileSync(NEWS_CACHE_PATH, 'utf8')) as NewsCache;
+    return newsCache;
+  } catch { return null; }
+}
+
+async function fetchExa(query: string, daysBack = 5): Promise<NewsHeadline[]> {
+  const key = process.env.EXASEARCH_API_KEY;
+  if (!key) return [];
+  const end = new Date();
+  const start = new Date(Date.now() - daysBack * 86400_000);
+  const body = {
+    query, numResults: 8, type: 'auto',
+    startPublishedDate: start.toISOString().slice(0, 10),
+    endPublishedDate: end.toISOString().slice(0, 10),
+  };
+  try {
+    const res = await fetch('https://api.exa.ai/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': key },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return [];
+    const j = await res.json() as any;
+    return ((j.results as any[]) ?? []).slice(0, 4).map(r => {
+      let host = '';
+      try { host = new URL(r.url ?? '').hostname.replace(/^www\./, ''); } catch {}
+      return {
+        headline: String(r.title ?? '').slice(0, 180),
+        date: String(r.publishedDate ?? '').slice(0, 10),
+        url: String(r.url ?? ''),
+        source: host,
+      };
+    }).filter(r => r.headline);
+  } catch { return []; }
+}
+
+async function refreshNews(): Promise<NewsCache> {
+  const entries = await Promise.all(
+    (Object.entries(NEWS_QUERIES) as [NewsCategory, string][])
+      .map(async ([cat, q]) => [cat, await fetchExa(q)] as const)
+  );
+  const headlines = Object.fromEntries(entries) as Record<NewsCategory, NewsHeadline[]>;
+  const cache: NewsCache = { updatedAt: new Date().toISOString(), headlines };
+  const dir = dirname(NEWS_CACHE_PATH);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(NEWS_CACHE_PATH, JSON.stringify(cache, null, 2));
+  newsCache = cache;
+  return cache;
+}
+
+function briefHeadline(h?: NewsHeadline): string {
+  if (!h || !h.headline) return '';
+  const src = h.source ? ` (${h.source}${h.date ? `, ${h.date}` : ''})` : '';
+  return `"${h.headline}"${src}`;
+}
 
 // ── SCD on-demand state ───────────────────────────────────────────────────────
 
@@ -211,6 +289,15 @@ interface ComputedThesis {
   contrarian: { consensus: string; whyWrong: string; whyNotPriced: string };
   conviction: number;
   analog: { name: string; year: string; similarity: string };
+  newsSnapshot: {
+    updatedAt: string | null;
+    political: NewsHeadline[];
+    fiscal: NewsHeadline[];
+    market: NewsHeadline[];
+    fx: NewsHeadline[];
+    banking: NewsHeadline[];
+  };
+  chainReadings: Record<string, string>;
 }
 
 function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
@@ -309,8 +396,19 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
   let triggerDirection: 'above' | 'below' = 'above';
   let triggerLabel = '';
 
+  // Live news blurbs (from Exa cache) — replaces static "Demo BBM 12 Jun 2026" hardcodes
+  const news = loadNewsCache();
+  const polTop     = news?.headlines.political?.[0];
+  const fiscalTop  = news?.headlines.fiscal?.[0];
+  const marketTop  = news?.headlines.market?.[0];
+  const fxTop      = news?.headlines.fx?.[0];
+  const bankingTop = news?.headlines.banking?.[0];
+  const polBlurb    = polTop    ? briefHeadline(polTop)    : 'no fresh political scan (run Refresh News)';
+  const fiscalBlurb = fiscalTop ? briefHeadline(fiscalTop) : 'no fresh fiscal scan';
+  const marketBlurb = marketTop ? briefHeadline(marketTop) : 'no fresh market scan';
+
   if (primary.id === 'political_financial_gap') {
-    thesisStatement = `Market prices Indonesia sovereign risk at ${financialAvg}/100 while political stress reads ${polScore}/100 — ${polGap}pp divergence. Demo BBM 12 Jun 2026 confirms social contract fracture. Political stress historically leads financial repricing 2-3 quarters.`;
+    thesisStatement = `Market prices Indonesia sovereign risk at ${financialAvg}/100 while political stress reads ${polScore}/100 — ${polGap}pp divergence. Live signal: ${polBlurb}. Political stress historically leads financial repricing 2-3 quarters.`;
     triggerIndicator = 'political_risk_score'; triggerThreshold = 75; triggerDirection = 'above';
     triggerLabel = 'Political risk score stays >75 for 30d OR SBN foreign ownership <11%';
   } else if (primary.id === 'idr_apbn_gap') {
@@ -440,7 +538,7 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
   // ── Contrarian validation ─────────────────────────────────────────────────────
   const contrarian = {
     consensus: `BI: macro stable; IDR weakness is global DXY story not ID-specific. Markets price CDS ${cds?.toFixed(0) ?? '97'}bps = moderate risk, not crisis. S&P/Fitch maintain BBB- stable. Bloomberg consensus: no sovereign event 12mo.`,
-    whyWrong: `Political risk ${polScore}/100 ${polLevel} vs financial avg ${financialAvg}/100 — ${polGap}pp divergence ignored by financial models. Demo BBM 12 Jun 2026 (Jakarta HI + Monas, Makassar) = social contract fracture visible. SRBI sterilization ${srbiB ? srbiB.toFixed(0)+'%' : '36%'} of FX reserves = pseudo-stability masking reserve depletion. Fiscal deficit trajectory 4.23% GDP → above 3% constitutional limit. S&P interest/revenue ratio 20.4% = 5.4pp above negative-action threshold.`,
+    whyWrong: `Political risk ${polScore}/100 ${polLevel} vs financial avg ${financialAvg}/100 — ${polGap}pp divergence ignored by financial models. Political live: ${polBlurb} = social contract stress visible now. Fiscal live: ${fiscalBlurb}. Market live: ${marketBlurb}. SRBI sterilization ${srbiB ? srbiB.toFixed(0)+'%' : '36%'} of FX reserves = pseudo-stability masking reserve depletion.`,
     whyNotPriced: `Three structural lags: (1) Political leads financial 2-3 quarters — sell-side models are financial-first, political risk treated as exogenous noise; (2) MSCI EM review creates uncertainty paralysis — foreign funds wait-and-see rather than exit; (3) BI SRBI program maintains surface IDR calm through sterilization, hiding reserve depletion from casual observers.`,
   };
 
@@ -456,6 +554,22 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
   // Conviction = crisis probability amplified by political-financial divergence
   const conviction = Math.min(95, Math.round(crisisProbability * (1 + polGap / 200)));
 
+  const newsSnapshot = {
+    updatedAt: news?.updatedAt ?? null,
+    political: news?.headlines.political ?? [],
+    fiscal:    news?.headlines.fiscal    ?? [],
+    market:    news?.headlines.market    ?? [],
+    fx:        news?.headlines.fx        ?? [],
+    banking:   news?.headlines.banking   ?? [],
+  };
+  const chainReadings: Record<string, string> = {};
+  const fmtRead = (h?: NewsHeadline) => h ? `${h.headline} (${h.source}, ${h.date})` : '';
+  if (polTop)     chainReadings.political_risk    = fmtRead(polTop);
+  if (fiscalTop)  chainReadings.fiscal            = fmtRead(fiscalTop);
+  if (marketTop)  chainReadings.foreign_flow      = fmtRead(marketTop);
+  if (fxTop)      chainReadings.fx_defense        = fmtRead(fxTop);
+  if (bankingTop) chainReadings.banking           = fmtRead(bankingTop);
+
   return {
     primaryDivergence: primary.id,
     thesisStatement, triggerIndicator, triggerThreshold, triggerDirection, triggerLabel, triggerFired,
@@ -465,6 +579,7 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
     crisisProbability, evEstimate, killConditions,
     divergences: divs, transmissionChain, marketExpression, contrarian,
     conviction, analog,
+    newsSnapshot, chainReadings,
   };
 }
 
@@ -1897,6 +2012,8 @@ const BS_HTML = `<!DOCTYPE html>
 <header>
   <h1>🇮🇩 Big Short — Indonesia Contrarian Thesis</h1>
   <span id="ts">—</span>
+  <span id="news-ts" style="font-size:10px;color:var(--muted);margin-left:8px">News: —</span>
+  <button id="news-refresh-btn" onclick="refreshNews()" class="action-btn arm" style="padding:3px 8px;font-size:10px;margin-left:6px">↻ Refresh News</button>
   <div class="nav-links">
     <a href="/" class="nav">Dashboard</a>
     <a href="/rr" class="nav">R&amp;R / G-G</a>
@@ -1976,6 +2093,10 @@ const BS_HTML = `<!DOCTYPE html>
     <div class="card">
       <div class="card-title">Research Foundation</div>
       <div id="panel-research">Loading…</div>
+    </div>
+    <div class="card" style="border-left:3px solid var(--yellow)">
+      <div class="card-title" style="color:var(--yellow)">Live News Feed — Exa scan</div>
+      <div id="panel-news">Loading…</div>
     </div>
   </div>
 </div>
@@ -2089,11 +2210,14 @@ function renderChain(t) {
   const steps = t.transmissionChain.map((n, i) => {
     const isLast = i === t.transmissionChain.length - 1;
     const meta = CHAIN_META[n.module] ?? {};
+    const liveRead = (t.chainReadings && t.chainReadings[n.module]) ? t.chainReadings[n.module] : null;
+    const readingText = liveRead ? liveRead : (meta.readings ?? '—');
+    const readingLabel = liveRead ? 'Live headline' : 'Current readings';
     const connCls = isLast ? '' : (t.transmissionChain[i + 1]?.cls ?? 'green');
     const tip = \`
       <div class="chain-tip">
         <div class="chain-tip-row"><div class="chain-tip-label">Tracks</div><div class="chain-tip-val">\${esc(meta.tracks ?? '—')}</div></div>
-        <div class="chain-tip-row"><div class="chain-tip-label">Current readings</div><div class="chain-tip-val">\${esc(meta.readings ?? '—')}</div></div>
+        <div class="chain-tip-row"><div class="chain-tip-label">\${readingLabel}</div><div class="chain-tip-val">\${esc(readingText)}</div></div>
         <div class="chain-tip-row"><div class="chain-tip-label">Fires when</div><div class="chain-tip-val">\${esc(meta.fires ?? '—')}</div></div>
         <div class="chain-tip-row"><div class="chain-tip-label">Lag</div><div class="chain-tip-val">\${esc(meta.lag ?? '—')}</div></div>
       </div>\`;
@@ -2323,6 +2447,72 @@ function renderAnalog(t) {
   </div>\`;
 }
 
+function fmtAgo(iso) {
+  if (!iso) return 'never';
+  const d = new Date(iso);
+  const secs = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (secs < 60) return secs + 's ago';
+  if (secs < 3600) return Math.floor(secs/60) + 'm ago';
+  if (secs < 86400) return Math.floor(secs/3600) + 'h ago';
+  return Math.floor(secs/86400) + 'd ago';
+}
+
+function updateNewsTs(iso) {
+  const el = document.getElementById('news-ts');
+  if (!el) return;
+  if (!iso) { el.textContent = 'News: never scanned — click Refresh News'; el.style.color = 'var(--red)'; return; }
+  const d = new Date(iso);
+  el.textContent = 'News: ' + fmtAgo(iso) + ' (' + d.toLocaleString('id-ID', { hour12: false }) + ')';
+  const secs = (Date.now() - d.getTime()) / 1000;
+  el.style.color = secs > 86400 ? 'var(--orange)' : secs > 21600 ? 'var(--yellow)' : 'var(--muted)';
+}
+
+async function refreshNews() {
+  const btn = document.getElementById('news-refresh-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '↻ Scanning…'; }
+  try {
+    const res = await fetch('/api/refresh-news', { method: 'POST' });
+    const j = await res.json();
+    if (j.status === 'done') {
+      updateNewsTs(j.updatedAt);
+      await loadData();
+    } else if (j.status === 'busy') {
+      // wait + retry once
+      await new Promise(r => setTimeout(r, 3000));
+      await loadData();
+    } else {
+      alert('News refresh failed: ' + (j.error || j.status));
+    }
+  } catch (e) {
+    alert('News refresh error: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh News'; }
+  }
+}
+
+function renderNews(t) {
+  const s = t?.newsSnapshot;
+  if (!s || !s.updatedAt) return '<div style="color:var(--muted);font-size:11px">No news scanned yet. Click <b>↻ Refresh News</b> in header.</div>';
+  const cats = [
+    { key: 'political', label: 'Political', cls: 'red' },
+    { key: 'fiscal',    label: 'Fiscal',    cls: 'orange' },
+    { key: 'market',    label: 'Market',    cls: 'yellow' },
+    { key: 'fx',        label: 'FX',        cls: 'orange' },
+    { key: 'banking',   label: 'Banking',   cls: 'yellow' },
+  ];
+  const blocks = cats.map(c => {
+    const items = (s[c.key] || []).slice(0, 3);
+    if (!items.length) return \`<div class="research-item"><div class="research-cat \${c.cls}">\${c.label}</div><div style="color:var(--muted);font-size:10px">— no items —</div></div>\`;
+    const rows = items.map(h => \`
+      <div style="margin:4px 0">
+        <a href="\${esc(h.url)}" target="_blank" class="research-link" style="font-size:10px;line-height:1.4;display:block">\${esc(h.headline)}</a>
+        <div class="research-meta">\${esc(h.source)} · \${esc(h.date)}</div>
+      </div>\`).join('');
+    return \`<div class="research-item"><div class="research-cat \${c.cls}">\${c.label}</div>\${rows}</div>\`;
+  }).join('');
+  return \`<div style="font-size:10px;color:var(--muted);margin-bottom:6px">Scan: \${new Date(s.updatedAt).toLocaleString('id-ID',{hour12:false})} · injected into thesis narrative + transmission chain</div>\${blocks}\`;
+}
+
 function renderCtr(t) {
   if (!t || !t.contrarian) return '—';
   const qs = [
@@ -2482,9 +2672,11 @@ async function loadData() {
     document.getElementById('panel-ctr').innerHTML = renderCtr(thesis);
     document.getElementById('panel-archive').innerHTML = renderArchive(archive);
     document.getElementById('panel-research').innerHTML = renderResearch();
+    document.getElementById('panel-news').innerHTML = renderNews(thesis);
     document.getElementById('conv-actions').innerHTML = renderConvActions(activeArmed);
 
     document.getElementById('ts').textContent = 'Updated ' + new Date().toLocaleTimeString('id-ID');
+    updateNewsTs(thesis?.newsSnapshot?.updatedAt);
   } catch (e) {
     document.getElementById('action-msg-bar').textContent = 'Load error: ' + e.message;
   }
@@ -2605,6 +2797,29 @@ const server = Bun.serve({
       }
       triggerScd();
       return Response.json({ status: 'running', message: 'SCD scan started (all 13 modules — takes 60-120s)' });
+    }
+
+    if (url.pathname === '/api/refresh-news' && req.method === 'POST') {
+      if (newsRefreshing) return Response.json({ status: 'busy', message: 'refresh in progress' });
+      if (!process.env.EXASEARCH_API_KEY) return Response.json({ status: 'error', error: 'EXASEARCH_API_KEY not set' }, { status: 500 });
+      newsRefreshing = true;
+      try {
+        const cache = await refreshNews();
+        return Response.json({
+          status: 'done',
+          updatedAt: cache.updatedAt,
+          counts: Object.fromEntries(Object.entries(cache.headlines).map(([k, v]) => [k, v.length])),
+        });
+      } catch (e) {
+        return Response.json({ status: 'error', error: String(e) }, { status: 500 });
+      } finally {
+        newsRefreshing = false;
+      }
+    }
+
+    if (url.pathname === '/api/news') {
+      const cache = loadNewsCache();
+      return Response.json(cache ?? { updatedAt: null, headlines: {} });
     }
 
     if (url.pathname === '/api/scd-result') {
