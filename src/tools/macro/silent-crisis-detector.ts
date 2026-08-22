@@ -129,9 +129,10 @@ async function getModuleScores(): Promise<ModuleScore[]> {
     runners.map(async ({ module, run }) => {
       try {
         const result = await run();
-        scores.push({ module, score: result.score, alertLevel: result.alertLevel, available: true });
+        const roundedScore = Math.round(result.score);
+        scores.push({ module, score: roundedScore, alertLevel: result.alertLevel, available: true });
         const components = result.flags && result.flags.length > 0 ? { flags: result.flags } : {};
-        saveModuleScore(module, result.score, result.alertLevel, components).catch(() => {});
+        saveModuleScore(module, roundedScore, result.alertLevel, components).catch(() => {});
       } catch {
         scores.push({ module, score: 0, alertLevel: 'green', available: false });
       }
@@ -193,9 +194,9 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
 
   // Stress vectors — which modules are driving
   const stressVectors = moduleScores
-    .filter((m) => m.available && (m.alertLevel === 'orange' || m.alertLevel === 'red'))
+    .filter((m) => m.available && (MODULE_WEIGHTS[m.module] ?? 0) > 0 && (m.alertLevel === 'orange' || m.alertLevel === 'red'))
     .sort((a, b) => b.score - a.score)
-    .map((m) => `${m.module.replace('_', ' ')} [${m.alertLevel.toUpperCase()} ${m.score}/100]`);
+    .map((m) => `${m.module.replace(/_/g, ' ')} [${m.alertLevel.toUpperCase()} ${Math.round(m.score)}/100]`);
 
   const keyFlags: string[] = [];
   if (stressedCount >= 3) keyFlags.push(`CROSS-CONFIRMATION: ${stressedCount}/13 modules signaling stress simultaneously — non-linear risk elevated`);
