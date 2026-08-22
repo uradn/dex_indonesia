@@ -252,7 +252,7 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   // Trilemma: capital account open + monetary autonomy → cannot fix IDR without sterilizing FX intervention
   // BI issues SRBI to absorb excess Rupiah from USD purchases → pays BI Rate on outstanding → reduces BI profit remittance to Treasury
   const srbiOutstandingTrn = dbSrbi?.value ?? null;
-  const biRatePct = dbBiRate?.value ?? 5.50; // fallback: BI Rate as of Jun 9 2026 (+25bps)
+  const biRatePct = dbBiRate?.value ?? 5.75; // fallback: BI Rate ~Jul 2026 (+25bps hike) // fallback: BI Rate as of Jun 9 2026 (+25bps)
   const srbiAnnualCostTrn = srbiOutstandingTrn !== null
     ? parseFloat((srbiOutstandingTrn * (biRatePct / 100)).toFixed(1))
     : null;

@@ -62,7 +62,7 @@ const APBN_ASSUMPTIONS = {
   oilPrice: 70,         // APBN ICP (Indonesian Crude Price) assumption USD/bbl
   gdpGrowth: 5.4,       // APBN GDP growth target %
   inflation: 2.5,       // APBN CPI target %
-  biRate: 5.50,         // BI 7DRR as of Jun 9 2026 (raised +25bps from 5.25%, RDG June 2026)
+  biRate: 5.75,         // BI Rate ~Jul 2026 hike (+25bps → 5.75%)
 };
 
 // US CPI approximation — used for relative PPP misalignment cross-check only (R&R framework)
