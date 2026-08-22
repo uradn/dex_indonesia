@@ -87,12 +87,16 @@ async function openDb(): Promise<SqliteDb> {
   if (!existsSync(dir)) await mkdir(dir, { recursive: true });
   try {
     const sqlite = await import('bun:sqlite');
-    const DatabaseCtor = sqlite.Database as new (path: string) => SqliteDb;
+    const DatabaseCtor = sqlite.Database as new (path: string, opts?: { readonly?: boolean }) => SqliteDb;
     _db = new DatabaseCtor(DB_PATH);
+    // WAL mode + busy timeout for parallel module writes
+    _db.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;');
   } catch {
     const mod = await import('better-sqlite3');
     const Database = mod.default;
     const raw = new Database(DB_PATH);
+    raw.pragma('journal_mode=WAL');
+    raw.pragma('busy_timeout=5000');
     _db = {
       exec: (sql: string) => raw.exec(sql),
       query: <T>(sql: string): SqliteQuery<T> => {
