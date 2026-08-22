@@ -26,6 +26,7 @@ import { runFiscalEngine } from './fiscal-engine.js';
 import { runDomesticPressureEngine } from './domestic-pressure-engine.js';
 import { runPoliticalRiskEngine } from './political-risk-engine.js';
 import { runUlnEngine } from './uln-engine.js';
+import { runAseanRelativeValueEngine } from './asean-relative-value-engine.js';
 import type { AlertLevel } from './types.js';
 import { saveModuleScore } from './time-series-db.js';
 
@@ -100,6 +101,7 @@ const MODULE_WEIGHTS: Record<string, number> = {
   political_risk:      0.05,  // unemployment + social unrest + governance stability
   regime:              0.05,  // raised — regime shift precedes capital flight
   narrative:           0.02,
+  asean_rv:            0.00,  // supplementary — persists to DB but excluded from SCD weighted score
 };
 
 async function getModuleScores(): Promise<ModuleScore[]> {
@@ -119,6 +121,8 @@ async function getModuleScores(): Promise<ModuleScore[]> {
     { module: 'domestic_pressure',  run: async () => { const r = await runDomesticPressureEngine(); return { score: r.stressScore, alertLevel: r.alert, flags: r.flags }; } },
     { module: 'political_risk',     run: async () => { const r = await runPoliticalRiskEngine();   return { score: r.stressScore, alertLevel: r.alert, flags: r.flags }; } },
     { module: 'uln',                run: async () => { const r = await runUlnEngine(); return { score: r.stressScore, alertLevel: r.alert, flags: r.flags }; } },
+    // M7 supplementary — weight=0, not in SCD score; runs to persist idiosyncratic FX data to DB
+    { module: 'asean_rv',           run: async () => { const r = await runAseanRelativeValueEngine(); return { score: Math.min(100, Math.abs(r.idiosyncraticComponent ?? 0) * 10), alertLevel: r.alertLevel, flags: r.flags }; } },
   ];
 
   await Promise.allSettled(
@@ -156,7 +160,7 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
   const baseScore = totalWeight > 0 ? weightedSum / totalWeight : 0;
 
   // Cross-confirmation amplifier: non-linear boost when multiple modules stressed
-  const stressedCount = moduleScores.filter((m) => m.alertLevel === 'orange' || m.alertLevel === 'red').length;
+  const stressedCount = moduleScores.filter((m) => (MODULE_WEIGHTS[m.module] ?? 0) > 0 && (m.alertLevel === 'orange' || m.alertLevel === 'red')).length;
   const crossConfirmationMultiplier = stressedCount >= 5 ? 1.4 : stressedCount >= 4 ? 1.3 : stressedCount >= 3 ? 1.2 : stressedCount >= 2 ? 1.1 : 1.0;
   const silentCrisisProbability = Math.min(100, Math.round(baseScore * crossConfirmationMultiplier));
 

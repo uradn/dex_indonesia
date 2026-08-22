@@ -72,7 +72,7 @@ const PEER_FX: Array<{ country: string; indicator: string }> = [
   { country: 'Vietnam',     indicator: 'usdvnd_spot' },
 ];
 
-async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueOutput> {
+export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueOutput> {
   // Fetch fresh ASEAN FX spots
   const fxData = await fetchAseanFxSpots();
   if (fxData.length > 0) await upsertPoints(fxData);
