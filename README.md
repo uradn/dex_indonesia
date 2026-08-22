@@ -225,6 +225,11 @@ Module 11 (Domestic Pressure) tracks domestic fuel prices against cost recovery,
 | **4 Mei 2026** | Operation Project Freedom: US Navy kawal kapal dagang; di-pause 6 Mei |
 | **1 Jun 2026** | Iran hentikan negosiasi dengan AS; **vow to completely block Hormuz** |
 | **9 Jun 2026** | Status: ~5% traffic normal (~600 tanker tertahan di Teluk Persia, 240+ menunggu di luar) |
+| **~Jun–Jul 2026** | US-Iran MoU 60 hari ditandatangani; flow sempat meningkat hampir 3× sebelum deadline |
+| **17 Agu 2026** | Traffic Hormuz **jatuh ke single digit** vessel/hari; deadline MoU mendekat |
+| **19 Agu 2026** | **MoU 60 hari berakhir** — pasar berhenti menunggu; Kpler: "market stopped waiting for Hormuz" |
+| **20 Agu 2026** | Brent **naik ~3%** saat AS perkuat tekanan terhadap Iran pasca-MoU expired; oil surge di The National |
+| **22 Agu 2026** | Status: Hormuz effectively closed; Iran kehilangan kontrol signifikan (CNN Agu 18); Brent **$94.4/bbl** |
 
 **Dampak global:**
 
@@ -245,7 +250,7 @@ Sebelum krisis: **25% seaborne oil** + **20% LNG dunia** melewati Hormuz. Kapasi
 | Skenario | Brent | ICP Proxy | Subsidy Gap/Liter | ICP Alert | Action |
 |----------|-------|-----------|-------------------|-----------|--------|
 | Baseline APBN | $70 | $70 | ~IDR 0 | 🟢 GREEN | Tidak ada |
-| Saat ini (10 Jun) | **$92.6** | ~$92.6 | **IDR 4.680** | 🟠 ORANGE | Monitor ketat |
+| Saat ini (22 Agu) | **$94.4** | ~$94.4 | **IDR 4.900** | 🟠 ORANGE | Monitor — MoU expired, flow single digit |
 | Threshold Bahlil | $100 | $100 | ~IDR 7.200 | 🔴 RED | Komitmen gugur |
 | Peak Mar 2026 | $126 | $126 | ~IDR 12.800 | 🔴 RED | Hike wajib fiskal |
 | Eskalasi baru | $110+ | $110+ | ~IDR 9.000+ | 🔴 RED | Hike + social unrest |

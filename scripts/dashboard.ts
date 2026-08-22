@@ -451,7 +451,7 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
     triggerLabel += ` | Subsidi energi run rate ${subsidyRunRatePct!.toFixed(0)}% (>135% FIRED — fiscal rescue underway)`;
   }
   if (biVacancyTriggerFired) {
-    triggerLabel += ` | BI GOVERNOR VACANT — policy vacuum, IDR undefended window [ACTIVE]`;
+    triggerLabel += ` | BI GOVERNOR VACANT — Destry Damayanti (Surpres 10 Agu) fit & proper test DPR 26-27 Agu; Pj Sementara menjabat sejak 27 Jul [ACTIVE — belum dilantik]`;
   }
 
   // ── SCD-based crisis probability ─────────────────────────────────────────────
@@ -484,7 +484,7 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
     `#2 — BI announces coordinated stabilization package (fiscal letter + reserves defense ≥$5bn + rate guidance) [MANUAL CONFIRM]`,
     `#3 — SBN foreign ownership > 13% (capital return; inflows reversed crisis narrative)`,
     `#4 — CDS 5Y < 100bps sustained 7d (market stopped pricing crisis; thesis invalidated)`,
-    ...(biGovernorVacant ? [`#5 — BI Governor baru dilantik + kebijakan rate definitif diumumkan (institutional vacuum resolved) [MANUAL CONFIRM]`] : []),
+    ...(biGovernorVacant ? [`#5 — Destry Damayanti dilantik sebagai Gubernur BI + kebijakan rate definitif diumumkan (institutional vacuum resolved) [FIT & PROPER TEST DPR 26-27 AGU — MANUAL CONFIRM setelah pelantikan]`] : []),
   ];
 
   // ── Transmission chain ────────────────────────────────────────────────────────
