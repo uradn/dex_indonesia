@@ -8,6 +8,7 @@ import { fetchTradeBalance, fetchImports, fetchExports, bpsAvailable } from './s
 import { fetchTradeBalanceTe, fetchExportsTe, fetchImportsTe } from './sources/sovereign-scraper.js';
 import { fetchCurrentAccount, fetchFxReservesMonths, fetchCurrentAccountBn } from './sources/imf.js';
 import { fetchBbgFxReserves, bloombergAvailable } from './sources/bloomberg.js';
+import { fetchNpiQuarterly } from './sources/neraca-pembayaran.js';
 import type { BoPEngineOutput, IndicatorSnapshot } from './types.js';
 
 export const BOP_DESCRIPTION = `
@@ -74,11 +75,12 @@ export async function runBoPEngine(): Promise<BoPEngineOutput> {
     : await fetchBiFxReserves();
   if (reservePoint) await upsertPoints([reservePoint]);
 
-  // 3. IMF current account data
-  const [caData, caMonths, caBn] = await Promise.all([
+  // 3. IMF current account data (annual) + BI NPI quarterly (real-time)
+  const [caData, caMonths, caBn, npiQuarterly] = await Promise.all([
     fetchCurrentAccount(),
     fetchFxReservesMonths(),
     fetchCurrentAccountBn(),
+    fetchNpiQuarterly(),
   ]);
   if (caData.length > 0) await upsertPoints(caData);
   if (caMonths.length > 0) await upsertPoints(caMonths);
@@ -101,6 +103,10 @@ export async function runBoPEngine(): Promise<BoPEngineOutput> {
   const prevCa = (await getLastN('current_account_pct_gdp', 3)).slice(-2)[0] ?? null;
 
   const currentCaBn = await getLatestPoint('current_account_bn');
+
+  // Quarterly NPI CAD (BI source, real-time) — overrides IMF annual when available
+  const currentCaQtrPct = await getLatestPoint('current_account_pct_gdp_quarterly');
+  const currentCaQtrBn = await getLatestPoint('current_account_quarterly_bn');
 
   // Snapshots
   const tradeSnapshot = currentTrade
@@ -166,10 +172,32 @@ export async function runBoPEngine(): Promise<BoPEngineOutput> {
       ? Math.abs(Math.min(currentCaBn.value, 0)) / currentReserve.value
       : 0;
 
-  const alertLevel = alertFromScore(bopStressScore);
+  // Quarterly CAD threshold check (R&R calibration vs 2013 taper tantrum)
+  const cadPctEffective = currentCaQtrPct?.value ?? currentCa?.value ?? null;
+  const cadBnEffective = currentCaQtrBn?.value ?? currentCaBn?.value ?? null;
+  const cadSource = currentCaQtrPct ? 'BI NPI quarterly' : 'IMF annual';
+
+  // Override bopStressScore upward if quarterly CAD exceeds R&R threshold
+  let cadScoreAdder = 0;
+  if (cadPctEffective !== null) {
+    if (cadPctEffective < -4.0) cadScoreAdder = 40;        // RED — 2013 peak territory
+    else if (cadPctEffective < -3.0) cadScoreAdder = 25;   // ORANGE — R&R threshold breached
+    else if (cadPctEffective < -2.0) cadScoreAdder = 10;   // YELLOW — watch zone
+  }
+  const adjustedBopScore = Math.min(100, bopStressScore + cadScoreAdder);
+
+  const alertLevel = alertFromScore(adjustedBopScore);
   const flags = detectFlags(validSnapshots);
   if (syntheticCadRisk) {
     flags.push('SYNTHETIC CAD RISK: Trade surplus but reserves falling — capital outflow suspected');
+  }
+  if (cadPctEffective !== null && cadPctEffective < -3.0) {
+    flags.push(
+      `CAD THRESHOLD BREACHED: ${cadPctEffective.toFixed(1)}% GDP (${cadSource}) — exceeds R&R 3% danger zone; ` +
+      `Indonesia 2013 crisis peak was −4.4%. BI must defend via rate hike or USD sell.`
+    );
+  } else if (cadPctEffective !== null && cadPctEffective < -2.0) {
+    flags.push(`CAD watch: ${cadPctEffective.toFixed(1)}% GDP (${cadSource}) — approaching R&R 3% threshold`);
   }
   if (importGrowthValue > 20) {
     flags.push(`Import surge ${importGrowthValue.toFixed(1)}% YoY — current account risk rising`);
@@ -180,14 +208,15 @@ export async function runBoPEngine(): Promise<BoPEngineOutput> {
 
   const narrative = buildNarrative({
     tradeSnapshot, importGrowthSnapshot, reserveSnapshot, caSnapshot,
-    reserveMonths, syntheticCadRisk, bopStressScore, alertLevel,
+    reserveMonths, syntheticCadRisk, bopStressScore: adjustedBopScore, alertLevel,
+    cadPctEffective, cadSource, npiQuarterly,
   });
 
   return {
     scoreCard: {
       module: 'bop',
       scoreDate: new Date().toISOString().slice(0, 10),
-      score: bopStressScore,
+      score: adjustedBopScore,
       alertLevel,
       indicators: validSnapshots,
       narrative,
@@ -198,7 +227,7 @@ export async function runBoPEngine(): Promise<BoPEngineOutput> {
     importGrowth: importGrowthSnapshot ?? placeholderSnapshot('import_growth_yoy', '%_yoy'),
     currentAccount: caSnapshot,
     externalDebt: null,
-    bopStressScore,
+    bopStressScore: adjustedBopScore,
     fxFragilityScore,
     externalFundingDependency,
     greenspanGuidotti,
@@ -215,6 +244,9 @@ function buildNarrative(ctx: {
   syntheticCadRisk: boolean;
   bopStressScore: number;
   alertLevel: import('./types.js').AlertLevel;
+  cadPctEffective: number | null;
+  cadSource: string;
+  npiQuarterly: import('./sources/neraca-pembayaran.js').NpiQuarterlyData | null;
 }): string {
   const parts: string[] = [];
   if (ctx.tradeSnapshot) {
@@ -234,8 +266,13 @@ function buildNarrative(ctx: {
   if (ctx.reserveMonths !== null) {
     parts.push(`Reserve cover: ${ctx.reserveMonths.toFixed(1)} months imports.`);
   }
-  if (ctx.caSnapshot) {
-    parts.push(`CA: ${ctx.caSnapshot.current.toFixed(2)}% GDP (IMF est.).`);
+  if (ctx.npiQuarterly && ctx.cadPctEffective !== null) {
+    parts.push(
+      `CA ${ctx.npiQuarterly.quarter}: ${ctx.cadPctEffective.toFixed(1)}% GDP` +
+      ` (${ctx.npiQuarterly.cadBn.toFixed(1)} bn USD, ${ctx.cadSource}).`
+    );
+  } else if (ctx.caSnapshot) {
+    parts.push(`CA: ${ctx.caSnapshot.current.toFixed(2)}% GDP (IMF annual est.).`);
   }
   if (ctx.syntheticCadRisk) {
     parts.push('Synthetic CAD risk: surplus on surface but reserves declining — capital outflow likely.');

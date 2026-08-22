@@ -153,11 +153,15 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - USDIDR: 16,500 | ICP oil: $70/bbl | GDP growth: 5.4% | CPI: 2.5%
 - Revenue: 3,154T | Spending: 3,843T | Deficit: 2.68% GDP
 
-**Live deviations (Jun 2026):**
-- BI Rate: **5.50%** — inter-cycle hike Jun 9 2026 (+25bps, rationale: IDR stabilization)
-- Term premium: **1.98%** (SBN 10Y 7.48% − BI Rate 5.50%) — borderline ORANGE (threshold 2.0%)
-- S&P interest/revenue ratio: **~20.4%** (belanja bunga 552.7T + BI hike uplift 9T vs revenue 2,756T) — 5.4pp above S&P 15% negative-watch threshold
-- USDIDR spot: **~18,000** vs APBN assumption 16,500 — 9% gap
+**Live deviations (Aug 22, 2026):**
+- BI Rate: **5.50%** — inter-cycle hike Jun 9 2026 (+25bps); BI Gov Perry Warjiyo **mundur** Agu 2026 → vacancy trigger aktif di M12
+- Term premium: **1.90%** (SBN 10Y 6.96% − BI Rate 5.50%) — borderline ORANGE (threshold 2.0%); yield SBN unanchored pasca BI Gov vacancy
+- S&P interest/revenue ratio: **~20.5%** (belanja bunga 552.7T + BI hike uplift 12T vs revenue 2,756T) — 5.5pp above S&P 15% negative-watch threshold
+- USDIDR spot: **~17,659** vs APBN assumption 16,500 — triple intervention aktif (spot + DNDF + SRBI)
+- **CAD Q2 2026: −$12.5B = −3.3% PDB** (BI NPI, 21 Agu 2026) — melampaui R&R 3% danger zone; M1 ORANGE
+- Brent: **$94.4/bbl** vs APBN $70 (+34.8%); ICP margin ke Bahlil $100 ceiling: $5.6/bbl
+- Pertamax: **Rp 15.950/liter** (turun 1 Agu 2026 dari Rp 16.250 — rollback Jun hike)
+- SCD: **50% ORANGE** | 5/13 modul di zona stres | Fiscal 63, Political 56, Domestic 55, Sovereign 54, FX Defense 52
 
 ### BBM Subsidy Monitoring (Module 11)
 
