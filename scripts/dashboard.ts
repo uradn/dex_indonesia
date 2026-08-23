@@ -199,6 +199,7 @@ const CHART_INDICATORS = [
   'usdidr_spot', 'indonesia_cds_5y_bps', 'sbn_10y_yield_pct',
   'eido_price', 'bbm_subsidy_gap_idr_liter', 'brent_price_usd',
   'bi_fx_reserves_bn', 'sbn_foreign_ownership_pct',
+  'srbi_outstanding_trn_idr', 'srbi_bid_cover_ratio',
 ];
 
 const ASEAN_FX = ['usdidr_spot', 'usdmyr_spot', 'usdsgd_spot', 'usdthb_spot', 'usdphp_spot', 'usdvnd_spot'];
