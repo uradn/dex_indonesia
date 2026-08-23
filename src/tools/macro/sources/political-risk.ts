@@ -88,7 +88,7 @@ export interface SentimentResult {
 const SIGNAL_QUERIES: Record<NewsSentimentSignal, string> = {
   food_pressure:       'Indonesia Prabowo sembako harga naik protes 2026',
   social_unrest:       'Indonesia demo unjuk rasa protes PHK pengangguran buruh 2026',
-  political_stability: 'Indonesia Prabowo approval rating survei kepuasan publik tidak puas stabilitas politik risiko 2026',
+  political_stability: 'Indonesia governance failure pemerintah absen bencana Prabowo separatism Dayak approval rating tidak puas instabilitas 2026',
   geopolitical_risk:   'Indonesia Prabowo China military drill geopolitical alignment risk investor concern democratic backsliding 2026',
 };
 
@@ -96,14 +96,17 @@ const SIGNAL_QUERIES: Record<NewsSentimentSignal, string> = {
 const SIGNAL_QUERIES_TAVILY: Record<NewsSentimentSignal, string> = {
   food_pressure:       'Indonesia harga sembako beras naik demo protes petani buruh pangan 2026',
   social_unrest:       'Indonesia demo unjuk rasa kerusuhan PHK buruh mogok protes jalanan 2026',
-  political_stability: 'Indonesia Prabowo kepuasan publik tidak puas survei LSI IPO stabilitas risiko investor 2026',
-  geopolitical_risk:   'Indonesia China latihan militer geopolitik risiko investor Prabowo demokrasi 2026',
+  political_stability: 'Indonesia negara absen bencana penanganan Prabowo tidak puas separatisme Dayak Borneo bantuan asing ditolak NTT gempa 2026',
+  geopolitical_risk:   'Indonesia China latihan militer geopolitik risiko investor Prabowo demokrasi backsliding 2026',
 };
 
 const INDONESIAN_NEWS_DOMAINS = [
   'detik.com', 'kompas.com', 'tribunnews.com', 'tempo.co',
   'cnnindonesia.com', 'bisnis.com', 'kontan.co.id', 'antaranews.com',
   'republika.co.id', 'mediaindonesia.com', 'jpnn.com', 'suara.com',
+  // expanded — captures regional/tabloid/broadcast missed before
+  'rmol.id', 'jawapos.com', 'kompas.tv', 'cnbcindonesia.com',
+  'okezone.com', 'merdeka.com', 'viva.co.id', 'kumparan.com',
 ];
 
 
@@ -177,12 +180,16 @@ export async function searchNewsSentimentTavily(signal: NewsSentimentSignal, day
     const { TavilySearchAPIWrapper } = await import('@langchain/tavily');
     const tavily = new TavilySearchAPIWrapper({ tavilyApiKey: process.env.TAVILY_API_KEY });
 
-    const response = await (tavily as any).rawResults({
+    const tavilyParams: Record<string, unknown> = {
       query: SIGNAL_QUERIES_TAVILY[signal],
       max_results: 8,
-      include_domains: INDONESIAN_NEWS_DOMAINS,
       time_range: daysBack <= 7 ? 'week' : 'month',
-    });
+    };
+    // geopolitical_risk: allow international press (AFR, SCMP, FT, Reuters) — no domain filter
+    if (signal !== 'geopolitical_risk') {
+      tavilyParams['include_domains'] = INDONESIAN_NEWS_DOMAINS;
+    }
+    const response = await (tavily as any).rawResults(tavilyParams);
 
     const results = (response.results ?? []) as Array<{ title?: string; url?: string; content?: string; published_date?: string }>;
     let totalNegative = 0;

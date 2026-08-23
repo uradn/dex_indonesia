@@ -14,6 +14,14 @@ export const NEGATIVE_TERMS = [
   'protest', 'unrest', 'crisis', 'chaotic', 'authoritarian', 'volatile', 'layoff',
   'strike', 'surge', 'soaring', 'unstable', 'risk', 'threat', 'concern',
   'riot', 'violence', 'clash', 'dissatisfaction', 'disapproval', 'discontent',
+  // governance failure / disaster response capacity
+  'absen', 'murka', 'tidak hadir', 'lambat', 'mangkir', 'abai', 'gagal tangani',
+  'kapasitas', 'bantuan asing', 'ditolak', 'belum buka', 'negara absen',
+  'state absent', 'governance failure', 'slow response', 'absent state',
+  // separatism / regional fracture
+  'separatis', 'separatisme', 'bendera dayak', 'dayak borneo', 'merdeka',
+  'otonomi khusus', 'referendum', 'disintegrasi', 'secessionist',
+  'separatism', 'separatist', 'independence movement',
 ];
 
 export const POSITIVE_TERMS = [
@@ -32,4 +40,11 @@ export const HIGH_SEVERITY_TERMS = [
   'democratic backsliding', 'backsliding', 'autocratic', 'pivot china',
   'big risk', 'major risk', 'serious concern', 'alarming', 'warning',
   'geopolitical', 'alignment shift', 'neutrality', 'sovereignty risk',
+  // state capacity failure / disaster governance
+  'negara absen', 'state absent', 'governance failure', 'pemerintah absen',
+  'bencana di atas bencana', 'bantuan asing ditolak', 'belum buka bantuan',
+  'presiden murka', 'kapasitas negara',
+  // separatism / regional fracture — highest severity
+  'bendera dayak', 'dayak borneo', 'separatisme', 'disintegrasi nasional',
+  'gerakan separatis', 'secessionist', 'independence movement',
 ];
