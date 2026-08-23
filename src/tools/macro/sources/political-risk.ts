@@ -88,14 +88,14 @@ export interface SentimentResult {
 const SIGNAL_QUERIES: Record<NewsSentimentSignal, string> = {
   food_pressure:       'Indonesia Prabowo sembako harga naik protes 2026',
   social_unrest:       'Indonesia demo unjuk rasa protes PHK pengangguran buruh 2026',
-  political_stability: 'Indonesia politik risiko stabilitas Prabowo ekonomi 2026',
+  political_stability: 'Indonesia Prabowo approval rating survei kepuasan publik tidak puas stabilitas politik risiko 2026',
 };
 
 // Tavily queries skew toward Indonesian domestic news portals
 const SIGNAL_QUERIES_TAVILY: Record<NewsSentimentSignal, string> = {
   food_pressure:       'Indonesia harga sembako beras naik demo protes petani buruh pangan 2026',
   social_unrest:       'Indonesia demo unjuk rasa kerusuhan PHK buruh mogok protes jalanan 2026',
-  political_stability: 'Indonesia stabilitas politik risiko investor Prabowo otoriter 2026',
+  political_stability: 'Indonesia Prabowo kepuasan publik tidak puas survei LSI IPO stabilitas risiko investor 2026',
 };
 
 const INDONESIAN_NEWS_DOMAINS = [

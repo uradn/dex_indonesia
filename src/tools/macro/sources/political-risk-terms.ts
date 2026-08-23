@@ -8,9 +8,12 @@ export const NEGATIVE_TERMS = [
   'kelangkaan', 'tuntut', 'kekacauan', 'risiko', 'berisiko', 'gejolak', 'otoriter',
   'mogok', 'aksi massa', 'ancaman', 'gagal', 'tidak terjangkau', 'tak terjangkau',
   'kerusuhan', 'rusuh', 'bakar', 'anarkis',
+  // approval/dissatisfaction signals
+  'tidak puas', 'ketidakpuasan', 'turun kepercayaan', 'anjlok', 'merosot',
+  'dissatisf', 'disapprov', 'approval drop', 'rating turun', 'kepercayaan turun',
   'protest', 'unrest', 'crisis', 'chaotic', 'authoritarian', 'volatile', 'layoff',
   'strike', 'surge', 'soaring', 'unstable', 'risk', 'threat', 'concern',
-  'riot', 'violence', 'clash',
+  'riot', 'violence', 'clash', 'dissatisfaction', 'disapproval', 'discontent',
 ];
 
 export const POSITIVE_TERMS = [
