@@ -72,7 +72,7 @@ export async function fetchUnemploymentTe(): Promise<MacroDataPoint | null> {
 
 // ─── Exa news sentiment ────────────────────────────────────────────────────
 
-export type NewsSentimentSignal = 'food_pressure' | 'social_unrest' | 'political_stability';
+export type NewsSentimentSignal = 'food_pressure' | 'social_unrest' | 'political_stability' | 'geopolitical_risk';
 
 export interface SentimentResult {
   signal: NewsSentimentSignal;
@@ -89,6 +89,7 @@ const SIGNAL_QUERIES: Record<NewsSentimentSignal, string> = {
   food_pressure:       'Indonesia Prabowo sembako harga naik protes 2026',
   social_unrest:       'Indonesia demo unjuk rasa protes PHK pengangguran buruh 2026',
   political_stability: 'Indonesia Prabowo approval rating survei kepuasan publik tidak puas stabilitas politik risiko 2026',
+  geopolitical_risk:   'Indonesia Prabowo China military drill geopolitical alignment risk investor concern democratic backsliding 2026',
 };
 
 // Tavily queries skew toward Indonesian domestic news portals
@@ -96,6 +97,7 @@ const SIGNAL_QUERIES_TAVILY: Record<NewsSentimentSignal, string> = {
   food_pressure:       'Indonesia harga sembako beras naik demo protes petani buruh pangan 2026',
   social_unrest:       'Indonesia demo unjuk rasa kerusuhan PHK buruh mogok protes jalanan 2026',
   political_stability: 'Indonesia Prabowo kepuasan publik tidak puas survei LSI IPO stabilitas risiko investor 2026',
+  geopolitical_risk:   'Indonesia China latihan militer geopolitik risiko investor Prabowo demokrasi 2026',
 };
 
 const INDONESIAN_NEWS_DOMAINS = [

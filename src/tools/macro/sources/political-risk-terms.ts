@@ -27,4 +27,9 @@ export const HIGH_SEVERITY_TERMS = [
   'darurat', 'emergency', 'krisis politik', 'political crisis', 'perbatasan krisis',
   'berisiko', 'jalur berisiko', 'gejolak mata uang',
   'rusuh', 'kerusuhan', 'riot', 'bakar', 'anarkis', 'anarchy',
+  // geopolitical alignment / governance concern signals
+  'joint drill', 'latihan militer', 'china drill', 'naval drill',
+  'democratic backsliding', 'backsliding', 'autocratic', 'pivot china',
+  'big risk', 'major risk', 'serious concern', 'alarming', 'warning',
+  'geopolitical', 'alignment shift', 'neutrality', 'sovereignty risk',
 ];
