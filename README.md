@@ -49,7 +49,7 @@ Cross-confirmed modules: 1/13
 | M9 | Market Stress | IHSG P/E + breadth, valuation disconnect |
 | M10 | Fiscal | APBN realisasi vs target, revenue shortfall, deficit trajectory, **S&P interest/revenue threshold** (≥15% = negative action watch; BI hike cycle uplift computed), **MBG burn rate** (Rp 335T = 8.7% APBN, 4× subsidi energi), **BPDPKS biodiesel insentif** (B50 transition cost) |
 | M11 | Domestic Pressure | PIHPS 10 komoditas pangan + BBM subsidy gap (cost recovery vs Pertalite) + ICP threshold watch |
-| M12 | Political Risk | Unemployment + Exa news sentiment + **X API v2 real-time social feed** (unrest detection, minute-zero before Exa publishes) + **PHK/relokasi event tracker** (worker-count magnitude per event, flags ≥5,000 workers = FDI exit signal) |
+| M12 | Political Risk | Unemployment + **4-signal Exa/Tavily news** (food pressure, social unrest, political stability, **geopolitical_risk** — China drill, democratic backsliding, intl investor concern) + **governance failure** (negara absen, disaster response capacity, separatism/Dayak Borneo) + **X API v2 real-time social feed** (unrest detection, minute-zero) + **PHK/relokasi event tracker** (≥5,000 workers = FDI exit signal). Tavily geopolitical: no domain filter → AFR/SCMP/FT indexed. |
 | M13 | ULN / External Debt | DSR (IMF threshold 25%), Greenspan-Guidotti ratio, ULN/GDP, BI hedging compliance (PBI 21/14/2019; BI SULNI Playwright + Exa/Tavily news fallback), 1997 transmission mechanism |
 
 **Logika inti:** Satu modul di RED bisa noise. Dua modul di ORANGE = deteriorasi struktural. Tiga+ = systemic fragility.
