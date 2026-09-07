@@ -144,7 +144,7 @@ const SNAPSHOT_INDICATORS = [
   'srbi_bid_cover_ratio', 'srbi_outstanding_trn_idr',
   'brent_price_usd', 'dubai_crude_spot_usd', 'brent_dubai_spread_usd',
   'bbm_subsidy_gap_idr_liter', 'bbm_cost_recovery_idr_liter',
-  'pertalite_price_idr_liter', 'pertamax_price_idr_liter', 'pertamax_green_price_idr_liter',
+  'pertalite_price_idr_liter', 'solar_price_idr_liter', 'pertamax_price_idr_liter', 'pertamax_green_price_idr_liter',
   'bi_fx_reserves_bn', 'trade_balance_bn',
   'bank_npl_gross_pct', 'bank_car_pct', 'bank_ldr_pct', 'indonia_3m_pct',
   'unemployment_rate_pct', 'inflation_cpi_pct', 'gdp_growth_pct',
