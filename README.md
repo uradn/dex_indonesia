@@ -39,7 +39,7 @@ Cross-confirmed modules: 1/13
 | # | Modul | Signal |
 |---|-------|--------|
 | M1 | BoP | Trade balance, FX reserves, synthetic CAD risk, Greenspan-Guidotti cross-feed |
-| M2 | Sovereign Risk | CDS 5Y + velocity (bps/week), SBN yield, foreign SBN %, term premium (ORANGE ≥2%), **BI yield policy flag** (Perry Jun 10 2026), **S&P interest/revenue proximity risk** (>15% = negative watch; current: 20.4%) |
+| M2 | Sovereign Risk | CDS 5Y + velocity (bps/week), SBN yield, foreign SBN %, term premium (ORANGE ≥2%), **BI yield policy flag** (Perry Jun 10 2026; review di era Destry), **S&P interest/revenue proximity risk** (>15% = negative watch; current: 20.4%) |
 | M3 | FX Defense | USDIDR z-score, pseudo-stability, BI intervention, **SRBI auction bid-cover** (weekly capital flow proxy — 1wk lead vs DJPPR), 1st/2nd-gen crisis gates |
 | M4 | Commodity | Ekspor basket (coal/CPO/nickel/LNG), oil import vulnerability, ICP threshold watch, **B50 biodiesel mandate** (Jul 1 2026 CPO diversion → BoP), **PLN coal DMO compliance** (HBA gap, TDL hike risk) |
 | M5 | Foreign Flow | EIDO ETF, silent exit detection, SSVI (Sudden Stop Vulnerability Index), **MSCI EM status** (confirmed Jun 23 2026; Nov 2026 re-review overhang with +3 score-bump at <60d), May 2026 rebalancing outflow |
@@ -48,7 +48,7 @@ Cross-confirmed modules: 1/13
 | M8 | Banking Stress | NPL (OJK/World Bank API), LDR, CAR, IndONIA corridor (DFR = BI Rate −100bps / LF = BI Rate +75bps), FSAP nexus (implied CAR hit), KLR signals, M2/FX reserves ratio, **BNPL sub-indicator** (OJK IKNB fintech NPL) |
 | M9 | Market Stress | IHSG P/E + breadth, valuation disconnect |
 | M10 | Fiscal | APBN realisasi vs target, revenue shortfall, deficit trajectory, **S&P interest/revenue threshold** (≥15% = negative action watch; BI hike cycle uplift computed), **MBG burn rate** (Rp 335T = 8.7% APBN, 4× subsidi energi), **BPDPKS biodiesel insentif** (B50 transition cost) |
-| M11 | Domestic Pressure | PIHPS 10 komoditas pangan + BBM subsidy gap (cost recovery vs Pertalite) + ICP threshold watch |
+| M11 | Domestic Pressure | PIHPS 10 komoditas pangan + BBM subsidy gap (Pertalite + Solar B50 MOPS/FAME blended) + ICP threshold watch |
 | M12 | Political Risk | Unemployment + **4-signal Exa/Tavily news** (food pressure, social unrest, political stability, **geopolitical_risk** — China drill, democratic backsliding, intl investor concern) + **governance failure** (negara absen, disaster response capacity, separatism/Dayak Borneo) + **X API v2 real-time social feed** (unrest detection, minute-zero) + **PHK/relokasi event tracker** (≥5,000 workers = FDI exit signal). Tavily geopolitical: no domain filter → AFR/SCMP/FT indexed. |
 | M13 | ULN / External Debt | DSR (IMF threshold 25%), Greenspan-Guidotti ratio, ULN/GDP, BI hedging compliance (PBI 21/14/2019; BI SULNI Playwright + Exa/Tavily news fallback), 1997 transmission mechanism |
 
@@ -203,7 +203,7 @@ Solar gap **2.7× lebih besar** dari Pertalite — tapi selama ini tidak tertrac
 | Jenis | Harga | Tipe | Keterangan |
 |-------|-------|------|------------|
 | Pertalite (RON 90) | IDR 10.000/liter | Bersubsidi | Tidak berubah sejak Sep 2022 — dilindungi komitmen Bahlil |
-| Solar / Biosolar (B50) | IDR 6.800/liter | Bersubsidi | Mandate B50 Jul 1 2026; pump price tidak berubah tapi cost recovery naik |
+| Solar / Biosolar (B50) | IDR 6.800/liter | Bersubsidi | Mandate B50 Jul 1 2026; pump price **tidak berubah** tapi cost recovery naik ke Rp20.080/L (gap Rp13.280/L 🔴) |
 | Pertamax (RON 92) | IDR 15.950/liter | Non-subsidi | Rollback 1 Agu 2026 dari Rp16.250 (hike Jun 10 dibatalkan) |
 | Pertamax Green (RON 95) | IDR 19.150/liter | Non-subsidi | **+Rp2.550 efektif 2 Sep 2026** (dari 16.600); hike nonsubsidi Sep 2026 |
 | Pertamax Turbo (RON 98) | IDR 19.600/liter | Non-subsidi | **+Rp650 efektif 1–2 Sep 2026** (dari 20.750 Jun → 19.600 Sep) |
@@ -609,9 +609,17 @@ silent_crisis_detector                     ← weighted sum, non-linear amplifie
 **BBM Price Overrides (update tanpa redeploy):**
 ```bash
 PERTALITE_PRICE_IDR=10000        # subsidi — tidak berubah per Sep 2026
-SOLAR_PRICE_IDR=6800             # subsidi — tidak berubah
+SOLAR_PRICE_IDR=6800             # subsidi — tidak berubah (pump price, bukan cost)
 PERTAMAX_PRICE_IDR=15950         # RON 92 — rollback 1 Agu 2026 dari Rp16.250
 PERTAMAX_GREEN_PRICE_IDR=19150   # RON 95 — naik 2 Sep 2026 (+Rp2.550)
+```
+
+**Solar Biodiesel Blend Override (update saat ESDM/APROBI announce realisasi):**
+```bash
+# B50 mandate Jul 1 2026 (Permen ESDM). Industry realisasi: kemungkinan B45-50.
+# Setiap perubahan blend ratio mengubah Solar cost recovery dan subsidy gap di M11.
+# FAME dari CPO ($1,117/MT) lebih mahal dari MOPS Gasoil → B50 gap > B40 gap.
+SOLAR_BLEND_RATIO=0.50   # 0.40=B40, 0.45=B45 (de-facto), 0.50=B50 full mandate
 ```
 
 **Policy/Classification Flags (operator-updated):**
@@ -620,6 +628,8 @@ BI_BUYS_LONG_SBN=false                       # Perry Warjiyo statement 10 Jun 20
 MSCI_CLASSIFICATION_STATUS=under_review      # Nov 2026 re-review; 'confirmed' | 'under_review' | 'downgrade_risk'
 MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN=1.8  # passive outflow rebalancing Mei 2026
 BI_GOVERNOR_VACANT=false                     # Destry dilantik 2 Sep 2026 (Keppres 92/P/2026)
+BI_DNDF_OUTSTANDING_BN=8                     # update tahunan dari BI LKT (Mar/Apr setiap tahun)
+BI_HEDGING_COMPLIANCE_PCT=88.5               # update dari SULNI quarterly release
 ```
 
 ## Install
