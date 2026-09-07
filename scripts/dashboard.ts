@@ -870,6 +870,7 @@ function renderFiscal(d) {
   const gap      = ind['bbm_subsidy_gap_idr_liter']?.value;
   const cr       = ind['bbm_cost_recovery_idr_liter']?.value;
   const pertalite = ind['pertalite_price_idr_liter']?.value;
+  const solar     = ind['solar_price_idr_liter']?.value;
   const pertamax  = ind['pertamax_price_idr_liter']?.value;
   const pertamaxG = ind['pertamax_green_price_idr_liter']?.value;
   const reserves = ind['bi_fx_reserves_bn']?.value;
@@ -884,6 +885,7 @@ function renderFiscal(d) {
     kv('BBM Subsidy Gap', gap ? 'Rp' + fmtK(gap) + '/L' : '—', gap > 7000 ? 'red' : gap > 4000 ? 'orange' : gap > 2000 ? 'yellow' : 'green'),
     kv('Cost Recovery', cr ? 'Rp' + fmtK(cr) + '/L' : '—'),
     kv('Pertalite', pertalite ? 'Rp' + Math.round(pertalite).toLocaleString('id') + '/L' : '—'),
+    kv('Solar B40', solar ? 'Rp' + Math.round(solar).toLocaleString('id') + '/L' : '—'),
     kv('Pertamax', pertamax ? 'Rp' + Math.round(pertamax).toLocaleString('id') + '/L' : '—'),
     kv('Pertamax Green', pertamaxG ? 'Rp' + Math.round(pertamaxG).toLocaleString('id') + '/L' : '—'),
     kv('FX Reserves', reserves ? '$' + fmtNum(reserves, 1) + 'bn' + stale(resDate, 90) : '—', reserves < 100 ? 'red' : reserves < 120 ? 'orange' : reserves < 130 ? 'yellow' : 'green'),
