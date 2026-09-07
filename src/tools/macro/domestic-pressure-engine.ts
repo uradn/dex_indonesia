@@ -236,9 +236,12 @@ export async function runDomesticPressureEngine(): Promise<DomesticPressureOutpu
   const bbmSubsidyGap = bbmCostRecovery - bbmPertalitePrice;
   const bbmHikeRisk = bbmHikeAlert(Math.max(0, bbmSubsidyGap));
 
-  // Solar B40 (Biosolar) — cost basis: MOPS Gasoil Singapore approx (Brent + $10 crack spread)
-  // Perpres 191/2014 jo. Perpres 43/2018: Solar = BBM Jenis Tertentu (subsidized), harga Rp6.800/L
-  const solarCostRecovery = computeSolarCostRecovery(brentUsd, usdIdr);
+  // Solar Biosolar — cost basis: blended MOPS Gasoil + FAME (CPO biodiesel)
+  // B50 mandate Jul 1 2026 (Permen ESDM); industry de-facto B45; set SOLAR_BLEND_RATIO env.
+  // Perpres 191/2014 jo. Perpres 43/2018: Solar = BBM Jenis Tertentu (subsidized), Rp6.800/L.
+  const solarBlendRatio = parseFloat(process.env.SOLAR_BLEND_RATIO ?? '0.40');
+  const cpoPriceUsdMt = (await getLatestPoint('cpo_price_myr'))?.value ?? null; // stored as USD/MT
+  const solarCostRecovery = computeSolarCostRecovery(brentUsd, usdIdr, solarBlendRatio, cpoPriceUsdMt);
   const solarSubsidyGap = solarCostRecovery - bbmSolarPrice;
   const solarHikeRisk = bbmHikeAlert(Math.max(0, solarSubsidyGap));
 
@@ -258,8 +261,9 @@ export async function runDomesticPressureEngine(): Promise<DomesticPressureOutpu
     );
   }
   if (solarHikeRisk !== 'green') {
+    const blendPct = Math.round(solarBlendRatio * 100);
     flags.push(
-      `Solar B40 subsidy gap IDR ${solarSubsidyGap.toLocaleString('id-ID')}/liter — MOPS approx IDR ${solarCostRecovery.toLocaleString('id-ID')} vs pump IDR ${bbmSolarPrice.toLocaleString('id-ID')}; hike risk ${solarHikeRisk.toUpperCase()} (MOPS≈Brent+$10 = $${(brentUsd + 10).toFixed(1)} + USDIDR ${usdIdr.toLocaleString('id-ID')}) [Perpres 191/2014]`,
+      `Solar B${blendPct} subsidy gap IDR ${solarSubsidyGap.toLocaleString('id-ID')}/liter — blended CR IDR ${solarCostRecovery.toLocaleString('id-ID')} (${blendPct}% FAME + ${100 - blendPct}% MOPS, CPO $${cpoPriceUsdMt?.toFixed(0) ?? 'n/a'}/MT) vs pump IDR ${bbmSolarPrice.toLocaleString('id-ID')}; hike risk ${solarHikeRisk.toUpperCase()} [Perpres 191/2014, B50 mandate Jul 2026]`,
     );
   }
 

@@ -169,20 +169,41 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 
 Module 11 (Domestic Pressure) tracks domestic fuel prices against cost recovery, computing the subsidy gap that drives fiscal stress and political risk.
 
+**Dua jenis BBM bersubsidi — dua mekanisme subsidi berbeda:**
+
+| BBM | Pump Price | Basis Biaya | Mekanisme Subsidi |
+|-----|-----------|-------------|-------------------|
+| **Pertalite** (RON 90) | Rp10.000/L | Brent crude → kilang → distribusi | Pertamina/pemerintah: selisih cost recovery − pump |
+| **Solar Biosolar** (diesel) | Rp6.800/L | MOPS Gasoil + FAME (CPO biodiesel) | **Dua layer**: (1) Pertamina direct gap + (2) BPDPKS insentif (levy CPO ekspor → subsidi FAME premium) |
+
+Solar bersubsidi lebih kompleks karena blending mandatori biodiesel CPO. B50 mandate (Jul 1 2026) berarti 50% komponen FAME — dan FAME dari CPO **lebih mahal** dari MOPS Gasoil, sehingga total subsidi Solar > Pertalite.
+
 **Regulatory basis:**
 
 | Regulasi | Nomor | Tentang |
 |----------|-------|---------|
 | Kepmen ESDM | [245.K/MG.01/MEM.M/2022](https://jdih.esdm.go.id/dokumen/view?id=2307) | Formula harga dasar BBM umum (amends Kepmen 62.K/12/MEM/2020) |
-| Kepmen ESDM | 62.K/12/MEM/2020 | Formula harga jual eceran BBM — dasar hukum awal |
-| Kepmen ESDM | [tentang harga jual eceran BBM tertentu](https://migas.esdm.go.id/post/kepmen-esdm-tentang-harga-jual-eceran-bbm-jenis-tertentu-dan-khusus-penugasan) | BBM bersubsidi (Pertalite, Solar) — jenis tertentu dan khusus penugasan |
+| Perpres | 191/2014 jo. 43/2018 | Solar = BBM Jenis Tertentu (subsidized), Rp6.800/L |
+| Permen ESDM | B50 2026 | Mandatori biodiesel 50% FAME mulai Jul 1 2026 |
+| BPDPKS | Peraturan BPDPKS | Insentif biodiesel = selisih harga FAME vs MOPS, dibiayai levy ekspor CPO |
+
+**Subsidy gap per Sep 2026** (Brent $96.3 + USDIDR 17,635 + CPO $1,117/MT):
+
+| Indikator | Nilai | Alert |
+|-----------|-------|-------|
+| Pertalite cost recovery | Rp14.951/L | — |
+| **Pertalite subsidy gap** | **Rp4.951/L** | 🟠 ORANGE |
+| Solar B50 cost recovery (MOPS+FAME blended) | Rp20.080/L | — |
+| **Solar B50 subsidy gap (total: direct + BPDPKS)** | **Rp13.280/L** | 🔴 RED |
+
+Solar gap **2.7× lebih besar** dari Pertalite — tapi selama ini tidak tertrack karena BPDPKS diperlakukan sebagai subsidi terpisah.
 
 **Harga BBM terkini (Sep 2026):**
 
 | Jenis | Harga | Tipe | Keterangan |
 |-------|-------|------|------------|
 | Pertalite (RON 90) | IDR 10.000/liter | Bersubsidi | Tidak berubah sejak Sep 2022 — dilindungi komitmen Bahlil |
-| Solar / Biosolar B40 | IDR 6.800/liter | Bersubsidi | Tidak berubah |
+| Solar / Biosolar (B50) | IDR 6.800/liter | Bersubsidi | Mandate B50 Jul 1 2026; pump price tidak berubah tapi cost recovery naik |
 | Pertamax (RON 92) | IDR 15.950/liter | Non-subsidi | Rollback 1 Agu 2026 dari Rp16.250 (hike Jun 10 dibatalkan) |
 | Pertamax Green (RON 95) | IDR 19.150/liter | Non-subsidi | **+Rp2.550 efektif 2 Sep 2026** (dari 16.600); hike nonsubsidi Sep 2026 |
 | Pertamax Turbo (RON 98) | IDR 19.600/liter | Non-subsidi | **+Rp650 efektif 1–2 Sep 2026** (dari 20.750 Jun → 19.600 Sep) |

@@ -25,6 +25,7 @@
  *     SOLAR_PRICE_IDR=6800             (override subsidized Solar price)
  *     PERTAMAX_PRICE_IDR=15950         (override Pertamax RON 92 — rollback 1 Agu 2026)
  *     PERTAMAX_GREEN_PRICE_IDR=19150   (override Pertamax Green RON 95 — hike +Rp2,550 efektif 2 Sep 2026)
+ *     SOLAR_BLEND_RATIO=0.50           (override B-blend; 0.40=B40 default, 0.50=B50 Jul 2026 mandate)
  *
  * COST RECOVERY FORMULA:
  *   cost_recovery = (Brent_USD / 158.987 L/bbl) × USDIDR × 1.40
@@ -70,18 +71,46 @@ export function computeCostRecovery(brentUsd: number, usdIdr: number): number {
   return Math.round((brentUsd / LITERS_PER_BARREL) * usdIdr * COST_RECOVERY_FACTOR);
 }
 
-// MOPS Gasoil Singapore approximation — Biosolar (Solar B40) cost basis.
-// Solar tidak pakai Brent langsung; harga acuan = MOPS Gasoil Singapore (ICE Singapore Gasoil).
-// Empiris: MOPS Gasoil ≈ Brent + $8–12/bbl (diesel crack spread); Hormuz period lebih lebar.
-// Regulatory basis: Perpres 191/2014 jo. Perpres 43/2018 (BBM Jenis Tertentu — Solar Rp6.800/L).
-// Factor 1.35: kilang 20% + distribusi 10% + margin+pajak 5% (lebih rendah dari bensin karena
-//   Solar lebih sederhana distribusinya, dan subsidized — no margin layer).
-const MOPS_GASOIL_CRACK_SPREAD_USD = 10;  // $10/bbl base spread; update if MOPS data available
-const SOLAR_COST_FACTOR = 1.35;
+// Solar Biosolar cost recovery — blended MOPS Gasoil + FAME (CPO-based biodiesel).
+//
+// REGULATORY BASIS:
+//   Perpres 191/2014 jo. Perpres 43/2018: Solar = BBM Jenis Tertentu (subsidized), Rp6.800/L.
+//   B40 mandate: efektif 2025 (40% FAME / 60% MOPS Gasoil).
+//   B50 mandate: Jul 1 2026 (50% FAME / 50% MOPS) per Permen ESDM; industry de-facto B45.
+//   Set SOLAR_BLEND_RATIO=0.50 di .env saat B50 terkonfirmasi penuh.
+//
+// COST COMPONENTS:
+//   MOPS Gasoil Singapore ≈ Brent + $10/bbl (diesel crack spread; wider under Hormuz).
+//   FAME (biodiesel dari CPO): 1 MT CPO → ~1,143 liter FAME (yield 100% by mass, density 0.875 kg/L)
+//     + $50/bbl processing (transesterifikasi + additif).
+//     Pada CPO $1,117/MT: FAME ≈ $205/bbl — jauh lebih mahal dari MOPS $106/bbl.
+//   Factor 1.35: kilang/blending 20% + distribusi 10% + margin+pajak 5%.
+//
+// IMPLICATION: B50 MENAIKKAN cost recovery Solar, bukan menurunkan.
+//   B40 (0.4×FAME + 0.6×MOPS): ~$149/bbl blended → CR ~Rp14,700/L
+//   B50 (0.5×FAME + 0.5×MOPS): ~$155/bbl blended → CR ~Rp15,300/L
+//   vs Solar pump price Rp6.800/L → gap makin lebar saat blending naik.
 
-export function computeSolarCostRecovery(brentUsd: number, usdIdr: number): number {
-  const mopsApprox = brentUsd + MOPS_GASOIL_CRACK_SPREAD_USD;
-  return Math.round((mopsApprox / LITERS_PER_BARREL) * usdIdr * SOLAR_COST_FACTOR);
+export const MOPS_GASOIL_CRACK_SPREAD_USD = 10;
+// MOPS Gasoil dan FAME sudah refined/processed — factor lebih rendah dari bensin (1.40).
+// 1.15 = distribusi 10% + margin+pajak 5% (tidak ada refinery 20% karena sudah di-proses).
+const SOLAR_COST_FACTOR = 1.15;
+const CPO_LITERS_PER_MT = 1120;       // FAME yield: 1 MT CPO → ~1,120 L (density 0.875 kg/L, yield 98%)
+const FAME_PROCESSING_USD_BBL = 50;    // transesterifikasi + additives (blending plant cost)
+
+export function computeSolarCostRecovery(
+  brentUsd: number,
+  usdIdr: number,
+  blendRatio: number = 0.40,           // 0.40=B40, 0.50=B50; from SOLAR_BLEND_RATIO env
+  cpoPriceUsdMt: number | null = null, // from DB cpo_price_myr (stored as USD/MT)
+): number {
+  const mopsUsd = brentUsd + MOPS_GASOIL_CRACK_SPREAD_USD;
+  // FAME cost in $/bbl — use CPO price if available, else conservative proxy
+  const fameUsd = cpoPriceUsdMt !== null
+    ? (cpoPriceUsdMt / CPO_LITERS_PER_MT) * LITERS_PER_BARREL + FAME_PROCESSING_USD_BBL
+    : mopsUsd * 1.80;  // fallback: FAME ≈ 1.8× MOPS (empiris ratio saat CPO unavailable)
+  const blendedUsd = blendRatio * fameUsd + (1 - blendRatio) * mopsUsd;
+  return Math.round((blendedUsd / LITERS_PER_BARREL) * usdIdr * SOLAR_COST_FACTOR);
 }
 
 export function bbmHikeAlert(gapIdr: number): AlertLevel {
