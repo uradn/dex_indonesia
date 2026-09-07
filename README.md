@@ -153,15 +153,17 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - USDIDR: 16,500 | ICP oil: $70/bbl | GDP growth: 5.4% | CPI: 2.5%
 - Revenue: 3,154T | Spending: 3,843T | Deficit: 2.68% GDP
 
-**Live deviations (Aug 22, 2026):**
-- BI Rate: **5.50%** — inter-cycle hike Jun 9 2026 (+25bps); BI Gov Perry Warjiyo **mundur** Agu 2026 → vacancy trigger aktif di M12
-- Term premium: **1.90%** (SBN 10Y 6.96% − BI Rate 5.50%) — borderline ORANGE (threshold 2.0%); yield SBN unanchored pasca BI Gov vacancy
-- S&P interest/revenue ratio: **~20.5%** (belanja bunga 552.7T + BI hike uplift 12T vs revenue 2,756T) — 5.5pp above S&P 15% negative-watch threshold
-- USDIDR spot: **~17,659** vs APBN assumption 16,500 — triple intervention aktif (spot + DNDF + SRBI)
+**Live deviations (Sep 7, 2026):**
+- BI Rate: **5.75%** — hike +25bps Jul 2026 (dipertahankan Jul & Agu RDG); DFR 4.75%, LF 6.50%
+- BI Gov: **Destry Damayanti dilantik 2 Sep 2026** (Keppres 92/P/2026) — vacancy M12 trigger diselesaikan
+- Term premium: **~1.35%** (SBN 10Y 7.102% − BI Rate 5.75%) — YELLOW zone (threshold ORANGE 2.0%); SBN mulai stabil pasca kepastian Destry
+- S&P interest/revenue ratio: **~20.5%** (belanja bunga 552.7T + BI hike uplift vs revenue aktual) — 5.5pp above S&P 15% negative-watch threshold
+- USDIDR spot: **~17,642** — recovery dari peak 18,032 (Agu); triple intervention sukses tapi IDR belum kembali ke APBN 16,500
 - **CAD Q2 2026: −$12.5B = −3.3% PDB** (BI NPI, 21 Agu 2026) — melampaui R&R 3% danger zone; M1 ORANGE
-- Brent: **$94.4/bbl** vs APBN $70 (+34.8%); ICP margin ke Bahlil $100 ceiling: $5.6/bbl
-- Pertamax: **Rp 15.950/liter** (turun 1 Agu 2026 dari Rp 16.250 — rollback Jun hike)
-- SCD: **50% ORANGE** | 5/13 modul di zona stres | Fiscal 63, Political 56, Domestic 55, Sovereign 54, FX Defense 52
+- Cadev: **$146.5B** (Agu 2026); CDS 5Y: **84bps** (30 Agu 2026); G-G ratio 2.09x
+- Brent: **~$94.4/bbl** vs APBN $70; Hormuz MoU expired 19 Agu → flow single digit; ICP margin ke Bahlil $100: ~$5.6/bbl
+- BBM: Pertamax **Rp15.950** (rollback 1 Agu); Pertamax Green **Rp19.150** (+Rp2.550 efektif 2 Sep); Turbo/Dexlite/Dex juga naik Sep
+- SCD: **~ORANGE** | recovery dari peak vakum BI Gov; M5 foreign flow bifurcasi berlanjut (SBN inflow vs IHSG net sell Rp68T YTD)
 
 ### BBM Subsidy Monitoring (Module 11)
 
@@ -175,17 +177,17 @@ Module 11 (Domestic Pressure) tracks domestic fuel prices against cost recovery,
 | Kepmen ESDM | 62.K/12/MEM/2020 | Formula harga jual eceran BBM — dasar hukum awal |
 | Kepmen ESDM | [tentang harga jual eceran BBM tertentu](https://migas.esdm.go.id/post/kepmen-esdm-tentang-harga-jual-eceran-bbm-jenis-tertentu-dan-khusus-penugasan) | BBM bersubsidi (Pertalite, Solar) — jenis tertentu dan khusus penugasan |
 
-**Harga BBM per 10 Juni 2026** (sumber: [Bisnis.com](https://ekonomi.bisnis.com/read/20260610/44/1979770/pertamax-naik-nyaris-rp4000-per-liter-daftar-harga-terbaru-bbm-pertamina) | [CNBC Indonesia](https://www.cnbcindonesia.com/news/20260610000254-4-741535/resmi-harga-bbm-pertamax-naik-jadi-rp-16250-liter-mulai-10-juni-2026)):
+**Harga BBM terkini (Sep 2026):**
 
 | Jenis | Harga | Tipe | Keterangan |
 |-------|-------|------|------------|
 | Pertalite (RON 90) | IDR 10.000/liter | Bersubsidi | Tidak berubah sejak Sep 2022 — dilindungi komitmen Bahlil |
 | Solar / Biosolar B40 | IDR 6.800/liter | Bersubsidi | Tidak berubah |
-| Pertamax (RON 92) | IDR 16.250/liter | Non-subsidi | **+Rp3.950 efektif 10 Jun 2026** (dari 12.300); Pertamina Patra Niaga |
-| Pertamax Green (RON 95) | IDR 17.000/liter | Non-subsidi | **+Rp4.100 efektif 10 Jun 2026** (dari 12.900) |
-| Pertamax Turbo | IDR 20.750/liter | Non-subsidi | RON 98, bensin premium; tidak berubah |
-| Dexlite (CN 51) | IDR 23.000/liter | Non-subsidi | Solar diesel non-subsidi; harga ikut MOPS Gasoil Singapore — sangat sensitif krisis Hormuz |
-| Pertamina Dex (CN 53) | IDR 24.800/liter | Non-subsidi | Solar diesel premium, mesin high-performance; harga tertinggi — turun sedikit per Jun 2026 |
+| Pertamax (RON 92) | IDR 15.950/liter | Non-subsidi | Rollback 1 Agu 2026 dari Rp16.250 (hike Jun 10 dibatalkan) |
+| Pertamax Green (RON 95) | IDR 19.150/liter | Non-subsidi | **+Rp2.550 efektif 2 Sep 2026** (dari 16.600); hike nonsubsidi Sep 2026 |
+| Pertamax Turbo (RON 98) | IDR 19.600/liter | Non-subsidi | **+Rp650 efektif 1–2 Sep 2026** (dari 20.750 Jun → 19.600 Sep) |
+| Dexlite (CN 51) | IDR 23.700/liter | Non-subsidi | **Naik Sep 2026**; solar diesel non-subsidi; sangat sensitif krisis Hormuz |
+| Pertamina Dex (CN 53) | IDR 25.200/liter | Non-subsidi | **Naik Sep 2026**; solar diesel premium mesin high-performance |
 
 **Bahlil Statement — Verbatim Record:**
 
@@ -279,19 +281,16 @@ Faktor 1.40 = crude 100% + kilang 20% + distribusi 10% + margin+pajak 10%
 Jika pemerintah umumkan kenaikan harga BBM, update langsung via env var:
 ```bash
 # .env — BBM price overrides (no redeploy needed)
-PERTALITE_PRICE_IDR=12000     # harga baru setelah naik (subsidi)
-SOLAR_PRICE_IDR=8000          # harga baru Solar subsidi
-PERTAMAX_PRICE_IDR=16250      # RON 92 — sudah naik 10 Jun 2026
-PERTAMAX_GREEN_PRICE_IDR=17000  # RON 95 — sudah naik 10 Jun 2026
+PERTALITE_PRICE_IDR=10000     # subsidi — tidak berubah per Sep 2026
+SOLAR_PRICE_IDR=6800          # subsidi — tidak berubah
+PERTAMAX_PRICE_IDR=15950      # RON 92 — rollback 1 Agu 2026 dari Rp16.250
+PERTAMAX_GREEN_PRICE_IDR=19150  # RON 95 — naik 2 Sep 2026 dari Rp16.600 (+Rp2.550)
 
 # .env — policy/classification signals (operator-updated qualitative flags)
-BI_BUYS_LONG_SBN=false        # set 'false' saat BI abstain dari beli SBN 10Y+
-                               # (Perry Warjiyo statement 10 Jun 2026)
-                               # Revert 'true' jika BI resume pembelian SBN
-MSCI_CLASSIFICATION_STATUS=under_review   # 'confirmed' | 'under_review' | 'downgrade_risk'
-                                          # Update setelah MSCI rilis June 2026 review
-MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN=1.8  # passive outflow dari rebalancing Mei 2026
-                                              # (19 perusahaan dikeluarkan, estimasi CGS International)
+BI_BUYS_LONG_SBN=false        # Perry Warjiyo statement 10 Jun 2026 — review ulang di era Destry
+MSCI_CLASSIFICATION_STATUS=under_review   # Nov 2026 re-review overhang
+MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN=1.8  # passive outflow rebalancing Mei 2026
+BI_GOVERNOR_VACANT=false      # Destry Damayanti dilantik 2 Sep 2026 (Keppres 92/P/2026)
 ```
 Sistem akan otomatis rekalkulasi subsidy gap, ICP alert, dan foreign flow risk score menggunakan nilai terbaru.
 
@@ -342,6 +341,7 @@ bun scripts/shock-scenario.ts --list      # lihat semua preset scenario
 bun scripts/shock-scenario.ts crisis      # full crisis simulation (1997/2008 analog)
 bun scripts/shock-scenario.ts idr-freefall # sudden stop + forced BI hike cycle
 bun scripts/seed-banking-baseline.ts      # seed CAR/LDR dari OJK LSPI (quarterly)
+bun scripts/refresh-monthly-data.ts       # manual trigger: CPI/GDP/cadev/PMI/ULN → DB (auto via cron tgl 8)
 bash health-check.sh                      # cek scraper, DB, Playwright, TypeScript
 bash env-check.sh                         # live ping semua API key di .env
 ```
@@ -415,6 +415,7 @@ bun scripts/add-morning-brief-cron.ts     # 08:00 WIB Mon-Fri — morning brief
 bun scripts/add-weekly-deepdive-cron.ts   # 07:00 WIB Senin — weekly deep dive
 bun scripts/add-monthly-deepdive-cron.ts  # 08:00 WIB tgl 1 — monthly deep dive
 bun scripts/add-thesis-check-cron.ts      # 07:30 WIB Senin — thesis milestone check
+bun scripts/add-monthly-refresh-cron.ts   # 09:00 WIB tgl 8 — auto-refresh CPI/GDP/cadev/PMI/ULN ke DB
 ```
 
 ---
@@ -586,17 +587,18 @@ silent_crisis_detector                     ← weighted sum, non-linear amplifie
 
 **BBM Price Overrides (update tanpa redeploy):**
 ```bash
-PERTALITE_PRICE_IDR=10000       # default — update jika ada kenaikan harga
-SOLAR_PRICE_IDR=6800
-PERTAMAX_PRICE_IDR=16250        # naik +Rp3,950 per 10 Jun 2026
-PERTAMAX_GREEN_PRICE_IDR=17000  # naik +Rp4,100 per 10 Jun 2026
+PERTALITE_PRICE_IDR=10000        # subsidi — tidak berubah per Sep 2026
+SOLAR_PRICE_IDR=6800             # subsidi — tidak berubah
+PERTAMAX_PRICE_IDR=15950         # RON 92 — rollback 1 Agu 2026 dari Rp16.250
+PERTAMAX_GREEN_PRICE_IDR=19150   # RON 95 — naik 2 Sep 2026 (+Rp2.550)
 ```
 
 **Policy/Classification Flags (operator-updated):**
 ```bash
-BI_BUYS_LONG_SBN=false                       # Perry Warjiyo statement 10 Jun 2026
-MSCI_CLASSIFICATION_STATUS=under_review      # 'confirmed' | 'under_review' | 'downgrade_risk'
-MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN=1.8  # estimasi passive outflow rebalancing Mei 2026
+BI_BUYS_LONG_SBN=false                       # Perry Warjiyo statement 10 Jun 2026; review di era Destry
+MSCI_CLASSIFICATION_STATUS=under_review      # Nov 2026 re-review; 'confirmed' | 'under_review' | 'downgrade_risk'
+MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN=1.8  # passive outflow rebalancing Mei 2026
+BI_GOVERNOR_VACANT=false                     # Destry dilantik 2 Sep 2026 (Keppres 92/P/2026)
 ```
 
 ## Install

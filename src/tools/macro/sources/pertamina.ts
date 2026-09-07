@@ -23,8 +23,8 @@
  *   Set env vars — no redeployment needed:
  *     PERTALITE_PRICE_IDR=10000        (override subsidized Pertalite price)
  *     SOLAR_PRICE_IDR=6800             (override subsidized Solar price)
- *     PERTAMAX_PRICE_IDR=16250         (override Pertamax RON 92 — +Rp3,950 Jun 10 2026)
- *     PERTAMAX_GREEN_PRICE_IDR=17000   (override Pertamax Green RON 95 — +Rp4,100 Jun 10 2026)
+ *     PERTAMAX_PRICE_IDR=15950         (override Pertamax RON 92 — rollback 1 Agu 2026)
+ *     PERTAMAX_GREEN_PRICE_IDR=19150   (override Pertamax Green RON 95 — hike +Rp2,550 efektif 2 Sep 2026)
  *
  * COST RECOVERY FORMULA:
  *   cost_recovery = (Brent_USD / 158.987 L/bbl) × USDIDR × 1.40
@@ -58,12 +58,12 @@ function envPrice(key: string, fallback: number): number {
   return isNaN(val) || val <= 0 ? fallback : val;
 }
 
-// Prices as of June 10, 2026 — update via env vars for instant response to hike
+// Prices as of Sep 2026 — update via env vars for instant response to hike
 export const DOMESTIC_FUEL_PRICES = {
-  pertalite_price_idr_liter:       envPrice('PERTALITE_PRICE_IDR',       10_000), // RON 90, subsidized, Kepmen 245/2022 — unchanged
+  pertalite_price_idr_liter:       envPrice('PERTALITE_PRICE_IDR',       10_000), // RON 90, subsidized — unchanged
   solar_price_idr_liter:           envPrice('SOLAR_PRICE_IDR',             6_800), // Biosolar B40, subsidized — unchanged
-  pertamax_price_idr_liter:        envPrice('PERTAMAX_PRICE_IDR',         16_250), // RON 92, non-subsidized, +Rp3,950 Jun 10 2026
-  pertamax_green_price_idr_liter:  envPrice('PERTAMAX_GREEN_PRICE_IDR',   17_000), // RON 95, non-subsidized, +Rp4,100 Jun 10 2026
+  pertamax_price_idr_liter:        envPrice('PERTAMAX_PRICE_IDR',         15_950), // RON 92 — rollback 1 Agu 2026 dari Rp16,250
+  pertamax_green_price_idr_liter:  envPrice('PERTAMAX_GREEN_PRICE_IDR',   19_150), // RON 95 — hike +Rp2,550 efektif 2 Sep 2026
 } as const;
 
 export function computeCostRecovery(brentUsd: number, usdIdr: number): number {

@@ -1675,7 +1675,7 @@ function renderGG(d) {
     \${kv('SBN 10Y (r)', sbn ? fmtNum(sbn,2)+'%' : '—')}
     \${kv('GDP Growth (g)', gdp ? fmtNum(gdp,1)+'%' : '—')}
     \${kv('r − g spread', rg != null ? (rg > 0 ? '+' : '')+fmtNum(rg,2)+'% '+rgLbl : '—', rgCls)}
-    <div class="hist-note">1997 analog: GG ratio Indonesia ~0.4x saat krisis — reserves depleted vs ST debt. Saat ini 2.27x = buffer signifikan, tapi DSR 24.69% naik (2022→2023→2024: 23.3%→20.3%→24.7%).</div>
+    <div class="hist-note">1997 analog: GG ratio Indonesia ~0.4x saat krisis — reserves depleted vs ST debt. Saat ini 2.09x (Agu 2026: cadev $146.5bn / ST debt $70.1bn) = buffer signifikan, tapi DSR 24.69% naik (2022→2023→2024: 23.3%→20.3%→24.7%).</div>
   \`;
 }
 
@@ -2368,17 +2368,17 @@ function renderHaye(snap) {
     \${kv('B-D Spread', spread!=null?'$'+fmt(spread,1)+'/bbl':'—', spCls)}
     \${kv('Signal', spLabel, spCls)}
     <div style="font-size:9px;color:var(--muted);margin-bottom:8px">&lt;$3 normal · $3-7 elevated · $7-10 HIGH · &gt;$10 EXTREME</div>
-    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">BPS Impor Migas — Komposisi 2025</div>
-    \${kv('Total 2025', '$32.77B', 'orange')}
-    \${kv('Crude (28%)', '$9.31B', 'yellow')}
-    \${kv('Refined + LPG (72%)', '$23.46B', 'red')}
-    \${kv('2026 Run-Rate', '$38.8B (+49% YoY)', 'red')}
-    \${kv('Apr 2026 YoY', '+82.5% (crude +67%, refined +88%)', 'red')}
-    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">Crude = 28% saja. 72% adalah refined+LPG — tidak terlihat dalam formula publik berbasis ICP crude. Migas BPS tidak termasuk batubara (non-migas).</div>
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">BPS Impor Migas — H1 2026 (Jan–Jun)</div>
+    \${kv('Total H1 2026', '$22.0B (+38.7% YoY)', 'red')}
+    \${kv('Crude (73.4%)', '$16.16B', 'red')}
+    \${kv('Hasil Minyak (26.6%)', '$5.85B', 'orange')}
+    \${kv('H1 Annualized Run-Rate', '$44B (+34% vs 2025 $32.77B)', 'red')}
+    \${kv('Jun 2026 YoY', '+105.15% (migas bulanan — Hormuz spike)', 'red')}
+    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">⚠ Komposisi terbalik dari 2025 (crude 28→73%): Indonesia makin beli crude mentah langsung. Migas BPS tidak termasuk batubara. Sumber: BPS Agu 2026.</div>
     <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">Subsidi BBM+LPG Realisasi 2026</div>
-    \${kv('APBN Target (full-year)', 'Rp 105.4T', 'green')}
-    \${kv('Realisasi Q1 (Jan–Mar)', 'Rp 118.7T (+266%)', 'red')}
-    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">3 bulan sudah lewati target tahunan. Price shock Hormuz → subsidi blow-through → fiscal constraint binding.</div>
+    \${kv('APBN Pagu (full-year subsidi+kompensasi)', '~Rp 447.5T', 'green')}
+    \${kv('Realisasi Semester I (Jan–Jun)', 'Rp 233T (+44.4% YoY, 52.1% pagu)', 'red')}
+    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">H1 = 52.1% pagu dalam 6 bulan → annualized run rate ~104% APBN. Price shock Hormuz → subsidi blow-through → fiscal constraint binding. Sumber: APBN KiTa Jul 2026.</div>
     <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">Morris-Shin CV% (M6)</div>
     \${kv('CV% Dispersion', cvFinal!=null?fmt(cvFinal,1)+'%':'—', cvCls)}
     \${kv('Regime', cvLabel, cvCls)}
