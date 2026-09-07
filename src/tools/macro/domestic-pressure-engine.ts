@@ -23,7 +23,7 @@ import { formatToolResult } from '../types.js';
 import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
 import { alertFromScore, alertLabel, rollingZScore } from './scoring.js';
 import { fetchPihpsCommodities, fetchFoodInflationTe, PIHPS_COMMODITIES } from './sources/pihps.js';
-import { computeCostRecovery, bbmHikeAlert, icpHikeAlert, getFuelPricePoints, DOMESTIC_FUEL_PRICES, ICP_SAFETY_THRESHOLD, HORMUZ_WATCH_THRESHOLD } from './sources/pertamina.js';
+import { computeCostRecovery, computeSolarCostRecovery, bbmHikeAlert, icpHikeAlert, getFuelPricePoints, DOMESTIC_FUEL_PRICES, ICP_SAFETY_THRESHOLD, HORMUZ_WATCH_THRESHOLD } from './sources/pertamina.js';
 import type { AlertLevel } from './types.js';
 
 export const DOMESTIC_PRESSURE_DESCRIPTION = `
@@ -227,23 +227,39 @@ export async function runDomesticPressureEngine(): Promise<DomesticPressureOutpu
 
   // Always use DOMESTIC_FUEL_PRICES (env-aware) — never stale DB value for pump price
   const bbmPertalitePrice = DOMESTIC_FUEL_PRICES.pertalite_price_idr_liter;
+  const bbmSolarPrice = DOMESTIC_FUEL_PRICES.solar_price_idr_liter;
   const brentUsd = brentPoint?.value ?? 70;
   const usdIdr = usdIdrPoint?.value ?? 16_500;
 
+  // Pertalite (RON 90) — cost basis: Brent proxy
   const bbmCostRecovery = computeCostRecovery(brentUsd, usdIdr);
   const bbmSubsidyGap = bbmCostRecovery - bbmPertalitePrice;
   const bbmHikeRisk = bbmHikeAlert(Math.max(0, bbmSubsidyGap));
+
+  // Solar B40 (Biosolar) — cost basis: MOPS Gasoil Singapore approx (Brent + $10 crack spread)
+  // Perpres 191/2014 jo. Perpres 43/2018: Solar = BBM Jenis Tertentu (subsidized), harga Rp6.800/L
+  const solarCostRecovery = computeSolarCostRecovery(brentUsd, usdIdr);
+  const solarSubsidyGap = solarCostRecovery - bbmSolarPrice;
+  const solarHikeRisk = bbmHikeAlert(Math.max(0, solarSubsidyGap));
+
   const bbmIcpRisk = icpHikeAlert(brentUsd);
   const bbmIcpMargin = parseFloat((ICP_SAFETY_THRESHOLD - brentUsd).toFixed(1));
 
   await upsertPoints([
     { indicator: 'bbm_cost_recovery_idr_liter', category: 'pangan', date: today, value: bbmCostRecovery, unit: 'IDR/liter', source: 'computed_brent_usdidr', fetchedAt: new Date().toISOString() },
     { indicator: 'bbm_subsidy_gap_idr_liter', category: 'pangan', date: today, value: bbmSubsidyGap, unit: 'IDR/liter', source: 'computed', fetchedAt: new Date().toISOString() },
+    { indicator: 'solar_cost_recovery_idr_liter', category: 'pangan', date: today, value: solarCostRecovery, unit: 'IDR/liter', source: 'computed_mops_approx', fetchedAt: new Date().toISOString() },
+    { indicator: 'solar_subsidy_gap_idr_liter', category: 'pangan', date: today, value: solarSubsidyGap, unit: 'IDR/liter', source: 'computed', fetchedAt: new Date().toISOString() },
   ]);
 
   if (bbmHikeRisk !== 'green') {
     flags.push(
-      `BBM subsidy gap IDR ${bbmSubsidyGap.toLocaleString('id-ID')}/liter — cost recovery IDR ${bbmCostRecovery.toLocaleString('id-ID')} vs Pertalite IDR ${bbmPertalitePrice.toLocaleString('id-ID')}; hike risk ${bbmHikeRisk.toUpperCase()} (Brent $${brentUsd.toFixed(1)} + USDIDR ${usdIdr.toLocaleString('id-ID')})`,
+      `Pertalite subsidy gap IDR ${bbmSubsidyGap.toLocaleString('id-ID')}/liter — cost recovery IDR ${bbmCostRecovery.toLocaleString('id-ID')} vs pump IDR ${bbmPertalitePrice.toLocaleString('id-ID')}; hike risk ${bbmHikeRisk.toUpperCase()} (Brent $${brentUsd.toFixed(1)} + USDIDR ${usdIdr.toLocaleString('id-ID')})`,
+    );
+  }
+  if (solarHikeRisk !== 'green') {
+    flags.push(
+      `Solar B40 subsidy gap IDR ${solarSubsidyGap.toLocaleString('id-ID')}/liter — MOPS approx IDR ${solarCostRecovery.toLocaleString('id-ID')} vs pump IDR ${bbmSolarPrice.toLocaleString('id-ID')}; hike risk ${solarHikeRisk.toUpperCase()} (MOPS≈Brent+$10 = $${(brentUsd + 10).toFixed(1)} + USDIDR ${usdIdr.toLocaleString('id-ID')}) [Perpres 191/2014]`,
     );
   }
 

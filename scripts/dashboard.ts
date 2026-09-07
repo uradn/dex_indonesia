@@ -144,6 +144,7 @@ const SNAPSHOT_INDICATORS = [
   'srbi_bid_cover_ratio', 'srbi_outstanding_trn_idr',
   'brent_price_usd', 'dubai_crude_spot_usd', 'brent_dubai_spread_usd',
   'bbm_subsidy_gap_idr_liter', 'bbm_cost_recovery_idr_liter',
+  'solar_subsidy_gap_idr_liter', 'solar_cost_recovery_idr_liter',
   'pertalite_price_idr_liter', 'solar_price_idr_liter', 'pertamax_price_idr_liter', 'pertamax_green_price_idr_liter',
   'bi_fx_reserves_bn', 'trade_balance_bn',
   'bank_npl_gross_pct', 'bank_car_pct', 'bank_ldr_pct', 'indonia_3m_pct',
@@ -867,10 +868,12 @@ function renderFlow(d) {
 function renderFiscal(d) {
   const ind = d.indicators;
   const brent    = ind['brent_price_usd']?.value;
-  const gap      = ind['bbm_subsidy_gap_idr_liter']?.value;
-  const cr       = ind['bbm_cost_recovery_idr_liter']?.value;
-  const pertalite = ind['pertalite_price_idr_liter']?.value;
-  const solar     = ind['solar_price_idr_liter']?.value;
+  const gap        = ind['bbm_subsidy_gap_idr_liter']?.value;
+  const cr         = ind['bbm_cost_recovery_idr_liter']?.value;
+  const solarGap   = ind['solar_subsidy_gap_idr_liter']?.value;
+  const solarCr    = ind['solar_cost_recovery_idr_liter']?.value;
+  const pertalite  = ind['pertalite_price_idr_liter']?.value;
+  const solar      = ind['solar_price_idr_liter']?.value;
   const pertamax  = ind['pertamax_price_idr_liter']?.value;
   const pertamaxG = ind['pertamax_green_price_idr_liter']?.value;
   const reserves = ind['bi_fx_reserves_bn']?.value;
@@ -882,9 +885,11 @@ function renderFiscal(d) {
 
   return [
     kv('Brent', brent ? '$' + fmtNum(brent, 1) + '/bbl' : '—', brent > 100 ? 'red' : brent > 90 ? 'orange' : brent > 80 ? 'yellow' : 'green'),
-    kv('BBM Subsidy Gap', gap ? 'Rp' + fmtK(gap) + '/L' : '—', gap > 7000 ? 'red' : gap > 4000 ? 'orange' : gap > 2000 ? 'yellow' : 'green'),
-    kv('Cost Recovery', cr ? 'Rp' + fmtK(cr) + '/L' : '—'),
+    kv('Pertalite Gap', gap ? 'Rp' + fmtK(gap) + '/L' : '—', gap > 7000 ? 'red' : gap > 4000 ? 'orange' : gap > 2000 ? 'yellow' : 'green'),
+    kv('Pertalite CR', cr ? 'Rp' + fmtK(cr) + '/L' : '—'),
     kv('Pertalite', pertalite ? 'Rp' + Math.round(pertalite).toLocaleString('id') + '/L' : '—'),
+    kv('Solar Gap (MOPS)', solarGap ? 'Rp' + fmtK(solarGap) + '/L' : '—', solarGap > 7000 ? 'red' : solarGap > 4000 ? 'orange' : solarGap > 2000 ? 'yellow' : 'green'),
+    kv('Solar CR (MOPS≈)', solarCr ? 'Rp' + fmtK(solarCr) + '/L' : '—'),
     kv('Solar B40', solar ? 'Rp' + Math.round(solar).toLocaleString('id') + '/L' : '—'),
     kv('Pertamax', pertamax ? 'Rp' + Math.round(pertamax).toLocaleString('id') + '/L' : '—'),
     kv('Pertamax Green', pertamaxG ? 'Rp' + Math.round(pertamaxG).toLocaleString('id') + '/L' : '—'),

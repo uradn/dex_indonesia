@@ -70,6 +70,20 @@ export function computeCostRecovery(brentUsd: number, usdIdr: number): number {
   return Math.round((brentUsd / LITERS_PER_BARREL) * usdIdr * COST_RECOVERY_FACTOR);
 }
 
+// MOPS Gasoil Singapore approximation — Biosolar (Solar B40) cost basis.
+// Solar tidak pakai Brent langsung; harga acuan = MOPS Gasoil Singapore (ICE Singapore Gasoil).
+// Empiris: MOPS Gasoil ≈ Brent + $8–12/bbl (diesel crack spread); Hormuz period lebih lebar.
+// Regulatory basis: Perpres 191/2014 jo. Perpres 43/2018 (BBM Jenis Tertentu — Solar Rp6.800/L).
+// Factor 1.35: kilang 20% + distribusi 10% + margin+pajak 5% (lebih rendah dari bensin karena
+//   Solar lebih sederhana distribusinya, dan subsidized — no margin layer).
+const MOPS_GASOIL_CRACK_SPREAD_USD = 10;  // $10/bbl base spread; update if MOPS data available
+const SOLAR_COST_FACTOR = 1.35;
+
+export function computeSolarCostRecovery(brentUsd: number, usdIdr: number): number {
+  const mopsApprox = brentUsd + MOPS_GASOIL_CRACK_SPREAD_USD;
+  return Math.round((mopsApprox / LITERS_PER_BARREL) * usdIdr * SOLAR_COST_FACTOR);
+}
+
 export function bbmHikeAlert(gapIdr: number): AlertLevel {
   if (gapIdr > 7_000) return 'red';
   if (gapIdr > 4_000) return 'orange';
