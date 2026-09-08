@@ -438,6 +438,12 @@ bun scripts/add-weekly-deepdive-cron.ts   # 07:00 WIB Senin — weekly deep dive
 bun scripts/add-monthly-deepdive-cron.ts  # 08:00 WIB tgl 1 — monthly deep dive
 bun scripts/add-thesis-check-cron.ts      # 07:30 WIB Senin — thesis milestone check
 bun scripts/add-monthly-refresh-cron.ts   # 09:00 WIB tgl 8 — auto-refresh CPI/GDP/cadev/PMI/ULN ke DB
+
+# Brent ICP threshold alert (crontab — bukan dexter cron)
+bun scripts/brent-alert.ts               # manual check: Brent vs $99 threshold → macOS notif jika breach
+# Register ke crontab (setiap 4 jam, 12h cooldown anti-spam):
+# 0 0,4,8,12,16,20 * * * cd /path/to/dexter && bun scripts/brent-alert.ts >> .dexter/brent-alert.log 2>&1
+# Env: BRENT_ALERT_THRESHOLD=99  BRENT_ALERT_COOLDOWN_H=12
 ```
 
 ---
