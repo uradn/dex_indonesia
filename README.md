@@ -153,7 +153,7 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - USDIDR: 16,500 | ICP oil: $70/bbl | GDP growth: 5.4% | CPI: 2.5%
 - Revenue: 3,154T | Spending: 3,843T | Deficit: 2.68% GDP
 
-**Live deviations (Sep 7, 2026):**
+**Live deviations (Sep 8, 2026):**
 - BI Rate: **5.75%** — hike +25bps Jul 2026 (dipertahankan Jul & Agu RDG); DFR 4.75%, LF 6.50%
 - BI Gov: **Destry Damayanti dilantik 2 Sep 2026** (Keppres 92/P/2026) — vacancy M12 trigger diselesaikan
 - Term premium: **~1.35%** (SBN 10Y 7.102% − BI Rate 5.75%) — YELLOW zone (threshold ORANGE 2.0%); SBN mulai stabil pasca kepastian Destry
@@ -161,7 +161,7 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - USDIDR spot: **~17,642** — recovery dari peak 18,032 (Agu); triple intervention sukses tapi IDR belum kembali ke APBN 16,500
 - **CAD Q2 2026: −$12.5B = −3.3% PDB** (BI NPI, 21 Agu 2026) — melampaui R&R 3% danger zone; M1 ORANGE
 - Cadev: **$146.5B** (Agu 2026); CDS 5Y: **84bps** (30 Agu 2026); G-G ratio 2.09x
-- Brent: **~$94.4/bbl** vs APBN $70; Hormuz MoU expired 19 Agu → flow single digit; ICP margin ke Bahlil $100: ~$5.6/bbl
+- Brent: **~$96.3/bbl** vs APBN $70; Hormuz MoU expired 19 Agu → flow single digit; ICP margin ke Bahlil $100: **~$3.7/bbl** ⚠️
 - BBM: Pertamax **Rp15.950** (rollback 1 Agu); Pertamax Green **Rp19.150** (+Rp2.550 efektif 2 Sep); Turbo/Dexlite/Dex juga naik Sep
 - SCD: **~ORANGE** | recovery dari peak vakum BI Gov; M5 foreign flow bifurcasi berlanjut (SBN inflow vs IHSG net sell Rp68T YTD)
 
@@ -253,6 +253,7 @@ Solar gap **2.7× lebih besar** dari Pertalite — tapi selama ini tidak tertrac
 | **19 Agu 2026** | **MoU 60 hari berakhir** — pasar berhenti menunggu; Kpler: "market stopped waiting for Hormuz" |
 | **20 Agu 2026** | Brent **naik ~3%** saat AS perkuat tekanan terhadap Iran pasca-MoU expired; oil surge di The National |
 | **22 Agu 2026** | Status: Hormuz effectively closed; Iran kehilangan kontrol signifikan (CNN Agu 18); Brent **$94.4/bbl** |
+| **Sep 8 2026** | Brent **$96.3/bbl** — ICP margin ke Bahlil $100 tersisa **$3.7/bbl**; IDR 17,635; Pertalite gap Rp4,951/L 🟠 |
 
 **Dampak global:**
 
@@ -273,7 +274,7 @@ Sebelum krisis: **25% seaborne oil** + **20% LNG dunia** melewati Hormuz. Kapasi
 | Skenario | Brent | ICP Proxy | Subsidy Gap/Liter | ICP Alert | Action |
 |----------|-------|-----------|-------------------|-----------|--------|
 | Baseline APBN | $70 | $70 | ~IDR 0 | 🟢 GREEN | Tidak ada |
-| Saat ini (22 Agu) | **$94.4** | ~$94.4 | **IDR 4.900** | 🟠 ORANGE | Monitor — MoU expired, flow single digit |
+| Saat ini (Sep 8) | **$96.3** | ~$96.3 | **IDR 4.951** | 🟠 ORANGE | Margin $3.7/bbl ke Bahlil $100 — makin sempit |
 | Threshold Bahlil | $100 | $100 | ~IDR 7.200 | 🔴 RED | Komitmen gugur |
 | Peak Mar 2026 | $126 | $126 | ~IDR 12.800 | 🔴 RED | Hike wajib fiskal |
 | Eskalasi baru | $110+ | $110+ | ~IDR 9.000+ | 🔴 RED | Hike + social unrest |
