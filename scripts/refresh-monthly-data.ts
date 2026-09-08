@@ -170,6 +170,25 @@ async function fetchUlnGdp(): Promise<MacroDataPoint | null> {
   return { indicator: 'uln_gdp_ratio_pct', category: 'uln', date, value: val, unit: '%', source: 'bi_sulni_exa', fetchedAt: new Date().toISOString() };
 }
 
+async function fetchCpo(): Promise<MacroDataPoint | null> {
+  const text = await searchExa('CPO crude palm oil price USD per metric ton World Bank Pink Sheet 2026');
+  const val = await grokExtract(
+    text,
+    'What is the latest crude palm oil (CPO) price in USD per metric ton from World Bank Pink Sheet? Return just the number (e.g. 1117).',
+    () => parseNum(text, [
+      /palm oil.*?\$?\s*(\d{3,4}(?:[.,]\d{1,2})?)\s*(?:\/mt|per metric ton|USD\/MT)/i,
+      /CPO.*?\$?\s*(\d{3,4}(?:[.,]\d{1,2})?)\s*(?:\/mt|per metric ton)/i,
+      /(\d{3,4}(?:[.,]\d{1,2})?)\s*USD.*?palm oil/i,
+    ]),
+  );
+  if (val === null || val < 400 || val > 2500) return null;
+  // World Bank Pink Sheet monthly — use first of current month
+  const now = new Date();
+  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  console.log(`  CPO: $${val}/MT → ${date}`);
+  return { indicator: 'cpo_price_myr', category: 'commodity', date, value: val, unit: 'USD/MT', source: 'worldbank_pinksheet_exa', fetchedAt: new Date().toISOString() };
+}
+
 async function fetchUnemployment(): Promise<MacroDataPoint | null> {
   const text = await searchExa('BPS Indonesia tingkat pengangguran terbuka TPT persen Agustus Februari 2026');
   const val = await grokExtract(
@@ -213,10 +232,10 @@ async function main() {
   console.log('=== Monthly Data Refresh — Indonesia Macro ===');
   console.log(`Run: ${new Date().toISOString()}\n`);
 
-  const FETCH_NAMES = ['CPI','GDP','Cadev','PMI','ULN/GDP','Unemployment','SubsidiEnergi'];
+  const FETCH_NAMES = ['CPI','GDP','Cadev','PMI','ULN/GDP','Unemployment','SubsidiEnergi','CPO'];
   const results = await Promise.allSettled([
     fetchCpi(), fetchGdp(), fetchCadev(), fetchPmi(), fetchUlnGdp(),
-    fetchUnemployment(), fetchSubsidiEnergi(),
+    fetchUnemployment(), fetchSubsidiEnergi(), fetchCpo(),
   ]);
   const points: MacroDataPoint[] = results
     .filter((r): r is PromiseFulfilledResult<MacroDataPoint | null> => r.status === 'fulfilled')

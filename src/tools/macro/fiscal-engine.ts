@@ -338,6 +338,16 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
 
   const alert = alertFromScore(stressScore) as AlertLevel;
 
+  // Persist projected deficit % GDP so dashboard can chart trajectory over time
+  if (projectedDeficitPctGdp !== null) {
+    await upsertPoints([{
+      indicator: 'apbn_deficit_pct_gdp', category: 'sovereign',
+      date: new Date().toISOString().slice(0, 10),
+      value: parseFloat(projectedDeficitPctGdp.toFixed(2)),
+      unit: '% GDP', source: 'derived_fiscal_engine', fetchedAt: new Date().toISOString(),
+    }]);
+  }
+
   // 6. Boolean flags
   const revenueShortfall = revenueAbsorptionPct !== null && revenueAbsorptionPct < 85;
   const spendingOverrun = spendingAbsorptionPct !== null && spendingAbsorptionPct > 110;
