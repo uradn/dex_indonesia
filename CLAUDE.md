@@ -33,6 +33,9 @@ bun scripts/morning-check.ts              # full 13-module morning brief (manual
 bun scripts/check-m12-divergence.ts       # M12 divergence check (exit 0=ok, 1=stale, 2=keyword audit needed)
 bun scripts/health-check.ts               # data freshness + env var audit (exit 1 if RED-tier gaps)
 bun scripts/health-check.ts --all         # also list every fresh indicator
+#   Baseline Sep 8 2026: 32 fresh | 0 aging | 2 stale (srbi_bid_cover, msci_classification) | 0 critical
+bun scripts/brent-alert.ts               # manual Brent ICP threshold check ($99 default); crontab every 4h
+bun scripts/refresh-monthly-data.ts      # manual monthly data refresh (7 indicators: CPI/GDP/cadev/PMI/ULN/unemployment/subsidi)
 
 # Dashboard (localhost:6080)
 bun scripts/dashboard.ts                  # start dashboard server (port 6080)
@@ -183,6 +186,19 @@ PERTAMAX_GREEN_PRICE_IDR   # default 17000 (RON 95, +Rp4,100 Jun 10 2026)
 # Historical: 2018 peak ~$17bn; 2023 ~$5-10bn; 2026 H1 (active IDR defense) est. $8-12bn.
 # Update when BI publishes LKT (Mar/Apr annually for prior year). Current: est. Jun 2026.
 BI_DNDF_OUTSTANDING_BN     # USD billion — effectiveReserves = cadev − DNDF in FX Defense engine
+
+# M13 ULN manual pin — from BI SULNI quarterly press release (~6 wk after quarter end)
+# World Bank API lags 12-18 months for Indonesia — env override is primary fresh source.
+# Update when BI publishes SULNI quarterly (Q1→Jun, Q2→Sep, Q3→Dec, Q4→Mar).
+ULN_DSR_PCT                # debt service ratio % of exports; IMF threshold 25%; current 24.69 (SULNI Q4 2024)
+ULN_SHORTTERM_PCT          # short-term debt as % of total ULN; current 15.47 (SULNI Q4 2024)
+
+# M8 Banking manual pin — from OJK SPI monthly press release (~30-45 days after month end)
+FINTECH_NPL_PCT            # P2P lending NPL gross %; OJK WAF blocks auto-scrape; current 5.0 (Jun 2026)
+
+# Brent ICP threshold alert — crontab every 4h, macOS notification + flag file
+BRENT_ALERT_THRESHOLD      # USD/bbl — default 99 (warn $1 before Bahlil $100 commitment breaks)
+BRENT_ALERT_COOLDOWN_H     # hours between repeat alerts — default 12 (anti-spam)
 
 # LangSmith tracing (optional)
 LANGSMITH_API_KEY
