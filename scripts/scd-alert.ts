@@ -16,6 +16,12 @@
  *   SCD_ALERT_COOLDOWN_H      hours between repeat alerts — default 24
  */
 
+// When run via cron (no cd), resolve to script's repo root
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+const __dir = dirname(fileURLToPath(import.meta.url));
+process.chdir(resolve(__dir, '..'));
+
 import 'dotenv/config';
 import { getLatestModuleScores } from '../src/tools/macro/time-series-db.js';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
