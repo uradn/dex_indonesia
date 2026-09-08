@@ -1611,6 +1611,10 @@ const RR_HTML = `<!DOCTYPE html>
     <div class="card-title">MSCI Nov 2026 Reform Tracker</div>
     <div style="color:var(--muted)">Loading…</div>
   </div>
+  <div class="card" id="panel-rg">
+    <div class="card-title">r − g Debt Dynamics — Blanchard / R&R Ch.13</div>
+    <div style="color:var(--muted)">Loading…</div>
+  </div>
 </div>
 <script>
 function fmtNum(v,d=2){ return v != null ? (+v).toFixed(d) : '—'; }
@@ -1850,11 +1854,107 @@ function renderMsciReforms(d) {
     + '<div class="hist-note">MSCI mempertahankan EM Jun 23 dengan catatan: bila Nov 2026 review tidak menunjukkan kemajuan cukup → konsultasi reklasifikasi Frontier. Cross-check M5 foreign_flow di atas (otomatis +3 score saat &lt;60d).</div>';
 }
 
+function renderRG(d) {
+  const ind = d.indicators;
+  const sbn      = ind['sbn_10y_yield_pct']?.value ?? null;
+  const gdp      = ind['gdp_growth_pct']?.value ?? null;
+  const biRate   = ind['bi_rate_pct']?.value ?? null;
+  const debtGdp  = ind['indonesia_debt_gdp_pct']?.value ?? null;
+  const cds      = ind['indonesia_cds_5y_bps']?.value ?? null;
+  const defGdp   = ind['apbn_deficit_pct_gdp']?.value ?? null;
+
+  const rg       = (sbn != null && gdp != null) ? +(sbn - gdp).toFixed(2) : null;
+  const rgCls    = rg != null ? (rg > 3 ? 'red' : rg > 2 ? 'orange' : rg > 1 ? 'yellow' : rg > 0 ? 'yellow' : 'green') : '';
+  const rgLbl    = rg != null ? (rg > 3 ? 'SNOWBALL KRITIS' : rg > 2 ? 'Snowball Risk' : rg > 1 ? 'Watch' : rg > 0 ? 'Borderline' : 'Favorable') : '—';
+
+  // Term premium = SBN 10Y − BI Rate (policy anchor)
+  const termPrem = (sbn != null && biRate != null) ? +(sbn - biRate).toFixed(2) : null;
+  const tpCls    = termPrem != null ? (termPrem > 2.5 ? 'red' : termPrem > 2.0 ? 'orange' : termPrem > 1.5 ? 'yellow' : 'green') : '';
+
+  // Debt snowball accumulation: if r > g, every 1% spread ≈ debt/GDP rises ~(debt_gdp * rg / 100) ppt/yr
+  const snowballPpt = (rg != null && debtGdp != null && rg > 0) ? +(debtGdp * rg / 100).toFixed(2) : null;
+
+  // Blanchard condition: deficit/(g-r) = stable debt level; g>r = sustainable any primary deficit
+  const blanchardOk = rg != null ? rg < 0 : null;
+
+  // Fiscal space = primary balance needed to stabilize debt (rough: primary_balance = (r-g)*debt_gdp/100)
+  const primaryBalanceNeeded = (rg != null && debtGdp != null) ? +(rg * debtGdp / 100).toFixed(2) : null;
+
+  // Mini sparkline via inline SVG: hardcode key r-g data points 2020-2026 (from APBN/BI records)
+  // r = SBN 10Y average; g = GDP growth; r-g spread
+  const histPoints = [
+    { yr: '2020', r: 7.2, g: -2.1 }, // COVID crash
+    { yr: '2021', r: 6.4, g: 3.7  },
+    { yr: '2022', r: 7.1, g: 5.3  },
+    { yr: '2023', r: 6.7, g: 5.1  },
+    { yr: '2024', r: 7.0, g: 5.0  },
+    { yr: '2025', r: 7.1, g: 4.9  }, // est
+    { yr: 'Now',  r: sbn ?? 7.1, g: gdp ?? 5.0 },
+  ];
+  const spreads = histPoints.map(p => +(p.r - p.g).toFixed(2));
+  const maxS = Math.max(...spreads, 0.1);
+  const minS = Math.min(...spreads, -5);
+  const range = maxS - minS || 1;
+  const W = 260, H = 60, pad = 4;
+  const pts = spreads.map((s, i) => {
+    const x = pad + (i / (spreads.length - 1)) * (W - 2 * pad);
+    const y = pad + (1 - (s - minS) / range) * (H - 2 * pad);
+    return [x.toFixed(1), y.toFixed(1)];
+  });
+  const polyline = pts.map(p => p.join(',')).join(' ');
+  const zeroY = (pad + (1 - (0 - minS) / range) * (H - 2 * pad)).toFixed(1);
+  const nowX = pts[pts.length - 1][0];
+  const nowY = pts[pts.length - 1][1];
+  const nowSpread = spreads[spreads.length - 1];
+  const nowSpreadCls = nowSpread > 2 ? 'var(--orange)' : nowSpread > 1 ? 'var(--yellow)' : nowSpread > 0 ? 'var(--yellow)' : 'var(--green)';
+
+  const spark = \`<div style="margin:10px 0 6px">
+    <div style="font-size:9px;color:var(--muted);margin-bottom:3px">r − g spread 2020→Now (%)</div>
+    <svg width="\${W}" height="\${H}" viewBox="0 0 \${W} \${H}" style="display:block;overflow:visible">
+      <line x1="\${pad}" y1="\${zeroY}" x2="\${W-pad}" y2="\${zeroY}" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,2"/>
+      <polyline points="\${polyline}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linejoin="round"/>
+      <circle cx="\${nowX}" cy="\${nowY}" r="3" fill="\${nowSpreadCls}"/>
+      \${histPoints.map((p, i) => {
+        const [x] = pts[i];
+        return \`<text x="\${x}" y="\${H+1}" text-anchor="middle" font-size="7" fill="var(--muted)">\${p.yr}</text>\`;
+      }).join('')}
+      <text x="\${+nowX+5}" y="\${+nowY+3}" font-size="8" fill="\${nowSpreadCls}">\${nowSpread > 0 ? '+' : ''}\${nowSpread}%</text>
+    </svg>
+  </div>\`;
+
+  return \`
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">
+      <span class="big-num \${rgCls}">\${rg != null ? (rg > 0 ? '+' : '')+fmtNum(rg,2)+'%' : '—'}</span>
+      <div>
+        <div>\${tag(rgLbl, rgCls)}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:3px">r=SBN10Y \${sbn ? fmtNum(sbn,2)+'%' : '—'} | g=GDP \${gdp ? fmtNum(gdp,1)+'%' : '—'}</div>
+      </div>
+    </div>
+    \${spark}
+    <div class="section-title">Komponen</div>
+    \${kv('SBN 10Y yield (r)', sbn ? fmtNum(sbn,2)+'%' : '—', sbn > 8 ? 'red' : sbn > 7.5 ? 'orange' : sbn > 7 ? 'yellow' : 'green')}
+    \${kv('GDP Growth (g)', gdp ? fmtNum(gdp,1)+'%' : '—', gdp < 4 ? 'red' : gdp < 4.5 ? 'orange' : gdp < 5 ? 'yellow' : 'green')}
+    \${kv('r − g spread', rg != null ? (rg > 0 ? '+' : '')+fmtNum(rg,2)+'%' : '—', rgCls)}
+    \${kv('Term Premium (SBN − BI Rate)', termPrem != null ? (termPrem > 0 ? '+' : '')+fmtNum(termPrem,2)+'%' : '—', tpCls)}
+    \${kv('CDS 5Y (risk premium)', cds ? fmtNum(cds,0)+'bps' : '—', cds > 200 ? 'red' : cds > 150 ? 'orange' : cds > 100 ? 'yellow' : 'green')}
+    <div class="section-title">Implikasi Fiskal</div>
+    \${kv('Debt / GDP', debtGdp ? fmtNum(debtGdp,1)+'%' : '—', debtGdp > 60 ? 'red' : debtGdp > 50 ? 'orange' : debtGdp > 40 ? 'yellow' : 'green')}
+    \${defGdp != null ? kv('APBN Deficit / GDP', (defGdp > 0 ? '-' : '')+fmtNum(defGdp,2)+'%', defGdp > 3 ? 'red' : defGdp > 2.5 ? 'orange' : 'yellow') : ''}
+    \${snowballPpt != null && rg != null && rg > 0 ? kv('Snowball Akumulasi', '+'+fmtNum(snowballPpt,2)+'ppt/yr (otomatis tanpa defisit)', rgCls) : ''}
+    \${primaryBalanceNeeded != null ? kv('Primary Balance Needed', (rg != null && rg <= 0 ? 'surplus tidak perlu (g>r)' : fmtNum(primaryBalanceNeeded,2)+'% GDP untuk stabilisasi'), rg != null && rg <= 0 ? 'green' : rgCls) : ''}
+    \${blanchardOk === true ? '<div class="hist-note" style="border-left-color:var(--green)">✓ Blanchard Condition terpenuhi: g > r → debt/GDP stabil organik tanpa perlu surplus primer. Fiskal space paling luas.</div>'
+      : blanchardOk === false ? '<div class="hist-note" style="border-left-color:var(--orange)">⚠ Blanchard Condition breach: r > g → debt/GDP naik otomatis meskipun APBN berimbang. Perlu primary surplus untuk stabilisasi.</div>'
+      : ''}
+    <div class="hist-note">Ref: Blanchard (2019) JEP "Public Debt and Low Interest Rates" | R&R Ch.13-16. Threshold kritis: r-g >3% = snowball accelerating; >2% = watch; 0-2% = borderline. Indonesia 2013 Taper Tantrum: r-g >4% selama >6mo → crisis catalyst.</div>
+  \`;
+}
+
 async function refresh() {
   const snap = await fetch('/api/snapshot').then(r => r.json());
   document.getElementById('panel-gg').innerHTML = '<div class="card-title">G-G Shield — Greenspan-Guidotti Ratio</div>' + renderGG(snap);
   document.getElementById('panel-rr').innerHTML = '<div class="card-title">R&R Open Economy — 7 Frameworks Live</div>' + renderRR(snap);
   document.getElementById('panel-msci-reforms').innerHTML = '<div class="card-title">MSCI Nov 2026 Reform Tracker</div>' + renderMsciReforms(snap);
+  document.getElementById('panel-rg').innerHTML = '<div class="card-title">r − g Debt Dynamics — Blanchard / R&R Ch.13</div>' + renderRG(snap);
   document.getElementById('last-updated-rr').textContent = 'Updated ' + new Date().toLocaleTimeString('id-ID');
 }
 
