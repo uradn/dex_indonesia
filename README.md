@@ -363,10 +363,15 @@ bun scripts/shock-scenario.ts --list      # lihat semua preset scenario
 bun scripts/shock-scenario.ts crisis      # full crisis simulation (1997/2008 analog)
 bun scripts/shock-scenario.ts idr-freefall # sudden stop + forced BI hike cycle
 bun scripts/seed-banking-baseline.ts      # seed CAR/LDR dari OJK LSPI (quarterly)
-bun scripts/refresh-monthly-data.ts       # manual trigger: CPI/GDP/cadev/PMI/ULN → DB (auto via cron tgl 8)
-bash health-check.sh                      # cek scraper, DB, Playwright, TypeScript
-bash env-check.sh                         # live ping semua API key di .env
+bun scripts/refresh-monthly-data.ts       # manual trigger: CPI/GDP/cadev/PMI/ULN/unemployment/subsidi/CPO → DB (cron tgl 8)
+bun scripts/brent-alert.ts               # cek Brent vs BRENT_ALERT_THRESHOLD ($99 default) → macOS notif; crontab 4h
+bun scripts/scd-alert.ts                 # cek SCD score vs macro_scores DB → notif jika ≥75% atau ≥3 RED; crontab 08:30 WIB
+bun scripts/msci-countdown.ts            # countdown MSCI Nov 12 2026 review → notif T-60/T-30/T-7/T-0; crontab 08:00 WIB
+bun scripts/health-check.ts              # freshness audit semua indikator; exit 1 jika ada RED-tier gap
+bash env-check.sh                        # live ping semua API key di .env
 ```
+
+**Freshness gates (Dexter Eval Sep 2026):** engine M3/M2/M5/M8/M13 emit `DATA STALE` flag dan `LOW CONFIDENCE` banner otomatis kalau input critical ORANGE/RED-stale — mencegah false-GREEN score dari scraper yang diam-diam gagal. Threshold per-indikator di `src/tools/macro/freshness.ts`. Health-check baseline Sep 8 2026: 32 fresh · 0 aging · 2 stale (srbi_bid_cover 24d, msci_classification) · 0 critical.
 
 ---
 
@@ -381,7 +386,7 @@ bun scripts/dashboard.ts   # start server
 | Route | Deskripsi |
 |-------|-----------|
 | `/` | Main dashboard — 13 panel modul, chart time-series, SCD gauge |
-| `/rr` | R&R / Greenspan-Guidotti page — 7 live R&R signals |
+| `/rr` | R&R / Greenspan-Guidotti page — **4 panels**: G-G Shield · 7 R&R Frameworks · MSCI Nov 2026 Reform Tracker · **r-g Debt Dynamics** (Blanchard/R&R Ch.13) |
 | `/bs` | **Big Short Thesis** — Burry-mode contrarian tracker |
 
 **`/` — Main Dashboard:**

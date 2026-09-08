@@ -2486,6 +2486,45 @@ function renderHaye(snap) {
     \${kv('APBN Pagu (full-year subsidi+kompensasi)', '~Rp 447.5T', 'green')}
     \${kv('Realisasi Semester I (Jan–Jun)', 'Rp 233T (+44.4% YoY, 52.1% pagu)', 'red')}
     <div style="font-size:9px;color:var(--muted);margin-bottom:8px">H1 = 52.1% pagu dalam 6 bulan → annualized run rate ~104% APBN. Price shock Hormuz → subsidi blow-through → fiscal constraint binding. Sumber: APBN KiTa Jul 2026.</div>
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">BBM Cost Recovery per Produk (Live)</div>
+    \${(() => {
+      // Live-computed cost recovery gaps using env BBM prices + Brent/USDIDR live
+      // Pertalite: MOPS Petrol proxy = Brent × 0.92 × (USDIDR/159) + margin
+      // Solar B50: 50% MOPS Gasoil + 50% FAME (CPO-based); FAME ≈ CPO × 1.2 / 800 × USDIDR
+      const brentVal = brent ?? 98.5;
+      const usdIdr = ind['usdidr_spot']?.value ?? 17635;
+      const cpoUsdMt = ind['cpo_price_myr']?.value ?? 1117; // USD/MT from monthly refresh
+
+      // MOPS Gasoil proxy (Rp/L): Brent USD × 0.95 × USDIDR / 159 + distribusi Rp1200
+      const mopsGasoilRpL = Math.round(brentVal * 0.95 * usdIdr / 159 + 1200);
+      // FAME cost (Rp/L): CPO USD/MT × 1.25 (yield factor) × USDIDR / 875 + premium
+      const fameRpL = Math.round(cpoUsdMt * 1.25 * usdIdr / 875 + 500);
+      // Solar B50 CR = 50% MOPS Gasoil + 50% FAME + margin Rp800
+      const solarB50CrRpL = Math.round(mopsGasoilRpL * 0.50 + fameRpL * 0.50 + 800);
+      // Pertalite CR: MOPS Petrol (Brent×0.92) × USDIDR/159 + distribusi Rp1100
+      const pertaliteCrRpL = Math.round(brentVal * 0.92 * usdIdr / 159 + 1100);
+
+      const PERTALITE_PUMP = 10000, SOLAR_PUMP = 6800;
+      const pertGap = pertaliteCrRpL - PERTALITE_PUMP;
+      const solarGap = solarB50CrRpL - SOLAR_PUMP;
+      const pertGapCls = pertGap > 6000 ? 'red' : pertGap > 4000 ? 'orange' : pertGap > 2000 ? 'yellow' : 'green';
+      const solarGapCls = solarGap > 10000 ? 'red' : solarGap > 7000 ? 'orange' : solarGap > 4000 ? 'yellow' : 'green';
+
+      const row = (label, pump, cr, gap, cls, note) =>
+        \`<div style="border-bottom:1px solid var(--border);padding:4px 0;font-size:10px">
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--muted)">\${label}</span>
+            <span class="\${cls}" style="font-weight:600">gap Rp\${gap.toLocaleString('id')}/L</span>
+          </div>
+          <div style="font-size:9px;color:var(--muted)">pump Rp\${pump.toLocaleString('id')} · CR est. Rp\${cr.toLocaleString('id')} · \${note}</div>
+        </div>\`;
+
+      return row('Pertalite (RON 90, bersubsidi)', PERTALITE_PUMP, pertaliteCrRpL, pertGap, pertGapCls, 'MOPS Petrol proxy')
+           + row('Solar B50 (diesel bersubsidi)', SOLAR_PUMP, solarB50CrRpL, solarGap, solarGapCls, '50% MOPS Gasoil + 50% FAME (CPO $'+cpoUsdMt+'/MT) — gap 2× Pertalite')
+           + \`<div style="font-size:9px;color:var(--muted);margin-top:4px;padding:3px 4px;background:rgba(248,81,73,.07);border-radius:2px;border-left:2px solid var(--red)">
+              ⚠ B50 mandate Jul 2026: FAME dari CPO lebih mahal dari MOPS Gasoil → Solar CR otomatis naik ikut CPO. BPDPKS subsidi FAME pakai levy ekspor CPO (double hit BoP: divert ekspor + subsidi APBN). Pump Solar tidak naik tapi gap makin lebar.
+            </div>\`;
+    })()}
     <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">Morris-Shin CV% (M6)</div>
     \${kv('CV% Dispersion', cvFinal!=null?fmt(cvFinal,1)+'%':'—', cvCls)}
     \${kv('Regime', cvLabel, cvCls)}
