@@ -11,6 +11,7 @@ import { fetchSrbiAuction, formatSrbiAuction } from './sources/srbi-auction.js';
 import { fetchDndf } from './sources/dndf.js';
 import type { FxDefenseEngineOutput, ShadowRateData, ConfidenceGateData, IndicatorSnapshot, AlertLevel } from './types.js';
 import type { SrbiAuctionData } from './sources/srbi-auction.js';
+import { getFreshPoint, stalenessFlag } from './freshness.js';
 
 export const FX_DEFENSE_DESCRIPTION = `
 MACRO INTELLIGENCE — FX Defense Engine (Module 3)
@@ -282,6 +283,17 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
       flags.push(`SRBI WEAK DEMAND: bid-cover ${srbiAuction.bidCoverRatio.toFixed(2)}x — below 1.5x, early outflow signal (leads DJPPR by ~1 month)`);
     else if (srbiAuction.bidCoverAlert === 'yellow')
       flags.push(`SRBI demand watch: bid-cover ${srbiAuction.bidCoverRatio.toFixed(2)}x (normal range 1.5–2.5x)`);
+  }
+
+  // Freshness gate: srbi_bid_cover_ratio is the key weekly capital-flow proxy for M3.
+  // If stale, flag it — and emit LOW CONFIDENCE when RED-stale (>30d), because
+  // the bid-cover signal is the earliest indicator of BI sterilization stress.
+  const freshBidCover = await getFreshPoint('srbi_bid_cover_ratio');
+  if (freshBidCover.cls === 'red' || freshBidCover.cls === 'orange') {
+    flags.push(stalenessFlag('srbi_bid_cover_ratio', freshBidCover.ageDays!, freshBidCover.spec, freshBidCover.cls));
+  }
+  if (freshBidCover.cls === 'red') {
+    flags.unshift('LOW CONFIDENCE: srbi_bid_cover_ratio RED-stale — M3 auction demand signal missing; FX defense alert level may not reflect current BI sterilization capacity');
   }
 
   // Cross-feed from ULN Engine (Module 13) + macro context for confidence gate
