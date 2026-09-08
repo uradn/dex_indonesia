@@ -8,6 +8,7 @@ import { fetchSbnForeignOwnership } from './sources/bi.js';
 import { fetchIdxForeignNetFlow } from './sources/idx.js';
 import { fetchMsciClassification } from './sources/msci-classification.js';
 import type { AlertLevel, IndicatorSnapshot, ModuleScoreCard } from './types.js';
+import { getFreshPoint, stalenessFlag } from './freshness.js';
 
 export const FOREIGN_FLOW_DESCRIPTION = `
 MACRO INTELLIGENCE — Foreign Flow Engine (Module 5)
@@ -295,6 +296,21 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   }
   if (msciRebalancingOutflowUsd !== null) {
     flags.push(`MSCI May 29 rebalancing: ~$${msciRebalancingOutflowUsd}bn passive outflow (19 companies removed) — explains part of EIDO weakness; classification result Jun 23 (watch: frontier downgrade = forced-sell > May rebalancing magnitude)`);
+  }
+
+  // Freshness gate — M5 primary inputs: EIDO daily + SBN foreign ownership monthly
+  const [freshEido, freshSbnOwn] = await Promise.all([
+    getFreshPoint('eido_price'),
+    getFreshPoint('sbn_foreign_ownership_pct'),
+  ]);
+  for (const fp of [freshEido, freshSbnOwn]) {
+    if (fp.cls === 'orange' || fp.cls === 'red') {
+      flags.push(stalenessFlag(fp.spec?.name ?? 'unknown', fp.ageDays!, fp.spec, fp.cls));
+    }
+  }
+  const criticalStaleM5 = [freshEido, freshSbnOwn].filter(fp => fp.cls === 'red').length;
+  if (criticalStaleM5 >= 1) {
+    flags.unshift('LOW CONFIDENCE: EIDO or SBN foreign ownership RED-stale — M5 foreign flow signal may not reflect current capital flows');
   }
 
   const narrative = buildNarrative({ eidoSnap, sbnSnap, divergenceFlag, domesticAbsorptionFlag, silentExitProbability, ssviIndex, ssviPhase });

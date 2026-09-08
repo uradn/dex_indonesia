@@ -10,6 +10,7 @@ import { fetchSbn10yTradingEconomics, fetchBiRateTradingEconomics, fetchIndonesi
 import { fetchDebtGdpImf } from './sources/imf.js';
 import { fetchUst10y } from './sources/yahoo-macro.js';
 import type { AlertLevel, IndicatorSnapshot, ModuleScoreCard, MacroDataPoint } from './types.js';
+import { getFreshPoint, stalenessFlag } from './freshness.js';
 
 export const SOVEREIGN_RISK_DESCRIPTION = `
 MACRO INTELLIGENCE — Sovereign Risk Engine (Module 2)
@@ -271,6 +272,21 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
 
   const alertLevel = alertFromScore(sovereignRiskScore);
   const flags = detectFlags(validSnapshots);
+
+  // Freshness gate — M2's primary inputs are daily-scraped; scraper failure goes silent otherwise
+  const [freshCds, freshSbn] = await Promise.all([
+    getFreshPoint('indonesia_cds_5y_bps'),
+    getFreshPoint('sbn_10y_yield_pct'),
+  ]);
+  for (const fp of [freshCds, freshSbn]) {
+    if (fp.cls === 'orange' || fp.cls === 'red') {
+      flags.push(stalenessFlag(fp.spec?.name ?? 'unknown', fp.ageDays!, fp.spec, fp.cls));
+    }
+  }
+  const criticalStale = [freshCds, freshSbn].filter(fp => fp.cls === 'red').length;
+  if (criticalStale >= 1) {
+    flags.unshift('LOW CONFIDENCE: CDS or SBN yield RED-stale — M2 sovereign risk score not representative of current market conditions');
+  }
   if (foreignExitRisk === 'red') flags.push('CRITICAL: Foreign SBN exit + CDS widening simultaneously — repricing cycle risk');
   if (foreignExitRisk === 'orange') flags.push('Foreign SBN ownership declining — monitor for acceleration');
   if (cdsLevel > 200) flags.push(`CDS 5Y at ${cdsLevel}bps — above 200bps stress threshold`);
