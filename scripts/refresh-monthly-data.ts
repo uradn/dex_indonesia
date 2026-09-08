@@ -170,11 +170,54 @@ async function fetchUlnGdp(): Promise<MacroDataPoint | null> {
   return { indicator: 'uln_gdp_ratio_pct', category: 'uln', date, value: val, unit: '%', source: 'bi_sulni_exa', fetchedAt: new Date().toISOString() };
 }
 
+async function fetchUnemployment(): Promise<MacroDataPoint | null> {
+  const text = await searchExa('BPS Indonesia tingkat pengangguran terbuka TPT persen Agustus Februari 2026');
+  const val = await grokExtract(
+    text,
+    'What is the latest Indonesia open unemployment rate (TPT - Tingkat Pengangguran Terbuka) in percent? BPS publishes twice yearly (Feb and Aug). Return just the number (e.g. 4.82).',
+    () => parseNum(text, [
+      /tingkat pengangguran terbuka.*?(\d[.,]\d{2})\s*(?:persen|%)/i,
+      /TPT.*?(\d[.,]\d{2})\s*(?:persen|%)/i,
+      /pengangguran.*?(\d[.,]\d{2})\s*(?:persen|%)/i,
+      /unemployment rate.*?(\d[.,]\d{2})\s*(?:percent|%)/i,
+    ]),
+  );
+  if (val === null || val < 1 || val > 20) return null;
+  // BPS publishes Feb (data Feb) and Aug (data Aug) — use current year Aug or last Feb
+  const now = new Date();
+  const month = now.getMonth() + 1; // 1-12
+  const year = now.getFullYear();
+  const date = month >= 8 ? `${year}-08-01` : `${year}-02-01`;
+  console.log(`  Unemployment (TPT): ${val}% → ${date}`);
+  return { indicator: 'unemployment_rate_pct', category: 'pangan', date, value: val, unit: '%', source: 'bps_exa', fetchedAt: new Date().toISOString() };
+}
+
+async function fetchSubsidiEnergi(): Promise<MacroDataPoint | null> {
+  const text = await searchExa('Kemenkeu APBN realisasi subsidi energi BBM listrik triliun rupiah 2026');
+  const val = await grokExtract(
+    text,
+    'What is the latest year-to-date realization of Indonesia energy subsidy (subsidi energi) in trillion rupiah (triliun rupiah) for 2026? This includes BBM and electricity subsidies. Return just the number (e.g. 233.5).',
+    () => parseNum(text, [
+      /subsidi energi.*?(?:Rp|IDR)?\s*(\d{2,3}[.,]\d)\s*(?:triliun|T\b)/i,
+      /(\d{2,3}[.,]\d)\s*triliun.*?subsidi energi/i,
+      /realisasi subsidi.*?(\d{2,3}[.,]\d)\s*(?:triliun|T\b)/i,
+    ]),
+  );
+  if (val === null || val < 10 || val > 1000) return null;
+  const date = new Date().toISOString().slice(0, 10);
+  console.log(`  Subsidi Energi YTD: Rp${val}T → ${date}`);
+  return { indicator: 'subsidi_energi_ytd_idr_t', category: 'fiscal', date, value: val, unit: 'IDR trillion YTD', source: 'kemenkeu_apbn_exa', fetchedAt: new Date().toISOString() };
+}
+
 async function main() {
   console.log('=== Monthly Data Refresh — Indonesia Macro ===');
   console.log(`Run: ${new Date().toISOString()}\n`);
 
-  const results = await Promise.allSettled([fetchCpi(), fetchGdp(), fetchCadev(), fetchPmi(), fetchUlnGdp()]);
+  const FETCH_NAMES = ['CPI','GDP','Cadev','PMI','ULN/GDP','Unemployment','SubsidiEnergi'];
+  const results = await Promise.allSettled([
+    fetchCpi(), fetchGdp(), fetchCadev(), fetchPmi(), fetchUlnGdp(),
+    fetchUnemployment(), fetchSubsidiEnergi(),
+  ]);
   const points: MacroDataPoint[] = results
     .filter((r): r is PromiseFulfilledResult<MacroDataPoint | null> => r.status === 'fulfilled')
     .map(r => r.value)
@@ -182,8 +225,7 @@ async function main() {
 
   results.forEach((r, i) => {
     if (r.status === 'rejected') {
-      const names = ['CPI','GDP','Cadev','PMI','ULN/GDP'];
-      console.error(`  ✗ ${names[i]} failed: ${r.reason}`);
+      console.error(`  ✗ ${FETCH_NAMES[i]} failed: ${r.reason}`);
     }
   });
 
@@ -193,7 +235,7 @@ async function main() {
   }
 
   await upsertPoints(points);
-  console.log(`\n✓ Saved ${points.length}/5 indicators to DB`);
+  console.log(`\n✓ Saved ${points.length}/${FETCH_NAMES.length} indicators to DB`);
 
   // Auto-recompute G-G ratio if cadev updated
   const newCadev = points.find(p => p.indicator === 'bi_fx_reserves_bn');

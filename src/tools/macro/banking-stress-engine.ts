@@ -270,7 +270,10 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   const fxReservesBn = dbFxReserves?.value ?? null;
   const usdidrSpot = dbUsdidr?.value ?? null;
 
-  const fintechNplPct      = fintechResult?.fintechNplPct      ?? dbFintechNpl?.value        ?? null;
+  // FINTECH_NPL_PCT env override — pin from OJK SPI monthly release when Playwright blocked (WAF).
+  const fintechNplEnv = process.env.FINTECH_NPL_PCT;
+  const fintechNplFromEnv = fintechNplEnv ? parseFloat(fintechNplEnv) : null;
+  const fintechNplPct      = fintechNplFromEnv ?? fintechResult?.fintechNplPct ?? dbFintechNpl?.value ?? null;
   const fintechOutstandingIdrT = fintechResult?.outstandingIdrT ?? dbFintechOutstanding?.value ?? null;
   const fintechGrowthYoyPct   = fintechResult?.growthYoyPct    ?? dbFintechGrowth?.value      ?? null;
   const bnplSignal = classifyBnplSignal(fintechNplPct, fintechGrowthYoyPct);

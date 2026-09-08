@@ -155,18 +155,37 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
     if (ulnPoint) await upsertPoints([ulnPoint]);
   }
 
-  // 2. World Bank annual indicators — no Playwright, only if stale
-  const [cachedDsr, cachedSt] = await Promise.all([
-    getLatestPoint('uln_dsr_pct'),
-    getLatestPoint('uln_shortterm_pct'),
-  ]);
-  if (!isFresh(cachedDsr) || !isFresh(cachedSt)) {
-    const [dsrPoint, stPoint] = await Promise.all([
-      fetchUlnDsrWorldBank().catch(() => null),
-      fetchUlnShorttermPctWorldBank().catch(() => null),
+  // 2. World Bank annual indicators — env override wins (like BI_HEDGING_COMPLIANCE_PCT pattern).
+  //    ULN_DSR_PCT + ULN_SHORTTERM_PCT: pin from BI SULNI quarterly press release when WB auto-fetch stale.
+  //    World Bank publishes Indonesia DSR/ST% annually (often 12–18m lag) — env override is primary fix.
+  const dsrEnv = process.env.ULN_DSR_PCT;
+  const stEnv  = process.env.ULN_SHORTTERM_PCT;
+  const today  = new Date().toISOString().slice(0, 10);
+  if (dsrEnv) {
+    const v = parseFloat(dsrEnv);
+    if (!isNaN(v) && v >= 0 && v <= 100) {
+      await upsertPoints([{ indicator: 'uln_dsr_pct', category: 'uln', date: today, value: v, unit: '%', source: 'env_manual', fetchedAt: new Date().toISOString() }]);
+    }
+  }
+  if (stEnv) {
+    const v = parseFloat(stEnv);
+    if (!isNaN(v) && v >= 0 && v <= 100) {
+      await upsertPoints([{ indicator: 'uln_shortterm_pct', category: 'uln', date: today, value: v, unit: '%', source: 'env_manual', fetchedAt: new Date().toISOString() }]);
+    }
+  }
+  if (!dsrEnv || !stEnv) {
+    const [cachedDsr, cachedSt] = await Promise.all([
+      getLatestPoint('uln_dsr_pct'),
+      getLatestPoint('uln_shortterm_pct'),
     ]);
-    const wbPoints = [dsrPoint, stPoint].filter((p): p is NonNullable<typeof p> => p !== null);
-    if (wbPoints.length > 0) await upsertPoints(wbPoints);
+    if (!isFresh(cachedDsr) || !isFresh(cachedSt)) {
+      const [dsrPoint, stPoint] = await Promise.all([
+        dsrEnv ? null : fetchUlnDsrWorldBank().catch(() => null),
+        stEnv  ? null : fetchUlnShorttermPctWorldBank().catch(() => null),
+      ]);
+      const wbPoints = [dsrPoint, stPoint].filter((p): p is NonNullable<typeof p> => p !== null);
+      if (wbPoints.length > 0) await upsertPoints(wbPoints);
+    }
   }
 
   // 3. Hedging compliance — tier order: env override → BI SULNI Playwright → Exa/Tavily news.
