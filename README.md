@@ -371,7 +371,20 @@ bun scripts/health-check.ts              # freshness audit semua indikator; exit
 bash env-check.sh                        # live ping semua API key di .env
 ```
 
-**Freshness gates (Dexter Eval Sep 2026):** engine M3/M2/M5/M8/M13 emit `DATA STALE` flag dan `LOW CONFIDENCE` banner otomatis kalau input critical ORANGE/RED-stale — mencegah false-GREEN score dari scraper yang diam-diam gagal. Threshold per-indikator di `src/tools/macro/freshness.ts`. Health-check baseline Sep 8 2026: 32 fresh · 0 aging · 2 stale (srbi_bid_cover 24d, msci_classification) · 0 critical.
+**Freshness gates (Dexter Eval Sep 2026):** engine M1/M2/M3/M5/M7/M8/M9/M13 emit `DATA STALE` flag dan `LOW CONFIDENCE` banner otomatis kalau input critical ORANGE/RED-stale — mencegah false-GREEN score dari scraper yang diam-diam gagal. Coverage per modul:
+
+| Modul | Gate indikator | RED threshold |
+|---|---|---|
+| M1 BoP | `trade_balance_bn`, `current_account_pct_gdp_quarterly`, `imports_bn` | >90d / >180d / >90d |
+| M2 Sovereign | `indonesia_cds_5y_bps`, `sbn_10y_yield_pct` | >14d |
+| M3 FX Defense | `srbi_bid_cover_ratio` | >30d |
+| M5 Foreign Flow | `eido_price`, `sbn_foreign_ownership_pct` | >14d / >60d |
+| M7 ASEAN RV | `usdidr_spot`, `ust_10y_yield_pct` | >7d / >14d |
+| M8 Banking | `bank_npl_gross_pct`, `bank_ldr_pct`, `bank_car_pct`, `fintech_npl_pct` | >1000d / >240d / >365d / >75d |
+| M9 Market | `ihsg_pe_ratio`, `idx_advance_decline_ratio` | >30d / >14d |
+| M13 ULN | `indonesia_external_debt_bn`, `uln_dsr_pct`, `uln_shortterm_pct` | >180d / >730d / >730d |
+
+Threshold lengkap di `src/tools/macro/freshness.ts`. Health-check baseline Sep 8 2026: 32 fresh · 0 aging · 2 stale (srbi_bid_cover 24d, msci_classification) · 0 critical.
 
 ---
 
