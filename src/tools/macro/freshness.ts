@@ -68,6 +68,18 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   // DNDF — env_manual annual update from BI LKT
   { name: 'bi_dndf_outstanding_bn',      module: 'M3',  freshDays: 100,yellowDays: 200, redDays: 400 },
   { name: 'uln_hedging_compliance_pct',  module: 'M13', freshDays: 120,yellowDays: 200, redDays: 365 },
+  // BoP monthly (BPS/TE trade data, BI NPI quarterly CAD)
+  { name: 'trade_balance_bn',                   module: 'M1',  freshDays: 35, yellowDays: 55,  redDays: 90 },
+  { name: 'current_account_pct_gdp_quarterly',  module: 'M1',  freshDays: 100,yellowDays: 130, redDays: 180 },
+  { name: 'imports_bn',                         module: 'M1',  freshDays: 35, yellowDays: 55,  redDays: 90 },
+  // Market daily (IHSG P/E from EIDO proxy, A/D from scrape)
+  { name: 'ihsg_pe_ratio',                      module: 'M9',  freshDays: 5,  yellowDays: 14,  redDays: 30 },
+  { name: 'idx_advance_decline_ratio',          module: 'M9',  freshDays: 4,  yellowDays: 7,   redDays: 14 },
+  // ASEAN FX peers (Yahoo daily) — gate keyed on USDIDR as proxy
+  { name: 'usdmyr_spot',  module: 'M7', freshDays: 2, yellowDays: 4, redDays: 7 },
+  { name: 'usdthb_spot',  module: 'M7', freshDays: 2, yellowDays: 4, redDays: 7 },
+  { name: 'usdphp_spot',  module: 'M7', freshDays: 2, yellowDays: 4, redDays: 7 },
+  { name: 'ust_10y_yield_pct', module: 'M7', freshDays: 3, yellowDays: 7, redDays: 14 },
 ];
 
 const SPEC_BY_NAME: Map<string, IndicatorFreshnessSpec> = new Map(INDICATORS.map(s => [s.name, s]));

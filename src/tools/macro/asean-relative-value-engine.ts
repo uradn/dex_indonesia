@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { formatToolResult } from '../types.js';
 import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
 import { alertFromScore, alertLabel } from './scoring.js';
+import { getFreshPoint, stalenessFlag } from './freshness.js';
 import { fetchAseanFxSpots } from './sources/yahoo-macro.js';
 import type { AlertLevel } from './types.js';
 
@@ -191,6 +192,21 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
     flags.push(`UIP CARRY UNATTRACTIVE: real carry ${realCarry.toFixed(2)}pp (SBN spread ${carrySpread?.toFixed(2)}% − annualized IDR depreciation ${idr3mAnnualized?.toFixed(2)}%) — UIP predicts foreign SBN exit as yield no longer compensates for FX loss [R&R UIP]`);
   } else if (realCarry !== null && realCarry < 1.0) {
     flags.push(`Carry thin: real carry ${realCarry.toFixed(2)}pp — thin margin before carry trade unwinds. Watch SBN foreign ownership trend`);
+  }
+
+  // Freshness gate — ASEAN FX peers + carry inputs (keyed on usdidr + ust_10y as proxies)
+  const [freshUsdidr, freshUst] = await Promise.all([
+    getFreshPoint('usdidr_spot'),
+    getFreshPoint('ust_10y_yield_pct'),
+  ]);
+  for (const fp of [freshUsdidr, freshUst]) {
+    if (fp.cls === 'orange' || fp.cls === 'red') {
+      flags.push(stalenessFlag(fp.spec?.name ?? 'unknown', fp.ageDays!, fp.spec, fp.cls));
+    }
+  }
+  const criticalStaleM7 = [freshUsdidr, freshUst].filter(fp => fp.cls === 'red').length;
+  if (criticalStaleM7 >= 1) {
+    flags.unshift('LOW CONFIDENCE: USDIDR or UST 10Y RED-stale — M7 ASEAN relative value and carry signals not representative of current market');
   }
 
   const narrative = buildNarrative({ idrChange1m, aseanMedianFxChange1m, idiosyncraticComponent, usdStrengthStory, indonesiaRank, realCarry, carryLabel });

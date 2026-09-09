@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { formatToolResult } from '../types.js';
 import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
 import { buildSnapshot, compositeScore, detectFlags, alertFromScore, alertLabel, rateOfChange } from './scoring.js';
+import { getFreshPoint, stalenessFlag } from './freshness.js';
 import { fetchBiFxReserves } from './sources/bi.js';
 import { fetchTradeBalance, fetchImports, fetchExports, bpsAvailable } from './sources/bps.js';
 import { fetchTradeBalanceTe, fetchExportsTe, fetchImportsTe } from './sources/sovereign-scraper.js';
@@ -204,6 +205,22 @@ export async function runBoPEngine(): Promise<BoPEngineOutput> {
   }
   if (reserveMonths !== null && reserveMonths < 6) {
     flags.push(`FX reserve cover critically low: ${reserveMonths.toFixed(1)} months of imports`);
+  }
+
+  // Freshness gate — M1 BoP core inputs
+  const [freshTrade, freshCa, freshImports] = await Promise.all([
+    getFreshPoint('trade_balance_bn'),
+    getFreshPoint('current_account_pct_gdp_quarterly'),
+    getFreshPoint('imports_bn'),
+  ]);
+  for (const fp of [freshTrade, freshCa, freshImports]) {
+    if (fp.cls === 'orange' || fp.cls === 'red') {
+      flags.push(stalenessFlag(fp.spec?.name ?? 'unknown', fp.ageDays!, fp.spec, fp.cls));
+    }
+  }
+  const criticalStaleBoP = [freshTrade, freshCa, freshImports].filter(fp => fp.cls === 'red').length;
+  if (criticalStaleBoP >= 1) {
+    flags.unshift('LOW CONFIDENCE: trade balance or CAD data RED-stale — M1 BoP score may not reflect current external position');
   }
 
   const narrative = buildNarrative({

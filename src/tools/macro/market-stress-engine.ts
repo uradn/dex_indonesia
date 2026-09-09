@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { formatToolResult } from '../types.js';
 import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
 import { alertFromScore, alertLabel } from './scoring.js';
+import { getFreshPoint, stalenessFlag } from './freshness.js';
 import { fetchIhsgMarketData } from './sources/ihsg.js';
 import type { AlertLevel } from './types.js';
 
@@ -143,8 +144,21 @@ export async function runMarketStressEngine(): Promise<MarketStressOutput> {
       ? 'overheated'
     : 'neutral';
 
-  // 5. Flags
+  // 5. Flags + freshness gate
   const flags: string[] = [];
+  const [freshPe, freshAd] = await Promise.all([
+    getFreshPoint('ihsg_pe_ratio'),
+    getFreshPoint('idx_advance_decline_ratio'),
+  ]);
+  for (const fp of [freshPe, freshAd]) {
+    if (fp.cls === 'orange' || fp.cls === 'red') {
+      flags.push(stalenessFlag(fp.spec?.name ?? 'unknown', fp.ageDays!, fp.spec, fp.cls));
+    }
+  }
+  const criticalStaleM9 = [freshPe, freshAd].filter(fp => fp.cls === 'red').length;
+  if (criticalStaleM9 >= 1) {
+    flags.unshift('LOW CONFIDENCE: IHSG P/E or A/D ratio RED-stale — M9 market stress score may not reflect current market conditions');
+  }
   if (peForScoring !== null && peForScoring > 24) flags.push(`IHSG P/E ~${peForScoring}x (composite-equiv) — elevated vs historical avg (14-16x)`);
   if (adRatio !== null && adRatio < 0.67) flags.push(`Breadth bearish: A/D ratio ${adRatio.toFixed(2)} — majority of stocks declining`);
   if (adRatio !== null && adRatio < 0.5) flags.push(`Breadth panic: A/D ratio ${adRatio.toFixed(2)} — broad selling signal`);
