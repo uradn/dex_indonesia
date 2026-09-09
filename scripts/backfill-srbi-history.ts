@@ -165,13 +165,19 @@ async function main() {
     return;
   }
 
-  // Skip dates already in DB (check DB first)
+  // For backfill: fetch ALL dates in range (upsertPoints is idempotent).
+  // Only skip if --from not specified AND no explicit override — in that case
+  // skip dates after DB latest (incremental mode for cron use).
   const latestInDb = await getLatestPoint('srbi_bid_cover_ratio');
   const latestDateInDb = latestInDb?.date ?? '2000-01-01';
   console.log(`Latest in DB: ${latestDateInDb} (${latestInDb?.value ?? 'none'}x)`);
 
-  const toFetch = fridays.filter(d => d.toISOString().slice(0,10) > latestDateInDb);
-  console.log(`To fetch: ${toFetch.length} dates (skipping ${fridays.length - toFetch.length} already in DB)`);
+  // If --from is explicitly set → full backfill mode (fetch everything in range)
+  // Otherwise → incremental: only fetch dates not yet covered
+  const toFetch = FROM_ARG
+    ? fridays  // full backfill — upsertPoints handles duplicates
+    : fridays.filter(d => d.toISOString().slice(0,10) > latestDateInDb);
+  console.log(`To fetch: ${toFetch.length} dates (mode: ${FROM_ARG ? 'backfill' : 'incremental'})`);
 
   if (toFetch.length === 0) {
     console.log('All dates already in DB.');

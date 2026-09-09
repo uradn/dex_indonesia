@@ -38,6 +38,8 @@ bun scripts/brent-alert.ts               # manual Brent ICP threshold check ($99
 bun scripts/msci-countdown.ts            # MSCI Nov 12 2026 countdown — macOS alert at T-60/T-30/T-7/T-0; crontab daily 08:00 WIB
 bun scripts/scd-alert.ts                 # SCD RED alert — reads macro_scores DB, fires if SCD ≥75% or ≥3 RED modules; crontab 08:30 WIB after morning-check
 bun scripts/refresh-monthly-data.ts      # manual monthly data refresh (7 indicators: CPI/GDP/cadev/PMI/ULN/unemployment/subsidi)
+bun scripts/backfill-srbi-history.ts    # backfill SRBI auction history Sep 2023→now from BI official pages (idempotent, Exa batch)
+#   --dry-run: print URLs only | --from=YYYY-MM-DD: override start date
 
 # Dashboard (localhost:6080)
 bun scripts/dashboard.ts                  # start dashboard server (port 6080)
