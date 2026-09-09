@@ -33,7 +33,7 @@ bun scripts/morning-check.ts              # full 13-module morning brief (manual
 bun scripts/check-m12-divergence.ts       # M12 divergence check (exit 0=ok, 1=stale, 2=keyword audit needed)
 bun scripts/health-check.ts               # data freshness + env var audit (exit 1 if RED-tier gaps)
 bun scripts/health-check.ts --all         # also list every fresh indicator
-#   Baseline Sep 8 2026: 32 fresh | 0 aging | 2 stale (srbi_bid_cover, msci_classification) | 0 critical
+#   Baseline Sep 9 2026: 38 fresh | 3 aging | 2 stale (srbi_bid_cover 25d, msci_classification 27d) | 0 critical
 bun scripts/brent-alert.ts               # manual Brent ICP threshold check ($99 default); crontab every 4h
 bun scripts/msci-countdown.ts            # MSCI Nov 12 2026 countdown — macOS alert at T-60/T-30/T-7/T-0; crontab daily 08:00 WIB
 bun scripts/scd-alert.ts                 # SCD RED alert — reads macro_scores DB, fires if SCD ≥75% or ≥3 RED modules; crontab 08:30 WIB after morning-check

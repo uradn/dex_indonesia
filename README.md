@@ -384,7 +384,7 @@ bash env-check.sh                        # live ping semua API key di .env
 | M9 Market | `ihsg_pe_ratio`, `idx_advance_decline_ratio` | >30d / >14d |
 | M13 ULN | `indonesia_external_debt_bn`, `uln_dsr_pct`, `uln_shortterm_pct` | >180d / >730d / >730d |
 
-Threshold lengkap di `src/tools/macro/freshness.ts`. Health-check baseline Sep 8 2026: 32 fresh · 0 aging · 2 stale (srbi_bid_cover 24d, msci_classification) · 0 critical.
+Threshold lengkap di `src/tools/macro/freshness.ts`. Health-check baseline Sep 9 2026: 38 fresh · 3 aging · 2 stale (srbi_bid_cover 25d, msci_classification 27d) · 0 critical. Aging: eido_price 5d, mbg_realisasi 36d, imports_bn 41d.
 
 ---
 
