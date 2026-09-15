@@ -323,6 +323,152 @@ BI_GOVERNOR_VACANT=false      # Destry Damayanti dilantik 2 Sep 2026 (Keppres 92
 ```
 Sistem akan otomatis rekalkulasi subsidy gap, ICP alert, dan foreign flow risk score menggunakan nilai terbaru.
 
+### Game Theory — Strategic Behavior Engine
+
+> Ref lengkap: [`docs/GAME_THEORY_KAJIAN.md`](docs/GAME_THEORY_KAJIAN.md) — serial 20-tweet + data gap table + roadmap.
+
+SCD bukan hanya agregasi statistik — beberapa modul mengimplementasikan **logika strategic behavior** di mana output satu aktor berinteraksi dengan belief/aksi aktor lain. Sep 2026: **GT coverage ~51%** (naik dari 35% pre-P1/P2/P3 commit).
+
+#### Peta implementasi (6 konsep, 5 status)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│            GAME THEORY COVERAGE — Dexter Sep 2026 (~51%)           │
+├────────────────────┬──────────┬──────────┬──────────────────────────┤
+│ Konsep             │ Modul    │ Status   │ Output Signal            │
+├────────────────────┼──────────┼──────────┼──────────────────────────┤
+│ Morris-Shin 2nd-   │ M3 FX    │ ✅ ~85%  │ Confidence Gate:         │
+│ gen self-fulfilling│ Defense  │          │ SAFE/VULNERABLE/ATTACK   │
+│ crisis             │          │          │ DC vs AC balance         │
+├────────────────────┼──────────┼──────────┼──────────────────────────┤
+│ Krugman/Flood-     │ M3 FX    │ ✅ ~80%  │ Shadow exchange rate,    │
+│ Garber 1st-gen     │ Defense  │          │ months-to-attack counter │
+│ (reserve collapse) │          │          │                          │
+├────────────────────┼──────────┼──────────┼──────────────────────────┤
+│ Barro-Gordon time  │ M10      │ ✅ NEW   │ credibilityIndex 0–100,  │
+│ inconsistency      │ Fiscal   │ (Sep 15) │ regime: committed /      │
+│ (Barro-Gordon 1983)│          │          │ watch / strained /       │
+│                    │          │          │ discretionary; +bump M10 │
+├────────────────────┼──────────┼──────────┼──────────────────────────┤
+│ Diamond-Dybvig     │ M8       │ ✅ NEW   │ runCoordinationScore,    │
+│ bank run           │ Banking  │ (Sep 15) │ 5-condition matrix;      │
+│ coordination       │ Stress   │          │ low/watch/elevated/      │
+│ (D-D 1983)         │          │          │ critical; +bump M8       │
+├────────────────────┼──────────┼──────────┼──────────────────────────┤
+│ De Long/Shleifer   │ M5       │ ✅ NEW   │ EIDO autocorrelation     │
+│ herding cascade    │ Foreign  │ (Sep 15) │ (lag-1 Pearson 10d+21d), │
+│ (momentum traders) │ Flow     │          │ cascadeScore; MSCI       │
+│                    │          │          │ amplifier +15 if review  │
+├────────────────────┼──────────┼──────────┼──────────────────────────┤
+│ Sobel cheap-talk / │ M6       │ ✅ NEW   │ Bayesian posterior       │
+│ Bayesian credibility│ Narrative│ (Sep 15) │ P(BI credible|data),    │
+│ (Sobel 1985)       │ Divergence│         │ persisted via DB series  │
+├────────────────────┼──────────┼──────────┼──────────────────────────┤
+│ SCD strategic      │ SCD      │ ✅ NEW   │ Convex escalation coeff: │
+│ complementarity    │ aggregator│(Sep 15) │ each extra RED module    │
+│ (Schelling/Cooper- │          │          │ has increasing marginal  │
+│ John)              │          │          │ contribution; cap 1.70×  │
+├────────────────────┼──────────┼──────────┼──────────────────────────┤
+│ 3rd-gen balance    │ M8+M13+  │ 🔵 ROADMAP│ Currency mismatch +     │
+│ sheet amplifier    │ M3 unified│         │ FX hedging ratio;        │
+│                    │          │          │ butuh SULNI FX-hedging   │
+├────────────────────┼──────────┼──────────┼──────────────────────────┤
+│ Political economy  │ M12      │ 🔵 ROADMAP│ Veto player mapping,     │
+│ (Drazen/Tabellini) │ Political │          │ payoff matrix per isu;   │
+│                    │ Risk      │          │ butuh Poltracking series │
+└────────────────────┴──────────┴──────────┴──────────────────────────┘
+```
+
+#### Detail implementasi per konsep
+
+**Morris-Shin Confidence Gate (M3 — ~85% complete)**
+
+Self-fulfilling currency attack model. BI menyerah bukan karena cadangan habis, tapi karena cukup spekulan *percaya* BI akan menyerah → menyerah jadi rasional.
+
+```
+DC Index = f(BI rate sacrifice, growth cost, reserve runway)
+AC Index = f(ULN dollarisasi shock, inflasi passthrough, credibility loss)
+
+Zone mapping:
+  DC − AC > +20  →  ATTACK zone 🔴   (spekulasi rasional)
+  DC − AC ±20    →  VULNERABLE 🟠    (multiple equilibria)
+  DC − AC < −20  →  SAFE 🟢
+```
+
+**Krugman/Flood-Garber Shadow Rate (M3 — ~80% complete)**
+
+1st-gen: serangan terjadi saat cadangan mencapai level kritis — bukan saat habis. Output: `months_to_attack` + implied USDIDR saat collapse.
+
+**Barro-Gordon Time Inconsistency (M10 — implementasi baru Sep 15)**
+
+Post-reshuffle Suahasil Nazara = credibility building dari nol. 4-signal credibility index:
+
+```
+credibilityIndex = subsidyPressure×0.35 + deficitBreachRisk×0.25
+                 + marketCredibilityCost×0.25 + fiscalSpaceTight×0.15
+
+Regime:
+  CI ≥ 70  →  discretionary  (komitmen fiskal tidak dipercaya pasar)
+  CI ≥ 50  →  strained
+  CI ≥ 30  →  watch
+  CI < 30  →  committed
+
+Score bump ke M10: +CI×0.12 (max +12 di CI=100)
+Sep 15 2026: CI = 63/100, regime = STRAINED
+```
+
+**Diamond-Dybvig Bank Run Coordination (M8 — implementasi baru Sep 15)**
+
+Panic equilibrium jadi rational jika ≥3/5 kondisi terpenuhi:
+
+```
+c1: NPL > 3.5%          (saat ini: 2.1% ✗)
+c2: LDR > 92%           (saat ini: 84.0% ✗)
+c3: IndONIA spread > 40bps
+c4: Fintech NPL > 5% AND tumbuh > 10% YoY  (saat ini: 5.0% ⚠)
+c5: Implied CAR erosion > 0.8pp (saat ini: ~0.8pp ⚠)
+
+runCoordinationScore: 15/35/60/85 di 1/2/3/4+ conditions
+Score bump ke M8: +runCoordinationScore×0.15
+Sep 15 2026: 2/5 conditions → watch, skor 35
+```
+
+**De Long/Shleifer Herding Cascade (M5 — implementasi baru Sep 15)**
+
+Momentum trader cascade dari EIDO price autocorrelation:
+
+```
+autocorr1(EIDO 10d + 21d)  →  cascade risk low/watch/elevated/critical
+MSCI under_review/downgrade_risk  →  passive amplifier +15 cascade score
+Score bump ke M5: cascadeScore×0.15
+```
+
+**Schelling/Cooper-John Strategic Complementarity (SCD — implementasi baru Sep 15)**
+
+SCD amplifier diganti dari step function ke **convex escalation**:
+
+```
+Sebelumnya: 5+ modul RED → multiplier 1.40× (flat)
+Sekarang:   modul ke-N memberikan kontribusi marginal meningkat
+            cap 1.70× di 7+ modul RED
+```
+
+Artinya: modul ke-6 RED lebih "berat" dari modul ke-3 RED — mencerminkan bahwa krisis sistemik non-linear (satu krisis trigger krisis lain).
+
+#### Roadmap GT coverage
+
+```
+Sep 2026  ██████████░░░░░░░░░░  ~51%  (selesai: MS + KFG + BG + DD + DLS + SCC + Bayesian)
+Des 2026  ████████████░░░░░░░░  ~54%  (target: 3rd-gen balance sheet — SULNI FX-hedging)
+Jun 2027  ██████████████░░░░░░  ~59%  (target: PolEcon M12 — Poltracking series)
+Sep 2027  ████████████████░░░░  ~63%  (target: Bayesian M6 full calibration dari 6 krisis)
+```
+
+**Yang tersisa untuk ~63%:**
+- **3rd-gen balance sheet** (`M8+M13+M3 unified`) — butuh SULNI quarterly FX-hedging ratio per korporasi. Data ada tapi baru per Q-release, ~6wk lag.
+- **Political economy payoff matrix** (`M12`) — veto player mapping + Poltracking time series. Butuh political science input atau API Poltracking Indonesia.
+- **Bayesian M6 full calibration** — likelihood functions P(data|credible) vs P(data|not_credible) dikalibrasi dari 6 krisis historis (data backtest sudah ada di `backtest/crisis-calendar.ts`). Currently pakai heuristic prior, bukan proper posterior dari empirical base rate.
+
 ### 4-Level Belief Stack (Haye Thread — Oil Price Epistemics)
 
 Bahlil bilang $77 (April) → ICP $107 live (Sep 15). APBN pasang $70. Empat angka, satu komoditas — mana yang dipercaya? Framework "Belief Stack" di dashboard `/bs` menyusun empat lapisan **keyakinan yang beda-beda tentang harga minyak yang sama**, dari yang paling dogmatis (angka anggaran) sampai paling struktural (floor Dubai + refining premium). Jarak antar-lapis = ukuran narrative divergence; kalau semua lapis konvergen tinggi = mainstream harus revise turun, kalau semua konvergen rendah = mainstream harus revise naik. Dispersi tinggi = coordination attack risk (Morris-Shin). **Sep 15 2026 status**: L1=$70 vs L3≈$107 → gap $37 (CV% sangat tinggi, HIGH DISPERSION territory) — semua empat lapis konvergen TINGGI; APBN assumption sudah tidak relevan sebagai anchor fiskal realistis.
