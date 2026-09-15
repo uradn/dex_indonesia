@@ -67,9 +67,70 @@ interface BankingStressOutput {
   fintechOutstandingIdrT: number | null;
   fintechGrowthYoyPct: number | null;
   bnplSignal: 'distress' | 'inclusion' | 'credit_cycle_turn' | 'watch' | 'unknown';
+  diamondDybvig: DiamondDybvig;
   dataDate: string;
   flags: string[];
   summary: string;
+}
+
+// ─── Diamond-Dybvig Bank Run Coordination (P2 Game Theory — Diamond & Dybvig 1983) ──
+// Bank run is a coordination game with two Nash equilibria:
+//   (no-run, no-run) = bank survives | (run, run) = bank fails
+// Run equilibrium is self-fulfilling: if enough depositors believe others will run, running is rational.
+// Indonesia-calibrated threshold matrix: run risk HIGH when 3+ conditions simultaneously met.
+
+interface DiamondDybvig {
+  runRisk: 'low' | 'watch' | 'elevated' | 'critical';
+  runCoordinationScore: number;  // 0–100
+  conditionsMet: number;         // out of 5 conditions
+  conditions: {
+    nplStress: boolean;          // NPL > 3.5% (depositors fear solvency)
+    ldrOverextended: boolean;    // LDR > 92% (illiquidity = can't meet run demand)
+    indoniaSpike: boolean;       // IndONIA spread > 40bps (interbank trust breakdown)
+    fintechContagion: boolean;   // fintech NPL > 5% AND growing (shadow banking spillover)
+    sbnCarErosion: boolean;      // implied CAR hit > 0.8pp (sovereign-bank nexus)
+  };
+  scoreBump: number;             // contribution to M8 stress score
+  flags: string[];
+}
+
+function computeDiamondDybvig(
+  nplPct: number | null,
+  ldrPct: number | null,
+  indoniaSpreadBps: number | null,
+  fintechNplPct: number | null,
+  fintechGrowthYoyPct: number | null,
+  impliedCarHitPp: number | null,
+): DiamondDybvig {
+  const c = {
+    nplStress:        (nplPct ?? 0) > 3.5,
+    ldrOverextended:  (ldrPct ?? 0) > 92,
+    indoniaSpike:     (indoniaSpreadBps ?? 0) > 40,
+    fintechContagion: (fintechNplPct ?? 0) > 5 && (fintechGrowthYoyPct ?? 0) > 10,
+    sbnCarErosion:    (impliedCarHitPp ?? 0) > 0.8,
+  };
+  const conditionsMet = Object.values(c).filter(Boolean).length;
+
+  // Coordination risk: ≥3/5 conditions = two equilibria unstable; panic is rational
+  let runCoordinationScore = 0;
+  let runRisk: DiamondDybvig['runRisk'] = 'low';
+  if (conditionsMet >= 4) { runCoordinationScore = 85; runRisk = 'critical'; }
+  else if (conditionsMet === 3) { runCoordinationScore = 60; runRisk = 'elevated'; }
+  else if (conditionsMet === 2) { runCoordinationScore = 35; runRisk = 'watch'; }
+  else if (conditionsMet === 1) { runCoordinationScore = 15; runRisk = 'watch'; }
+
+  const scoreBump = Math.round(runCoordinationScore * 0.15); // max +12.75 at score=85
+
+  const flags: string[] = [];
+  if (runRisk === 'critical') {
+    flags.push(`DIAMOND-DYBVIG CRITICAL: ${conditionsMet}/5 run conditions met — bank run equilibrium reachable. Depositor panic self-fulfilling if sentiment shifts. [Diamond-Dybvig 1983]`);
+  } else if (runRisk === 'elevated') {
+    flags.push(`Diamond-Dybvig ELEVATED: ${conditionsMet}/5 conditions (NPL ${c.nplStress ? '✓' : '✗'} LDR ${c.ldrOverextended ? '✓' : '✗'} IndONIA ${c.indoniaSpike ? '✓' : '✗'} Fintech ${c.fintechContagion ? '✓' : '✗'} CAR-erosion ${c.sbnCarErosion ? '✓' : '✗'}) — run coordination risk elevated. [Diamond-Dybvig 1983]`);
+  } else if (runRisk === 'watch' && conditionsMet > 0) {
+    flags.push(`Diamond-Dybvig watch: ${conditionsMet}/5 run condition(s) — insufficient for coordination failure now. Monitor.`);
+  }
+
+  return { runRisk, runCoordinationScore, conditionsMet, conditions: c, scoreBump, flags };
 }
 
 /** Score NPL: lower is better. 2%=0, 5%=40, 8%=70, 10%+=100 */
@@ -338,6 +399,14 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     stressScore = Math.min(100, stressScore + bnplAmplifier);
   }
 
+  // ── Diamond-Dybvig (P2 Game Theory) ──────────────────────────────────────────
+  const diamondDybvig = computeDiamondDybvig(
+    nplPct, ldrPct, indoniaSpreadBps,
+    fintechNplPct, fintechGrowthYoyPct,
+    impliedCarHitPp,
+  );
+  stressScore = Math.min(100, stressScore + diamondDybvig.scoreBump);
+
   // 5. Alert level: high stressScore = more stress = higher alert
   const alert = alertFromScore(stressScore) as AlertLevel;
 
@@ -426,6 +495,9 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     flags.push(`Fintech NPL ${fintechNplPct.toFixed(1)}% vs bank NPL ${nplPct.toFixed(1)}% — gap ${(fintechNplPct / nplPct).toFixed(1)}× indicates unsecured digital credit stress concentrating ahead of formal banking`);
   }
 
+  // Diamond-Dybvig flags
+  flags.push(...diamondDybvig.flags);
+
   // 7. Data date (most recent of all fetched points)
   const dates = [dbNpl, dbLdr, dbCar, dbIndonia, dbExtDebt]
     .filter(Boolean)
@@ -458,6 +530,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     m2ReservesRatio, fxReservesBn,
     sectorNpl,
     fintechNplPct, fintechOutstandingIdrT, fintechGrowthYoyPct, bnplSignal,
+    diamondDybvig,
     dataDate, flags, summary,
   };
 }

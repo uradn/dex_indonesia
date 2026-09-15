@@ -47,6 +47,27 @@ interface DivergenceCheck {
   flagged: boolean;
 }
 
+// ─── Bayesian Credibility Posterior (P1 Game Theory partial — Sobel 1985 cheap-talk) ──
+// Track posterior P(BI credible | observed divergence data) across time.
+// Prior: neutral 0.60. Each run updates based on flagged checks.
+// Likelihood: P(flagged | credible) = 0.15, P(flagged | not-credible) = 0.75.
+// Persistent via narrative_credibility_posterior DB (updates each M6 run).
+
+function bayesianCredibilityUpdate(
+  priorProb: number,    // prior P(credible) from last run, default 0.60
+  flaggedCount: number, // number of divergence checks flagged this run
+  totalChecks: number,
+): number {
+  if (totalChecks === 0) return priorProb;
+  const flagRate = flaggedCount / totalChecks;
+  // Likelihood ratio: P(flagRate | credible) / P(flagRate | not-credible)
+  // credible → low flagRate expected (~0.1); not-credible → high flagRate (~0.7)
+  const likelyCred    = Math.max(0.01, 1 - flagRate * 6);   // P(obs | H=credible)
+  const likelyNotCred = Math.max(0.01, 0.1 + flagRate * 0.9); // P(obs | H=not-credible)
+  const posterior = (likelyCred * priorProb) / (likelyCred * priorProb + likelyNotCred * (1 - priorProb));
+  return Math.max(0.05, Math.min(0.95, parseFloat(posterior.toFixed(4))));
+}
+
 interface NarrativeDivergenceOutput {
   narrativeCredibilityScore: number;
   alertLevel: AlertLevel;
@@ -54,6 +75,9 @@ interface NarrativeDivergenceOutput {
   flags: string[];
   narrative: string;
   date: string;
+  // Bayesian posterior credibility (game theory — cheap-talk / Sobel 1985)
+  bayesianPosterior: number;       // P(BI credible | all observed data), 0–1
+  bayesianRegime: 'credible' | 'watch' | 'strained' | 'not_credible';
 }
 
 // APBN 2026 key assumptions — UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025
@@ -373,6 +397,24 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
       : 'Official guidance broadly aligned with market pricing.',
   ].join(' ');
 
+  // ── Bayesian posterior credibility update (P1 partial — Sobel cheap-talk) ────
+  const priorPoint = await getLatestPoint('narrative_credibility_posterior');
+  const prior = priorPoint?.value ?? 0.60;
+  const posterior = bayesianCredibilityUpdate(prior, checks.filter(c => c.flagged).length, checks.length);
+  await upsertPoints([{
+    indicator: 'narrative_credibility_posterior',
+    category: 'sovereign',
+    date: new Date().toISOString().slice(0, 10),
+    value: posterior,
+    unit: 'probability',
+    source: 'computed_bayesian_m6',
+    fetchedAt: new Date().toISOString(),
+  }]);
+  const bayesianRegime: NarrativeDivergenceOutput['bayesianRegime'] =
+    posterior >= 0.65 ? 'credible' :
+    posterior >= 0.50 ? 'watch' :
+    posterior >= 0.35 ? 'strained' : 'not_credible';
+
   return {
     narrativeCredibilityScore,
     alertLevel,
@@ -380,6 +422,8 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     flags,
     narrative,
     date: new Date().toISOString().slice(0, 10),
+    bayesianPosterior: posterior,
+    bayesianRegime,
   };
 }
 
@@ -387,7 +431,7 @@ function formatOutput(output: NarrativeDivergenceOutput): string {
   return [
     `# Narrative Divergence Engine — Indonesia`,
     `**Date:** ${output.date}`,
-    `**Alert:** ${alertLabel(output.alertLevel)} | **Credibility Score:** ${output.narrativeCredibilityScore}/100`,
+    `**Alert:** ${alertLabel(output.alertLevel)} | **Credibility Score:** ${output.narrativeCredibilityScore}/100 | **Bayesian P(credible):** ${(output.bayesianPosterior * 100).toFixed(1)}% [${output.bayesianRegime.toUpperCase()}]`,
     ``,
     `## Summary`,
     output.narrative,

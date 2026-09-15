@@ -76,6 +76,91 @@ const APBN_2026 = {
   subsidiPupukTrn: 46.8,      // Subsidi pupuk annual target
 };
 
+// ─── Barro-Gordon Time Inconsistency (P1 Game Theory — Barro & Gordon 1983) ─────
+// New minister must build credibility from scratch. Classic commitment vs discretion.
+// Proxied via 4 observable signals available in existing M10 data:
+//   1. Subsidi run-rate: >200% = heavy populist pressure → discretion risk HIGH
+//   2. Projected deficit: >3.5% GDP = constitutional breach risk → commitment under strain
+//   3. S&P interest/revenue: >20% = market credibility cost already materializing
+//   4. Revenue absorption: <80% = fiscal space tight → forced discretion likely
+// credibilityIndex: 0 (full commitment) → 100 (fully discretionary/populist)
+
+interface BarroGordon {
+  credibilityIndex: number;      // 0–100; higher = more time-inconsistency risk
+  regime: 'committed' | 'watch' | 'strained' | 'discretionary';
+  signals: {
+    subsidyPressure: number;     // 0–100
+    deficitBreachRisk: number;   // 0–100
+    marketCredibilityCost: number; // 0–100
+    fiscalSpaceTight: number;    // 0–100
+  };
+  scoreBump: number;             // contribution to M10 stress score
+  flags: string[];
+}
+
+function computeBarroGordon(
+  subsidiBbmRunRatePct: number | null,
+  projectedDeficitPctGdp: number | null,
+  spInterestRevenuePct: number | null,
+  revenueAbsorptionPct: number | null,
+): BarroGordon {
+  // Signal 1: subsidy run-rate → populist pressure on new minister
+  const subsidyPressure = subsidiBbmRunRatePct === null ? 40
+    : subsidiBbmRunRatePct >= 250 ? 90
+    : subsidiBbmRunRatePct >= 200 ? 70
+    : subsidiBbmRunRatePct >= 150 ? 45
+    : subsidiBbmRunRatePct >= 120 ? 20 : 0;
+
+  // Signal 2: deficit breach risk → commitment under strain
+  const deficitBreachRisk = projectedDeficitPctGdp === null ? 30
+    : projectedDeficitPctGdp >= 4.5 ? 90
+    : projectedDeficitPctGdp >= 4.0 ? 70
+    : projectedDeficitPctGdp >= 3.5 ? 50
+    : projectedDeficitPctGdp >= 3.0 ? 25 : 0;
+
+  // Signal 3: S&P market credibility cost already materializing
+  const marketCredibilityCost = spInterestRevenuePct === null ? 30
+    : spInterestRevenuePct >= 25 ? 90
+    : spInterestRevenuePct >= 20 ? 65
+    : spInterestRevenuePct >= 17 ? 40
+    : spInterestRevenuePct >= 15 ? 20 : 0;
+
+  // Signal 4: fiscal space tight → minister forced into discretion
+  const fiscalSpaceTight = revenueAbsorptionPct === null ? 30
+    : revenueAbsorptionPct < 70 ? 80
+    : revenueAbsorptionPct < 80 ? 55
+    : revenueAbsorptionPct < 90 ? 30 : 0;
+
+  const credibilityIndex = Math.round(
+    subsidyPressure     * 0.35 +
+    deficitBreachRisk   * 0.25 +
+    marketCredibilityCost * 0.25 +
+    fiscalSpaceTight    * 0.15,
+  );
+
+  const regime: BarroGordon['regime'] =
+    credibilityIndex >= 70 ? 'discretionary' :
+    credibilityIndex >= 50 ? 'strained' :
+    credibilityIndex >= 30 ? 'watch' : 'committed';
+
+  // Score bump to M10: time inconsistency is an amplifier of existing stress
+  const scoreBump = Math.round(credibilityIndex * 0.12); // max +12 at CI=100
+
+  const flags: string[] = [];
+  if (regime === 'discretionary') {
+    flags.push(`BARRO-GORDON DISCRETIONARY: credibility index ${credibilityIndex}/100 — fiscal commitments under severe populist pressure. New minister faces time inconsistency trap: announce austerity, then reverse under political cost. [Barro-Gordon 1983]`);
+  } else if (regime === 'strained') {
+    flags.push(`Barro-Gordon STRAINED: credibility index ${credibilityIndex}/100 — subsidy + deficit pressures eroding new minister's commitment signal. Market updating beliefs on fiscal orthodoxy. [Barro-Gordon 1983]`);
+  } else if (regime === 'watch') {
+    flags.push(`Barro-Gordon WATCH: credibility index ${credibilityIndex}/100 — early commitment-discretion tension. Monitor subsidy/deficit trajectory.`);
+  }
+  if (subsidyPressure >= 70) {
+    flags.push(`Subsidy pressure HIGH (signal ${subsidyPressure}/100): BBM+LPG run-rate ${subsidiBbmRunRatePct?.toFixed(0) ?? 'n/a'}% of APBN — new Menkeu Suahasil must choose: hike BBM (political cost) or absorb fiscal (credibility cost).`);
+  }
+
+  return { credibilityIndex, regime, signals: { subsidyPressure, deficitBreachRisk, marketCredibilityCost, fiscalSpaceTight }, scoreBump, flags };
+}
+
 interface FiscalOutput {
   alert: AlertLevel;
   stressScore: number;
@@ -119,6 +204,8 @@ interface FiscalOutput {
   // Biodiesel BPDPKS insentif
   biodieselSubsidyYtdTrn: number | null;
   b50StatusNumeric: number | null;        // 40 (B40), 45, 50
+  // Barro-Gordon time inconsistency (P1 game theory)
+  barroGordon: BarroGordon;
   // Alerts
   revenueShortfall: boolean;
   spendingOverrun: boolean;
@@ -336,6 +423,15 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     stressScore = Math.max(stressScore, 35);
   }
 
+  // ── Barro-Gordon (P1 Game Theory) ────────────────────────────────────────────
+  const barroGordon = computeBarroGordon(
+    subsidiBbmLpgRunRatePct,
+    projectedDeficitPctGdp,
+    spInterestRevenuePct,
+    revenueAbsorptionPct,
+  );
+  stressScore = Math.min(100, stressScore + barroGordon.scoreBump);
+
   const alert = alertFromScore(stressScore) as AlertLevel;
 
   // Persist projected deficit % GDP so dashboard can chart trajectory over time
@@ -422,6 +518,9 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     }
   }
 
+  // Barro-Gordon flags injected after all structural flags
+  flags.push(...barroGordon.flags);
+
   // 7. Narrative
   const isAnnualRevenueFlag = latestRevenueTrn !== null && latestRevenueTrn > ANNUAL_DATA_THRESHOLD_TRN;
   const isAnnualSpendingFlag = latestSpendingTrn !== null && latestSpendingTrn > ANNUAL_DATA_THRESHOLD_TRN;
@@ -461,6 +560,7 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     subsidiBbmLpgRunRatePct, subsidiPupukRunRatePct, subsidiDataDate,
     mbgRealisasiYtdTrn, mbgBurnRatePct, mbgDataDate,
     biodieselSubsidyYtdTrn, b50StatusNumeric,
+    barroGordon,
     revenueShortfall, spendingOverrun, deficitRisk,
     flags, narrative,
   };

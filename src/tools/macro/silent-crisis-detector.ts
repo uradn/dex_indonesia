@@ -160,9 +160,18 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
   }
   const baseScore = totalWeight > 0 ? weightedSum / totalWeight : 0;
 
-  // Cross-confirmation amplifier: non-linear boost when multiple modules stressed
+  // Cross-confirmation amplifier: strategic complementarity (Schelling 1960 / Cooper-John 1988)
+  // Each additional stressed module has INCREASING marginal contribution (convex escalation).
+  // Rationale: agents observe same public signals → correlated responses → coordination equilibrium.
+  // Each agent's stress action makes others' stress reactions more likely → superlinear amplification.
+  // Coefficient schedule: increasing marginal returns per additional module above baseline.
   const stressedCount = moduleScores.filter((m) => (MODULE_WEIGHTS[m.module] ?? 0) > 0 && (m.alertLevel === 'orange' || m.alertLevel === 'red')).length;
-  const crossConfirmationMultiplier = stressedCount >= 5 ? 1.4 : stressedCount >= 4 ? 1.3 : stressedCount >= 3 ? 1.2 : stressedCount >= 2 ? 1.1 : 1.0;
+  // Strategic complementarity escalation: convex (not step) function
+  // Base: 1.0 | Each module adds: 1st=+0.05, 2nd=+0.07, 3rd=+0.09, 4th=+0.11, 5th+=+0.13 (increasing)
+  const escalationSteps = [0, 0.05, 0.07, 0.09, 0.11, 0.13, 0.15, 0.17];
+  const crossConfirmationMultiplier = Math.min(1.7,
+    1.0 + escalationSteps.slice(0, Math.min(stressedCount, escalationSteps.length)).reduce((s, v) => s + v, 0),
+  );
   const silentCrisisProbability = Math.min(100, Math.round(baseScore * crossConfirmationMultiplier));
 
   // Synthetic Stability Score: surface calm contradicting underlying stress

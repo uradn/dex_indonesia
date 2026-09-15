@@ -49,6 +49,81 @@ interface SuddenStopVulnerability {
   ggRatio: number | null;        // informational
 }
 
+// ─── Herding Cascade (P3 Game Theory — Shleifer 2000, De Long et al 1990) ──────
+// Strategic complementarity: each exit raises probability of next exit.
+// EIDO rolling autocorrelation > 0 = momentum self-reinforcing (herding).
+// When autocorrelation > threshold AND passive AUM overhang large → cascade risk.
+
+interface HerdingCascade {
+  autocorr10d: number | null;     // 10d return autocorrelation — positive = momentum/herding
+  autocorr21d: number | null;     // 21d (1-month) return autocorrelation
+  cascadeRisk: 'low' | 'watch' | 'elevated' | 'critical';
+  cascadeScore: number;           // 0–100 contribution to M5 score
+  passiveOverhang: boolean;       // MSCI under_review/downgrade = passive redemption amplifier active
+  flags: string[];
+}
+
+/** Pearson autocorrelation of lag-1 returns from a price series */
+function autocorr1(prices: number[]): number | null {
+  if (prices.length < 4) return null;
+  const returns: number[] = [];
+  for (let i = 1; i < prices.length; i++) {
+    returns.push((prices[i]! - prices[i - 1]!) / prices[i - 1]!);
+  }
+  if (returns.length < 3) return null;
+  const n = returns.length - 1;
+  const x = returns.slice(0, n);
+  const y = returns.slice(1);
+  const mx = x.reduce((a, b) => a + b, 0) / n;
+  const my = y.reduce((a, b) => a + b, 0) / n;
+  const num = x.reduce((s, xi, i) => s + (xi - mx) * (y[i]! - my), 0);
+  const dx = Math.sqrt(x.reduce((s, xi) => s + (xi - mx) ** 2, 0));
+  const dy = Math.sqrt(y.reduce((s, yi) => s + (yi - my) ** 2, 0));
+  if (dx === 0 || dy === 0) return null;
+  return parseFloat((num / (dx * dy)).toFixed(4));
+}
+
+function computeHerdingCascade(
+  eidoHistory10: number[],
+  eidoHistory21: number[],
+  msciStatus: 'confirmed' | 'under_review' | 'downgrade_risk',
+  ssviIndex: number,
+): HerdingCascade {
+  const ac10 = autocorr1(eidoHistory10);
+  const ac21 = autocorr1(eidoHistory21);
+  const passiveOverhang = msciStatus !== 'confirmed';
+
+  // Cascade risk: positive autocorrelation = price momentum = each seller begets next seller
+  // Thresholds calibrated to EIDO 2018 (ac10 peaked ~0.55 pre-crisis) and 2020 (ac10 ~0.70)
+  const ac = ac10 ?? ac21 ?? 0;
+  let cascadeScore = 0;
+  let cascadeRisk: HerdingCascade['cascadeRisk'] = 'low';
+
+  if (ac > 0.6) { cascadeScore = 80; cascadeRisk = 'critical'; }
+  else if (ac > 0.4) { cascadeScore = 55; cascadeRisk = 'elevated'; }
+  else if (ac > 0.2) { cascadeScore = 30; cascadeRisk = 'watch'; }
+  else if (ac > 0.0) { cascadeScore = 15; cascadeRisk = 'watch'; }
+  else { cascadeScore = 0; cascadeRisk = 'low'; }
+
+  // Amplifier: MSCI passive overhang + already-stressed SSVI
+  if (passiveOverhang && cascadeScore > 0) cascadeScore = Math.min(100, cascadeScore + 15);
+  if (ssviIndex >= 50 && cascadeScore > 0) cascadeScore = Math.min(100, cascadeScore + 10);
+
+  const flags: string[] = [];
+  if (cascadeRisk === 'critical') {
+    flags.push(`HERDING CASCADE CRITICAL: EIDO 10d autocorrelation ${ac.toFixed(3)} — momentum self-reinforcing. Each exit triggers next. Cascade probability HIGH. [De Long et al 1990 / Shleifer 2000]`);
+  } else if (cascadeRisk === 'elevated') {
+    flags.push(`Herding signal ELEVATED: EIDO autocorrelation ${ac.toFixed(3)} — positive feedback loop active. Passive fund overhang amplifies${passiveOverhang ? ' (MSCI status: ' + msciStatus + ')' : ''}.`);
+  } else if (cascadeRisk === 'watch') {
+    flags.push(`Herding watch: EIDO autocorrelation ${ac.toFixed(3)} — mild momentum. Monitor for cascade trigger.`);
+  }
+  if (passiveOverhang && cascadeRisk !== 'low') {
+    flags.push(`Passive amplifier active: MSCI ${msciStatus} → passive fund redemption accelerates herding cascade if triggered.`);
+  }
+
+  return { autocorr10d: ac10, autocorr21d: ac21, cascadeRisk, cascadeScore, passiveOverhang, flags };
+}
+
 interface ForeignFlowOutput {
   scoreCard: ModuleScoreCard;
   eidoSnapshot: IndicatorSnapshot | null;
@@ -59,6 +134,7 @@ interface ForeignFlowOutput {
   domesticAbsorptionFlag: boolean;
   silentExitProbability: number;
   suddenStop: SuddenStopVulnerability | null;
+  herdingCascade: HerdingCascade;
   msciClassificationRisk: 'confirmed' | 'under_review' | 'downgrade_risk';
   narrative: string;
 }
@@ -139,6 +215,8 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   // Retrieve data
   const currentEido = await getLatestPoint('eido_price');
   const eidoHistory30 = await getLastN('eido_price', 30);
+  const eidoHistory21 = eidoHistory30.slice(-21);
+  const eidoHistory10 = eidoHistory30.slice(-10);
   const prevEido = eidoHistory30.length > 1 ? eidoHistory30[eidoHistory30.length - 2] : null;
 
   const currentSbn = await getLatestPoint('sbn_foreign_ownership_pct');
@@ -234,8 +312,21 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   else if (ssviIndex >= 50) silentExitProbability = Math.min(0.95, silentExitProbability + 0.08);
   silentExitProbability = Math.min(0.95, silentExitProbability);
 
+  // ── Herding Cascade (P3 Game Theory) ─────────────────────────────────────────
+  const herdingCascade = computeHerdingCascade(
+    eidoHistory10.map(p => p.value),
+    eidoHistory21.map(p => p.value),
+    msciStatus,
+    ssviIndex,
+  );
+  // Cascade score bumps silent exit probability and final module score
+  if (herdingCascade.cascadeRisk === 'critical') silentExitProbability = Math.min(0.95, silentExitProbability + 0.15);
+  else if (herdingCascade.cascadeRisk === 'elevated') silentExitProbability = Math.min(0.95, silentExitProbability + 0.08);
+
   const validSnapshots = [eidoSnap, sbnSnap, idxFlowSnap].filter((s): s is IndicatorSnapshot => s !== null);
   const baseScore = compositeScore(validSnapshots);
+  // Herding cascade score bump (weighted 0.15 of total — strategic complementarity premium)
+  const cascadeScoreBump = Math.round(herdingCascade.cascadeScore * 0.15);
   // MSCI classification risk score bump.
   //   downgrade_risk: +20 (forced-sell tail).
   //   under_review: +8 (passive fund uncertainty paralysis).
@@ -251,7 +342,7 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   // SSVI alert floor: imminent (≥75) → orange min; critical (≥90) → red min
   const ALERT_ORDER: AlertLevel[] = ['green', 'yellow', 'orange', 'red'];
   const ssviFloorAlert: AlertLevel = ssviIndex >= 90 ? 'red' : ssviIndex >= 75 ? 'orange' : ssviIndex >= 50 ? 'yellow' : 'green';
-  const score = Math.min(100, (ssviIndex >= 75 ? Math.max(baseScore, 50) : baseScore) + msciScoreBump);
+  const score = Math.min(100, (ssviIndex >= 75 ? Math.max(baseScore, 50) : baseScore) + msciScoreBump + cascadeScoreBump);
   const alertLevel = ALERT_ORDER[Math.max(ALERT_ORDER.indexOf(alertFromScore(score)), ALERT_ORDER.indexOf(ssviFloorAlert))]!;
   const flags: string[] = [];
   if (eidoStructuralTrend) flags.push(`EIDO 90d z-score ${eidoZ90.toFixed(2)} — 3-month structural foreign equity selling trend`);
@@ -298,6 +389,9 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
     flags.push(`MSCI May 29 rebalancing: ~$${msciRebalancingOutflowUsd}bn passive outflow (19 companies removed) — explains part of EIDO weakness; classification result Jun 23 (watch: frontier downgrade = forced-sell > May rebalancing magnitude)`);
   }
 
+  // Herding cascade flags
+  flags.push(...herdingCascade.flags);
+
   // Freshness gate — M5 primary inputs: EIDO daily + SBN foreign ownership monthly
   const [freshEido, freshSbnOwn] = await Promise.all([
     getFreshPoint('eido_price'),
@@ -333,6 +427,7 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
     domesticAbsorptionFlag,
     silentExitProbability,
     suddenStop,
+    herdingCascade,
     msciClassificationRisk: msciStatus,
     narrative,
   };
@@ -392,6 +487,17 @@ function formatOutput(output: ForeignFlowOutput): string {
       `| EIDO 90d structural trend | ${output.suddenStop.components.eidoTrend}/100 | z90d via EIDO snapshot |`,
       `| Reserve adequacy (GG ratio) | ${output.suddenStop.components.reserveAdequacy}/100 | ${output.suddenStop.ggRatio?.toFixed(2) ?? 'n/a (run uln_engine)'} |`,
       `_Sudden stop (Calvo 1998): abrupt capital inflow reversal when carry unwinds + SBN cliff + thin reserves simultaneously. Weights: SBN 0.30 | Carry 0.25 | EIDO 0.25 | GG 0.20. Alert floor: SSVI ≥75 = ORANGE, ≥90 = RED._`,
+      ``,
+    ].join('\n') : '',
+    output.herdingCascade.cascadeRisk !== 'low' ? [
+      `## Herding Cascade Risk (Game Theory — Strategic Complementarity)`,
+      `**Cascade Risk: ${output.herdingCascade.cascadeRisk.toUpperCase()}** | Score: ${output.herdingCascade.cascadeScore}/100`,
+      `| Signal | Value |`,
+      `|--------|-------|`,
+      `| EIDO 10d autocorrelation | ${output.herdingCascade.autocorr10d !== null ? output.herdingCascade.autocorr10d.toFixed(4) : 'n/a'} |`,
+      `| EIDO 21d autocorrelation | ${output.herdingCascade.autocorr21d !== null ? output.herdingCascade.autocorr21d.toFixed(4) : 'n/a'} |`,
+      `| Passive fund amplifier active | ${output.herdingCascade.passiveOverhang ? '⚠️ YES (MSCI ' + output.msciClassificationRisk + ')' : 'No'} |`,
+      `_Herding: positive autocorrelation = each seller begets next. Thresholds: >0.2 watch, >0.4 elevated, >0.6 critical. [De Long et al 1990 / Shleifer 2000]_`,
       ``,
     ].join('\n') : '',
     `_EIDO = iShares MSCI Indonesia ETF (equity demand proxy). IDX flow = daily foreign net buy/sell on IDX equity. SBN ownership = DJPPR._`,

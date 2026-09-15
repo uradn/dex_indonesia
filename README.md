@@ -153,17 +153,18 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - USDIDR: 16,500 | ICP oil: $70/bbl | GDP growth: 5.4% | CPI: 2.5%
 - Revenue: 3,154T | Spending: 3,843T | Deficit: 2.68% GDP
 
-**Live deviations (Sep 8, 2026):**
-- BI Rate: **5.75%** — hike +25bps Jul 2026 (dipertahankan Jul & Agu RDG); DFR 4.75%, LF 6.50%
+**Live deviations (Sep 14, 2026):**
+- BI Rate: **5.75%** — hike +25bps Jul 2026 (dipertahankan Jul & Agu RDG); DFR 4.75%, LF 6.50%; The Fed FOMC 15-16 Sep (ekspektasi hike +25bps)
 - BI Gov: **Destry Damayanti dilantik 2 Sep 2026** (Keppres 92/P/2026) — vacancy M12 trigger diselesaikan
-- Term premium: **~1.35%** (SBN 10Y 7.102% − BI Rate 5.75%) — YELLOW zone (threshold ORANGE 2.0%); SBN mulai stabil pasca kepastian Destry
+- **Menkeu BARU: Suahasil Nazara** dilantik 14 Sep 2026 15:33 WIB (Keppres No. 97p/2026) — menggantikan Purbaya Yudhi Sadewa; reshuffle ke-7 Kabinet Merah Putih. Suahasil ex-Wamenkeu sejak 2019 (era SMI+Purbaya), lebih ortodoks fiskal: RAPBN 2027 defisit 2.4% GDP
+- Term premium: **~1.41%** (SBN 10Y 7.156% − BI Rate 5.75%) — YELLOW zone (threshold ORANGE 2.0%)
 - S&P interest/revenue ratio: **~20.5%** (belanja bunga 552.7T + BI hike uplift vs revenue aktual) — 5.5pp above S&P 15% negative-watch threshold
-- USDIDR spot: **~17,642** — recovery dari peak 18,032 (Agu); triple intervention sukses tapi IDR belum kembali ke APBN 16,500
+- USDIDR spot: **~17,595** — stabil setelah recovery dari peak 18,032 (Agu)
 - **CAD Q2 2026: −$12.5B = −3.3% PDB** (BI NPI, 21 Agu 2026) — melampaui R&R 3% danger zone; M1 ORANGE
-- Cadev: **$146.5B** (Agu 2026); CDS 5Y: **84bps** (30 Agu 2026); G-G ratio 2.09x
-- Brent: **~$96.3/bbl** vs APBN $70; Hormuz MoU expired 19 Agu → flow single digit; ICP margin ke Bahlil $100: **~$3.7/bbl** ⚠️
-- BBM: Pertamax **Rp15.950** (rollback 1 Agu); Pertamax Green **Rp19.150** (+Rp2.550 efektif 2 Sep); Turbo/Dexlite/Dex juga naik Sep
-- SCD: **~ORANGE** | recovery dari peak vakum BI Gov; M5 foreign flow bifurcasi berlanjut (SBN inflow vs IHSG net sell Rp68T YTD)
+- Cadev: **$146.5B** (Agu 2026); CDS 5Y: **82.8bps** (Sep 2026); G-G ratio 2.09x
+- Brent: **~$108.3/bbl** vs APBN $70; Hormuz MoU expired 19 Agu → serangan baru Arab Saudi & kapal Teluk (Sep 14) → ICP **jauh melewati** Bahlil $100 threshold 🔴
+- BBM: Pertamax **Rp15.950** (rollback 1 Agu); Pertamax Green **Rp19.150** (+Rp2.550 efektif 2 Sep); Turbo/Dexlite/Dex juga naik Sep; **Pertalite+Solar LANGKA** — antrean panjang Sulsel/Jawa/Sumatra; ganjil-genap 13-20 Sep; demand Pertalite +11% nasional pasca non-subsidi hike
+- SCD: **55% 🟠 ORANGE** | M12 Political Risk **79/100 🔴** (naik dari 72 — reshuffle + BBM social unrest + stability 17/25); **Thesis #10 KEDUA TRIGGER FIRED** (polscore 79>75 + subsidi 247% APBN)
 
 ### BBM Subsidy Monitoring (Module 11)
 
@@ -187,14 +188,14 @@ Solar bersubsidi lebih kompleks karena blending mandatori biodiesel CPO. B50 man
 | Permen ESDM | B50 2026 | Mandatori biodiesel 50% FAME mulai Jul 1 2026 |
 | BPDPKS | Peraturan BPDPKS | Insentif biodiesel = selisih harga FAME vs MOPS, dibiayai levy ekspor CPO |
 
-**Subsidy gap per Sep 2026** (Brent $96.3 + USDIDR 17,635 + CPO $1,117/MT):
+**Subsidy gap per Sep 14, 2026** (Brent $108.3 + USDIDR 17,595 + CPO $1,117/MT):
 
 | Indikator | Nilai | Alert |
 |-----------|-------|-------|
-| Pertalite cost recovery | Rp14.951/L | — |
-| **Pertalite subsidy gap** | **Rp4.951/L** | 🟠 ORANGE |
-| Solar B50 cost recovery (MOPS+FAME blended) | Rp20.080/L | — |
-| **Solar B50 subsidy gap (total: direct + BPDPKS)** | **Rp13.280/L** | 🔴 RED |
+| Pertalite cost recovery | Rp16.781/L | — |
+| **Pertalite subsidy gap** | **Rp6.781/L** | 🔴 RED |
+| Solar B50 cost recovery (MOPS+FAME blended) | Rp20.800/L | — |
+| **Solar B50 subsidy gap (total: direct + BPDPKS)** | **Rp14.000/L** | 🔴 RED |
 
 Solar gap **2.7× lebih besar** dari Pertalite — tapi selama ini tidak tertrack karena BPDPKS diperlakukan sebagai subsidi terpisah.
 
@@ -254,6 +255,7 @@ Solar gap **2.7× lebih besar** dari Pertalite — tapi selama ini tidak tertrac
 | **20 Agu 2026** | Brent **naik ~3%** saat AS perkuat tekanan terhadap Iran pasca-MoU expired; oil surge di The National |
 | **22 Agu 2026** | Status: Hormuz effectively closed; Iran kehilangan kontrol signifikan (CNN Agu 18); Brent **$94.4/bbl** |
 | **Sep 8 2026** | Brent **$96.3/bbl** — ICP margin ke Bahlil $100 tersisa **$3.7/bbl**; IDR 17,635; Pertalite gap Rp4,951/L 🟠 |
+| **Sep 14 2026** | Serangan baru terhadap Arab Saudi & kapal di Teluk Persia; Brent **$108.3/bbl** (naik +2.8% Asia session); ICP **melewati $100** — komitmen Bahlil gugur; Pertalite gap **Rp6,781/L** 🔴; Menkeu Suahasil dilantik; BBM langka Sulsel/Jawa/Sumatra |
 
 **Dampak global:**
 
@@ -274,7 +276,7 @@ Sebelum krisis: **25% seaborne oil** + **20% LNG dunia** melewati Hormuz. Kapasi
 | Skenario | Brent | ICP Proxy | Subsidy Gap/Liter | ICP Alert | Action |
 |----------|-------|-----------|-------------------|-----------|--------|
 | Baseline APBN | $70 | $70 | ~IDR 0 | 🟢 GREEN | Tidak ada |
-| Saat ini (Sep 8) | **$96.3** | ~$96.3 | **IDR 4.951** | 🟠 ORANGE | Margin $3.7/bbl ke Bahlil $100 — makin sempit |
+| Saat ini (Sep 14) | **$108.3** | ~$108.3 | **IDR 6.781** | 🔴 RED | ICP melewati $100 — komitmen Bahlil gugur; hike subsidi secara fiskal wajib; BBM langka berlanjut |
 | Threshold Bahlil | $100 | $100 | ~IDR 7.200 | 🔴 RED | Komitmen gugur |
 | Peak Mar 2026 | $126 | $126 | ~IDR 12.800 | 🔴 RED | Hike wajib fiskal |
 | Eskalasi baru | $110+ | $110+ | ~IDR 9.000+ | 🔴 RED | Hike + social unrest |
@@ -371,7 +373,7 @@ bun scripts/health-check.ts              # freshness audit semua indikator; exit
 bash env-check.sh                        # live ping semua API key di .env
 ```
 
-**Freshness gates (Dexter Eval Sep 2026):** engine M1/M2/M3/M5/M7/M8/M9/M13 emit `DATA STALE` flag dan `LOW CONFIDENCE` banner otomatis kalau input critical ORANGE/RED-stale — mencegah false-GREEN score dari scraper yang diam-diam gagal. Coverage per modul:
+**Freshness gates (Dexter Eval Sep 14, 2026):** engine M1/M2/M3/M5/M7/M8/M9/M13 emit `DATA STALE` flag dan `LOW CONFIDENCE` banner otomatis kalau input critical ORANGE/RED-stale — mencegah false-GREEN score dari scraper yang diam-diam gagal. Coverage per modul:
 
 | Modul | Gate indikator | RED threshold |
 |---|---|---|
@@ -384,7 +386,7 @@ bash env-check.sh                        # live ping semua API key di .env
 | M9 Market | `ihsg_pe_ratio`, `idx_advance_decline_ratio` | >30d / >14d |
 | M13 ULN | `indonesia_external_debt_bn`, `uln_dsr_pct`, `uln_shortterm_pct` | >180d / >730d / >730d |
 
-Threshold lengkap di `src/tools/macro/freshness.ts`. Health-check baseline Sep 9 2026: 38 fresh · 3 aging · 2 stale (srbi_bid_cover 25d, msci_classification 27d) · 0 critical. Aging: eido_price 5d, mbg_realisasi 36d, imports_bn 41d.
+Threshold lengkap di `src/tools/macro/freshness.ts`. Health-check baseline Sep 14 2026: SCD 55% ORANGE · M12 Political Risk 79/100 🔴 · M10 Fiscal 63/100 🟠 · Thesis #10 kedua trigger FIRED · Brent $108.3/bbl (melewati Bahlil $100) · Pertalite gap Rp6,781/L 🔴. Baseline Sep 9 2026 freshness: 38 fresh · 3 aging · 2 stale · 0 critical.
 
 ---
 
