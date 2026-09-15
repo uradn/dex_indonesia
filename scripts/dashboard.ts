@@ -1063,7 +1063,16 @@ function renderScd(d) {
   const el = document.getElementById('scd-score');
   el.textContent = score + '%';
   el.className = 'scd-number ' + cls;
-  document.getElementById('scd-alert').innerHTML = \`<span class="tag \${cls}">\${label}</span>\`;
+
+  // P8: LOW CONFIDENCE badge — count modules with degraded data
+  const degradedModules = Object.entries(ms)
+    .filter(([, m]) => m.flags && m.flags.some(f => f.startsWith('LOW CONFIDENCE')))
+    .map(([mod]) => mod.replace(/_/g, ' '));
+  const degradedBadge = degradedModules.length > 0
+    ? \`<div style="margin-top:5px;font-size:10px;color:var(--orange);line-height:1.4">⚠ \${degradedModules.length} module\${degradedModules.length > 1 ? 's' : ''} degraded: \${degradedModules.join(', ')}</div>\`
+    : '';
+
+  document.getElementById('scd-alert').innerHTML = \`<span class="tag \${cls}">\${label}</span>\${degradedBadge}\`;
 }
 
 function renderCharts(chartsData) {
