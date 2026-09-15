@@ -125,6 +125,9 @@ async function fetchViaExa(): Promise<MsciClassificationResult | null> {
       } as Parameters<typeof exa.search>[1]);
 
       for (const r of response.results ?? []) {
+        // Block low-credibility sources (blogs, spam aggregators)
+        const url = r.url ?? '';
+        if (/blogspot|wordpress\.com|tumblr|weebly|wix\.com/i.test(url)) continue;
         const text = (r as { text?: string }).text ?? r.title ?? '';
         if (!text) continue;
         const status = parseClassificationText(text);
