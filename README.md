@@ -232,6 +232,8 @@ Solar gap **2.7× lebih besar** dari Pertalite — tapi selama ini tidak tertrac
 - ICP > $100/bbl → komitmen **gugur** — hike menjadi keharusan fiskal
 - ICP YTD rata-rata Jan–Apr 2026: $77/bbl (saat pernyataan dibuat, margin $23)
 - **Per 10 Juni 2026: Brent $92.6 — margin tersisa hanya $7.4/bbl** ⚠️ (BI Rate inter-cycle hike + Pertamax naik 32% dalam satu hari)
+- **Per 14 Sep 2026: Brent $108.3 → ICP melewati $100 🔴 THRESHOLD TERLAMPAUI** — komitmen secara fiskal gugur; ICP YTD Jan-Sep rata-rata $85-90/bbl (masih "aman" rata-rata, tapi spot sudah jauh di atas); Bahlil **retoris mempertahankan** komitmen ("tidak naik sampai 31 Des, berapa pun harganya"), tapi beban subsidi+kompensasi semester I sudah Rp233T (52.1% target); Saudi East-West pipeline offline memperparah outlook
+- **Per 15 Sep 2026: Brent $106.93** — tetap di atas $100; war risk insurance Hormuz 3–10% hull value; GCC-Iran talks postponed; tekanan fiskal berkelanjutan
 
 ---
 
@@ -284,7 +286,7 @@ Sebelum krisis: **25% seaborne oil** + **20% LNG dunia** melewati Hormuz. Kapasi
 | Peak Mar 2026 | $126 | $126 | ~IDR 12.800 | 🔴 RED | Hike wajib fiskal |
 | Eskalasi baru | $110+ | $110+ | ~IDR 9.000+ | 🔴 RED | Hike + social unrest |
 
-**CATATAN PENTING:** Iran pada 1 Juni 2026 menghentikan negosiasi dan mengumumkan akan **menutup penuh** Hormuz. Jika terealisasi → Brent bisa kembali ke $110–120 range → ICP melewati $100 → komitmen Bahlil gugur → hike BBM → trigger M12 political risk flashpoint.
+**⚠️ UPDATE — TEREALISASI (Sep 14–15 2026):** Iran pada 1 Juni 2026 menghentikan negosiasi dan mengumumkan akan menutup penuh Hormuz. **Skenario yang sebelumnya forward-looking ini kini terjadi:** Brent $106–108/bbl (Sep 14–15) → ICP **melewati $100** → komitmen Bahlil secara fiskal gugur → BBM langka Sulsel/Jawa/Sumatra → M12 political risk 79/100 🔴. Yang belum terjadi: hike BBM resmi (Bahlil masih pertahankan komitmen verbal). Risiko residual: eskalasi ke $110–120 (Saudi pipeline offline + Houthi aktif) → memaksa hike atau defisit meledak.
 
 **Cost recovery formula:**
 ```
@@ -323,12 +325,12 @@ Sistem akan otomatis rekalkulasi subsidy gap, ICP alert, dan foreign flow risk s
 
 ### 4-Level Belief Stack (Haye Thread — Oil Price Epistemics)
 
-Bahlil bilang $77. APBN pasang $70. Brent live $92. Dubai $70 fisik. Empat angka, satu komoditas — mana yang dipercaya? Framework "Belief Stack" di dashboard `/bs` menyusun empat lapisan **keyakinan yang beda-beda tentang harga minyak yang sama**, dari yang paling dogmatis (angka anggaran) sampai paling struktural (floor Dubai + refining premium). Jarak antar-lapis = ukuran narrative divergence; kalau semua lapis konvergen tinggi = mainstream harus revise turun, kalau semua konvergen rendah = mainstream harus revise naik. Dispersi tinggi = coordination attack risk (Morris-Shin).
+Bahlil bilang $77 (April) → ICP $107 live (Sep 15). APBN pasang $70. Empat angka, satu komoditas — mana yang dipercaya? Framework "Belief Stack" di dashboard `/bs` menyusun empat lapisan **keyakinan yang beda-beda tentang harga minyak yang sama**, dari yang paling dogmatis (angka anggaran) sampai paling struktural (floor Dubai + refining premium). Jarak antar-lapis = ukuran narrative divergence; kalau semua lapis konvergen tinggi = mainstream harus revise turun, kalau semua konvergen rendah = mainstream harus revise naik. Dispersi tinggi = coordination attack risk (Morris-Shin). **Sep 15 2026 status**: L1=$70 vs L3≈$107 → gap $37 (CV% sangat tinggi, HIGH DISPERSION territory) — semua empat lapis konvergen TINGGI; APBN assumption sudah tidak relevan sebagai anchor fiskal realistis.
 
 | Level | Angka | Sumber | Sifat | Alert threshold |
 |-------|-------|--------|-------|-----------------|
 | **L1 — APBN Official** | $70/bbl | UU APBN 2026 (ICP assumption) | **Static** — patokan legal, tidak berubah tanpa APBN-P | fixed anchor |
-| **L2 — Stale Analyst Consensus** | $80/bbl | INDEF-style proxy (bukan riil-time) | **Static** — konsensus tertinggal 2–4 minggu, tetap sering di-quote media | yellow anchor |
+| **L2 — Stale Analyst Consensus** | $80/bbl¹ | INDEF-style proxy (bukan riil-time) | **Static anchor** — di-hardcode sebagai "baseline worst-case konsensus lama"; bukan angka live; konsensus riil Sep 2026 sudah >>$100 tapi L2 di sini adalah floor referensi untuk CV% calc | yellow anchor |
 | **L3 — ICP Actual (Brent proxy)** | *live* | `brent_price_usd` (Yahoo BZ=F) | **Dynamic** — updated harian | `>80` yellow · `>90` orange · `>100` red |
 | **L4 — Structural Floor (Dubai+$20)** | *live* | `dubai_crude_spot_usd + $20` (refining+distribusi premium empiris) | **Dynamic** — updated harian | `>90` yellow · `>110` orange · `>120` red |
 
@@ -336,7 +338,7 @@ Bahlil bilang $77. APBN pasang $70. Brent live $92. Dubai $70 fisik. Empat angka
 - **L1 vs L3** — narrative divergence pemerintah vs realitas pasar (fiskal). Kalau L3 > L1 sustained → subsidy overrun mekanis; APBN assumption bocor.
 - **L1 vs L4** — narrative divergence pemerintah vs realitas fisik. L4 hitung harga *sampai ke pengguna* (Dubai spot + biaya refining). L4 > L3 = crude tersembunyi lebih mahal karena bottleneck kilang / logistik.
 - **L2 vs L3/L4** — konsensus analis yang stale vs data live. L2 tidak boleh dipercaya di kondisi Hormuz aktif.
-- **Bahlil threshold** $100/bbl bekerja di L3 (ICP), tapi L4 sering menembus $100 duluan (Dubai+$20 = $95 saat Brent masih $90).
+- **Bahlil threshold** $100/bbl bekerja di L3 (ICP). **Sep 2026: L3 sudah $107, L4 (Dubai ~$87+$20=$107) juga melampaui threshold** — semua lapis di atas $100; kondisi sebelumnya "L4 sering menembus duluan" kini irrelevant karena keduanya sudah lampaui. Concern saat ini: apakah L3 bisa turun ke bawah $100 sebelum APBN-P diperlukan.
 
 **Yang dinamis** di panel Belief Stack live:
 - **L3, L4**, gap vs L1 (`bGap`, `dGap`), alert kelas (`green→red`)
@@ -347,7 +349,7 @@ Bahlil bilang $77. APBN pasang $70. Brent live $92. Dubai $70 fisik. Empat angka
 - BPS Impor Migas 2025 = $32.77B (crude 28%, refined+LPG 72%)
 - 2026 run-rate = $38.8B (+49% YoY)
 - Apr 2026 YoY: +82.5% (crude +67%, refined +88%)
-- APBN Subsidi BBM+LPG target = Rp 105.4T; realisasi Q1 = Rp 118.7T (+266% over pro-rata)
+- APBN Subsidi BBM+LPG target = Rp 105.4T; **realisasi Semester I = subsidi Rp116.9T + kompensasi Rp116T = Rp233T total (52.1% of combined subsidi+kompensasi target, laju 2× pro-rata)**; Q1 realisasi lama: Rp118.7T (+266% over pro-rata — sekarang digantikan data Sem-I)
 
 **Kenapa 4 (bukan 3, bukan 5):**
 - 3 lapis (APBN/consensus/live) melewatkan **structural floor** — narrative bisa tembus L3 sebelum L4, dan L4 justru anchor yang paling tahan intervensi (Dubai fisik susah di-manipulasi).
