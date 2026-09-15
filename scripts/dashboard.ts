@@ -2432,7 +2432,16 @@ function renderHaye(snap) {
 
   const L1 = 70, L2 = 80;
   const L3 = brent;
-  const L4 = dubai != null ? +(dubai + 20).toFixed(1) : null;
+  // L4: Dubai+$20 structural floor. If Dubai data date > 5 days old, fallback to brent proxy (brent-1.50+20).
+  const dubaiDateStr = ind['dubai_crude_spot_usd']?.date ?? null;
+  const dubaiAgeDays = dubaiDateStr ? (Date.now() - new Date(dubaiDateStr + 'T00:00:00Z').getTime()) / 86_400_000 : 999;
+  const dubaiIsStale = dubaiAgeDays > 5;
+  const L4Raw = dubaiIsStale && brent != null ? +(brent - 1.50 + 20).toFixed(1)
+              : dubai != null ? +(dubai + 20).toFixed(1)
+              : brent != null ? +(brent - 1.50 + 20).toFixed(1)
+              : null;
+  const L4 = L4Raw;
+  const L4Stale = dubaiIsStale && dubai != null;
   const maxP = Math.max(L1, L2, L3 ?? L1, L4 ?? L1, 100);
   const pct = p => p != null ? Math.min(100, Math.round(p / maxP * 100)) : 0;
   const bg  = c => c==='red'?'var(--red)':c==='orange'?'var(--orange)':c==='yellow'?'var(--yellow)':'rgba(255,255,255,.18)';
@@ -2470,7 +2479,7 @@ function renderHaye(snap) {
     \${brow('L1 — APBN Official', L1, null, 'green')}
     \${brow('L2 — Stale Analyst Consensus', L2, null, 'yellow')}
     \${brow('L3 — ICP Actual (Brent proxy)', L3, bGap, bCls)}
-    \${brow('L4 — Structural Floor, Illustrative (Dubai+$20)', L4, dGap, dCls)}
+    \${brow('L4 — Structural Floor' + (L4Stale ? ' ⚠ [STALE est, Brent proxy]' : '') + ' (Dubai+$20)', L4, dGap, dCls)}
     <div style="margin-top:10px;font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">Brent-Dubai Spread (Hormuz Proxy)</div>
     \${kv('B-D Spread', spread!=null?'$'+fmt(spread,1)+'/bbl':'—', spCls)}
     \${kv('Signal', spLabel, spCls)}

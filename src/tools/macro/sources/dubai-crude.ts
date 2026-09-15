@@ -28,7 +28,7 @@ import { fetchDubaiCrudeWorldBank } from './worldbank.js';
 import type { MacroDataPoint } from '../types.js';
 
 const NOW = () => new Date().toISOString();
-const EXA_FRESHNESS_DAYS = 7;
+const EXA_FRESHNESS_DAYS = 3;
 
 // Historical avg EFS (Exchange of Futures for Swaps) spread, USD/bbl
 // During Hormuz crisis (Apr-May 2026): spread widened to $12-27/bbl
@@ -53,7 +53,7 @@ const EXA_DOMAINS = [
   'rigzone.com',
   'energyintel.com',
 ];
-const EXA_QUERY = 'Dubai crude oil spot price today USD per barrel week';
+const EXA_QUERY = 'Dubai Fateh crude oil spot price assessment USD per barrel daily';
 
 function parseDubaiPriceFromText(text: string): number | null {
   // Match patterns like "$94.67/bbl", "$94.67 per barrel", "94.67 USD/bbl"
