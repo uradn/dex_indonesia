@@ -1,15 +1,16 @@
-# Kajian Game Theory dalam Dexter — Sep 14 2026
+# Kajian Game Theory dalam Dexter — Sep 16 2026
 **"Dari 35% ke 63%: Roadmap Game Theory untuk Silent Crisis Detector"**
+> **Update Sep 16 2026:** P1 Barro-Gordon, P2 Diamond-Dybvig, P3 Herding cascade — semua implemented Sep 15. Coverage naik 35% → **~51%**. Milestone Des 2026 (49%) terlampaui lebih awal.
 
 ---
 
-## BAGIAN 1: Status Implementasi Saat Ini (~35%)
+## BAGIAN 1: Status Implementasi Saat Ini (~51%)
 
 ### Thread 1/20
-🧵 Dexter sekarang deteksi krisis IDR pakai 13 modul. Tapi seberapa dalam logika "strategic behavior"-nya? Spoiler: baru ~35%. Thread ini bahas gap + roadmap ke 63%. #GameTheory #IDR #Macro
+🧵 Dexter sekarang deteksi krisis IDR pakai 13 modul. Tapi seberapa dalam logika "strategic behavior"-nya? Spoiler: ~51% per Sep 16 (naik dari 35% setelah Sep 15 sprint — P1+P2+P3 done). Thread ini bahas implementasi + roadmap ke 63%. #GameTheory #IDR #Macro
 
 ---
-*[ILUSTRASI 1: Pie chart — 35% filled (hijau = implemented), 65% empty (abu = gap). Label: "Game Theory Coverage dalam Dexter Sep 2026"]*
+*[ILUSTRASI 1: Pie chart — 51% filled (hijau = implemented), 49% empty (abu = gap). Label: "Game Theory Coverage dalam Dexter Sep 2026"]*
 
 ---
 
@@ -46,7 +47,7 @@ Yang SUDAH ada #3: **Cheap-talk signaling** (implicit) di M6 Narrative Divergenc
 ---
 
 ### Thread 6/20
-GAP BESAR #1: **Barro-Gordon time inconsistency**. Post-reshuffle, Suahasil Nazara BARU jadi Menkeu. Dia harus build credibility dari nol. Masalah: subsidi BBM 247% APBN → tekanan populis vs disiplin fiskal. Classic commitment vs discretion problem. BELUM ada di Dexter.
+~~GAP BESAR #1~~ **✅ IMPLEMENTED Sep 15:** **Barro-Gordon time inconsistency**. Post-reshuffle, Suahasil Nazara BARU jadi Menkeu. Dia harus build credibility dari nol. Masalah: subsidi BBM 247% APBN → tekanan populis vs disiplin fiskal. Classic commitment vs discretion problem. **Sudah live di M10 Fiscal** — `credibilityIndex` 0-100, 4 sinyal (subsidi run-rate 35% + deficit 25% + S&P cost 25% + fiscal space 15%). Sep 16: CI=63, regime=STRAINED.
 
 ---
 *[ILUSTRASI 6: Game tree — Node "Menkeu baru" → branch "Commit (ortodoks)" vs "Discretion (populis)". Bawah "Commit": market trust +, yield turun. Bawah "Discretion": short-term approval +, long-term credibility −. Label: "Barro-Gordon 1983"]*
@@ -54,7 +55,7 @@ GAP BESAR #1: **Barro-Gordon time inconsistency**. Post-reshuffle, Suahasil Naza
 ---
 
 ### Thread 7/20
-GAP BESAR #2: **Diamond-Dybvig bank run**. M8 Banking punya NPL 2.1%, Fintech NPL 5.0%, CAR 26.5%. Data ada. Yang BELUM ada: model koordinasi deposan. Kalau 3 kondisi terpenuhi (NPL spike + LDR >100% + IndONIA spread widening), bank run jadi self-fulfilling.
+~~GAP BESAR #2~~ **✅ IMPLEMENTED Sep 15:** **Diamond-Dybvig bank run**. M8 Banking punya NPL 2.1%, Fintech NPL 5.0%, CAR 26.5%. **Sudah live di M8 Banking** — 5-condition matrix: NPL>3.5%, LDR>92%, IndONIA>40bps, fintech NPL>5%+growing, CAR erosion>0.8pp. Sep 16: 2/5 conditions → watch zone, skor 35. Model run coordination `runCoordinationScore` aktif.
 
 ---
 *[ILUSTRASI 7: Diamond-Dybvig matrix 2×2 — axis: "Deposan A tarik/tidak" × "Deposan B tarik/tidak". Nash equilibria: (tarik,tarik) = bank bangkrut, (tidak,tidak) = bank sehat. Arrow merah menunjuk ke panic equilibrium.]*
@@ -62,7 +63,7 @@ GAP BESAR #2: **Diamond-Dybvig bank run**. M8 Banking punya NPL 2.1%, Fintech NP
 ---
 
 ### Thread 8/20
-GAP BESAR #3: **Herding/cascade di M5 Foreign Flow**. Sekarang M5 hitung net flow + MSCI overhang. Yang belum: apakah exit hari ini *meningkatkan* probabilitas exit besok? Strategic complementarity: EIDO turun → trigger passive redemption → turun lagi. Cascade belum dimodel.
+~~GAP BESAR #3~~ **✅ IMPLEMENTED Sep 15:** **Herding/cascade di M5 Foreign Flow**. **Sudah live di M5** — EIDO rolling autocorrelation lag-1 (10d+21d Pearson), cascade signal aktif kalau autocorr >0.6 sustained. Strategic complementarity: EIDO turun → passive redemption → turun lagi — sekarang dimodel sebagai `cascadeSignal` dengan threshold matrix.
 
 ---
 *[ILUSTRASI 8: Cascade diagram — EIDO −3% → passive fund redemption → forced sell → EIDO −5% → lebih banyak redemption. Garis eksponensial merah. Label: "Strategic Complementarity = Coordination Failure"]*
@@ -153,43 +154,43 @@ SOLUSI JANGKA MENENGAH (3-6 bulan): P1+P2+P3 fully implementable dengan data yan
 SOLUSI JANGKA PANJANG (6-12 bulan): 3rd-gen + PolEcon + Bayesian butuh data baru. Sumber: (a) OJK interbank matrix — resmi tapi tidak publik, butuh akses FSAP BI; (b) FX hedging ratio — SULNI Q-release; (c) political economy index — Poltracking/Indikator Politik Indonesia survey time series.
 
 ---
-*[ILUSTRASI 19: Roadmap peta jalan — garis horizontal dari Sep 2026 ke Sep 2027. Milestone: Des 2026 (P1+P2+P3 = 49%), Mar 2027 (3rd-gen = 54%), Jun 2027 (PolEcon = 59%), Sep 2027 (Bayesian = 63%). Warna gradient dari kuning ke hijau.]*
+*[ILUSTRASI 19: Roadmap peta jalan — garis horizontal dari Sep 2026 ke Sep 2027. Milestone: Sep 15 2026 (P1+P2+P3 = **51%** ✅ DONE), Mar 2027 (3rd-gen = 56%), Jun 2027 (PolEcon = 59%), Sep 2027 (Bayesian = 63%). Warna gradient dari kuning ke hijau.]*
 
 ---
 
 ### Thread 20/20
-KESIMPULAN: Dexter sekarang ~35% GT coverage — kuat di currency attack (Krugman + Morris-Shin) tapi blind spot di bank run coordination, herding cascade, time inconsistency fiskal, dan Bayesian credibility. Roadmap: 49% (6 bulan), 63% (12 bulan). Next: implementasi P1 dulu.
+KESIMPULAN: Dexter sekarang **~51% GT coverage** (naik dari 35% Sep 14 → 51% Sep 15) — kuat di currency attack (Krugman + Morris-Shin), time inconsistency fiskal (Barro-Gordon), bank run coordination (Diamond-Dybvig), herding cascade (De Long/Shleifer). Blind spot tersisa: 3rd-gen balance sheet, PolEcon bargaining, Bayesian M6 full calibration. Roadmap: 63% (12 bulan dari Sep 2026). **Milestone Des 2026 (49%) sudah terlampaui.**
 
 ---
-*[ILUSTRASI 20: Before/after bar chart — "Sep 2026: 35%" (kuning), "Des 2026: 49%" (hijau muda), "Sep 2027: 63%" (hijau tua). Sub-bar per konsep GT. Judul: "Dexter Game Theory Roadmap". Caption: "Dari currency attack detector → full strategic behavior engine."]*
+*[ILUSTRASI 20: Before/after bar chart — "Sep 14 2026: 35%" (kuning), "Sep 15 2026: 51% ✅" (hijau), "Sep 2027: 63%" (hijau tua). Sub-bar per konsep GT. Judul: "Dexter Game Theory Roadmap". Caption: "Dari currency attack detector → full strategic behavior engine. Milestone Des 2026 terlampaui 3+ bulan lebih awal."]*
 
 ---
 
 ## RINGKASAN DATA GAP (Quick Reference)
 
-| Konsep | Data Ada | Data Gap | Sumber Gap | Horizon |
+| Konsep | Status | Implementasi | Gap Tersisa | Horizon |
 |---|---|---|---|---|
-| **P1 Barro-Gordon** | Deficit %, interest/revenue, subsidi run rate | Commitment index, reversal frequency | Manual historical coding | 3 bulan |
-| **P2 Diamond-Dybvig** | NPL, LDR, CAR, M2/reserves, IndONIA | Deposit concentration, interbank matrix, DPK velocity | OJK FSAP (non-publik) | 4 bulan |
-| **P3 Herding cascade** | EIDO daily, IDX net flow, MSCI | Rolling autocorrelation, passive AUM split | Komputasi dari data ada | 2 bulan |
-| **3rd-gen balance sheet** | ULN, CAR, FX reserves, SBN duration | FX hedging ratio korporasi, currency mismatch index | SULNI quarterly | 6 bulan |
-| **Political economy** | Political score M12, headline count | Veto player mapping, payoff matrix per isu | Poltracking time series | 8 bulan |
-| **Bayesian M6** | Semua divergence z-scores | Prior distribution dari 6 krisis historis, likelihood functions | Backtest calibration | 6 bulan |
+| **P1 Barro-Gordon** | ✅ DONE Sep 15 | `credibilityIndex` di M10 — 4 sinyal, regime: committed/strained/discretion | Commitment index historical pre-2020 | — |
+| **P2 Diamond-Dybvig** | ✅ DONE Sep 15 | `runCoordinationScore` di M8 — 5-condition matrix | Deposit concentration, interbank matrix | — |
+| **P3 Herding cascade** | ✅ DONE Sep 15 | `cascadeSignal` di M5 — EIDO autocorr lag-1 (10d+21d) | Passive AUM split per fund type | — |
+| **3rd-gen balance sheet** | ⏳ Open | — | FX hedging ratio korporasi, currency mismatch | SULNI quarterly + 6 bulan dev |
+| **Political economy** | ⏳ Open | — | Veto player mapping, Poltracking time series | 8 bulan |
+| **Bayesian M6** | ⏳ Open | Partial: Sobel cheap-talk posterior | Full likelihood calibration dari 6 krisis | 6 bulan dev |
 
 ---
 
 ## SOLUSI PREFERENSI
 
-### Jangka Menengah (P1+P2+P3 → 49%):
-- **P3 dulu** (2 bulan): data sudah ada, hanya tambah `eidoAutocorrelation()` ke M5 + cascade threshold. Effort paling rendah, impact tinggi.
-- **P1 kedua** (bulan 3): tambah `commitmentIndex` ke M10 dari manual coding 5 kebijakan Kemenkeu terakhir. Post-reshuffle Suahasil = timing paling relevan.
-- **P2 ketiga** (bulan 4): tambah `runCoordinationScore` ke M8 sebagai threshold matrix (NPL >4% AND LDR >95% AND IndONIA >BI+75bps → run risk HIGH).
+### ✅ Sudah Selesai Sep 15 (P1+P2+P3 → 51%):
+- **P3 Herding cascade** (M5): `cascadeSignal` — EIDO autocorr lag-1 10d+21d, threshold >0.6.
+- **P1 Barro-Gordon** (M10): `credibilityIndex` 0-100 — 4 sinyal weighted. Sep 16: CI=63, regime=STRAINED.
+- **P2 Diamond-Dybvig** (M8): `runCoordinationScore` — 5-condition matrix. Sep 16: 2/5 conditions.
 
-### Jangka Panjang (→ 63%):
-- **3rd-gen**: refactor M8+M13+M3 ke unified balance sheet amplifier. Data terbesar dari SULNI.
-- **PolEcon M12**: butuh political science input — pertimbangkan integrasi Poltracking API atau manual quarterly update.
-- **Bayesian M6**: paling technically demanding — butuh calibrate likelihood dari 6 krisis historis (backtest data sudah ada di `backtest/`).
+### Jangka Menengah → Panjang (→ 63%):
+- **3rd-gen balance sheet** (M3+M8+M13): refactor ke unified balance sheet amplifier. Data terbesar dari SULNI FX-hedging ratio korporasi. Est. 6 bulan.
+- **PolEcon M12**: butuh Poltracking time series atau manual quarterly update. Veto player model (Tsebelis). Est. 8 bulan.
+- **Bayesian M6 full calibration**: partial sudah ada (Sobel cheap-talk). Full butuh likelihood P(data|credible) dari 6 krisis historis — backtest data sudah ada di `backtest/`. Est. 6 bulan.
 
 ---
 
-*Dokumen: docs/GAME_THEORY_KAJIAN.md | Generated: Sep 14 2026 | Victor @ Sadasa Intelligence*
+*Dokumen: docs/GAME_THEORY_KAJIAN.md | Generated: Sep 14 2026 | Updated: Sep 16 2026 (P1+P2+P3 implemented, coverage 35%→51%) | Victor @ Sadasa Intelligence*
