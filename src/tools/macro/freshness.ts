@@ -42,7 +42,7 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   // Kemenkeu monthly
   { name: 'apbn_revenue_monthly_trn',    module: 'M10', freshDays: 35, yellowDays: 50,  redDays: 75 },
   { name: 'subsidi_energi_ytd_idr_t',    module: 'M10', freshDays: 35, yellowDays: 50,  redDays: 75 },
-  { name: 'mbg_realisasi_ytd_idr_t',     module: 'M10', freshDays: 35, yellowDays: 50,  redDays: 75 },
+  { name: 'mbg_realisasi_ytd_idr_t',     module: 'M10', freshDays: 50, yellowDays: 70,  redDays: 90 },
   // OJK / fintech
   { name: 'fintech_npl_pct',             module: 'M8',  freshDays: 35, yellowDays: 50,  redDays: 75 },
   { name: 'bank_npl_gross_pct',          module: 'M8',  freshDays: 400,yellowDays: 730, redDays: 1000 },
@@ -62,7 +62,7 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   // M4 commodity supplementary
   { name: 'b50_status_numeric',          module: 'M4',  freshDays: 21, yellowDays: 45,  redDays: 90 },
   { name: 'hba_price_usd_ton',           module: 'M4',  freshDays: 21, yellowDays: 45,  redDays: 90 },
-  { name: 'pln_coal_secured_pct',        module: 'M4',  freshDays: 21, yellowDays: 45,  redDays: 90 },
+  { name: 'pln_coal_secured_pct',        module: 'M4',  freshDays: 35, yellowDays: 60,  redDays: 90 },
   // MSCI status — auto-refresh after Jun 23 2026 cutoff
   { name: 'msci_classification_numeric', module: 'M5',  freshDays: 14, yellowDays: 21,  redDays: 30 },
   // DNDF — env_manual annual update from BI LKT
@@ -71,10 +71,10 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   // BoP monthly (BPS/TE trade data, BI NPI quarterly CAD)
   { name: 'trade_balance_bn',                   module: 'M1',  freshDays: 35, yellowDays: 55,  redDays: 90 },
   { name: 'current_account_pct_gdp_quarterly',  module: 'M1',  freshDays: 100,yellowDays: 130, redDays: 180 },
-  { name: 'imports_bn',                         module: 'M1',  freshDays: 35, yellowDays: 55,  redDays: 90 },
+  { name: 'imports_bn',                         module: 'M1',  freshDays: 50, yellowDays: 70,  redDays: 90 },
   // Market daily (IHSG P/E from EIDO proxy, A/D from scrape)
   { name: 'ihsg_pe_ratio',                      module: 'M9',  freshDays: 5,  yellowDays: 14,  redDays: 30 },
-  { name: 'idx_advance_decline_ratio',          module: 'M9',  freshDays: 4,  yellowDays: 7,   redDays: 14 },
+  { name: 'idx_advance_decline_ratio',          module: 'M9',  freshDays: 7,  yellowDays: 14,  redDays: 21 },
   // ASEAN FX peers (Yahoo daily) — gate keyed on USDIDR as proxy
   { name: 'usdmyr_spot',  module: 'M7', freshDays: 2, yellowDays: 4, redDays: 7 },
   { name: 'usdthb_spot',  module: 'M7', freshDays: 2, yellowDays: 4, redDays: 7 },
