@@ -14,23 +14,27 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86400_000);
 
 // USDIDR spot + history
 export async function fetchUsdIdrHistory(days = 365): Promise<MacroDataPoint[]> {
-  const result = await yf.chart('IDR=X', {
-    period1: daysAgo(days),
-    period2: new Date(),
-    interval: '1d',
-  });
-  const quotes = result.quotes ?? [];
-  return quotes
-    .filter((q) => q.close != null)
-    .map((q) => ({
-      indicator: 'usdidr_spot',
-      category: 'fx' as const,
-      date: new Date(q.date).toISOString().slice(0, 10),
-      value: q.close!,
-      unit: 'IDR/USD',
-      source: 'yahoo_finance',
-      fetchedAt: NOW(),
-    }));
+  try {
+    const result = await yf.chart('IDR=X', {
+      period1: daysAgo(days),
+      period2: new Date(),
+      interval: '1d',
+    });
+    const quotes = result.quotes ?? [];
+    return quotes
+      .filter((q) => q.close != null)
+      .map((q) => ({
+        indicator: 'usdidr_spot',
+        category: 'fx' as const,
+        date: new Date(q.date).toISOString().slice(0, 10),
+        value: q.close!,
+        unit: 'IDR/USD',
+        source: 'yahoo_finance',
+        fetchedAt: NOW(),
+      }));
+  } catch {
+    return [];
+  }
 }
 
 const STALE_THRESHOLD_MS = 5 * 60 * 60 * 1000; // 5 hours
@@ -97,18 +101,20 @@ export async function fetchUsdIdrSpot(): Promise<MacroDataPoint | null> {
 }
 
 // ASEAN FX spots vs USD
-const FX_TICKERS: Record<string, { indicator: string; unit: string }> = {
-  'MYR=X': { indicator: 'usdmyr_spot', unit: 'MYR/USD' },
-  'SGD=X': { indicator: 'usdsgd_spot', unit: 'SGD/USD' },
-  'THB=X': { indicator: 'usdthb_spot', unit: 'THB/USD' },
-  'PHP=X': { indicator: 'usdphp_spot', unit: 'PHP/USD' },
-  'VND=X': { indicator: 'usdvnd_spot', unit: 'VND/USD' },
+const ASEAN_FX_META: Record<string, { currency: string; indicator: string; unit: string; min: number; max: number }> = {
+  'MYR=X': { currency: 'MYR', indicator: 'usdmyr_spot', unit: 'MYR/USD', min: 3.5,   max: 6.5   },
+  'SGD=X': { currency: 'SGD', indicator: 'usdsgd_spot', unit: 'SGD/USD', min: 1.2,   max: 2.0   },
+  'THB=X': { currency: 'THB', indicator: 'usdthb_spot', unit: 'THB/USD', min: 28,    max: 45    },
+  'PHP=X': { currency: 'PHP', indicator: 'usdphp_spot', unit: 'PHP/USD', min: 50,    max: 75    },
+  'VND=X': { currency: 'VND', indicator: 'usdvnd_spot', unit: 'VND/USD', min: 22000, max: 28000 },
 };
 
 export async function fetchAseanFxSpots(): Promise<MacroDataPoint[]> {
   const results: MacroDataPoint[] = [];
+  const fetched = new Set<string>();
+
   await Promise.allSettled(
-    Object.entries(FX_TICKERS).map(async ([ticker, meta]) => {
+    Object.entries(ASEAN_FX_META).map(async ([ticker, meta]) => {
       try {
         const q = await yf.quote(ticker);
         if (q.regularMarketPrice) {
@@ -121,10 +127,37 @@ export async function fetchAseanFxSpots(): Promise<MacroDataPoint[]> {
             source: 'yahoo_finance',
             fetchedAt: NOW(),
           });
+          fetched.add(meta.currency);
         }
       } catch { /* skip */ }
     }),
   );
+
+  // open.er-api bulk fallback for any currencies Yahoo couldn't deliver
+  const missing = Object.values(ASEAN_FX_META).filter((m) => !fetched.has(m.currency));
+  if (missing.length > 0) {
+    try {
+      const res = await fetch('https://open.er-api.com/v6/latest/USD');
+      if (res.ok) {
+        const data = (await res.json()) as { rates?: Record<string, number> };
+        for (const meta of missing) {
+          const rate = data?.rates?.[meta.currency];
+          if (rate && rate >= meta.min && rate <= meta.max) {
+            results.push({
+              indicator: meta.indicator,
+              category: 'fx',
+              date: TODAY(),
+              value: rate,
+              unit: meta.unit,
+              source: 'open_er_api',
+              fetchedAt: NOW(),
+            });
+          }
+        }
+      }
+    } catch { /* skip */ }
+  }
+
   return results;
 }
 

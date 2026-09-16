@@ -6,6 +6,7 @@ import { upsertPoints, getLastN, getLatestPoint } from './time-series-db.js';
 import { rollingZScore, alertFromZScore } from './scoring.js';
 import { fetchGdpGrowth, fetchInflation } from './sources/imf.js';
 import { fetchPmiManufacturingTe } from './sources/sovereign-scraper.js';
+import { fetchIhsgPriceEodhd } from './sources/eodhd.js';
 import type { MacroRegime, AlertLevel, MacroDataPoint } from './types.js';
 
 const _yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
@@ -34,6 +35,12 @@ async function refreshMarketGlobals(): Promise<void> {
       } catch { /* skip on error */ }
     }),
   );
+  // EODHD fallback for IHSG when Yahoo Finance is unavailable
+  if (!points.some((p) => p.indicator === 'ihsg_level')) {
+    const ihsgEodhd = await fetchIhsgPriceEodhd();
+    if (ihsgEodhd) points.push({ ...ihsgEodhd, indicator: 'ihsg_level' });
+  }
+
   if (points.length > 0) await upsertPoints(points);
 }
 
