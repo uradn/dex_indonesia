@@ -33,13 +33,16 @@ bun scripts/morning-check.ts              # full 13-module morning brief (manual
 bun scripts/check-m12-divergence.ts       # M12 divergence check (exit 0=ok, 1=stale, 2=keyword audit needed)
 bun scripts/health-check.ts               # data freshness + env var audit (exit 1 if RED-tier gaps)
 bun scripts/health-check.ts --all         # also list every fresh indicator
-#   Baseline Sep 9 2026: 38 fresh | 3 aging | 2 stale (srbi_bid_cover 25d, msci_classification 27d) | 0 critical
+#   Baseline Sep 16 2026: 42 fresh | 0 aging | 1 stale (msci_classification 23d — quarterly lag, wajar) | 0 critical
 bun scripts/brent-alert.ts               # manual Brent ICP threshold check ($99 default); crontab every 4h
 bun scripts/msci-countdown.ts            # MSCI Nov 12 2026 countdown — macOS alert at T-60/T-30/T-7/T-0; crontab daily 08:00 WIB
 bun scripts/scd-alert.ts                 # SCD RED alert — reads macro_scores DB, fires if SCD ≥75% or ≥3 RED modules; crontab 08:30 WIB after morning-check
 bun scripts/refresh-monthly-data.ts      # manual monthly data refresh (7 indicators: CPI/GDP/cadev/PMI/ULN/unemployment/subsidi)
 bun scripts/backfill-srbi-history.ts    # backfill SRBI auction history Sep 2023→now from BI official pages (idempotent, Exa batch)
 #   --dry-run: print URLs only | --from=YYYY-MM-DD: override start date
+bun scripts/backfill-srbi-news.ts       # backfill srbi_bid_cover_ratio 2023-2025 gap via Exa media search (CNBC/Bisnis/Kontan)
+#   complementary to backfill-srbi-history (media articles vs BI official pages)
+#   --dry-run | --from=YYYY-MM-DD --to=YYYY-MM-DD | ran Sep 16 2026: 84 pts saved (Sep 2023–May 2025)
 
 # Dashboard (localhost:6080)
 bun scripts/dashboard.ts                  # start dashboard server (port 6080)
@@ -152,7 +155,7 @@ FX Defense 0.30 | Commodity Cushion 0.25 | Foreign Flow 0.15 | Sovereign (CDS+SB
 
 **Alert thresholds in backtest:** composite ≥75 = RED, ≥55 = ORANGE, ≥35 = YELLOW. Pre-crisis validator window: 180d.
 
-**Latest results (2026-06-17):** 100% hit rate (6/6 crises) | 173d avg YELLOW lead time | 4.9% false positive rate | Peak scores: 2013=81, 2015=75, 2018=91, 2020=96, 2022=91, 2023=89. Re-run (`bun scripts/run-backtest.ts`) only after changes to `backtest/historical-loader.ts`, `replay-engine.ts`, or `signal-validator.ts` — scores stable between engine changes.
+**Latest results (2026-09-16):** 100% hit rate (6/6 crises) | 173d avg YELLOW lead time | 4.9% false positive rate | Peak scores: 2013=81, 2015=75, 2018=91, 2020=96, 2022=91, 2023=89. Re-run (`bun scripts/run-backtest.ts`) only after changes to `backtest/historical-loader.ts`, `replay-engine.ts`, or `signal-validator.ts` — scores stable between engine changes.
 
 ## Environment variables
 
