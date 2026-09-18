@@ -63,8 +63,8 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   { name: 'b50_status_numeric',          module: 'M4',  freshDays: 21, yellowDays: 45,  redDays: 90 },
   { name: 'hba_price_usd_ton',           module: 'M4',  freshDays: 21, yellowDays: 45,  redDays: 90 },
   { name: 'pln_coal_secured_pct',        module: 'M4',  freshDays: 35, yellowDays: 60,  redDays: 90 },
-  // MSCI status — auto-refresh after Jun 23 2026 cutoff
-  { name: 'msci_classification_numeric', module: 'M5',  freshDays: 14, yellowDays: 21,  redDays: 30 },
+  // MSCI status — result stable until Nov 12 2026 next review; 30d gate matches code comment
+  { name: 'msci_classification_numeric', module: 'M5',  freshDays: 30, yellowDays: 45,  redDays: 90 },
   // DNDF — env_manual annual update from BI LKT
   { name: 'bi_dndf_outstanding_bn',      module: 'M3',  freshDays: 100,yellowDays: 200, redDays: 400 },
   { name: 'uln_hedging_compliance_pct',  module: 'M13', freshDays: 120,yellowDays: 200, redDays: 365 },
