@@ -28,9 +28,16 @@
  *     SOLAR_BLEND_RATIO=0.50           (override B-blend; 0.40=B40 default, 0.50=B50 Jul 2026 mandate)
  *
  * COST RECOVERY FORMULA:
- *   cost_recovery = (Brent_USD / 158.987 L/bbl) × USDIDR × 1.40
+ *   cost_recovery = ((Brent_USD − russiaDiscount) / 158.987 L/bbl) × USDIDR × 1.40
  *   Factor 1.40: crude 100% + refining 20% + distribution 10% + margin+tax 10%
  *   At APBN baseline ($70/bbl, IDR 16,500): cost recovery ≈ IDR 10,200/liter
+ *
+ * RUSSIA CRUDE DISCOUNT (optional override):
+ *   G2G deal ~150 juta barel via Lemigas (Apr–Sep 2026); ESPO API 34–36° = Minas-compatible.
+ *   ESPO historical discount vs Brent Asia: ~$10–15/bbl. If Russia = 25% of supply → blended
+ *   discount ~$3.1/bbl; if 50% → ~$6.25/bbl. Default: 0 (no confirmed delivery yet).
+ *   Update RUSSIA_CRUDE_DISCOUNT_USD when bulk delivery volume confirmed by Lemigas/ESDM.
+ *   Set RUSSIA_CRUDE_DISCOUNT_USD=3.1 (conservative) or =6.25 (if 50% supply confirmed).
  *
  * ICP THRESHOLD WATCH:
  *   < $80/bbl   → GREEN  (comfortable margin to commitment)
@@ -68,7 +75,9 @@ export const DOMESTIC_FUEL_PRICES = {
 } as const;
 
 export function computeCostRecovery(brentUsd: number, usdIdr: number): number {
-  return Math.round((brentUsd / LITERS_PER_BARREL) * usdIdr * COST_RECOVERY_FACTOR);
+  const russiaDiscount = parseFloat(process.env.RUSSIA_CRUDE_DISCOUNT_USD ?? '0') || 0;
+  const effectiveBrent = Math.max(0, brentUsd - russiaDiscount);
+  return Math.round((effectiveBrent / LITERS_PER_BARREL) * usdIdr * COST_RECOVERY_FACTOR);
 }
 
 // Solar Biosolar cost recovery — blended MOPS Gasoil + FAME (CPO-based biodiesel).
