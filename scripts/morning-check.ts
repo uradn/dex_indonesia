@@ -268,14 +268,20 @@ console.log(`\n${BAR}\n`);
 try {
   const thesis = await getLatestThesis();
   if (thesis) {
+    // Current market values from already-fetched engine results
+    const currentCds  = sov.status === 'fulfilled' ? (sov.value.cds5y?.current  ?? null) : null;
+    const currentIdr  = fx.status  === 'fulfilled' ? (fx.value.usdIdr?.current  ?? null) : null;
+    const currentSbn  = sov.status === 'fulfilled' ? (sov.value.sbn10y?.current ?? null) : null;
+    const currentSbnFo = (await getLatestPoint('sbn_foreign_ownership_pct'))?.value ?? null;
+    const polScore = crisis.moduleScores.find(m => m.module === 'political_risk')?.score ?? 0;
+
     const trigVal = thesis.triggerIndicator === 'political_risk_score'
-      ? (crisis.moduleScores.find(m => m.module === 'political_risk')?.score ?? 0)
+      ? polScore
       : ((await getLatestPoint(thesis.triggerIndicator))?.value ?? 0);
     const primaryFired = thesis.triggerDirection === 'above'
       ? trigVal >= thesis.triggerThreshold
       : trigVal <= thesis.triggerThreshold;
 
-    // Secondary trigger #2: subsidi energi annualized run rate > 135% of APBN Rp87T target
     const subsidiBbmLpgYtd = (await getLatestPoint('subsidi_energi_ytd_idr_t'))?.value ?? null;
     const subsidyMonthsNow = new Date().getMonth() + 1;
     const subsidyRunRatePct = subsidiBbmLpgYtd !== null
@@ -285,22 +291,89 @@ try {
     const fired = primaryFired || subsidyFired;
 
     const daysSince = Math.round((Date.now() - new Date(thesis.createdAt).getTime()) / 86400000);
-    console.log(`## Thesis Monitor — ID ${thesis.id} [${thesis.status.toUpperCase()}] (${daysSince}d old)`);
-    console.log(`  Divergence: ${thesis.primaryDivergence.replace(/_/g,' ')}`);
-    console.log(`  Trigger #1: ${thesis.triggerIndicator} ${thesis.triggerDirection} ${thesis.triggerThreshold} | Current: ${trigVal.toFixed(1)} → ${primaryFired ? '🔴 FIRED' : '🟡 armed'}`);
-    if (subsidyRunRatePct !== null) {
-      console.log(`  Trigger #2: subsidi_energi run rate ${subsidyRunRatePct.toFixed(0)}% vs APBN 100% → ${subsidyFired ? '🔴 FIRED (>135%)' : '🟡 armed'}`);
+    const armedDate  = thesis.createdAt.slice(0, 10);
+    const t90  = new Date(new Date(thesis.createdAt).getTime() +  90 * 86400000).toISOString().slice(0, 10);
+    const t180 = new Date(new Date(thesis.createdAt).getTime() + 180 * 86400000).toISOString().slice(0, 10);
+    const ev   = thesis.evEstimate != null
+      ? `${thesis.evEstimate > 0 ? '+' : ''}${thesis.evEstimate.toFixed(1)}%` : '—';
+
+    console.log(`\n## Thesis Monitor — ID ${thesis.id} [${thesis.status.toUpperCase()}] (${daysSince}d)`);
+    console.log(`  Armed: ${armedDate}  |  Divergence: ${thesis.primaryDivergence.replace(/_/g, ' ')}`);
+
+    // ── Thesis statement (word-wrapped at 80 cols) ────────────────────────
+    console.log(`\n  THESIS:`);
+    const words = thesis.thesisStatement.split(' ');
+    let ln = '  '; let col = 2;
+    for (const w of words) {
+      if (col + w.length + 1 > 82) { console.log(ln); ln = '  ' + w + ' '; col = 3 + w.length; }
+      else { ln += w + ' '; col += w.length + 1; }
     }
+    if (ln.trim()) console.log(ln.trimEnd());
+
+    // ── Predicted targets vs current ──────────────────────────────────────
+    console.log(`\n  PREDICTED TARGETS  (P=${thesis.crisisProbability ?? '—'}%  EV ${ev})`);
+    if (thesis.predictedCdsBps != null) {
+      const gap = currentCds != null ? thesis.predictedCdsBps - currentCds : null;
+      const gp  = gap != null && currentCds != null
+        ? `  (+${gap.toFixed(0)} bps, +${(gap / currentCds * 100).toFixed(0)}% to go)` : '';
+      console.log(`    CDS 5Y :  ${currentCds?.toFixed(0) ?? '—'} bps  →  ${thesis.predictedCdsBps} bps${gp}`);
+    }
+    if (thesis.predictedUsdidr != null) {
+      const gap = currentIdr != null ? thesis.predictedUsdidr - currentIdr : null;
+      const gp  = gap != null && currentIdr != null
+        ? `  (+${Math.round(gap).toLocaleString()}, +${(gap / currentIdr * 100).toFixed(1)}%)` : '';
+      console.log(`    USDIDR :  ${currentIdr?.toLocaleString() ?? '—'}  →  ${thesis.predictedUsdidr.toLocaleString()}${gp}`);
+    }
+    if (thesis.predictedSbn10y != null) {
+      const gap = currentSbn != null ? thesis.predictedSbn10y - currentSbn : null;
+      const gp  = gap != null ? `  (+${(gap * 100).toFixed(0)} bps to go)` : '';
+      console.log(`    SBN 10Y:  ${currentSbn?.toFixed(3) ?? '—'}%  →  ${thesis.predictedSbn10y.toFixed(2)}%${gp}`);
+    }
+
+    // ── Triggers ──────────────────────────────────────────────────────────
+    console.log(`\n  TRIGGERS`);
+    console.log(`    #1 ${thesis.triggerIndicator} ${thesis.triggerDirection} ${thesis.triggerThreshold}  |  ${trigVal.toFixed(1)}  ${primaryFired ? '🔴 FIRED' : '🟡 armed'}`);
+    if (subsidyRunRatePct != null) {
+      console.log(`    #2 subsidi run-rate >135%  |  ${subsidyRunRatePct.toFixed(0)}%  ${subsidyFired ? '🔴 FIRED' : '🟡 armed'}`);
+    }
+
+    // Auto-status: armed → triggered
     if (fired && thesis.status === 'armed') {
       await updateThesisStatus(thesis.id!, 'triggered');
-      console.log(`  ✓ Status updated: armed → triggered`);
+      console.log(`\n  ✓ Status updated: armed → triggered`);
     }
-    // Kill switch #1 auto-check: political < 55
-    const polScore = crisis.moduleScores.find(m => m.module === 'political_risk')?.score ?? 0;
-    if (polScore < 55 && (thesis.status === 'armed' || thesis.status === 'triggered')) {
-      console.log(`  ⚠️  KILL SWITCH #1 candidate: political_risk ${polScore}/100 < 55 — verify 14-day sustained drop before killing`);
+
+    // ── Kill switches with live values ────────────────────────────────────
+    console.log(`\n  KILL SWITCHES`);
+    const ks1 = polScore < 55
+      ? '🟡 CANDIDATE — verify 14d sustained'
+      : `🔴 not firing (${polScore}/100)`;
+    console.log(`    #1 polrisk <55/14d    →  ${polScore}/100  ${ks1}`);
+    console.log(`    #2 BI pkg [MANUAL]    →  no auto-signal`);
+    if (currentSbnFo != null) {
+      const ks3 = currentSbnFo > 13
+        ? `🟡 WATCH — ${(currentSbnFo - 13).toFixed(2)}pp above threshold`
+        : `🔴 below 13% — not firing`;
+      console.log(`    #3 SBN asing >13%    →  ${currentSbnFo.toFixed(2)}%  ${ks3}`);
     }
-    console.log(`  EV estimate: ${thesis.evEstimate != null ? (thesis.evEstimate > 0 ? '+' : '') + thesis.evEstimate.toFixed(1) + '%' : '—'} | P(crisis): ${thesis.crisisProbability ?? '—'}%`);
+    if (currentCds != null) {
+      const ks4 = currentCds < 100
+        ? '🟡 BELOW THRESHOLD — run check-thesis.ts to verify 7d sustained'
+        : '🔴 not firing';
+      console.log(`    #4 CDS <100 bps/7d   →  ${currentCds.toFixed(1)} bps  ${ks4}`);
+    }
+    const hasKs5 = thesis.killConditions.some(k => k.includes('#5'));
+    if (hasKs5) {
+      const biGovVacant = process.env.BI_GOVERNOR_VACANT === 'true';
+      const ks5 = biGovVacant
+        ? '🟡 pending — BI_GOVERNOR_VACANT=true'
+        : '✅ Destry dilantik Sep 2 — BI Gov vacancy resolved';
+      console.log(`    #5 BI Gov + rate      →  ${ks5}`);
+    }
+
+    // ── Timeline ──────────────────────────────────────────────────────────
+    console.log(`\n  TIMELINE: T+0=${armedDate}  |  T+90=${t90}  |  T+180=${t180}`);
+
     console.log(`\n${BAR}\n`);
   }
 } catch {
