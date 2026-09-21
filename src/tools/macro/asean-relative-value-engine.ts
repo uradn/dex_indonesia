@@ -61,6 +61,10 @@ interface AseanRelativeValueOutput {
   idr3mAnnualizedPct: number | null;     // annualized 3M IDR depreciation
   realCarryPct: number | null;           // carry spread − expected depreciation
   carryLabel: 'attractive' | 'neutral' | 'watch' | 'unattractive' | null;
+  // JPY carry unwind signal (HSBC 1997 analog: sudden JPY strength = EM capital flight)
+  jpySpot: number | null;
+  jpyChange1m: number | null;           // negative = JPY strengthening vs USD = carry unwind risk
+  jpyCarryUnwind: 'alive' | 'watch' | 'unwind' | 'acute' | null;
   narrative: string;
   flags: string[];
 }
@@ -78,10 +82,11 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
   const fxData = await fetchAseanFxSpots();
   if (fxData.length > 0) await upsertPoints(fxData);
 
-  const [idrCurrent, sbn10yFromDb, ust10yFromDb] = await Promise.all([
+  const [idrCurrent, sbn10yFromDb, ust10yFromDb, jpyCurrent] = await Promise.all([
     getLatestPoint('usdidr_spot'),
     getLatestPoint('sbn_10y_yield_pct'),
     getLatestPoint('ust_10y_yield_pct'),
+    getLatestPoint('usdjpy_spot'),
   ]);
 
   // 90-day history covers both 1M FX change and 3M annualized depreciation
@@ -152,6 +157,21 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
     ? parseFloat((carrySpread - idr3mAnnualized).toFixed(2))
     : null;
 
+  // JPY carry unwind signal
+  // USDJPY falling = JPY strengthening = carry trade unwinding = EM capital flight risk
+  // 1997 analog (HSBC Neumann): JPY −57% then sudden reversal → EM exodus
+  const jpyHistory30 = await getLastN('usdjpy_spot', 30);
+  const jpyChange1m = jpyCurrent && jpyHistory30.length > 1
+    ? parseFloat((((jpyCurrent.value - jpyHistory30[0]!.value) / jpyHistory30[0]!.value) * 100).toFixed(2))
+    : null;
+  // negative jpyChange1m = USDJPY falling = JPY appreciating = carry unwind
+  const jpyCarryUnwind: AseanRelativeValueOutput['jpyCarryUnwind'] =
+    jpyChange1m === null ? null :
+    jpyChange1m < -5  ? 'acute'  :   // >5% JPY appreciation in 1M → acute EM capital flight (Aug 2024 analog)
+    jpyChange1m < -2  ? 'unwind' :   // 2-5% JPY strength → carry unwinding
+    jpyChange1m < 0   ? 'watch'  :   // JPY strengthening but mild → watch
+    'alive';                          // JPY weakening/flat → carry trade alive
+
   const carryLabel: AseanRelativeValueOutput['carryLabel'] =
     realCarry === null ? null :
     realCarry > 3.0 ? 'attractive' :
@@ -194,6 +214,15 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
     flags.push(`Carry thin: real carry ${realCarry.toFixed(2)}pp — thin margin before carry trade unwinds. Watch SBN foreign ownership trend`);
   }
 
+  // JPY carry unwind flags
+  if (jpyCarryUnwind === 'acute') {
+    flags.push(`JPY CARRY UNWIND ACUTE: USDJPY ${jpyCurrent?.value?.toFixed(1) ?? 'n/a'}, JPY +${Math.abs(jpyChange1m!).toFixed(1)}% vs USD (1M) — sudden yen strength triggers EM capital flight; 1997 + Aug 2024 analog. Watch M5 foreign flow and SBN ownership for rapid exit [HSBC Neumann 1997 pattern]`);
+  } else if (jpyCarryUnwind === 'unwind') {
+    flags.push(`JPY carry unwinding: USDJPY ${jpyCurrent?.value?.toFixed(1) ?? 'n/a'}, JPY +${Math.abs(jpyChange1m!).toFixed(1)}% (1M) — carry trade retreating; EM inflow tailwind weakening`);
+  } else if (jpyCarryUnwind === 'watch') {
+    flags.push(`JPY carry watch: USDJPY ${jpyCurrent?.value?.toFixed(1) ?? 'n/a'}, JPY mildly stronger (${jpyChange1m!.toFixed(1)}% 1M) — monitor for acceleration`);
+  }
+
   // Freshness gate — ASEAN FX peers + carry inputs (keyed on usdidr + ust_10y as proxies)
   const [freshUsdidr, freshUst] = await Promise.all([
     getFreshPoint('usdidr_spot'),
@@ -226,6 +255,9 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
     idr3mAnnualizedPct: idr3mAnnualized,
     realCarryPct: realCarry,
     carryLabel,
+    jpySpot: jpyCurrent?.value ?? null,
+    jpyChange1m,
+    jpyCarryUnwind,
     narrative,
     flags,
   };
@@ -295,6 +327,14 @@ function formatOutput(output: AseanRelativeValueOutput & { idrSpotPrice?: number
     `| Real carry (UIP-adjusted) | ${output.realCarryPct !== null ? (output.realCarryPct >= 0 ? '+' : '') + output.realCarryPct.toFixed(2) + 'pp' : 'n/a'} |`,
     `| Carry status | ${output.carryLabel?.toUpperCase() ?? 'n/a'} |`,
     `_UIP (R&R): if real carry < 0, yield no longer compensates FX loss — rational foreign investors exit SBN. Leads Module 5 foreign flow data by 2-3 weeks._`,
+    ``,
+    `## JPY Carry Unwind Signal (HSBC 1997 Analog)`,
+    `| Component | Value |`,
+    `|-----------|-------|`,
+    `| USDJPY spot | ${output.jpySpot !== null ? output.jpySpot.toFixed(2) : 'n/a'} |`,
+    `| JPY 1M change vs USD | ${output.jpyChange1m !== null ? (output.jpyChange1m >= 0 ? '+' : '') + output.jpyChange1m.toFixed(2) + '%' : 'n/a'} |`,
+    `| Carry trade status | ${output.jpyCarryUnwind?.toUpperCase() ?? 'n/a'} |`,
+    `_JPY strengthening (USDJPY falling) = carry unwind = EM capital flight risk. Thresholds: >2% JPY strength/1M = UNWIND; >5% = ACUTE (Aug 2024 analog)._`,
     ``,
     output.flags.length > 0 ? `## Flags\n${output.flags.map((f) => `- ${f}`).join('\n')}` : '',
   ]

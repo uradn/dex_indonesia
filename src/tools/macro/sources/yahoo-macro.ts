@@ -107,6 +107,7 @@ const ASEAN_FX_META: Record<string, { currency: string; indicator: string; unit:
   'THB=X': { currency: 'THB', indicator: 'usdthb_spot', unit: 'THB/USD', min: 28,    max: 45    },
   'PHP=X': { currency: 'PHP', indicator: 'usdphp_spot', unit: 'PHP/USD', min: 50,    max: 75    },
   'VND=X': { currency: 'VND', indicator: 'usdvnd_spot', unit: 'VND/USD', min: 22000, max: 28000 },
+  'JPY=X': { currency: 'JPY', indicator: 'usdjpy_spot', unit: 'JPY/USD', min: 100,   max: 170   },
 };
 
 export async function fetchAseanFxSpots(): Promise<MacroDataPoint[]> {
