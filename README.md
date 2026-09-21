@@ -153,21 +153,22 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - USDIDR: 16,500 | ICP oil: $70/bbl | GDP growth: 5.4% | CPI: 2.5%
 - Revenue: 3,154T | Spending: 3,843T | Deficit: 2.68% GDP
 
-**Live deviations (Sep 15, 2026):**
-- BI Rate: **5.75%** — hike +25bps Jul 2026 (dipertahankan Jul & Agu RDG); DFR 4.75%, LF 6.50%; The Fed FOMC 15-16 Sep (ekspektasi hike +25bps)
-- BI Gov: **Destry Damayanti dilantik 2 Sep 2026** (Keppres 92/P/2026), periode 2026-2031 — fokus pro-stability + pro-growth; BI Rate moneter saja tidak cukup, andalkan bauran kebijakan makroprudensial; GWM rupiah 9%; vacancy M12 trigger diselesaikan. RDG Agu: BI-Rate dipertahankan 5.75% untuk jaga stabilitas IDR dari gejolak Timur Tengah.
-- **Menkeu BARU: Suahasil Nazara** dilantik 14 Sep 2026 15:33 WIB (Keppres No. 97p/2026) — gantikan Purbaya Yudhi Sadewa; Menkeu ke-3 era Prabowo (SMI → Purbaya → Suahasil). Suahasil ex-Wamenkeu sejak Okt 2019 (era SMI+Purbaya). **Prioritas day-1**: jaga APBN kredibel, defisit <3% PDB, transparansi publik, penguatan DJBC (rokok ilegal). Akan gelar konferensi pers ALCo secepatnya untuk publikasi data APBN Jul-Agu 2026 yang belum dirilis Kemenkeu. Pasar nilai positif (kontinuitas fiskal), tapi short-term volatilitas rupiah+obligasi diantisipasi.
-- **APBN Semester I 2026**: Defisit Rp196.5T (0.76% PDB) — mengecil dari Q1 Rp240.1T. Penerimaan pajak Rp1,035.7T (+24.6% YoY). Belanja negara Rp1,656T (43.1% pagu, +17.8% YoY). **Subsidi+kompensasi Rp233T (52.1% target)** — tekanan terbesar: Brent aktual vs APBN $70/bbl. **Outlook full-year: defisit 2.85% PDB = Rp734.3T** (vs target 2.68%). Data Jul-Agu 2026 belum dipublikasikan — Suahasil janji rilis via ALCo secepatnya.
-- Term premium: **~1.41%** (SBN 10Y 7.156% − BI Rate 5.75%) — YELLOW zone (threshold ORANGE 2.0%)
-- S&P interest/revenue ratio: **~20.5%** (belanja bunga 552.7T + BI hike uplift vs revenue aktual) — 5.5pp above S&P 15% negative-watch threshold
-- USDIDR spot: **~17,595** — stabil setelah recovery dari peak 18,032 (Agu)
-- **CAD Q2 2026: −$12.5B = −3.3% PDB** (BI NPI, 21 Agu 2026) — melampaui R&R 3% danger zone; M1 ORANGE
-- Cadev: **$146.5B** (Agu 2026); CDS 5Y: **82.8bps** (Sep 2026); G-G ratio 2.09x
-- Brent: **~$106.93/bbl** (Sep 15 pagi, turun dari $108.3 puncak 14 Sep); ICP YTD Jan-Sep rata-rata $85-90/bbl; ICP **melewati Bahlil $100 threshold** 🔴; Saudi East-West pipeline offline (drone dari Iraq); vessel transits Hormuz ~single digit/hari
-- BBM: Pertamax **Rp15.950** (rollback 1 Agu); Pertamax Green **Rp19.150** (+Rp2.550 efektif 2 Sep); Turbo/Dexlite/Dex juga naik Sep; **Pertalite Rp10,000 + Solar Rp6,800 TIDAK NAIK** (komitmen Bahlil ditegaskan ulang 14 Sep) tapi konsumsi Pertalite over-kuota +12.92% Juli; demand migrasi dari non-subsidi
-- **LNG/Condensate**: JKM spot **$28+/MMBtu** (tertinggi 2.5 tahun, naik dari ~$10 pra-krisis Hormuz); Asia kehilangan ~1/5 pasokan LNG dari Qatar/UAE via Hormuz; Shell estimasi 36 juta ton LNG hilang ytd; Qatar condensate (D.F./L.S.) **~$68/bbl** (vs pra-krisis ~$55-60); Indonesia exposed sebagai LNG importer + net oil importer
-- **Russia-Indonesia Energy Deal**: Framework MoU ~**150 juta barel** G2G crude oil via **Lemigas** + LPG (Apr–Sep 2026); ESPO API 34–36° compatible Pertamina refineries; pricing tidak dipublikasikan ("jangan tanya harga" — Bahlil); ESPO discount vs Brent est. ~$10–15/bbl. Engine override: `RUSSIA_CRUDE_DISCOUNT_USD` (default 0, set saat delivery terkonfirmasi). Lihat [Russia-Indonesia Energy Deal section](#russia-indonesia-energy-deal-2026) untuk detail
-- SCD: **55% 🟠 ORANGE** | M12 Political Risk **79/100 🔴** (reshuffle + BBM social unrest + stability 17/25); **Thesis #10 KEDUA TRIGGER FIRED** (polscore 79>75 + subsidi 247% APBN)
+**Live deviations (Sep 21, 2026):**
+- BI Rate: **5.75%** — hike +25bps Jul 2026 (dipertahankan Jul & Agu RDG); DFR 4.75%, LF 6.50%
+- BI Gov: **Destry Damayanti** (dilantik 2 Sep 2026, Keppres 92/P/2026) — pro-stability + pro-growth; GWM rupiah 9%
+- **Menkeu: Suahasil Nazara** (dilantik 14 Sep 2026, Keppres 97p/2026) — Menkeu ke-3 era Prabowo (SMI → Purbaya → Suahasil); prioritas: APBN kredibel, defisit <3% PDB, transparansi ALCo
+- **APBN Semester I 2026**: Defisit Rp196.5T (0.76% PDB). Subsidi+kompensasi Rp233T (52.1% target). **Outlook full-year: defisit 4.23% GDP** (melampaui 3% constitutional limit per M10 engine Sep 21) — tekanan subsidi energi 247% run-rate vs APBN
+- Term premium: **~1.37%** (SBN 10Y 7.120% − BI Rate 5.75%) — YELLOW zone
+- S&P interest/revenue ratio: **~20.5%** — 5.5pp above S&P 15% negative-watch threshold 🔴
+- USDIDR spot: **~17,830** (melemah dari 17,595 Sep 15; peak 18,032 Agu)
+- **CAD Q2 2026: −$12.5B = −3.3% PDB** — melampaui R&R 3% danger zone; BI harus defend via rate hike atau USD sell
+- Cadev: **$146.5B** (Agu 2026); DNDF contingent $8B → effective reserves **$138.5B**; CDS 5Y: **81.8bps**; G-G ratio **2.09x**
+- Brent: **~$96.5/bbl** (turun dari peak $108.3 Sep 14); margin ke Bahlil $100: **$3.5/bbl** 🟠 ORANGE; Pertalite gap **Rp5,145/L** 🟠
+- BBM: Pertamax Rp15.950 | Pertamax Green Rp19.150 | **Pertalite Rp10,000 + Solar Rp6,800 TIDAK NAIK** (komitmen Bahlil); Solar B50 gap Rp13,514/L 🔴
+- **LNG**: JKM spot $28+/MMBtu; Hormuz effectively closed; vessel transits single digit/hari
+- **Russia-Indonesia Energy Deal**: Framework MoU ~**150 juta barel** G2G crude oil via **Lemigas** + LPG (Apr–Sep 2026); ESPO API 34–36° = Minas-compatible; "jangan tanya harga" (Bahlil); ESPO discount vs Brent est. ~$10–15/bbl → engine override: `RUSSIA_CRUDE_DISCOUNT_USD` (default 0). Lihat [Russia-Indonesia Energy Deal](#russia-indonesia-energy-deal-2026)
+- **Rezim: Q4 Contraction** (Growth↓ Inflation↓) — PMI 49.8 (sub-50); Growth ROC +9.93% accelerating tapi inflation ROC −21.38% deflating
+- SCD: **40% 🟡 YELLOW** (turun dari 55% ORANGE Sep 15) | M12 Political Risk **85/100 🔴** | M10 Fiscal **71/100 🔴** | **Thesis #11 TRIGGERED** (polrisk 85>75 + subsidi 247%); KS#3 SBN asing 13.09% (0.09pp di atas kill threshold); KS#4 CDS 81.8bps < 100bps (perlu 7d sustained)
 
 ### BBM Subsidy Monitoring (Module 11)
 
