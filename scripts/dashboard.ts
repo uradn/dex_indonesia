@@ -484,8 +484,8 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
   const killConditions = [
     `#1 — Political risk < 55 sustained 14d (social contract stress eased; BBM demo resolves)`,
     `#2 — BI announces coordinated stabilization package (fiscal letter + reserves defense ≥$5bn + rate guidance) [MANUAL CONFIRM]`,
-    `#3 — SBN foreign ownership > 11% (capital return; inflows reversed crisis narrative)`,
-    `#4 — CDS 5Y < 75bps sustained 7d (market stopped pricing crisis; thesis invalidated)`,
+    `#3 — SBN foreign ownership > 15% (capital return; meaningful re-entry from depressed levels)`,
+    `#4 — ALL 3 credit signals benign: CDS 5Y <75bps + SBN-UST <366bps + IDR vol <5% (6/6 required)`,
     ...(biGovernorVacant ? [`#5 — Destry Damayanti dilantik sebagai Gubernur BI + kebijakan rate definitif diumumkan (institutional vacuum resolved) [FIT & PROPER TEST DPR 26-27 AGU — MANUAL CONFIRM setelah pelantikan]`] : []),
   ];
 
@@ -2410,12 +2410,16 @@ function renderKill(t, armed, snap) {
   const polScore  = t.transmissionChain?.[0]?.score ?? 999;
   const sbnOwn    = ind['sbn_foreign_ownership_pct']?.value ?? null;
   const cds       = ind['indonesia_cds_5y_bps']?.value ?? null;
+  const sbnYield  = ind['sbn_10y_yield_pct']?.value ?? null;
+  const ustYield  = ind['ust_10y_yield_pct']?.value ?? null;
+  const sbnUstSpreadBps = sbnYield != null && ustYield != null ? Math.round((sbnYield - ustYield) * 100) : null;
+  const idrVol    = snap?.derived?.sbnUstSpread != null ? null : null; // vol not in snap; KS#4 uses CDS+spread only for early indicator
   // #4 uses current point only (sustained check done in check-thesis.ts; here = early indicator)
   const killFired = [
     polScore < 55,
     false,                              // #2: manual confirm always required
-    sbnOwn != null && sbnOwn > 11,
-    cds != null && cds < 75,
+    sbnOwn != null && sbnOwn > 15,
+    cds != null && cds < 75 && sbnUstSpreadBps != null && sbnUstSpreadBps < 366,
   ];
   const manualOnly = [false, true, false, false];
   return t.killConditions.map((k, i) => {

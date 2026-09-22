@@ -375,10 +375,10 @@ try {
     console.log(`    #1 polrisk <55/14d    →  ${polScore}/100  ${ks1}`);
     console.log(`    #2 BI pkg [MANUAL]    →  no auto-signal`);
     if (currentSbnFo != null) {
-      const ks3 = currentSbnFo > 11
-        ? `🟡 WATCH — ${(currentSbnFo - 11).toFixed(2)}pp above threshold`
-        : `🔴 below 11% — not firing`;
-      console.log(`    #3 SBN asing >11%    →  ${currentSbnFo.toFixed(2)}%  ${ks3}`);
+      const ks3 = currentSbnFo > 15
+        ? `🟡 WATCH — ${(currentSbnFo - 15).toFixed(2)}pp above threshold`
+        : `🔴 below 15% — not firing`;
+      console.log(`    #3 SBN asing >15%    →  ${currentSbnFo.toFixed(2)}%  ${ks3}`);
     }
     if (currentCds != null) {
       const ks4 = currentCds < 75

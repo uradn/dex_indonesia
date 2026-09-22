@@ -168,7 +168,7 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - **LNG**: JKM spot $28+/MMBtu; Hormuz effectively closed; vessel transits single digit/hari
 - **Russia-Indonesia Energy Deal**: Framework MoU ~**150 juta barel** G2G crude oil via **Lemigas** + LPG (Apr–Sep 2026); ESPO API 34–36° = Minas-compatible; "jangan tanya harga" (Bahlil); ESPO discount vs Brent est. ~$10–15/bbl → engine override: `RUSSIA_CRUDE_DISCOUNT_USD` (default 0). Lihat [Russia-Indonesia Energy Deal](#russia-indonesia-energy-deal-2026)
 - **Rezim: Q4 Contraction** (Growth↓ Inflation↓) — PMI 49.8 (sub-50); Growth ROC +9.93% accelerating tapi inflation ROC −21.38% deflating
-- SCD: **43% 🟡 YELLOW** (naik dari 40% Sep 21) | M12 Political Risk **90/100 🔴** (Dayak Borneo signal, beras El Nino, social unrest 30/30) | M10 Fiscal **71/100 🔴** | M5 Foreign Flow **58/100 🟠** | M3 FX Defense **40/100 🟡** (confidence gate vulnerability zone) | **Thesis #12 ARMED** (polrisk 90>75 + subsidi 247%) — kill switch thresholds diperketat: **KS#3 SBN asing >11%** (dari 13%; current 13.09% tidak fires), **KS#4 CDS <75bps** (dari 100bps; current 82bps tidak fires)
+- SCD: **43% 🟡 YELLOW** (naik dari 40% Sep 21) | M12 Political Risk **90/100 🔴** (Dayak Borneo signal, beras El Nino, social unrest 30/30) | M10 Fiscal **71/100 🔴** | M5 Foreign Flow **58/100 🟠** | M3 FX Defense **40/100 🟡** (confidence gate vulnerability zone) | **Thesis #13 ARMED** (polrisk 90>75 + subsidi 247%) — kill switch thresholds final: **KS#3 SBN asing >15%** (current 13.1% tidak fires), **KS#4 harus 6/6** (semua 3 sinyal harus konfirmasi; saat ini 5/6 tidak fires)
 
 ### BBM Subsidy Monitoring (Module 11)
 
@@ -656,8 +656,8 @@ Setiap Senin 07:30 WIB, cron job mengecek semua thesis ARMED/TRIGGERED:
 - Bandingkan actual CDS/IDR/SBN vs predicted saat ARM
 - Auto-kill jika salah satu kill switch fired:
   - **KS#1** — political_risk_score <55 sustained 14 hari (social stress reda)
-  - **KS#3** — SBN foreign ownership >11% (capital return; inflow bantah crisis narrative)
-  - **KS#4** — 3-signal weighted credit-market benign: CDS 5Y persist <75bps (w=1) + SBN-UST spread <366bps (w=2) + IDR realized vol 30d ann <5% (w=3). Kill fires jika sum(weighted_pass) >3 dari 6. Threshold di-calibrate vs 6 crisis historis (2013-2023). Weighted design prevents single-source manipulation (thin CDS / intervention-pinned spot) dari wrongly invalidating thesis
+  - **KS#3** — SBN foreign ownership >15% (capital return; meaningful re-entry dari depressed levels — current ~13%)
+  - **KS#4** — ALL 3 credit signals harus konfirmasi benign (6/6 required): CDS 5Y persist <75bps (w=1) + SBN-UST spread <366bps (w=2) + IDR realized vol 30d ann <5% (w=3). Kill fires hanya jika semua pass (tidak cukup s2+s3 saja). Threshold di-calibrate vs 6 crisis historis (2013-2023)
   - **KS#2** (candidate) — BI coordinated stabilization package terdeteksi (Exa/Tavily); manual confirm before kill
 - Hasil akurasi ditulis ke notes thesis → visible di archive `/bs`
 

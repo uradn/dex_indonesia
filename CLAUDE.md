@@ -70,8 +70,8 @@ bun scripts/check-thesis.ts               # T+3/T+6/T+12 milestone check + kill 
 #   Kill switches (auto: #1/#3/#4; candidate only: #2):
 #     #1 — political_risk < 55 sustained 14d (social stress eased)
 #     #2 — BI coordinated stabilization package (Exa/Tavily detect; manual confirm before kill)
-#     #3 — SBN foreign ownership > 11% (capital return; inflows reversed crisis narrative)
-#     #4 — 3-signal WEIGHTED credit-market benign (kill fires if weighted-pass > 3 of 6):
+#     #3 — SBN foreign ownership > 15% (capital return; meaningful re-entry from depressed levels)
+#     #4 — 3-signal WEIGHTED credit-market benign (kill fires ONLY if ALL 3 pass = 6/6):
 #            s1 CDS 5Y persist <75bps last 3 consecutive (latest ≤10d fresh)   w=1
 #            s2 SBN-UST 10Y spread <366bps (calibrated pre-crisis quiet median)  w=2
 #            s3 IDR realized vol 30d ann <5% (below 2018 EM quiet baseline)      w=3

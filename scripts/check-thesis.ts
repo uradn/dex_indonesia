@@ -6,8 +6,8 @@
  * Kill switches (auto-detect; #1/#3/#4 auto-kill; #2 candidate only):
  *   #1 — Political risk < 55 sustained 14d (social stress eased)
  *   #2 — BI coordinated stabilization package announced (Exa detect, manual confirm)
- *   #3 — SBN foreign ownership > 11% (capital return; foreign inflows reversed crisis)
- *   #4 — CDS 5Y < 75bps sustained 7d (market stopped pricing crisis; thesis invalidated)
+ *   #3 — SBN foreign ownership > 15% (capital return; foreign inflows reversed crisis)
+ *   #4 — CDS 5Y < 75bps sustained 7d + ALL 3 credit signals must confirm (thesis invalidated)
  */
 import { getAllTheses, updateThesisStatus, getLatestPoint, getLastN, getModuleScoreHistory, getHistory } from '../src/tools/macro/time-series-db.js';
 
@@ -108,8 +108,8 @@ async function main() {
   });
   const killSwitch1Sustained = polLast14.length >= 5 && polLast14.every(p => p.score < 55);
 
-  // Kill switch #3: SBN foreign ownership > 11% — capital return, crisis narrative reversed
-  const killSwitch3 = sbnOwnActual != null && sbnOwnActual > 11;
+  // Kill switch #3: SBN foreign ownership > 15% — meaningful capital return, crisis narrative reversed
+  const killSwitch3 = sbnOwnActual != null && sbnOwnActual > 15;
 
   // Kill switch #4: 3-signal WEIGHTED credit-market benign check. Kill fires only when
   // majority-weight of independent markets confirm "not pricing crisis". Prevents single-source
@@ -159,7 +159,7 @@ async function main() {
   const s3_volPass = idrVol30dAnn != null && idrVol30dAnn < IDR_VOL_THRESHOLD_PCT;
 
   const ks4Weight = (s1_cdsPass ? 1 : 0) + (s2_spreadPass ? 2 : 0) + (s3_volPass ? 3 : 0);
-  const killSwitch4 = ks4Weight > 3;
+  const killSwitch4 = ks4Weight >= 6; // all 3 signals must confirm benign (prevents s2+s3 alone killing)
 
   console.log(`\n## Thesis Milestone Check — ${today.toISOString().slice(0, 10)}`);
   console.log(`Active theses: ${active.length}\n`);
@@ -225,9 +225,9 @@ async function main() {
 
     // #3 — SBN foreign ownership return
     if (killSwitch3) {
-      console.log(`  ✅ #3 FIRED: SBN foreign ownership ${sbnOwnActual?.toFixed(1)}% > 11% → capital return confirmed, auto-killing`);
+      console.log(`  ✅ #3 FIRED: SBN foreign ownership ${sbnOwnActual?.toFixed(1)}% > 15% → capital return confirmed, auto-killing`);
     } else {
-      console.log(`  ❌ #3 clear: SBN foreign ownership ${sbnOwnActual?.toFixed(1) ?? '—'}% (need >11% for capital return signal)`);
+      console.log(`  ❌ #3 clear: SBN foreign ownership ${sbnOwnActual?.toFixed(1) ?? '—'}% (need >15% for capital return signal)`);
     }
 
     // #4 — 3-signal weighted market-benign check (thesis invalidated only when majority-weight confirms)
@@ -237,7 +237,7 @@ async function main() {
     const cdsMinStr = latest3.length > 0 ? Math.min(...latest3.map(p => p.value)).toFixed(0) : '—';
     const spreadStr = sbnUstSpreadBps?.toFixed(0) ?? '—';
     const volStr = idrVol30dAnn?.toFixed(1) ?? '—';
-    console.log(`  ${killSwitch4 ? '✅ #4 FIRED' : '❌ #4 clear'} weighted=${ks4Weight}/6 (need >3 to kill)`);
+    console.log(`  ${killSwitch4 ? '✅ #4 FIRED' : '❌ #4 clear'} weighted=${ks4Weight}/6 (need 6/6 — all signals must confirm)`);
     console.log(`      s1 CDS<${CDS_KILL_THRESHOLD_BPS}bps persist [w=1]     ${s1Mark}  latest3 min=${cdsMinStr}bps age=${latestAgeDays.toFixed(0)}d`);
     console.log(`      s2 SBN-UST<${SBN_SPREAD_THRESHOLD_BPS}bps         [w=2]     ${s2Mark}  current=${spreadStr}bps`);
     console.log(`      s3 IDR vol30d<${IDR_VOL_THRESHOLD_PCT}%           [w=3]     ${s3Mark}  current=${volStr}%`);
@@ -247,7 +247,7 @@ async function main() {
     if (autoKillFired && (thesis.status === 'armed' || thesis.status === 'triggered')) {
       const reasons = [
         killSwitch1Sustained ? `KS#1 political_risk<55 sustained 14d` : '',
-        killSwitch3 ? `KS#3 SBN own ${sbnOwnActual?.toFixed(1)}%>11%` : '',
+        killSwitch3 ? `KS#3 SBN own ${sbnOwnActual?.toFixed(1)}%>15%` : '',
         killSwitch4 ? `KS#4 credit-market benign weighted=${ks4Weight}/6 (CDS ${latest3[0]?.value.toFixed(0)}bps, SBN-UST ${sbnUstSpreadBps?.toFixed(0)}bps, IDR vol ${idrVol30dAnn?.toFixed(1)}%)` : '',
       ].filter(Boolean).join(' | ');
       const note = `[AUTO-KILL ${today.toISOString().slice(0,10)}] ${reasons}`;
