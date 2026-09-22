@@ -8,6 +8,7 @@ import { runSovereignRiskEngine } from '../src/tools/macro/sovereign-risk-engine
 import { runForeignFlowEngine } from '../src/tools/macro/foreign-flow-engine.js';
 import { runCommodityEngine } from '../src/tools/macro/commodity-engine.js';
 import { runRegimeEngine } from '../src/tools/macro/regime-engine.js';
+import { runAseanRelativeValueEngine } from '../src/tools/macro/asean-relative-value-engine.js';
 import { runNarrativeDivergenceEngine } from '../src/tools/macro/narrative-divergence-engine.js';
 import { runBankingStressEngine } from '../src/tools/macro/banking-stress-engine.js';
 import { runMarketStressEngine } from '../src/tools/macro/market-stress-engine.js';
@@ -28,7 +29,7 @@ function emoji(level: string): string {
 console.log(`\n# Indonesia Macro Morning Brief — ${DATE}`);
 console.log('Running all 13 modules in parallel...\n');
 
-const [fx, bop, sov, flow, commodity, regime, narrative, banking, market, fiscal, domestic, political, uln] =
+const [fx, bop, sov, flow, commodity, regime, aseanRv, narrative, banking, market, fiscal, domestic, political, uln] =
   await Promise.allSettled([
     runFxDefenseEngine(),
     runBoPEngine(),
@@ -36,6 +37,7 @@ const [fx, bop, sov, flow, commodity, regime, narrative, banking, market, fiscal
     runForeignFlowEngine(),
     runCommodityEngine(),
     runRegimeEngine(),
+    runAseanRelativeValueEngine(),
     runNarrativeDivergenceEngine(),
     runBankingStressEngine(),
     runMarketStressEngine(),
@@ -153,64 +155,86 @@ if (regime.status === 'fulfilled') {
   console.log(`\n### 6. Regime  ❌ ${String(regime.reason).slice(0, 80)}`);
 }
 
-// 7 — Narrative Credibility
+// 7 — ASEAN Relative Value (M7) — JPY carry unwind + IDR idiosyncratic component
+if (aseanRv.status === 'fulfilled') {
+  const r = aseanRv.value;
+  const m7Score = Math.min(100, Math.round(Math.abs(r.idiosyncraticComponent ?? 0) * 10));
+  const jpyLine = r.jpySpot !== null
+    ? `USDJPY: ${r.jpySpot.toFixed(2)} | JPY 1M: ${r.jpyChange1m !== null ? (r.jpyChange1m >= 0 ? '+' : '') + r.jpyChange1m.toFixed(2) + '%' : 'n/a'} | Carry: ${r.jpyCarryUnwind?.toUpperCase() ?? 'n/a'}`
+    : 'USDJPY: n/a';
+  const carryLine = r.carrySpreadPct !== null
+    ? `SBN-UST spread: ${r.carrySpreadPct.toFixed(2)}pp | Carry status: ${r.carryLabel?.toUpperCase() ?? 'n/a'}`
+    : '';
+  const idioLine = r.idiosyncraticComponent !== null
+    ? `IDR idiosyncratic: ${r.idiosyncraticComponent >= 0 ? '+' : ''}${r.idiosyncraticComponent.toFixed(2)}pp vs ASEAN median`
+    : '';
+  console.log(`\n### 7. ASEAN Relative Value  ${emoji(r.alertLevel)} ${m7Score}/100`);
+  console.log(`  ${jpyLine}`);
+  if (carryLine) console.log(`  ${carryLine}`);
+  if (idioLine) console.log(`  ${idioLine}`);
+  for (const f of r.flags.slice(0, 3)) console.log(`  ⚠️  ${f}`);
+} else {
+  console.log(`\n### 7. ASEAN Relative Value  ❌ ${String((aseanRv as PromiseRejectedResult).reason).slice(0, 80)}`);
+}
+
+// 8 — Narrative Credibility
 // narrativeCredibilityScore = 100 − avgDivergence (higher = more credible = LESS stress).
 // Display stress score = 100 − credibility, consistent with all other modules.
 if (narrative.status === 'fulfilled') {
   const r = narrative.value;
   const narrativeStress = 100 - r.narrativeCredibilityScore;
-  console.log(`\n### 7. Narrative Credibility  ${emoji(r.alertLevel)} ${narrativeStress}/100`);
+  console.log(`\n### 8. Narrative Credibility  ${emoji(r.alertLevel)} ${narrativeStress}/100`);
   console.log(`  Credibility index: ${r.narrativeCredibilityScore}/100`);
   for (const f of r.flags.slice(0, 2)) console.log(`  ⚠️  ${f}`);
 } else {
-  console.log(`\n### 7. Narrative  ❌ ${String(narrative.reason).slice(0, 80)}`);
+  console.log(`\n### 8. Narrative  ❌ ${String(narrative.reason).slice(0, 80)}`);
 }
 
-// 8 — Banking Stress
+// 9 — Banking Stress
 if (banking.status === 'fulfilled') {
   const r = banking.value;
-  console.log(`\n### 8. Banking Stress  ${emoji(r.alert)} ${r.stressScore}/100`);
+  console.log(`\n### 9. Banking Stress  ${emoji(r.alert)} ${r.stressScore}/100`);
   console.log(`  NPL: ${r.nplPct?.toFixed(2) ?? 'n/a'}% | LDR: ${r.ldrPct?.toFixed(1) ?? 'n/a'}% | CAR: ${r.carPct?.toFixed(1) ?? 'n/a'}%`);
   for (const f of r.flags ?? []) console.log(`  ⚠️  ${f}`);
 } else {
-  console.log(`\n### 8. Banking  ❌ ${String(banking.reason).slice(0, 80)}`);
+  console.log(`\n### 9. Banking  ❌ ${String(banking.reason).slice(0, 80)}`);
 }
 
-// 9 — Market Stress
+// 10 — Market Stress
 if (market.status === 'fulfilled') {
   const r = market.value;
-  console.log(`\n### 9. Market (IHSG)  ${emoji(r.alert)} ${r.stressScore}/100`);
+  console.log(`\n### 10. Market (IHSG)  ${emoji(r.alert)} ${r.stressScore}/100`);
   console.log(`  P/E: ${r.peRatio?.toFixed(1) ?? 'n/a'} | A/D ratio: ${r.adRatio?.toFixed(2) ?? 'n/a'}`);
   for (const f of r.flags ?? []) console.log(`  ⚠️  ${f}`);
 } else {
-  console.log(`\n### 9. Market  ❌ ${String(market.reason).slice(0, 80)}`);
+  console.log(`\n### 10. Market  ❌ ${String(market.reason).slice(0, 80)}`);
 }
 
-// 10 — Fiscal
+// 11 — Fiscal
 if (fiscal.status === 'fulfilled') {
   const r = fiscal.value;
-  console.log(`\n### 10. Fiscal  ${emoji(r.alert)} ${r.stressScore}/100`);
+  console.log(`\n### 11. Fiscal  ${emoji(r.alert)} ${r.stressScore}/100`);
   console.log(`  Revenue absorption: ${r.revenueAbsorptionPct?.toFixed(0) ?? 'n/a'}% | Projected deficit: ${r.projectedDeficitPctGdp?.toFixed(2) ?? 'n/a'}% GDP`);
   for (const f of r.flags) console.log(`  ⚠️  ${f}`);
 } else {
-  console.log(`\n### 10. Fiscal  ❌ ${String(fiscal.reason).slice(0, 80)}`);
+  console.log(`\n### 11. Fiscal  ❌ ${String(fiscal.reason).slice(0, 80)}`);
 }
 
-// 11 — Domestic Pressure (food/CPI)
+// 12 — Domestic Pressure (food/CPI)
 if (domestic.status === 'fulfilled') {
   const r = domestic.value;
-  console.log(`\n### 11. Domestic Pressure  ${emoji(r.alert)} ${r.stressScore}/100`);
+  console.log(`\n### 12. Domestic Pressure  ${emoji(r.alert)} ${r.stressScore}/100`);
   console.log(`  Food CPI: ${r.foodInflationYoy?.toFixed(2) ?? 'n/a'}% YoY | Food Stress Index: ${r.foodStressIndex.toFixed(0)}/100`);
   if (r.domesticPressureAlert) console.log(`  🚨 DOMESTIC PRESSURE ALERT: ${r.spikedCommodities.join(', ')}`);
   for (const f of r.flags) console.log(`  ⚠️  ${f}`);
 } else {
-  console.log(`\n### 11. Domestic Pressure  ❌ ${String(domestic.reason).slice(0, 80)}`);
+  console.log(`\n### 12. Domestic Pressure  ❌ ${String(domestic.reason).slice(0, 80)}`);
 }
 
-// 12 — Political Risk
+// 13 — Political Risk
 if (political.status === 'fulfilled') {
   const r = political.value;
-  console.log(`\n### 12. Political Risk  ${emoji(r.alert)} ${r.stressScore}/100`);
+  console.log(`\n### 13. Political Risk  ${emoji(r.alert)} ${r.stressScore}/100`);
   console.log(`  Unemployment: ${r.unemploymentRate?.toFixed(2) ?? 'n/a'}% | Social unrest: ${r.socialUnrestComponent}/30 | Stability: ${r.stabilityComponent}/25`);
   if (r.seasonalContext) console.log(`  📅 Seasonal: ${r.seasonalContext}`);
   for (const f of r.flags) console.log(`  ⚠️  ${f}`);
@@ -219,18 +243,18 @@ if (political.status === 'fulfilled') {
     r.topHeadlines.slice(0, 3).forEach(h => console.log(`    • ${h}`));
   }
 } else {
-  console.log(`\n### 12. Political Risk  ❌ ${String(political.reason).slice(0, 80)}`);
+  console.log(`\n### 13. Political Risk  ❌ ${String(political.reason).slice(0, 80)}`);
 }
 
-// 13 — ULN / External Debt
+// 14 — ULN / External Debt
 if (uln.status === 'fulfilled') {
   const r = uln.value;
-  console.log(`\n### 13. ULN / External Debt  ${emoji(r.alert)} ${r.stressScore}/100`);
+  console.log(`\n### 14. ULN / External Debt  ${emoji(r.alert)} ${r.stressScore}/100`);
   console.log(`  ULN: $${r.ulnTotalBn?.toFixed(1) ?? 'n/a'}bn | ULN/GDP: ${r.ulnGdpRatioPct?.toFixed(1) ?? 'n/a'}% | DSR: ${r.ulnDsrPct?.toFixed(2) ?? 'n/a'}% (IMF thr 25%)`);
   console.log(`  GG ratio: ${r.greenspanGuidotti?.toFixed(2) ?? 'n/a'} | ST%: ${r.ulnShorttermPct?.toFixed(2) ?? 'n/a'}% | Hedging: ${r.hedgingCompliancePct?.toFixed(1) ?? 'n/a (graceful degrade)'}`);
   for (const f of r.flags) console.log(`  ⚠️  ${f}`);
 } else {
-  console.log(`\n### 13. ULN  ❌ ${String((uln as PromiseRejectedResult).reason).slice(0, 80)}`);
+  console.log(`\n### 14. ULN  ❌ ${String((uln as PromiseRejectedResult).reason).slice(0, 80)}`);
 }
 
 // ─── BOTTOM LINE ───────────────────────────────────────────────────────────
