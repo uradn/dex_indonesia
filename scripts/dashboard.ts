@@ -484,8 +484,8 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
   const killConditions = [
     `#1 — Political risk < 55 sustained 14d (social contract stress eased; BBM demo resolves)`,
     `#2 — BI announces coordinated stabilization package (fiscal letter + reserves defense ≥$5bn + rate guidance) [MANUAL CONFIRM]`,
-    `#3 — SBN foreign ownership > 13% (capital return; inflows reversed crisis narrative)`,
-    `#4 — CDS 5Y < 100bps sustained 7d (market stopped pricing crisis; thesis invalidated)`,
+    `#3 — SBN foreign ownership > 11% (capital return; inflows reversed crisis narrative)`,
+    `#4 — CDS 5Y < 75bps sustained 7d (market stopped pricing crisis; thesis invalidated)`,
     ...(biGovernorVacant ? [`#5 — Destry Damayanti dilantik sebagai Gubernur BI + kebijakan rate definitif diumumkan (institutional vacuum resolved) [FIT & PROPER TEST DPR 26-27 AGU — MANUAL CONFIRM setelah pelantikan]`] : []),
   ];
 
@@ -2414,8 +2414,8 @@ function renderKill(t, armed, snap) {
   const killFired = [
     polScore < 55,
     false,                              // #2: manual confirm always required
-    sbnOwn != null && sbnOwn > 13,
-    cds != null && cds < 100,
+    sbnOwn != null && sbnOwn > 11,
+    cds != null && cds < 75,
   ];
   const manualOnly = [false, true, false, false];
   return t.killConditions.map((k, i) => {

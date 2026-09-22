@@ -6,8 +6,8 @@
  * Kill switches (auto-detect; #1/#3/#4 auto-kill; #2 candidate only):
  *   #1 — Political risk < 55 sustained 14d (social stress eased)
  *   #2 — BI coordinated stabilization package announced (Exa detect, manual confirm)
- *   #3 — SBN foreign ownership > 13% (capital return; foreign inflows reversed crisis)
- *   #4 — CDS 5Y < 100bps sustained 7d (market stopped pricing crisis; thesis invalidated)
+ *   #3 — SBN foreign ownership > 11% (capital return; foreign inflows reversed crisis)
+ *   #4 — CDS 5Y < 75bps sustained 7d (market stopped pricing crisis; thesis invalidated)
  */
 import { getAllTheses, updateThesisStatus, getLatestPoint, getLastN, getModuleScoreHistory, getHistory } from '../src/tools/macro/time-series-db.js';
 
@@ -108,20 +108,20 @@ async function main() {
   });
   const killSwitch1Sustained = polLast14.length >= 5 && polLast14.every(p => p.score < 55);
 
-  // Kill switch #3: SBN foreign ownership > 13% — capital return, crisis narrative reversed
-  const killSwitch3 = sbnOwnActual != null && sbnOwnActual > 13;
+  // Kill switch #3: SBN foreign ownership > 11% — capital return, crisis narrative reversed
+  const killSwitch3 = sbnOwnActual != null && sbnOwnActual > 11;
 
   // Kill switch #4: 3-signal WEIGHTED credit-market benign check. Kill fires only when
   // majority-weight of independent markets confirm "not pricing crisis". Prevents single-source
   // manipulation (thin CDS or intervention-pinned spot) from wrongly invalidating thesis.
   //
   // Signals (weights reflect information quality):
-  //   s1 — CDS 5Y persist < 100bps (last 3 consecutive readings, latest ≤10d fresh)   w=1
+  //   s1 — CDS 5Y persist < 75bps (last 3 consecutive readings, latest ≤10d fresh)   w=1
   //   s2 — SBN-UST 10Y spread < 366bps (below historical pre-crisis quiet-zone median) w=2
   //   s3 — IDR realized vol 30d ann < 5% (below 2018 EM quiet baseline)               w=3
   // Kill fires if sum(weights_passed) > 3 (of 6 max). Equivalent to: any 2 of {s2, s3}
   // OR all three. Prevents kill on CDS+SBN benign only (both distortable by intervention).
-  const CDS_KILL_THRESHOLD_BPS = 100;
+  const CDS_KILL_THRESHOLD_BPS = 75;
   const CDS_MAX_AGE_DAYS = 10;
   const SBN_SPREAD_THRESHOLD_BPS = 366;   // calibrated: 80% × median-of-p75 across 6 crises (real UST fix applied)
   const IDR_VOL_THRESHOLD_PCT = 5;         // calibrated: below 2018 EM quiet-zone p75 (3.47%) buffered
@@ -225,9 +225,9 @@ async function main() {
 
     // #3 — SBN foreign ownership return
     if (killSwitch3) {
-      console.log(`  ✅ #3 FIRED: SBN foreign ownership ${sbnOwnActual?.toFixed(1)}% > 13% → capital return confirmed, auto-killing`);
+      console.log(`  ✅ #3 FIRED: SBN foreign ownership ${sbnOwnActual?.toFixed(1)}% > 11% → capital return confirmed, auto-killing`);
     } else {
-      console.log(`  ❌ #3 clear: SBN foreign ownership ${sbnOwnActual?.toFixed(1) ?? '—'}% (need >13% for capital return signal)`);
+      console.log(`  ❌ #3 clear: SBN foreign ownership ${sbnOwnActual?.toFixed(1) ?? '—'}% (need >11% for capital return signal)`);
     }
 
     // #4 — 3-signal weighted market-benign check (thesis invalidated only when majority-weight confirms)
@@ -247,7 +247,7 @@ async function main() {
     if (autoKillFired && (thesis.status === 'armed' || thesis.status === 'triggered')) {
       const reasons = [
         killSwitch1Sustained ? `KS#1 political_risk<55 sustained 14d` : '',
-        killSwitch3 ? `KS#3 SBN own ${sbnOwnActual?.toFixed(1)}%>13%` : '',
+        killSwitch3 ? `KS#3 SBN own ${sbnOwnActual?.toFixed(1)}%>11%` : '',
         killSwitch4 ? `KS#4 credit-market benign weighted=${ks4Weight}/6 (CDS ${latest3[0]?.value.toFixed(0)}bps, SBN-UST ${sbnUstSpreadBps?.toFixed(0)}bps, IDR vol ${idrVol30dAnn?.toFixed(1)}%)` : '',
       ].filter(Boolean).join(' | ');
       const note = `[AUTO-KILL ${today.toISOString().slice(0,10)}] ${reasons}`;

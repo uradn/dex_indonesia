@@ -375,16 +375,16 @@ try {
     console.log(`    #1 polrisk <55/14d    →  ${polScore}/100  ${ks1}`);
     console.log(`    #2 BI pkg [MANUAL]    →  no auto-signal`);
     if (currentSbnFo != null) {
-      const ks3 = currentSbnFo > 13
-        ? `🟡 WATCH — ${(currentSbnFo - 13).toFixed(2)}pp above threshold`
-        : `🔴 below 13% — not firing`;
-      console.log(`    #3 SBN asing >13%    →  ${currentSbnFo.toFixed(2)}%  ${ks3}`);
+      const ks3 = currentSbnFo > 11
+        ? `🟡 WATCH — ${(currentSbnFo - 11).toFixed(2)}pp above threshold`
+        : `🔴 below 11% — not firing`;
+      console.log(`    #3 SBN asing >11%    →  ${currentSbnFo.toFixed(2)}%  ${ks3}`);
     }
     if (currentCds != null) {
-      const ks4 = currentCds < 100
+      const ks4 = currentCds < 75
         ? '🟡 BELOW THRESHOLD — run check-thesis.ts to verify 7d sustained'
         : '🔴 not firing';
-      console.log(`    #4 CDS <100 bps/7d   →  ${currentCds.toFixed(1)} bps  ${ks4}`);
+      console.log(`    #4 CDS <75 bps/7d    →  ${currentCds.toFixed(1)} bps  ${ks4}`);
     }
     const hasKs5 = thesis.killConditions.some(k => k.includes('#5'));
     if (hasKs5) {
