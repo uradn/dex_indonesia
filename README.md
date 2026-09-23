@@ -153,22 +153,22 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - USDIDR: 16,500 | ICP oil: $70/bbl | GDP growth: 5.4% | CPI: 2.5%
 - Revenue: 3,154T | Spending: 3,843T | Deficit: 2.68% GDP
 
-**Live deviations (Sep 22, 2026):**
-- BI Rate: **5.75%** — hike +25bps Jul 2026 (dipertahankan Jul & Agu RDG); DFR 4.75%, LF 6.50%
+**Live deviations (Sep 23, 2026):**
+- BI Rate: **5.75%** — tahan Sep 23 RDG (Destry perdana, 4 bulan beruntun Jun–Sep); DFR 4.75%, LF 6.50%
 - BI Gov: **Destry Damayanti** (dilantik 2 Sep 2026, Keppres 92/P/2026) — pro-stability + pro-growth; GWM rupiah 9%
 - **Menkeu: Suahasil Nazara** (dilantik 14 Sep 2026, Keppres 97p/2026) — Menkeu ke-3 era Prabowo (SMI → Purbaya → Suahasil); prioritas: APBN kredibel, defisit <3% PDB, transparansi ALCo
-- **APBN Semester I 2026**: Defisit Rp196.5T (0.76% PDB). Subsidi+kompensasi Rp233T (52.1% target). **Outlook full-year: defisit 4.23% GDP** (melampaui 3% constitutional limit per M10 engine Sep 21) — tekanan subsidi energi 247% run-rate vs APBN
+- **APBN Semester I 2026**: Defisit Rp196.5T (0.76% PDB). Subsidi+kompensasi Rp233T (52.1% target). **Outlook full-year: defisit 4.23% GDP** (melampaui 3% constitutional limit per M10 engine) — tekanan subsidi energi 247% run-rate vs APBN
 - Term premium: **~1.37%** (SBN 10Y 7.120% − BI Rate 5.75%) — YELLOW zone
 - S&P interest/revenue ratio: **~20.5%** — 5.5pp above S&P 15% negative-watch threshold 🔴
-- USDIDR spot: **~17,875** (melemah dari 17,595 Sep 15; peak 18,032 Agu)
+- USDIDR spot: **~17,800** (menguat dari 17,875 Sep 22; peak 18,032 Agu)
 - **CAD Q2 2026: −$12.5B = −3.3% PDB** — melampaui R&R 3% danger zone; BI harus defend via rate hike atau USD sell
 - Cadev: **$146.5B** (Agu 2026); DNDF contingent $8B → effective reserves **$138.5B**; CDS 5Y: **81.8bps**; G-G ratio **2.09x**
-- Brent: **~$97.2/bbl** (turun dari peak $108.3 Sep 14); margin ke Bahlil $100: **$2.8/bbl** 🔴 ORANGE; Pertalite gap **~Rp5,303/L** 🟠
-- BBM: Pertamax Rp15.950 | Pertamax Green Rp19.150 | **Pertalite Rp10,000 + Solar Rp6,800 TIDAK NAIK** (komitmen Bahlil); Solar B50 gap Rp13,514/L 🔴
+- Brent: **~$98.6/bbl** (naik dari $97.2 Sep 22); margin ke Bahlil $100: **$1.4/bbl** 🔴 KRITIS; Pertalite gap **~Rp5,449/L** 🟠; Solar B50 gap **Rp13,615/L** 🔴
+- BBM: Pertamax Rp15.950 | Pertamax Green Rp19.150 | **Pertalite Rp10,000 + Solar Rp6,800 TIDAK NAIK** (komitmen Bahlil)
 - **LNG**: JKM spot $28+/MMBtu; Hormuz effectively closed; vessel transits single digit/hari
 - **Russia-Indonesia Energy Deal**: Framework MoU ~**150 juta barel** G2G crude oil via **Lemigas** + LPG (Apr–Sep 2026); ESPO API 34–36° = Minas-compatible; "jangan tanya harga" (Bahlil); ESPO discount vs Brent est. ~$10–15/bbl → engine override: `RUSSIA_CRUDE_DISCOUNT_USD` (default 0). Lihat [Russia-Indonesia Energy Deal](#russia-indonesia-energy-deal-2026)
 - **Rezim: Q4 Contraction** (Growth↓ Inflation↓) — PMI 49.8 (sub-50); Growth ROC +9.93% accelerating tapi inflation ROC −21.38% deflating
-- SCD: **43% 🟡 YELLOW** (naik dari 40% Sep 21) | M12 Political Risk **90/100 🔴** (Dayak Borneo signal, beras El Nino, social unrest 30/30) | M10 Fiscal **71/100 🔴** | M5 Foreign Flow **58/100 🟠** | M3 FX Defense **40/100 🟡** (confidence gate vulnerability zone) | **Thesis #13 ARMED** (polrisk 90>75 + subsidi 247%) — kill switch thresholds final: **KS#3 SBN asing >15%** (current 13.1% tidak fires), **KS#4 harus 6/6** (semua 3 sinyal harus konfirmasi; saat ini 5/6 tidak fires)
+- SCD: **39% 🟡 YELLOW** (↓ dari 43% Sep 22) | M12 Political Risk **81/100 🔴** (sembako spike beras+gula, KSPI unrest) | M10 Fiscal **71/100 🔴** | M5 Foreign Flow **58/100 🟠** | M3 FX Defense **24/100 🟢** (score turun tapi confidence gate vulnerability zone masih aktif DC-AC=+5) | **Thesis #14 TRIGGERED** (polrisk 81>75 + subsidi 247%; armed Sep 22) — targets T+12: CDS 164bps, USDIDR 20,020, SBN 8.62% | kill switches: KS#2 false positive confirmed (BI "7 measures" = paket May 2026, bukan baru), KS#3 SBN asing 13.1% (need >15%), KS#4 CDS 81.8bps (need <75 persist 3d, saat ini 5/6)
 
 ### BBM Subsidy Monitoring (Module 11)
 
