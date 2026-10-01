@@ -24,6 +24,8 @@ import { fetchFiscalRealization } from './sources/kemenkeu.js';
 import { fetchSubsidiRealisasi } from './sources/subsidi.js';
 import { fetchMbgRealisasi, MBG_APBN_2026_TARGET_TRN } from './sources/mbg.js';
 import { fetchBiodieselStatus } from './sources/biodiesel.js';
+import { fetchFiscalRhetoricExa, fetchFiscalRhetoricTavily } from './sources/fiscal-rhetoric.js';
+import type { FiscalRhetoricResult } from './sources/fiscal-rhetoric.js';
 import type { AlertLevel } from './types.js';
 
 export const FISCAL_DESCRIPTION = `
@@ -94,6 +96,7 @@ interface BarroGordon {
     marketCredibilityCost: number; // 0–100
     fiscalSpaceTight: number;    // 0–100
   };
+  rhetoricalNetSignal: number;   // Gap A: [-3,+3] from Exa scan; 0 = no data / neutral
   scoreBump: number;             // contribution to M10 stress score
   flags: string[];
 }
@@ -103,6 +106,7 @@ function computeBarroGordon(
   projectedDeficitPctGdp: number | null,
   spInterestRevenuePct: number | null,
   revenueAbsorptionPct: number | null,
+  rhetoricalNetSignal: number,  // Gap A: [-3,+3] from Exa rhetoric scan; pos=commitment, neg=discretion
 ): BarroGordon {
   // Signal 1: subsidy run-rate → populist pressure on new minister
   const subsidyPressure = subsidiBbmRunRatePct === null ? 40
@@ -131,12 +135,17 @@ function computeBarroGordon(
     : revenueAbsorptionPct < 80 ? 55
     : revenueAbsorptionPct < 90 ? 30 : 0;
 
-  const credibilityIndex = Math.round(
+  const baseCI = Math.round(
     subsidyPressure     * 0.35 +
     deficitBreachRisk   * 0.25 +
     marketCredibilityCost * 0.25 +
     fiscalSpaceTight    * 0.15,
   );
+
+  // Gap A — rhetorical adjustment: each net signal unit = ±2 CI pts (max ±6).
+  // Negative netSignal (discretion) = CI UP (more stress). Positive (commitment) = CI DOWN.
+  const rhetoricAdjustment = rhetoricalNetSignal * -2;  // [-3,+3] → [-6,+6] inverted
+  const credibilityIndex = Math.max(0, Math.min(100, baseCI - rhetoricAdjustment));
 
   const regime: BarroGordon['regime'] =
     credibilityIndex >= 70 ? 'discretionary' :
@@ -157,8 +166,14 @@ function computeBarroGordon(
   if (subsidyPressure >= 70) {
     flags.push(`Subsidy pressure HIGH (signal ${subsidyPressure}/100): BBM+LPG run-rate ${subsidiBbmRunRatePct?.toFixed(0) ?? 'n/a'}% of APBN — new Menkeu Suahasil must choose: hike BBM (political cost) or absorb fiscal (credibility cost).`);
   }
+  // Gap A: rhetoric flag when signal non-zero
+  if (rhetoricalNetSignal < -1) {
+    flags.push(`RHETORIC SIGNAL DISCRETION (netSignal ${rhetoricalNetSignal}): recent Menkeu statements lean toward fiscal flexibility — CI adjusted +${Math.abs(rhetoricAdjustment)}pts. [Gap A rhetoric scan]`);
+  } else if (rhetoricalNetSignal > 1) {
+    flags.push(`Rhetoric signal COMMITMENT (netSignal +${rhetoricalNetSignal}): recent Menkeu statements affirm fiscal discipline — CI adjusted −${Math.abs(rhetoricAdjustment)}pts. [Gap A rhetoric scan]`);
+  }
 
-  return { credibilityIndex, regime, signals: { subsidyPressure, deficitBreachRisk, marketCredibilityCost, fiscalSpaceTight }, scoreBump, flags };
+  return { credibilityIndex, regime, signals: { subsidyPressure, deficitBreachRisk, marketCredibilityCost, fiscalSpaceTight }, rhetoricalNetSignal, scoreBump, flags };
 }
 
 interface FiscalOutput {
@@ -444,12 +459,21 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     : gdpGrowthPct !== null                                  ? 'neutral'
     : 'unknown';
 
+  // ── Gap A: Fiscal Rhetoric Scan (Exa → Tavily fallback) ──────────────────────
+  // Fetch in parallel with nothing — non-blocking, best-effort. Returns null if no API key or no signal.
+  let rhetoricResult: FiscalRhetoricResult | null = null;
+  try {
+    rhetoricResult = await fetchFiscalRhetoricExa() ?? await fetchFiscalRhetoricTavily();
+  } catch { /* rhetoric scan is enhancement only — never fail M10 */ }
+  const rhetoricalNetSignal = rhetoricResult?.netSignal ?? 0;
+
   // ── Barro-Gordon (P1 Game Theory) ────────────────────────────────────────────
   const barroGordon = computeBarroGordon(
     subsidiBbmLpgRunRatePct,
     projectedDeficitPctGdp,
     spInterestRevenuePct,
     revenueAbsorptionPct,
+    rhetoricalNetSignal,
   );
   stressScore = Math.min(100, stressScore + barroGordon.scoreBump);
 
