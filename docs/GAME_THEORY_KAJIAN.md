@@ -178,9 +178,10 @@ KESIMPULAN: Dexter sekarang **~51% GT coverage** (naik dari 35% Sep 14 → 51% S
 | **Political economy** | ⏳ Open | — | Veto player mapping, Poltracking time series | 8 bulan |
 | **Bayesian M6** | ⏳ Open | Partial: Sobel cheap-talk posterior | Full likelihood calibration dari 6 krisis | 6 bulan dev |
 | **Gap A — M10 Rhetoric** | ⏳ Open | — | Kemenkeu press release keyword feed; commitment taxonomy | 2 minggu |
-| **Gap B — Multiplier Regime** | ⏳ Open | — | SBN 2Y yield (WGB Playwright); output gap proxy | 3 minggu |
-| **Gap C — Cross-Module Chain** | ⏳ Open | — | Correlation matrix M10↔M6↔M3↔M8 dari backtest (no new data) | 4 minggu |
-| **Gap D — D-D Backstop** | ⏳ Open | — | M10 CI proxy (short-term); LPS adequacy ratio annual (long-term) | 1 minggu (short-term) |
+| **Gap B — Multiplier Regime** | ✅ DONE Oct 1 | `multiplierRegime` di M10 — rate_gap vs neutral 4.5% + growth_gap vs potential 5.4%; LOW_MULTIPLIER aktif Oct 2026 | SBN 2Y yield (WGB hanya 6wk data — tidak viable; pakai sbn10y−bi_rate slope proxy) | — |
+| **Gap C — Cross-Module Chain** | ✅ DONE Oct 1 | `chainAmplification` di SCD — +max 8pp ketika M10≥55 AND M6≥60 AND M3≥55; theoretical prior corr 0.179 (kalibrasi setelah ≥90d live data) | Tidak ada; correlations hardcoded theoretical prior | — |
+| **Gap D short-term** | ✅ DONE Oct 1 | `backstopStrained` di M8 D-D kondisi ke-6 (weight 0.5) — `apbn_deficit_pct_gdp > 4.5%` dari DB; effective max 5.5 conditions | Tidak ada; baca DB yang sudah ada | — |
+| **Gap D long-term** | ⏳ Open | — | Env var `LPS_FUND_ADEQUACY_PCT` (pola BI_DNDF); manual seed dari LPS Laporan Tahunan ~April | 1 hari |
 
 ---
 
@@ -372,17 +373,17 @@ lps_fund_adequacy_pct (new indicator):
 
 ## Prioritas Implementasi (Updated Oct 2026)
 
-| Gap | Effort | Data Baru Dibutuhkan | Impact | Prioritas |
+| Gap | Status | Effort | Data | Impact |
 |---|---|---|---|---|
-| **Gap D short-term** | 1 minggu | Tidak ada | M8 backstop realism | P1-next |
-| **Gap A rhetoric** | 2 minggu | Keyword taxonomy (manual) | M10 leading indicator | P2-next |
-| **Gap B partial** | 1 minggu | Tidak ada (pakai proxy) | M10 cycle-awareness | P3-next |
-| **Gap B full** | 3 minggu | SBN 2Y yield (WGB) | M10 + R&R yield curve | P4-next |
-| **Gap C chain** | 4 minggu | Tidak ada (offline compute) | SCD architecture | P5-next (3rd-gen Phase 1) |
-| **Gap D long-term** | 2 minggu | LPS adequacy annual | M8 backstop precision | P6-next |
+| **Gap D short-term** | ✅ DONE Oct 1 | — | Tidak ada | M8 backstop realism |
+| **Gap B partial** | ✅ DONE Oct 1 | — | slope proxy (sbn10y−bi_rate) | M10 cycle-awareness |
+| **Gap C chain** | ✅ DONE Oct 1 | — | Theoretical prior (kalibrasi ≥90d) | SCD architecture |
+| **Gap A rhetoric** | ⏳ Open | 2 minggu | Exa (existing key) + keyword taxonomy | M10 leading indicator |
+| **Gap D long-term** | ⏳ Open | 1 hari | Env var LPS_FUND_ADEQUACY_PCT | M8 backstop precision |
+| **Gap B full** | ⏳ Open (deprioritized) | — | SBN 2Y tidak feasible (WGB 6wk only) | Resolved via proxy |
 
-**Gap C adalah yang paling impactful** — ini fondasi 3rd-gen balance sheet (Thread 9, roadmap Mar 2027). Gap A + D short-term bisa dikerjakan paralel dalam 2 minggu. Gap B partial tidak butuh data baru — bisa inline dalam Gap A sprint.
+**Gap A rhetoric adalah satu-satunya gap yang masih actionable.** Gap D long-term = 1 hari kerja (env var). Gap B full = tidak feasible (WGB Indonesia 2Y hanya Apr-Jun 2022).
 
 ---
 
-*Dokumen: docs/GAME_THEORY_KAJIAN.md | Generated: Sep 14 2026 | Updated: Sep 16 2026 (P1+P2+P3 implemented, coverage 35%→51%) | Updated: Oct 1 2026 (Gap A-D dari Chatib Basri fiskal kajian, solusi dirancang) | Victor @ Sadasa Intelligence*
+*Dokumen: docs/GAME_THEORY_KAJIAN.md | Generated: Sep 14 2026 | Updated: Sep 16 2026 (P1+P2+P3 implemented, 35%→51%) | Updated: Oct 1 2026 (Gap A-D dirancang dari Chatib Basri; Gap B/C/D implemented same day; Gap A open) | Victor @ Sadasa Intelligence*
