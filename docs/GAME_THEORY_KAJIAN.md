@@ -1,6 +1,7 @@
 # Kajian Game Theory dalam Dexter — Sep 16 2026
 **"Dari 35% ke 63%: Roadmap Game Theory untuk Silent Crisis Detector"**
 > **Update Sep 16 2026:** P1 Barro-Gordon, P2 Diamond-Dybvig, P3 Herding cascade — semua implemented Sep 15. Coverage naik 35% → **~51%**. Milestone Des 2026 (49%) terlampaui lebih awal.
+> **Update Oct 1 2026:** Kajian Chatib Basri "Perlukah Batas Defisit APBN 3 Persen?" (Kompas) mengekspos 4 implementation gap baru — Gap A (rhetoric tracking), Gap B (multiplier regime), Gap C (cross-module CI chain), Gap D (D-D sovereign backstop). Detail di Bagian 3.
 
 ---
 
@@ -176,6 +177,10 @@ KESIMPULAN: Dexter sekarang **~51% GT coverage** (naik dari 35% Sep 14 → 51% S
 | **3rd-gen balance sheet** | ⏳ Open | — | FX hedging ratio korporasi, currency mismatch | SULNI quarterly + 6 bulan dev |
 | **Political economy** | ⏳ Open | — | Veto player mapping, Poltracking time series | 8 bulan |
 | **Bayesian M6** | ⏳ Open | Partial: Sobel cheap-talk posterior | Full likelihood calibration dari 6 krisis | 6 bulan dev |
+| **Gap A — M10 Rhetoric** | ⏳ Open | — | Kemenkeu press release keyword feed; commitment taxonomy | 2 minggu |
+| **Gap B — Multiplier Regime** | ⏳ Open | — | SBN 2Y yield (WGB Playwright); output gap proxy | 3 minggu |
+| **Gap C — Cross-Module Chain** | ⏳ Open | — | Correlation matrix M10↔M6↔M3↔M8 dari backtest (no new data) | 4 minggu |
+| **Gap D — D-D Backstop** | ⏳ Open | — | M10 CI proxy (short-term); LPS adequacy ratio annual (long-term) | 1 minggu (short-term) |
 
 ---
 
@@ -193,4 +198,191 @@ KESIMPULAN: Dexter sekarang **~51% GT coverage** (naik dari 35% Sep 14 → 51% S
 
 ---
 
-*Dokumen: docs/GAME_THEORY_KAJIAN.md | Generated: Sep 14 2026 | Updated: Sep 16 2026 (P1+P2+P3 implemented, coverage 35%→51%) | Victor @ Sadasa Intelligence*
+## BAGIAN 3: Gap Baru dari Kajian Fiskal Chatib Basri (Oct 2026)
+
+> Sumber: Muhamad Chatib Basri, "Perlukah Batas Defisit APBN 3 Persen?" (Kompas). Dibagikan via X: https://x.com/ChatibBasri/status/2105070290581815761
+> Basri = former Menkeu 2013-2014, Harvard CID / LSE CETEx.
+
+### Gap A — M10 Rhetoric Tracking (Barro-Gordon Commitment Signal)
+
+**Masalah:** M10 `credibilityIndex` tracking *realized* data: subsidi run-rate, deficit actual, S&P interest/revenue ratio. Tidak track *sinyal retoris* — pernyataan Menkeu tentang fleksibilitas 3% rule. Padahal Barro-Gordon pre-commitment game bergantung pada **announcement credibility**, bukan hanya realized outcomes.
+
+**Konsekuensi yang diabaikan:** Satu pernyataan Suahasil Nazara "perlu dikaji ulang batas 3%" = signal discretion. Market update posterior P(fiscal credible) turun sebelum deficit angka berubah. CI saat ini 63 (STRAINED) bisa drop ke DISCRETION (<50) dari rhetoric saja — dan M10 tidak akan menangkap ini sampai data realized berubah seminggu kemudian.
+
+**Solusi yang dirancang:**
+
+```
+fiscalCommitmentSignal (M10 enhancement):
+  - Daily Exa scan: "Menteri Keuangan Suahasil Nazara" + "defisit" + (7 hari terakhir)
+  - Keyword scoring:
+      COMMITMENT signals (+): "disiplin fiskal", "tetap 3%", "komitmen", "konsolidasi", "ortodoks"
+      DISCRETION signals (−): "perlu dikaji", "fleksibel", "kondisional", "tidak kaku", "sementara"
+  - Score: net_signal = commitment_count − discretion_count, clamp(−3, +3)
+  - Integrate ke CI: subtract up to 8pts dari CI ketika net_signal < 0
+```
+
+**Data yang dibutuhkan:**
+- ✅ Exa search (sudah ada)
+- ❌ Keyword taxonomy (harus dibuat manual — lihat tabel di bawah)
+- ❌ Historical press statement corpus untuk kalibrasi baseline (Kemenkeu.go.id arsip)
+
+**Keyword taxonomy awal:**
+
+| Commitment (menguatkan CI) | Discretion (melemahkan CI) |
+|---|---|
+| "disiplin fiskal" | "perlu dikaji ulang" |
+| "tetap pada 3 persen" | "fleksibel" |
+| "konsolidasi fiskal" | "kondisional" |
+| "fiskal ortodoks" | "tidak kaku" |
+| "efisiensi belanja" | "ruang fiskal lebih lebar" |
+| "penerimaan ditingkatkan" | "kebutuhan stimulus" |
+
+**Effort:** 2 minggu. Tidak butuh data baru. Risiko: Exa coverage Kemenkeu press release belum teruji.
+
+---
+
+### Gap B — Multiplier Regime Flag (M10 Fiscal Effectiveness)
+
+**Masalah:** M10 fiscal score sama di semua kondisi siklus. Chatib eksplisit: multiplier >1 hanya di *slack + low-rate*. Indonesia 2026 = BI Rate 5.75% (elevated, above neutral ~4.5%) + growth near-potential (5.3% vs target 5.4%) = **multiplier <1 regime**. Belanja fiskal ekspansif sekarang = inflationary, bukan growth-multiplying.
+
+**Konsekuensinya:** M10 melaporkan fiscal expansion tanpa flag bahwa expansion tersebut tidak efektif secara makro — bahkan kontraproduktif (tambah deficit, tambah bunga, tidak dapat growth offset). Barro-Gordon CI tidak incorporate konteks ini.
+
+**Solusi yang dirancang:**
+
+```
+multiplierRegimeFlag (M10 enhancement):
+  Inputs (semua sudah tersedia di DB):
+    r = bi_rate_pct                           // BI Rate (M2, fresh ≤30d)
+    g = gdp_growth_pct                        // GDP growth annual (M0)
+    neutral_rate = 4.5                        // Indonesia NAIRU proxy (konstanta)
+    potential_growth = 5.4                    // APBN 2026 target (konstanta, update annually)
+
+  Multiplier regime classification:
+    rate_gap = r − neutral_rate               // >0 = restrictive monetary
+    growth_gap = potential_growth − g         // >0 = below potential (slack exists)
+
+    if rate_gap > 0.5 AND growth_gap < 0.3:  // Elevated rate + near-potential
+      regime = 'LOW_MULTIPLIER'               // Fiscal expansion inflationary
+    elif rate_gap < 0 AND growth_gap > 1.0:  // Accommodative rate + slack
+      regime = 'HIGH_MULTIPLIER'             // Fiscal expansion growth-enhancing
+    else:
+      regime = 'NEUTRAL'
+
+  Output: flag string di M10 narrative: "⚠ FISCAL MULTIPLIER: LOW (rate 5.75% > neutral 4.5%, growth near-potential)"
+  CI adjustment: if regime = 'LOW_MULTIPLIER': subtract 5pts dari CI (expansion menurunkan kredibilitas)
+```
+
+**Data yang dibutuhkan:**
+- ✅ bi_rate_pct (ada, M2)
+- ✅ gdp_growth_pct (ada, M0)
+- ✅ neutral_rate 4.5% (konstanta, bank consensus Indonesia)
+- ❌ **SBN 2Y yield** — untuk yield curve slope (full implementation)
+  - SBN 2Y = leading indicator siklus lebih sensitif dari GDP (quarterly lag)
+  - Source: WGB Playwright sama dengan SBN 10Y — `bond-historical-data/indonesia/2-years/`
+  - Effort: 3 hari untuk scrape + DB indicator `sbn_2y_yield_pct` baru
+  - Freshness spec: 3/7/14 (sama dengan sbn_10y_yield_pct)
+  - Yield curve slope = SBN 10Y − SBN 2Y: >1% = normal/bullish, <0% = inverted = recession signal
+
+**Effort:** Short-term tanpa SBN 2Y: 1 minggu. Full dengan SBN 2Y: 3 minggu.
+
+---
+
+### Gap C — Cross-Module CI Chain (3rd-Gen Foundation)
+
+**Masalah:** Empat modul (M10, M6, M3, M8) track secara independen. SCD aggregates via weighted sum. Tapi Chatib Basri + Barro-Gordon + Morris-Shin + Diamond-Dybvig semua describe **feedback loops**, bukan independent signals:
+
+```
+M10 CI drop (fiscal credibility)
+  → M6 divergence rises (market no longer believes official guidance)
+    → M3 DC-AC narrows (FX attack becomes rational sooner)
+      → M8 run threshold lowers (sovereign backstop less credible)
+        → SCD escalates nonlinearly (each module amplifies others)
+```
+
+Current SCD: linear weighted sum. Actual dynamics: **convex amplification when modules co-move**.
+
+**Solusi yang dirancang:**
+
+```
+crossModuleAmplifier (new SCD component):
+  Step 1: Compute pairwise correlation dari 6 historical crises (backtest data already in DB)
+    corr_M10_M6 = pearson(m10_scores_crisis, m6_scores_crisis) across 6 events
+    corr_M6_M3  = pearson(m6_scores_crisis, m3_scores_crisis) across 6 events
+    corr_M3_M8  = pearson(m3_scores_crisis, m8_scores_crisis) across 6 events
+
+  Step 2: Amplifier score
+    chain_active = (CI < 55) AND (M6_score > 60) AND (M3_score > 55)
+    if chain_active:
+      amplifier = 1 + (corr_M10_M6 × corr_M6_M3 × corr_M3_M8) × 0.15
+      // Max +15% amplification when all correlations = 1.0
+    else:
+      amplifier = 1.0
+
+  Step 3: SCD_adjusted = SCD_raw × amplifier
+    Cap: SCD_adjusted ≤ min(SCD_raw + 12, 100)  // Max +12pp dari amplifier alone
+
+  Output: dashboard shows "⚡ Cross-module chain active: +Xpp amplification"
+```
+
+**Data yang dibutuhkan:**
+- ✅ Module scores dari 6 backtest crises (ada di backtest historical-loader + replay-engine)
+- ✅ macro_scores DB (module scores dari setiap run)
+- ❌ Perlu satu kali **offline computation** untuk correlation matrix — bukan ongoing data
+- ❌ Perlu refactor `silent_crisis_detector.ts` untuk incorporate amplifier post-aggregation
+
+**Effort:** 4 minggu (architecture change ke SCD core — hati-hati regression ke backtest 6 crises). Ini adalah **Phase 1 dari 3rd-gen balance sheet** implementation (Thread 9 BAGIAN 1).
+
+---
+
+### Gap D — Diamond-Dybvig Sovereign Backstop Link
+
+**Masalah:** M8 `runCoordinationScore` 5-condition matrix (NPL>3.5%, LDR>92%, IndONIA>40bps, fintech NPL>5%+growing, CAR erosion>0.8pp) tidak include **sovereign backstop credibility**. Diamond-Dybvig equilibrium selection fundamental: kalau depositor tahu ada credible lender-of-last-resort (LPS + BI + sovereign), panic equilibrium less likely. Ketika M10 CI = DISCRETION (<50), sovereign backstop credibility turun → panic equilibrium lebih mudah tercapai.
+
+**Solusi yang dirancang:**
+
+**Short-term (M10 CI proxy):**
+```
+condition_6_backstop = (M10_CI < 50)   // DISCRETION regime = backstop credibility low
+  Weight: 0.5 (half-count vs other 5 full conditions)
+  runCoordinationScore: was /5, now /5.5
+  Threshold stays: ≥3/5 conditions = elevated run risk
+  With backstop: ≥3.5/5.5 = elevated (same sensitivity at current levels)
+```
+
+**Long-term (LPS adequacy ratio):**
+```
+lps_fund_adequacy_pct (new indicator):
+  Source: lps.go.id → Laporan Tahunan LPS → "Tingkat Kecukupan Dana"
+  Cadence: annual (publish ~Apr each year for prior year)
+  Freshness spec: 200d/365d/500d (annual publication)
+  Threshold: <2% = LOW backstop, 2-3% = MEDIUM, >3% = ADEQUATE
+  Stored as: lps_fund_adequacy_pct in DB
+  M8 condition_6: lps_fund_adequacy_pct < 2.0 OR M10_CI < 50
+```
+
+**Data yang dibutuhkan:**
+- Short-term: ✅ M10 CI (sudah computed, ada di macro_scores DB)
+- Long-term: ❌ LPS adequacy ratio — manual annual scrape dari lps.go.id (no automated API)
+  - LPS Laporan Tahunan 2025: est. publish Apr 2026 → sudah bisa di-seed manual
+  - Historical: 2022=2.87%, 2023=2.94%, 2024=est.3.1% (trend naik — healthy)
+
+**Effort:** Short-term: 1 minggu. Long-term LPS scrape: 2 minggu additional.
+
+---
+
+## Prioritas Implementasi (Updated Oct 2026)
+
+| Gap | Effort | Data Baru Dibutuhkan | Impact | Prioritas |
+|---|---|---|---|---|
+| **Gap D short-term** | 1 minggu | Tidak ada | M8 backstop realism | P1-next |
+| **Gap A rhetoric** | 2 minggu | Keyword taxonomy (manual) | M10 leading indicator | P2-next |
+| **Gap B partial** | 1 minggu | Tidak ada (pakai proxy) | M10 cycle-awareness | P3-next |
+| **Gap B full** | 3 minggu | SBN 2Y yield (WGB) | M10 + R&R yield curve | P4-next |
+| **Gap C chain** | 4 minggu | Tidak ada (offline compute) | SCD architecture | P5-next (3rd-gen Phase 1) |
+| **Gap D long-term** | 2 minggu | LPS adequacy annual | M8 backstop precision | P6-next |
+
+**Gap C adalah yang paling impactful** — ini fondasi 3rd-gen balance sheet (Thread 9, roadmap Mar 2027). Gap A + D short-term bisa dikerjakan paralel dalam 2 minggu. Gap B partial tidak butuh data baru — bisa inline dalam Gap A sprint.
+
+---
+
+*Dokumen: docs/GAME_THEORY_KAJIAN.md | Generated: Sep 14 2026 | Updated: Sep 16 2026 (P1+P2+P3 implemented, coverage 35%→51%) | Updated: Oct 1 2026 (Gap A-D dari Chatib Basri fiskal kajian, solusi dirancang) | Victor @ Sadasa Intelligence*
