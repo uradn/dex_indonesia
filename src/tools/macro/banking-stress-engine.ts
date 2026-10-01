@@ -82,13 +82,15 @@ interface BankingStressOutput {
 interface DiamondDybvig {
   runRisk: 'low' | 'watch' | 'elevated' | 'critical';
   runCoordinationScore: number;  // 0–100
-  conditionsMet: number;         // out of 5 conditions
+  conditionsMet: number;         // out of 5.5 effective conditions (c6 weight 0.5)
   conditions: {
     nplStress: boolean;          // NPL > 3.5% (depositors fear solvency)
     ldrOverextended: boolean;    // LDR > 92% (illiquidity = can't meet run demand)
     indoniaSpike: boolean;       // IndONIA spread > 40bps (interbank trust breakdown)
     fintechContagion: boolean;   // fintech NPL > 5% AND growing (shadow banking spillover)
     sbnCarErosion: boolean;      // implied CAR hit > 0.8pp (sovereign-bank nexus)
+    backstopStrained: boolean;   // APBN deficit >4.5% GDP = sovereign bailout credibility impaired
+                                 // [Gap D — Chatib Basri fiscal backstop, Oct 2026; weight 0.5]
   };
   scoreBump: number;             // contribution to M8 stress score
   flags: string[];
@@ -101,6 +103,7 @@ function computeDiamondDybvig(
   fintechNplPct: number | null,
   fintechGrowthYoyPct: number | null,
   impliedCarHitPp: number | null,
+  apbnDeficitPctGdp: number | null,
 ): DiamondDybvig {
   const c = {
     nplStress:        (nplPct ?? 0) > 3.5,
@@ -108,26 +111,35 @@ function computeDiamondDybvig(
     indoniaSpike:     (indoniaSpreadBps ?? 0) > 40,
     fintechContagion: (fintechNplPct ?? 0) > 5 && (fintechGrowthYoyPct ?? 0) > 10,
     sbnCarErosion:    (impliedCarHitPp ?? 0) > 0.8,
+    // Sovereign backstop condition (weight 0.5): fiscal stress impairs LPS/BI LOLR credibility.
+    // Threshold 4.5% GDP: above 3% ceiling AND S&P watchlist territory — sovereign rescue less credible.
+    backstopStrained: apbnDeficitPctGdp !== null && apbnDeficitPctGdp > 4.5,
   };
-  const conditionsMet = Object.values(c).filter(Boolean).length;
+  // Effective conditions: 5 full + 1 half-weight = max 5.5
+  const conditionsMet = [c.nplStress, c.ldrOverextended, c.indoniaSpike, c.fintechContagion, c.sbnCarErosion].filter(Boolean).length
+    + (c.backstopStrained ? 0.5 : 0);
 
-  // Coordination risk: ≥3/5 conditions = two equilibria unstable; panic is rational
+  // Coordination risk: ≥3/5.5 effective conditions = two equilibria unstable; panic is rational
   let runCoordinationScore = 0;
   let runRisk: DiamondDybvig['runRisk'] = 'low';
   if (conditionsMet >= 4) { runCoordinationScore = 85; runRisk = 'critical'; }
-  else if (conditionsMet === 3) { runCoordinationScore = 60; runRisk = 'elevated'; }
-  else if (conditionsMet === 2) { runCoordinationScore = 35; runRisk = 'watch'; }
-  else if (conditionsMet === 1) { runCoordinationScore = 15; runRisk = 'watch'; }
+  else if (conditionsMet >= 3) { runCoordinationScore = 60; runRisk = 'elevated'; }
+  else if (conditionsMet >= 2) { runCoordinationScore = 35; runRisk = 'watch'; }
+  else if (conditionsMet >= 1) { runCoordinationScore = 15; runRisk = 'watch'; }
 
   const scoreBump = Math.round(runCoordinationScore * 0.15); // max +12.75 at score=85
 
+  const condStr = `NPL ${c.nplStress ? '✓' : '✗'} LDR ${c.ldrOverextended ? '✓' : '✗'} IndONIA ${c.indoniaSpike ? '✓' : '✗'} Fintech ${c.fintechContagion ? '✓' : '✗'} CAR-erosion ${c.sbnCarErosion ? '✓' : '✗'} Backstop ${c.backstopStrained ? '✓(½)' : '✗'}`;
   const flags: string[] = [];
   if (runRisk === 'critical') {
-    flags.push(`DIAMOND-DYBVIG CRITICAL: ${conditionsMet}/5 run conditions met — bank run equilibrium reachable. Depositor panic self-fulfilling if sentiment shifts. [Diamond-Dybvig 1983]`);
+    flags.push(`DIAMOND-DYBVIG CRITICAL: ${conditionsMet}/5.5 run conditions met — bank run equilibrium reachable. Depositor panic self-fulfilling if sentiment shifts. [Diamond-Dybvig 1983]`);
   } else if (runRisk === 'elevated') {
-    flags.push(`Diamond-Dybvig ELEVATED: ${conditionsMet}/5 conditions (NPL ${c.nplStress ? '✓' : '✗'} LDR ${c.ldrOverextended ? '✓' : '✗'} IndONIA ${c.indoniaSpike ? '✓' : '✗'} Fintech ${c.fintechContagion ? '✓' : '✗'} CAR-erosion ${c.sbnCarErosion ? '✓' : '✗'}) — run coordination risk elevated. [Diamond-Dybvig 1983]`);
+    flags.push(`Diamond-Dybvig ELEVATED: ${conditionsMet}/5.5 conditions (${condStr}) — run coordination risk elevated. [Diamond-Dybvig 1983]`);
   } else if (runRisk === 'watch' && conditionsMet > 0) {
-    flags.push(`Diamond-Dybvig watch: ${conditionsMet}/5 run condition(s) — insufficient for coordination failure now. Monitor.`);
+    flags.push(`Diamond-Dybvig watch: ${conditionsMet}/5.5 run condition(s) — insufficient for coordination failure now. Monitor.`);
+  }
+  if (c.backstopStrained) {
+    flags.push(`Sovereign backstop STRAINED: APBN deficit ${apbnDeficitPctGdp!.toFixed(2)}% GDP >4.5% threshold — LPS/BI LOLR credibility impaired; D-D panic equilibrium easier to reach. [Chatib Basri 2026]`);
   }
 
   return { runRisk, runCoordinationScore, conditionsMet, conditions: c, scoreBump, flags };
@@ -295,7 +307,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   // 3. Read from DB (use cached if live fetch failed)
   // Critical banking KPIs (NPL/LDR/CAR) gated by freshness — RED-stale data treated as
   // missing so engine doesn't report a false GREEN score from a different macro era.
-  const [freshNpl, freshLdr, freshCar, dbIndonia, dbBiRate, dbExtDebt, dbIhpr, dbSbn10y, dbCpi, dbSrbi, dbM2Idr, dbFxReserves, dbUsdidr, dbFintechNpl, dbFintechOutstanding, dbFintechGrowth] = await Promise.all([
+  const [freshNpl, freshLdr, freshCar, dbIndonia, dbBiRate, dbExtDebt, dbIhpr, dbSbn10y, dbCpi, dbSrbi, dbM2Idr, dbFxReserves, dbUsdidr, dbFintechNpl, dbFintechOutstanding, dbFintechGrowth, dbDeficitPct] = await Promise.all([
     getFreshPoint('bank_npl_gross_pct', { treatStaleAsMissing: true }),
     getFreshPoint('bank_ldr_pct', { treatStaleAsMissing: true }),
     getFreshPoint('bank_car_pct', { treatStaleAsMissing: true }),
@@ -312,6 +324,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     getLatestPoint('fintech_npl_pct'),
     getLatestPoint('fintech_lending_outstanding_idr_t'),
     getLatestPoint('fintech_lending_growth_yoy_pct'),
+    getLatestPoint('apbn_deficit_pct_gdp'),   // Gap D: sovereign backstop proxy for D-D condition_6
   ]);
   const dbNpl = freshNpl.point;
   const dbLdr = freshLdr.point;
@@ -320,6 +333,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   const nplPct = dbNpl?.value ?? null;
   const ldrPct = dbLdr?.value ?? null;
   const carPct = dbCar?.value ?? null;
+  const apbnDeficitPctGdp = dbDeficitPct?.value ?? null;
   const indoniaPct = dbIndonia?.value ?? null;
   const biRatePct = dbBiRate?.value ?? null;
   const externalDebtBn = dbExtDebt?.value ?? null;
@@ -404,6 +418,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     nplPct, ldrPct, indoniaSpreadBps,
     fintechNplPct, fintechGrowthYoyPct,
     impliedCarHitPp,
+    apbnDeficitPctGdp,
   );
   stressScore = Math.min(100, stressScore + diamondDybvig.scoreBump);
 

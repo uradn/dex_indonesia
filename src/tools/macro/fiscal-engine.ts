@@ -206,6 +206,10 @@ interface FiscalOutput {
   b50StatusNumeric: number | null;        // 40 (B40), 45, 50
   // Barro-Gordon time inconsistency (P1 game theory)
   barroGordon: BarroGordon;
+  // Fiscal multiplier regime (Gap B — Chatib Basri 2026)
+  multiplierRegime: 'low_multiplier' | 'high_multiplier' | 'neutral' | 'unknown';
+  rateGap: number;           // biRatePct - neutral 4.5%
+  growthGap: number | null;  // potential 5.4% - actual GDP growth
   // Alerts
   revenueShortfall: boolean;
   spendingOverrun: boolean;
@@ -269,12 +273,13 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   if (pointsToSave.length > 0) await upsertPoints(pointsToSave as NonNullable<typeof revenue>[]);
 
   // 2. Read latest from DB
-  const [dbRevenue, dbSpending, dbBudgetBalance, dbSrbi, dbBiRate] = await Promise.all([
+  const [dbRevenue, dbSpending, dbBudgetBalance, dbSrbi, dbBiRate, dbGdpGrowth] = await Promise.all([
     getLatestPoint('apbn_revenue_monthly_trn'),
     getLatestPoint('apbn_spending_monthly_trn'),
     getLatestPoint('apbn_budget_balance_monthly_trn'),
     getLatestPoint('srbi_outstanding_trn_idr'),
     getLatestPoint('bi_rate_pct'),
+    getLatestPoint('gdp_growth_pct'),   // Gap B: multiplier regime flag
   ]);
 
   const latestRevenueTrn = dbRevenue?.value ?? null;
@@ -340,6 +345,7 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   // BI issues SRBI to absorb excess Rupiah from USD purchases → pays BI Rate on outstanding → reduces BI profit remittance to Treasury
   const srbiOutstandingTrn = dbSrbi?.value ?? null;
   const biRatePct = dbBiRate?.value ?? 5.75; // fallback: BI Rate ~Jul 2026 (+25bps hike) // fallback: BI Rate as of Jun 9 2026 (+25bps)
+  const gdpGrowthPct = dbGdpGrowth?.value ?? null;
   const srbiAnnualCostTrn = srbiOutstandingTrn !== null
     ? parseFloat((srbiOutstandingTrn * (biRatePct / 100)).toFixed(1))
     : null;
@@ -422,6 +428,21 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   } else if (spThresholdBreached) {
     stressScore = Math.max(stressScore, 35);
   }
+
+  // ── Fiscal Multiplier Regime (Gap B — Chatib Basri 2026, Oct 2026) ──────────
+  // Chatib Basri: multiplier >1 only in slack + low-rate environments.
+  // Indonesia 2026: BI Rate elevated + growth near-potential = fiscal expansion inflationary, not growth-enhancing.
+  // Neutral rate ~4.5% (bank consensus Indonesia). Potential growth = APBN 2026 target 5.4%.
+  const NEUTRAL_RATE_PCT = 4.5;
+  const POTENTIAL_GROWTH_PCT = 5.4;
+  const rateGap = biRatePct - NEUTRAL_RATE_PCT;                           // >0 = restrictive
+  const growthGap = gdpGrowthPct !== null ? POTENTIAL_GROWTH_PCT - gdpGrowthPct : null; // >0 = slack
+  type MultiplierRegime = 'low_multiplier' | 'high_multiplier' | 'neutral' | 'unknown';
+  const multiplierRegime: MultiplierRegime =
+    rateGap > 0.5 && (growthGap === null || growthGap < 0.3) ? 'low_multiplier'   // elevated rate + near-potential
+    : rateGap < 0 && growthGap !== null && growthGap > 1.0  ? 'high_multiplier'   // accommodative + slack
+    : gdpGrowthPct !== null                                  ? 'neutral'
+    : 'unknown';
 
   // ── Barro-Gordon (P1 Game Theory) ────────────────────────────────────────────
   const barroGordon = computeBarroGordon(
@@ -518,6 +539,13 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     }
   }
 
+  // Multiplier regime flag (Gap B — Chatib Basri)
+  if (multiplierRegime === 'low_multiplier') {
+    flags.push(`FISCAL MULTIPLIER: LOW — BI Rate ${biRatePct.toFixed(2)}% (gap +${rateGap.toFixed(2)}pp above neutral ${NEUTRAL_RATE_PCT}%), GDP ${gdpGrowthPct?.toFixed(1) ?? '?'}% near-potential ${POTENTIAL_GROWTH_PCT}%. Fiscal expansion in this regime = inflationary, not growth-enhancing. [Chatib Basri 2026]`);
+  } else if (multiplierRegime === 'high_multiplier') {
+    flags.push(`Fiscal multiplier: HIGH — rate accommodative (${biRatePct.toFixed(2)}%), output gap ${growthGap?.toFixed(1)}pp. Fiscal stimulus effective in current cycle.`);
+  }
+
   // Barro-Gordon flags injected after all structural flags
   flags.push(...barroGordon.flags);
 
@@ -561,6 +589,7 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     mbgRealisasiYtdTrn, mbgBurnRatePct, mbgDataDate,
     biodieselSubsidyYtdTrn, b50StatusNumeric,
     barroGordon,
+    multiplierRegime, rateGap, growthGap,
     revenueShortfall, spendingOverrun, deficitRisk,
     flags, narrative,
   };

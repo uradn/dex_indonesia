@@ -72,6 +72,7 @@ interface SilentCrisisOutput {
   alertLevel: AlertLevel;
   moduleScores: ModuleScore[];
   crossConfirmationCount: number;
+  chainAmplification: number;    // Gap C: cross-module CI chain amplification (pp added to SCD)
   keyFlags: string[];
   stressVectors: string[];
   narrative: string;
@@ -172,16 +173,37 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
   const crossConfirmationMultiplier = Math.min(1.7,
     1.0 + escalationSteps.slice(0, Math.min(stressedCount, escalationSteps.length)).reduce((s, v) => s + v, 0),
   );
-  const silentCrisisProbability = Math.min(100, Math.round(baseScore * crossConfirmationMultiplier));
+  const silentCrisisProbabilityPreChain = Math.min(100, Math.round(baseScore * crossConfirmationMultiplier));
+
+  // Cross-module CI chain amplifier (Gap C — Chatib Basri 2026 fiscal logic, Oct 2026)
+  // When M10 fiscal credibility (CI) is strained, it triggers a cascade:
+  //   M10 (fiscal CI drop) → M6 (narrative divergence rises) → M3 (FX attack threshold lowers) → M8 (D-D backstop weakens)
+  // Amplifier activates only when all 3 trigger modules are simultaneously stressed.
+  // Correlations are theoretical priors (to be calibrated from live macro_scores history once ≥90 days accumulated):
+  //   corr(M10,M6)=0.65, corr(M6,M3)=0.55, corr(M3,M8)=0.50 → product=0.179
+  // Max amplification: +8pp cap (conservative — live data may revise upward).
+  // Module lookups used by both chain amplifier and synthetic stability score
+  const narrativeModule = moduleScores.find((m) => m.module === 'narrative');
+  const fxModule        = moduleScores.find((m) => m.module === 'fx_defense');
+  const politicalModule = moduleScores.find((m) => m.module === 'political_risk');
+  const fiscalModule    = moduleScores.find((m) => m.module === 'fiscal');
+  const bankingModule   = moduleScores.find((m) => m.module === 'banking');
+
+  const chainActive =
+    (fiscalModule?.score  ?? 0) >= 55 &&   // M10 STRAINED threshold
+    (narrativeModule?.score ?? 0) >= 60 &&  // M6 divergence elevated
+    (fxModule?.score      ?? 0) >= 55;      // M3 FX defense under pressure
+  const CHAIN_CORR_PRODUCT = 0.65 * 0.55 * 0.50;   // theoretical prior — update once ≥90d live data
+  const chainAmplification = chainActive
+    ? Math.min(8, Math.round(silentCrisisProbabilityPreChain * CHAIN_CORR_PRODUCT))
+    : 0;
+  const silentCrisisProbability = Math.min(100, silentCrisisProbabilityPreChain + chainAmplification);
 
   // Synthetic Stability Score: surface calm contradicting underlying stress
   // Two triggers:
   //   A) Traditional: official narrative spin (narrative>50) + financial stress underneath
   //   B) NEW: political/social stress (political_risk>50) while financial markets calm
   //      — political leads financial by 2-3 quarters historically
-  const narrativeModule = moduleScores.find((m) => m.module === 'narrative');
-  const fxModule = moduleScores.find((m) => m.module === 'fx_defense');
-  const politicalModule = moduleScores.find((m) => m.module === 'political_risk');
 
   const FINANCIAL_MODULE_SET = new Set(['fx_defense', 'uln', 'bop', 'sovereign_risk', 'foreign_flow', 'banking', 'commodity', 'fiscal', 'market']);
   const financialScores = moduleScores.filter((m) => FINANCIAL_MODULE_SET.has(m.module) && m.available);
@@ -222,6 +244,7 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
     alertLevel,
     moduleScores,
     crossConfirmationCount: stressedCount,
+    chainAmplification,
     keyFlags,
     stressVectors,
     narrative,
