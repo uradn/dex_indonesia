@@ -297,13 +297,14 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   }
 
   // Cross-feed from ULN Engine (Module 13) + macro context for confidence gate
-  const [hedgingPoint, ggPoint, biRatePoint, gdpGrowthPoint, foodInflPoint, cdsPoint] = await Promise.all([
+  const [hedgingPoint, ggPoint, biRatePoint, gdpGrowthPoint, foodInflPoint, cdsPoint, peDiscountPoint] = await Promise.all([
     getLatestPoint('uln_hedging_compliance_pct'),
     getLatestPoint('greenspan_guidotti'),
     getLatestPoint('bi_rate_pct'),
     getLatestPoint('gdp_growth_pct'),
     getLatestPoint('food_inflation_yoy_pct'),
     getLatestPoint('indonesia_cds_5y_bps'),
+    getLatestPoint('asean_pe_discount_pct'),  // written by M7; one-run lag acceptable
   ]);
   const hedgingCompliance = hedgingPoint?.value ?? null;
   const ggRatio = ggPoint?.value ?? null;
@@ -342,7 +343,14 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   const reserveRunway   = shadowRate?.monthsToAttack != null
     ? (shadowRate.monthsToAttack < 6 ? 90 : shadowRate.monthsToAttack < 12 ? 65 : shadowRate.monthsToAttack < 24 ? 35 : 10)
     : 10;
-  const dci = Math.round(rateHikeBurden * 0.40 + growthSacrifice * 0.30 + reserveRunway * 0.30);
+  // Morris-Shin (1998): deep equity discount = lower speculator coordination threshold =
+  // defense harder because confidence anchor is already eroding. +0 to +10 on DCI.
+  // Uses M7-computed asean_pe_discount_pct (one-run lag; null = no adjustment).
+  const peDiscountPct = peDiscountPoint?.value ?? null;
+  const equityStressAdj = peDiscountPct !== null && peDiscountPct > 15
+    ? Math.min(10, Math.round((peDiscountPct - 15) * 0.5))
+    : 0;
+  const dci = Math.min(100, Math.round(rateHikeBurden * 0.40 + growthSacrifice * 0.30 + reserveRunway * 0.30) + equityStressAdj);
 
   // Abandonment Cost Index (ACI): what BI loses if it stops defending
   const hedgingRisk = hedgingCompliance !== null ? Math.max(0, Math.round((85 - hedgingCompliance) * 2)) : 30;
@@ -362,6 +370,14 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     dcFactors: { rateHikeBurden, growthSacrifice, reserveRunway },
     acFactors: { ulnShock, inflationPassthrough: Math.round(inflPassthrough), credibilityLoss: Math.round(credibilityLoss) },
   };
+
+  if (equityStressAdj > 0) {
+    flags.push(
+      `MORRIS-SHIN EQUITY FACTOR: IHSG P/E discount ${peDiscountPct?.toFixed(1)}% vs ASEAN peers → DCI +${equityStressAdj}pts. ` +
+      `Deep equity discount = speculator coordination threshold lower (confidence anchor eroding). ` +
+      `[Morris-Shin 1998: signal precision ↓ when equity reprices before FX — attack window widens]`,
+    );
+  }
 
   if (gateZone === 'attack') {
     flags.push(`CONFIDENCE GATE — ATTACK ZONE (DC${netScore > 0 ? '+' : ''}${netScore} > AC): abandonment dominant — defense costs exceed credibility value. Rational speculators will attack regardless of coordination. [R&R Ch.13]`);

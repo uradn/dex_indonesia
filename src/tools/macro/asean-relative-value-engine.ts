@@ -237,7 +237,7 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
     getLatestPoint('ihsg_pe_ratio'),
   ]);
 
-  // Persist peer P/Es to DB (idempotent upsert)
+  // Persist peer P/Es + discount to DB (idempotent upsert; M3 reads discount with one-run lag)
   const peDataPoints = aseanEtfPe.flatMap(p => p.dataPoint ? [p.dataPoint] : []);
   if (peDataPoints.length > 0) await upsertPoints(peDataPoints);
 
@@ -261,12 +261,41 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
     else if (peDiscount > 15) peDiscountScore = 5;
   }
 
+  // Persist computed discount as named indicator so M3 can read it (Gap A fix)
+  if (peDiscount !== null) {
+    await upsertPoints([{
+      indicator: 'asean_pe_discount_pct', category: 'regime',
+      date: new Date().toISOString().slice(0, 10),
+      value: peDiscount, unit: 'pct',
+      source: 'computed_m7', fetchedAt: new Date().toISOString(),
+    }]);
+  }
+
+  // MSCI Nov 12 2026 countdown (same constant as M5)
+  const NEXT_MSCI_REVIEW = new Date('2026-11-12');
+  const daysToMsci = Math.max(0, Math.floor((NEXT_MSCI_REVIEW.getTime() - Date.now()) / 86_400_000));
+
   if (peDiscount !== null && peDiscount > 20) {
     flags.push(
       `IHSG P/E DISCOUNT ${peDiscount.toFixed(1)}% vs ASEAN median (EIDO ${peIndonesia?.toFixed(1)}x vs peers ${peAseanMedian?.toFixed(1)}x) — ` +
       (peDiscount > 35
         ? 'deep discount signals elevated country risk premium; Damodaran ERP framework: discount > 35% = structural risk repricing, not value opportunity'
         : 'moderate discount vs ASEAN peers — watch for widening as MSCI review approaches'),
+    );
+  }
+
+  // Gap #2: Coordination game — MSCI deadline as common knowledge + P/E discount joint signal
+  // Bryant (1980) / Morris-Shin (1998): when all fund managers know T=Nov 12, pre-positioning
+  // starts in earnest at T-45. P/E already depressed = less anchor value in holding EIDO.
+  if (peDiscount !== null && peDiscount > 25 && daysToMsci <= 45) {
+    flags.push(
+      `COORDINATION RISK [Game Theory]: P/E discount ${peDiscount.toFixed(1)}% + MSCI T-${daysToMsci}d = joint pre-positioning trigger. ` +
+      `Bryant (1980) coordination game: T-45d is common knowledge threshold; rational funds reduce exposure regardless of classification outcome. ` +
+      `Expected passive outflow IF downgrade: >$1.8bn (MSCI May rebalancing analog). Signaling game: existing discount = smart-money signal to passive followers.`,
+    );
+  } else if (peDiscount !== null && peDiscount > 25 && daysToMsci <= 60) {
+    flags.push(
+      `MSCI COORDINATION WATCH: P/E discount ${peDiscount.toFixed(1)}% + MSCI T-${daysToMsci}d — approaching joint signal threshold (T-45d). Pre-positioning risk rising.`,
     );
   }
 
