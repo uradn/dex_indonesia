@@ -2566,9 +2566,9 @@ function renderHaye(snap) {
   \`;
 }
 
-function renderMkt(t) {
+function renderMkt(t, snap) {
   if (!t || !t.marketExpression) return '—';
-  return \`<table class="mkt-table">
+  const table = \`<table class="mkt-table">
     <thead><tr><th>Instrument</th><th>Direction</th><th>Carry/Mo</th><th>Liq</th></tr></thead>
     <tbody>\${t.marketExpression.map(m => \`<tr>
       <td style="font-weight:600">\${esc(m.instrument)}</td>
@@ -2579,6 +2579,57 @@ function renderMkt(t) {
     <tr><td colspan="4" style="font-size:9px;color:var(--muted);padding-top:0;padding-bottom:6px">\${esc(m.rationale)}</td></tr>
     \`).join('')}</tbody>
   </table>\`;
+
+  // P/E ASEAN Valuation Gap — visual bar chart
+  const ind = snap?.indicators ?? {};
+  const peRows = [
+    { label: '🇮🇩 IHSG (EIDO)', pe: ind['ihsg_pe_ratio']?.value ?? null, subject: true },
+    { label: 'MY  EWM',  pe: ind['asean_pe_ewm']?.value  ?? null, subject: false },
+    { label: 'SG  EWS',  pe: ind['asean_pe_ews']?.value  ?? null, subject: false },
+    { label: 'TH  THD',  pe: ind['asean_pe_thd']?.value  ?? null, subject: false },
+    { label: 'PH  EPHE', pe: ind['asean_pe_ephe']?.value ?? null, subject: false },
+  ];
+  const peerVals = peRows.filter(r => !r.subject && r.pe !== null).map(r => r.pe);
+  const peMedian = peerVals.length > 0
+    ? [...peerVals].sort((a, b) => a - b)[Math.floor(peerVals.length / 2)]
+    : null;
+  const peId = peRows[0].pe;
+  const peDisc = peId !== null && peMedian !== null && peMedian > 0
+    ? ((peMedian - peId) / peMedian * 100).toFixed(1)
+    : null;
+  const discCls = peDisc === null ? 'muted' : parseFloat(peDisc) > 35 ? 'red' : parseFloat(peDisc) > 20 ? 'orange' : parseFloat(peDisc) > 10 ? 'yellow' : 'green';
+  const maxPe = Math.max(...peRows.map(r => r.pe ?? 0), 1);
+
+  const peSection = \`
+    <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px">
+        P/E ASEAN Valuation Gap — Signaling Game
+      </div>
+      \${peRows.map(r => {
+        const barW = r.pe !== null ? Math.round((r.pe / maxPe) * 100) : 0;
+        const barColor = r.subject ? 'var(--red)' : 'var(--green)';
+        const peStr = r.pe !== null ? r.pe.toFixed(1) + 'x' : '—';
+        return \`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:10px">
+          <span style="width:80px;color:\${r.subject ? 'var(--fg)' : 'var(--muted)'};\${r.subject ? 'font-weight:600' : ''}">\${r.label}</span>
+          <div style="flex:1;background:rgba(48,54,61,.6);border-radius:2px;height:8px;overflow:hidden">
+            <div style="width:\${barW}%;height:100%;background:\${barColor};border-radius:2px;transition:width .3s"></div>
+          </div>
+          <span style="width:34px;text-align:right;color:\${r.subject ? 'var(--red)' : 'var(--muted)'}">\${peStr}</span>
+        </div>\`;
+      }).join('')}
+      <div style="margin-top:6px;display:flex;align-items:center;gap:8px;font-size:10px">
+        <span style="color:var(--muted)">ASEAN median</span>
+        <span style="color:var(--fg);font-weight:600">\${peMedian !== null ? peMedian.toFixed(1) + 'x' : '—'}</span>
+        <span style="margin-left:8px;color:var(--muted)">Discount</span>
+        <span class="\${discCls}" style="font-weight:700;font-size:11px">\${peDisc !== null ? peDisc + '%' : '—'}</span>
+      </div>
+      <div style="font-size:9px;color:var(--muted);margin-top:4px">
+        Deep discount = smart-money signal (signaling game) · lowers speculator coordination threshold [Morris-Shin] · raises M3 DCI
+      </div>
+    </div>
+  \`;
+
+  return table + (peRows.some(r => r.pe !== null) ? peSection : '');
 }
 
 function renderEv(t) {
@@ -2847,7 +2898,7 @@ async function loadData() {
     document.getElementById('panel-timeline').innerHTML = renderTimeline(thesis);
     document.getElementById('panel-kill').innerHTML = renderKill(thesis, activeArmed, snap);
     document.getElementById('panel-haye').innerHTML = renderHaye(snap);
-    document.getElementById('panel-mkt').innerHTML = renderMkt(thesis);
+    document.getElementById('panel-mkt').innerHTML = renderMkt(thesis, snap);
     document.getElementById('panel-ev').innerHTML = renderEv(thesis);
     document.getElementById('panel-analog').innerHTML = renderAnalog(thesis);
     document.getElementById('panel-ctr').innerHTML = renderCtr(thesis);
