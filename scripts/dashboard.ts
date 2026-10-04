@@ -2589,7 +2589,7 @@ function renderMkt(t, snap) {
   const peEphe = ind['asean_pe_ephe']?.value ?? null;
 
   // EM peers only (ex-SG): EWM, THD, EPHE
-  const emVals = [peEwm, peThd, peEphe].filter((v): v is number => v !== null);
+  const emVals = [peEwm, peThd, peEphe].filter(v => v !== null);
   const peEmMed = emVals.length > 0 ? [...emVals].sort((a,b)=>a-b)[Math.floor(emVals.length/2)] : null;
   const discVsTh = peId !== null && peThd !== null ? ((peThd - peId) / peThd * 100) : null;
   const posVsEm  = peId !== null && peEmMed !== null ? ((peId - peEmMed) / peEmMed * 100) : null;
