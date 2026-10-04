@@ -2580,56 +2580,79 @@ function renderMkt(t, snap) {
     \`).join('')}</tbody>
   </table>\`;
 
-  // P/E ASEAN Valuation Gap — visual bar chart
+  // P/E ASEAN — EM Peer Comparison + Capital Flight Signal
   const ind = snap?.indicators ?? {};
-  const peRows = [
-    { label: '🇮🇩 IHSG (EIDO)', pe: ind['ihsg_pe_ratio']?.value ?? null, subject: true },
-    { label: 'MY  EWM',  pe: ind['asean_pe_ewm']?.value  ?? null, subject: false },
-    { label: 'SG  EWS',  pe: ind['asean_pe_ews']?.value  ?? null, subject: false },
-    { label: 'TH  THD',  pe: ind['asean_pe_thd']?.value  ?? null, subject: false },
-    { label: 'PH  EPHE', pe: ind['asean_pe_ephe']?.value ?? null, subject: false },
-  ];
-  const peerVals = peRows.filter(r => !r.subject && r.pe !== null).map(r => r.pe);
-  const peMedian = peerVals.length > 0
-    ? [...peerVals].sort((a, b) => a - b)[Math.floor(peerVals.length / 2)]
-    : null;
-  const peId = peRows[0].pe;
-  const peDisc = peId !== null && peMedian !== null && peMedian > 0
-    ? ((peMedian - peId) / peMedian * 100).toFixed(1)
-    : null;
-  const discCls = peDisc === null ? 'muted' : parseFloat(peDisc) > 35 ? 'red' : parseFloat(peDisc) > 20 ? 'orange' : parseFloat(peDisc) > 10 ? 'yellow' : 'green';
-  const maxPe = Math.max(...peRows.map(r => r.pe ?? 0), 1);
+  const peId   = ind['ihsg_pe_ratio']?.value ?? null;
+  const peEwm  = ind['asean_pe_ewm']?.value  ?? null;
+  const peEws  = ind['asean_pe_ews']?.value  ?? null;
+  const peThd  = ind['asean_pe_thd']?.value  ?? null;
+  const peEphe = ind['asean_pe_ephe']?.value ?? null;
 
-  const peSection = \`
-    <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
-      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px">
-        P/E ASEAN Valuation Gap — Signaling Game
+  // EM peers only (ex-SG): EWM, THD, EPHE
+  const emVals = [peEwm, peThd, peEphe].filter((v): v is number => v !== null);
+  const peEmMed = emVals.length > 0 ? [...emVals].sort((a,b)=>a-b)[Math.floor(emVals.length/2)] : null;
+  const discVsTh = peId !== null && peThd !== null ? ((peThd - peId) / peThd * 100) : null;
+  const posVsEm  = peId !== null && peEmMed !== null ? ((peId - peEmMed) / peEmMed * 100) : null;
+  const sgGap    = peEws !== null && peEmMed !== null && peEmMed > 0 ? peEws / peEmMed : null;
+
+  const discThCls = discVsTh === null ? '' : discVsTh > 35 ? 'red' : discVsTh > 20 ? 'orange' : discVsTh > 10 ? 'yellow' : 'green';
+  const sgGapCls  = sgGap === null ? '' : sgGap > 2.2 ? 'red' : sgGap > 1.8 ? 'orange' : 'yellow';
+
+  const emRows = [
+    { label: '🇮🇩 IHSG (EIDO)', pe: peId,   subject: true  },
+    { label: 'MY  EWM',         pe: peEwm,  subject: false },
+    { label: 'TH  THD',         pe: peThd,  subject: false },
+    { label: 'PH  EPHE',        pe: peEphe, subject: false },
+  ];
+  const maxEmPe = Math.max(...emRows.map(r => r.pe ?? 0), peEws ?? 0, 1);
+
+  const renderBar = (pe, subject, isSg = false) => {
+    const barW = pe !== null ? Math.round((pe / maxEmPe) * 100) : 0;
+    const color = subject ? 'var(--red)' : isSg ? 'var(--yellow)' : 'rgba(63,185,80,.6)';
+    const peStr = pe !== null ? pe.toFixed(1) + 'x' : '—';
+    return \`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;font-size:10px">
+      <div style="flex:1;background:rgba(48,54,61,.6);border-radius:2px;height:7px;overflow:hidden">
+        <div style="width:\${barW}%;height:100%;background:\${color};border-radius:2px"></div>
       </div>
-      \${peRows.map(r => {
-        const barW = r.pe !== null ? Math.round((r.pe / maxPe) * 100) : 0;
-        const barColor = r.subject ? 'var(--red)' : 'var(--green)';
-        const peStr = r.pe !== null ? r.pe.toFixed(1) + 'x' : '—';
-        return \`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:10px">
-          <span style="width:80px;color:\${r.subject ? 'var(--fg)' : 'var(--muted)'};\${r.subject ? 'font-weight:600' : ''}">\${r.label}</span>
-          <div style="flex:1;background:rgba(48,54,61,.6);border-radius:2px;height:8px;overflow:hidden">
-            <div style="width:\${barW}%;height:100%;background:\${barColor};border-radius:2px;transition:width .3s"></div>
-          </div>
-          <span style="width:34px;text-align:right;color:\${r.subject ? 'var(--red)' : 'var(--muted)'}">\${peStr}</span>
-        </div>\`;
-      }).join('')}
-      <div style="margin-top:6px;display:flex;align-items:center;gap:8px;font-size:10px">
-        <span style="color:var(--muted)">ASEAN median</span>
-        <span style="color:var(--fg);font-weight:600">\${peMedian !== null ? peMedian.toFixed(1) + 'x' : '—'}</span>
-        <span style="margin-left:8px;color:var(--muted)">Discount</span>
-        <span class="\${discCls}" style="font-weight:700;font-size:11px">\${peDisc !== null ? peDisc + '%' : '—'}</span>
+      <span style="width:32px;text-align:right;color:\${subject ? 'var(--red)' : isSg ? 'var(--yellow)' : 'var(--muted)'}">\${peStr}</span>
+    </div>\`;
+  };
+
+  const hasData = emRows.some(r => r.pe !== null);
+  const peSection = !hasData ? '' : \`
+    <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px">P/E ASEAN — EM Peers + Capital Flight Signal</div>
+
+      \${emRows.map(r => \`
+        <div style="display:flex;align-items:center;gap:0;margin-bottom:3px">
+          <span style="width:82px;font-size:10px;color:\${r.subject ? 'var(--fg)' : 'var(--muted)'};\${r.subject ? 'font-weight:600' : ''}">\${r.label}</span>
+          <div style="flex:1">\${renderBar(r.pe, r.subject)}</div>
+        </div>
+      \`).join('')}
+      <div style="margin-top:5px;padding:4px 6px;background:rgba(48,54,61,.4);border-radius:3px;display:flex;gap:12px;font-size:10px">
+        <span style="color:var(--muted)">vs Thailand</span>
+        <span class="\${discThCls}" style="font-weight:700">\${discVsTh !== null ? discVsTh.toFixed(1)+'% discount' : '—'}</span>
+        <span style="color:var(--muted);margin-left:4px">vs EM med</span>
+        <span style="color:\${posVsEm !== null && posVsEm > 0 ? 'var(--green)' : 'var(--orange)'};font-weight:600">\${posVsEm !== null ? (posVsEm >= 0 ? '+' : '')+posVsEm.toFixed(1)+'%' : '—'}</span>
+      </div>
+
+      <div style="margin-top:8px;font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--yellow)">Capital Flight — SG Safe Haven</div>
+      <div style="display:flex;align-items:center;gap:0;margin-top:4px">
+        <span style="width:82px;font-size:10px;color:var(--yellow)">SG  EWS</span>
+        <div style="flex:1">\${renderBar(peEws, false, true)}</div>
+      </div>
+      <div style="margin-top:4px;padding:4px 6px;background:rgba(210,153,34,.08);border:1px solid rgba(210,153,34,.2);border-radius:3px;display:flex;gap:12px;font-size:10px">
+        <span style="color:var(--muted)">SG/EM Gap</span>
+        <span class="\${sgGapCls}" style="font-weight:700">\${sgGap !== null ? sgGap.toFixed(2)+'×' : '—'}</span>
+        <span style="color:var(--muted);font-size:9px">\${sgGap !== null && sgGap > 2.0 ? '⚠ capital rotating to SGX safety' : 'watch'}</span>
       </div>
       <div style="font-size:9px;color:var(--muted);margin-top:4px">
-        Deep discount = smart-money signal (signaling game) · lowers speculator coordination threshold [Morris-Shin] · raises M3 DCI
+        SG = MSCI DM, excluded from valuation peers [Damodaran CRP 0%]. SG/EM gap ↑ = capital flight active [Calvo 1998]. vs Thailand = most actionable benchmark. M3 DCI += equity stress [Morris-Shin].
       </div>
     </div>
   \`;
 
-  return table + (peRows.some(r => r.pe !== null) ? peSection : '');
+  return table + peSection;
 }
 
 function renderEv(t) {

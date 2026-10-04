@@ -67,11 +67,15 @@ interface AseanRelativeValueOutput {
   jpyChange1m: number | null;           // negative = JPY strengthening vs USD = carry unwind risk
   jpyCarryUnwind: 'alive' | 'watch' | 'unwind' | 'acute' | null;
   // P/E ASEAN Relative Valuation (Damodaran, GGM)
-  peIndonesia: number | null;       // EIDO trailing P/E (raw ETF, comparable to peers)
-  peAseanMedian: number | null;     // median P/E of EWM, EWS, THD, EPHE
-  peDiscount: number | null;        // (median - EIDO) / median * 100, positive = ID cheaper
-  peDiscountScore: number;          // 0-25 additional stress score
-  pePeers: Array<{ country: string; etf: string; pe: number | null }>;
+  peIndonesia: number | null;       // EIDO trailing P/E
+  peEmMedian: number | null;        // median P/E of EM-only peers: EWM, THD, EPHE (ex-SG — SG is MSCI DM)
+  peThailand: number | null;        // THD P/E — primary benchmark (most comparable EM structure)
+  peDiscountVsTh: number | null;    // (THD - EIDO) / THD * 100 — most actionable comparison
+  pePositionVsEm: number | null;    // (EIDO - EM_median) / EM_median * 100 — premium(+) or discount(-)
+  sgPremiumGap: number | null;      // EWS / EM_median — capital flight intensity proxy
+  sgPe: number | null;              // EWS P/E (Singapore — MSCI DM, capital destination)
+  peDiscountScore: number;          // 0-25 additional stress score (based on vs-Thailand discount)
+  pePeers: Array<{ country: string; etf: string; pe: number | null; isDm: boolean }>;
   narrative: string;
   flags: string[];
 }
@@ -242,24 +246,47 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
   if (peDataPoints.length > 0) await upsertPoints(peDataPoints);
 
   const peIndonesia = idPePoint?.value ?? null;
-  const pePeers = aseanEtfPe.map(p => ({ country: p.country, etf: p.etf, pe: p.pe }));
-  const validPeerPes = aseanEtfPe.map(p => p.pe).filter((v): v is number => v !== null);
-  const peAseanMedian = validPeerPes.length > 0
-    ? parseFloat(([...validPeerPes].sort((a, b) => a - b)[Math.floor(validPeerPes.length / 2)]!).toFixed(2))
+
+  // Classify peers: SG (EWS) = MSCI Developed Market → separate capital-destination signal.
+  // EM peers for valuation comparison: EWM (Malaysia), THD (Thailand), EPHE (Philippines).
+  // Thailand = primary benchmark: most comparable EM structure (resource-exporter, large pop, non-hub).
+  // [Damodaran 2012 Ch.17: cross-market P/E requires controlling for CRP; SGP CRP≈0 vs IDN ~3.5%]
+  const DM_ETFS = new Set(['EWS']);
+  const pePeers = aseanEtfPe.map(p => ({ country: p.country, etf: p.etf, pe: p.pe, isDm: DM_ETFS.has(p.etf) }));
+  const emPeerPes = aseanEtfPe.filter(p => !DM_ETFS.has(p.etf)).map(p => p.pe).filter((v): v is number => v !== null);
+  const sgPe = aseanEtfPe.find(p => p.etf === 'EWS')?.pe ?? null;
+  const peThailand = aseanEtfPe.find(p => p.etf === 'THD')?.pe ?? null;
+
+  const peEmMedian = emPeerPes.length > 0
+    ? parseFloat(([...emPeerPes].sort((a, b) => a - b)[Math.floor(emPeerPes.length / 2)]!).toFixed(2))
     : null;
 
-  // Discount: positive = Indonesia cheaper than ASEAN peers (deep discount = stress or value trap)
-  const peDiscount = peIndonesia !== null && peAseanMedian !== null && peAseanMedian > 0
-    ? parseFloat(((peAseanMedian - peIndonesia) / peAseanMedian * 100).toFixed(1))
+  // Primary comparison: Indonesia vs Thailand (most comparable EM peer)
+  const peDiscountVsTh = peIndonesia !== null && peThailand !== null && peThailand > 0
+    ? parseFloat(((peThailand - peIndonesia) / peThailand * 100).toFixed(1))
     : null;
 
-  // Score: persistent deep discount = capital avoidance signal (Damodaran ERP + Calvo sudden stop)
+  // Position vs EM median (ex-SG): positive = premium, negative = discount
+  const pePositionVsEm = peIndonesia !== null && peEmMedian !== null && peEmMedian > 0
+    ? parseFloat(((peIndonesia - peEmMedian) / peEmMedian * 100).toFixed(1))
+    : null;
+
+  // SG/EM Premium Gap: capital flight intensity — rising = more capital rotating to SG safety
+  // [Calvo 1998: sudden stop includes re-routing to safe havens; Gochoco-Bautista 2012 ADB]
+  const sgPremiumGap = sgPe !== null && peEmMedian !== null && peEmMedian > 0
+    ? parseFloat((sgPe / peEmMedian).toFixed(2))
+    : null;
+
+  // Score based on Thailand discount (most actionable signal)
   let peDiscountScore = 0;
-  if (peDiscount !== null) {
-    if (peDiscount > 40) peDiscountScore = 25;
-    else if (peDiscount > 30) peDiscountScore = 15;
-    else if (peDiscount > 15) peDiscountScore = 5;
+  if (peDiscountVsTh !== null) {
+    if (peDiscountVsTh > 40) peDiscountScore = 25;
+    else if (peDiscountVsTh > 30) peDiscountScore = 15;
+    else if (peDiscountVsTh > 15) peDiscountScore = 5;
   }
+
+  // For backward compat with M3 reader: persist ex-SG discount vs Thailand as the named indicator
+  const peDiscount = peDiscountVsTh; // alias for DB write below
 
   // Persist computed discount as named indicator so M3 can read it (Gap A fix)
   if (peDiscount !== null) {
@@ -275,27 +302,38 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
   const NEXT_MSCI_REVIEW = new Date('2026-11-12');
   const daysToMsci = Math.max(0, Math.floor((NEXT_MSCI_REVIEW.getTime() - Date.now()) / 86_400_000));
 
-  if (peDiscount !== null && peDiscount > 20) {
+  // P/E flags — Thailand discount (primary) + SG capital flight signal
+  if (peDiscountVsTh !== null && peDiscountVsTh > 15) {
     flags.push(
-      `IHSG P/E DISCOUNT ${peDiscount.toFixed(1)}% vs ASEAN median (EIDO ${peIndonesia?.toFixed(1)}x vs peers ${peAseanMedian?.toFixed(1)}x) — ` +
-      (peDiscount > 35
-        ? 'deep discount signals elevated country risk premium; Damodaran ERP framework: discount > 35% = structural risk repricing, not value opportunity'
-        : 'moderate discount vs ASEAN peers — watch for widening as MSCI review approaches'),
+      `IHSG P/E ${peDiscountVsTh.toFixed(1)}% BELOW THAILAND (EIDO ${peIndonesia?.toFixed(1)}x vs THD ${peThailand?.toFixed(1)}x) — ` +
+      (peDiscountVsTh > 35
+        ? 'deep discount vs most-comparable EM peer; Damodaran ERP: gap > 35% = elevated country risk premium, not value opportunity [GGM: P/E = (1-b)/(r-g); Indonesia r elevated by fiscal + political stress]'
+        : 'moderate discount vs Thailand — watch for widening as MSCI review + fiscal stress compound'),
+    );
+  }
+  if (pePositionVsEm !== null && pePositionVsEm > 10) {
+    flags.push(`IHSG +${pePositionVsEm.toFixed(1)}% vs EM median (MY/PH ~${peEmMedian?.toFixed(1)}x) — Indonesia not as cheap as Malaysia/Philippines; fiscal stress not yet fully priced vs regional EM floor`);
+  }
+  if (sgPremiumGap !== null && sgPremiumGap > 2.0) {
+    flags.push(
+      `CAPITAL FLIGHT SIGNAL: SG/EM Premium Gap ${sgPremiumGap.toFixed(2)}× (EWS ${sgPe?.toFixed(1)}x vs EM ${peEmMedian?.toFixed(1)}x median) — ` +
+      `capital re-routing to SGX safety. Gap widening from ~1.9× Mar 2026 = accelerating. ` +
+      `[Calvo 1998: sudden stop = re-route, not just outflow; Morris-Shin: SG exit availability lowers attack coordination threshold]`,
     );
   }
 
   // Gap #2: Coordination game — MSCI deadline as common knowledge + P/E discount joint signal
   // Bryant (1980) / Morris-Shin (1998): when all fund managers know T=Nov 12, pre-positioning
   // starts in earnest at T-45. P/E already depressed = less anchor value in holding EIDO.
-  if (peDiscount !== null && peDiscount > 25 && daysToMsci <= 45) {
+  if (peDiscountVsTh !== null && peDiscountVsTh > 25 && daysToMsci <= 45) {
     flags.push(
-      `COORDINATION RISK [Game Theory]: P/E discount ${peDiscount.toFixed(1)}% + MSCI T-${daysToMsci}d = joint pre-positioning trigger. ` +
+      `COORDINATION RISK [Game Theory]: P/E vs Thailand ${peDiscountVsTh.toFixed(1)}% + MSCI T-${daysToMsci}d = joint pre-positioning trigger. ` +
       `Bryant (1980) coordination game: T-45d is common knowledge threshold; rational funds reduce exposure regardless of classification outcome. ` +
       `Expected passive outflow IF downgrade: >$1.8bn (MSCI May rebalancing analog). Signaling game: existing discount = smart-money signal to passive followers.`,
     );
-  } else if (peDiscount !== null && peDiscount > 25 && daysToMsci <= 60) {
+  } else if (peDiscountVsTh !== null && peDiscountVsTh > 25 && daysToMsci <= 60) {
     flags.push(
-      `MSCI COORDINATION WATCH: P/E discount ${peDiscount.toFixed(1)}% + MSCI T-${daysToMsci}d — approaching joint signal threshold (T-45d). Pre-positioning risk rising.`,
+      `MSCI COORDINATION WATCH: P/E vs Thailand ${peDiscountVsTh.toFixed(1)}% + MSCI T-${daysToMsci}d — approaching joint signal threshold (T-45d). Pre-positioning risk rising.`,
     );
   }
 
@@ -335,8 +373,12 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
     jpyChange1m,
     jpyCarryUnwind,
     peIndonesia,
-    peAseanMedian,
-    peDiscount,
+    peEmMedian,
+    peThailand,
+    peDiscountVsTh,
+    pePositionVsEm,
+    sgPremiumGap,
+    sgPe,
     peDiscountScore,
     pePeers,
     narrative,
@@ -418,14 +460,25 @@ function formatOutput(output: AseanRelativeValueOutput & { idrSpotPrice?: number
     `_JPY strengthening (USDJPY falling) = carry unwind = EM capital flight risk. Thresholds: >2% JPY strength/1M = UNWIND; >5% = ACUTE (Aug 2024 analog)._`,
     ``,
     `## P/E ASEAN Relative Valuation (M7 Supplement)`,
-    `| Market | ETF | P/E | vs Indonesia |`,
-    `|--------|-----|-----|-------------|`,
-    `| 🇮🇩 Indonesia | EIDO | ${output.peIndonesia !== null ? output.peIndonesia.toFixed(1) + 'x' : 'n/a'} | — (subject) |`,
-    ...output.pePeers.map(p =>
-      `| ${p.country} | ${p.etf} | ${p.pe !== null ? p.pe.toFixed(1) + 'x' : 'n/a'} | ${p.pe !== null && output.peIndonesia !== null ? (p.pe > output.peIndonesia ? `+${(p.pe - output.peIndonesia).toFixed(1)}x premium` : `${(p.pe - output.peIndonesia).toFixed(1)}x`) : 'n/a'} |`,
+    `### EM Peer Comparison (ex-SG)`,
+    `| Market | ETF | P/E | Note |`,
+    `|--------|-----|-----|------|`,
+    `| 🇮🇩 Indonesia | EIDO | ${output.peIndonesia !== null ? output.peIndonesia.toFixed(1) + 'x' : 'n/a'} | subject |`,
+    ...output.pePeers.filter(p => !p.isDm).map(p =>
+      `| ${p.country} | ${p.etf} | ${p.pe !== null ? p.pe.toFixed(1) + 'x' : 'n/a'} | EM peer |`,
     ),
-    `| **ASEAN median** | — | ${output.peAseanMedian !== null ? output.peAseanMedian.toFixed(1) + 'x' : 'n/a'} | **Discount: ${output.peDiscount !== null ? output.peDiscount.toFixed(1) + '%' : 'n/a'}** |`,
-    `_P/E: iShares MSCI ETF trailing P/E (Yahoo Finance). All same fund family — directly comparable. Discount > 30% = elevated country risk premium [Damodaran ERP; Calvo sudden stop linkage]. Morris-Shin: deep discount lowers attack cost on IDR._`,
+    `| **EM median** | — | ${output.peEmMedian !== null ? output.peEmMedian.toFixed(1) + 'x' : 'n/a'} | ex-SG |`,
+    ``,
+    `**vs Thailand (primary benchmark):** ${output.peDiscountVsTh !== null ? output.peDiscountVsTh.toFixed(1) + '% discount' : 'n/a'} | **vs EM median:** ${output.pePositionVsEm !== null ? (output.pePositionVsEm >= 0 ? '+' : '') + output.pePositionVsEm.toFixed(1) + '%' : 'n/a'}`,
+    ``,
+    `### Capital Flight Signal (SG Safe Haven)`,
+    `| Market | ETF | P/E | Role |`,
+    `|--------|-----|-----|------|`,
+    ...output.pePeers.filter(p => p.isDm).map(p =>
+      `| ${p.country} | ${p.etf} | ${p.pe !== null ? p.pe.toFixed(1) + 'x' : 'n/a'} | MSCI DM / safe haven |`,
+    ),
+    `| SG/EM Gap | — | ${output.sgPremiumGap !== null ? output.sgPremiumGap.toFixed(2) + '×' : 'n/a'} | ${output.sgPremiumGap !== null && output.sgPremiumGap > 2.0 ? '⚠️ widening — capital flight active' : 'normal'} |`,
+    `_EWS excluded from valuation peers: Singapore = MSCI Developed Market (upgraded 2016); CRP ≈ 0 vs Indonesia ~3.5% [Damodaran 2026]. SG/EM gap = capital flight intensity proxy [Calvo 1998]. Thailand = primary benchmark: most-comparable EM structure. Morris-Shin: SG exit availability lowers attack coordination cost._`,
     ``,
     output.flags.length > 0 ? `## Flags\n${output.flags.map((f) => `- ${f}`).join('\n')}` : '',
   ]

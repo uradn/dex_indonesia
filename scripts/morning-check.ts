@@ -168,8 +168,8 @@ if (aseanRv.status === 'fulfilled') {
   const idioLine = r.idiosyncraticComponent !== null
     ? `IDR idiosyncratic: ${r.idiosyncraticComponent >= 0 ? '+' : ''}${r.idiosyncraticComponent.toFixed(2)}pp vs ASEAN median`
     : '';
-  const peLine = r.peIndonesia !== null && r.peAseanMedian !== null
-    ? `P/E: IHSG ${r.peIndonesia.toFixed(1)}x | ASEAN median ${r.peAseanMedian.toFixed(1)}x | Discount ${r.peDiscount !== null ? r.peDiscount.toFixed(1) + '%' : 'n/a'}`
+  const peLine = r.peIndonesia !== null
+    ? `P/E: IHSG ${r.peIndonesia.toFixed(1)}x | TH ${r.peThailand?.toFixed(1) ?? 'n/a'}x (−${r.peDiscountVsTh?.toFixed(1) ?? 'n/a'}%) | EM med ${r.peEmMedian?.toFixed(1) ?? 'n/a'}x | SG gap ${r.sgPremiumGap?.toFixed(2) ?? 'n/a'}×`
     : '';
   console.log(`\n### 7. ASEAN Relative Value  ${emoji(r.alertLevel)} ${m7Score}/100`);
   console.log(`  ${jpyLine}`);
