@@ -158,7 +158,7 @@ if (regime.status === 'fulfilled') {
 // 7 — ASEAN Relative Value (M7) — JPY carry unwind + IDR idiosyncratic component
 if (aseanRv.status === 'fulfilled') {
   const r = aseanRv.value;
-  const m7Score = Math.min(100, Math.round(Math.abs(r.idiosyncraticComponent ?? 0) * 10));
+  const m7Score = Math.min(100, Math.round(Math.abs(r.idiosyncraticComponent ?? 0) * 10) + r.peDiscountScore);
   const jpyLine = r.jpySpot !== null
     ? `USDJPY: ${r.jpySpot.toFixed(2)} | JPY 1M: ${r.jpyChange1m !== null ? (r.jpyChange1m >= 0 ? '+' : '') + r.jpyChange1m.toFixed(2) + '%' : 'n/a'} | Carry: ${r.jpyCarryUnwind?.toUpperCase() ?? 'n/a'}`
     : 'USDJPY: n/a';
@@ -168,10 +168,14 @@ if (aseanRv.status === 'fulfilled') {
   const idioLine = r.idiosyncraticComponent !== null
     ? `IDR idiosyncratic: ${r.idiosyncraticComponent >= 0 ? '+' : ''}${r.idiosyncraticComponent.toFixed(2)}pp vs ASEAN median`
     : '';
+  const peLine = r.peIndonesia !== null && r.peAseanMedian !== null
+    ? `P/E: IHSG ${r.peIndonesia.toFixed(1)}x | ASEAN median ${r.peAseanMedian.toFixed(1)}x | Discount ${r.peDiscount !== null ? r.peDiscount.toFixed(1) + '%' : 'n/a'}`
+    : '';
   console.log(`\n### 7. ASEAN Relative Value  ${emoji(r.alertLevel)} ${m7Score}/100`);
   console.log(`  ${jpyLine}`);
   if (carryLine) console.log(`  ${carryLine}`);
   if (idioLine) console.log(`  ${idioLine}`);
+  if (peLine) console.log(`  ${peLine}`);
   for (const f of r.flags.slice(0, 3)) console.log(`  ⚠️  ${f}`);
 } else {
   console.log(`\n### 7. ASEAN Relative Value  ❌ ${String((aseanRv as PromiseRejectedResult).reason).slice(0, 80)}`);

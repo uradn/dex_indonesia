@@ -157,6 +157,7 @@ const SNAPSHOT_INDICATORS = [
   'copper_price_usd', 'silver_price_usd', 'natgas_price_usd',
   'steel_etf_usd', 'aluminum_price_usd', 'wti_price_usd',
   'fintech_npl_pct', 'ihsg_pe_ratio', 'idx_advance_decline_ratio',
+  'asean_pe_ewm', 'asean_pe_ews', 'asean_pe_thd', 'asean_pe_ephe',
   // political risk (m12)
   'political_social_unrest_score', 'political_food_stress_score', 'political_stability_stress_score',
   'political_x_social_score', 'political_tavily_social_score',
@@ -506,6 +507,17 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
   });
 
   // ── Market expression ─────────────────────────────────────────────────────────
+  // P/E ASEAN discount for market expression
+  const peId = ind['ihsg_pe_ratio']?.value ?? null;
+  const pePeerVals = ['asean_pe_ewm', 'asean_pe_ews', 'asean_pe_thd', 'asean_pe_ephe']
+    .map(k => ind[k]?.value).filter((v): v is number => v != null);
+  const peMedian = pePeerVals.length > 0
+    ? parseFloat(([...pePeerVals].sort((a, b) => a - b)[Math.floor(pePeerVals.length / 2)]!).toFixed(1))
+    : null;
+  const peDisc = peId !== null && peMedian !== null && peMedian > 0
+    ? parseFloat(((peMedian - peId) / peMedian * 100).toFixed(1))
+    : null;
+
   const marketExpression = [
     {
       instrument: 'Indonesia CDS 5Y',
@@ -517,7 +529,7 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
     {
       instrument: 'EIDO ETF',
       direction: 'Short',
-      rationale: 'IDX foreign exit proxy. MSCI uncertainty + passive outflow dual cause',
+      rationale: `IDX foreign exit proxy. MSCI uncertainty + passive outflow.${peDisc !== null ? ` P/E discount ${peDisc.toFixed(1)}% vs ASEAN peers — deep discount = capital avoidance, not value opportunity` : ''}`,
       carry: '~0.25%/mo borrow',
       liq: '~$15m/day',
     },

@@ -5,6 +5,7 @@ import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { getFreshPoint, stalenessFlag } from './freshness.js';
 import { fetchAseanFxSpots } from './sources/yahoo-macro.js';
+import { fetchAseanEtfPeRatios } from './sources/ihsg.js';
 import type { AlertLevel } from './types.js';
 
 export const ASEAN_RELATIVE_VALUE_DESCRIPTION = `
@@ -65,6 +66,12 @@ interface AseanRelativeValueOutput {
   jpySpot: number | null;
   jpyChange1m: number | null;           // negative = JPY strengthening vs USD = carry unwind risk
   jpyCarryUnwind: 'alive' | 'watch' | 'unwind' | 'acute' | null;
+  // P/E ASEAN Relative Valuation (Damodaran, GGM)
+  peIndonesia: number | null;       // EIDO trailing P/E (raw ETF, comparable to peers)
+  peAseanMedian: number | null;     // median P/E of EWM, EWS, THD, EPHE
+  peDiscount: number | null;        // (median - EIDO) / median * 100, positive = ID cheaper
+  peDiscountScore: number;          // 0-25 additional stress score
+  pePeers: Array<{ country: string; etf: string; pe: number | null }>;
   narrative: string;
   flags: string[];
 }
@@ -223,6 +230,46 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
     flags.push(`JPY carry watch: USDJPY ${jpyCurrent?.value?.toFixed(1) ?? 'n/a'}, JPY mildly stronger (${jpyChange1m!.toFixed(1)}% 1M) — monitor for acceleration`);
   }
 
+  // ── P/E ASEAN Relative Valuation ─────────────────────────────────────────────
+  // Fetch ASEAN ETF P/Es + Indonesia (EIDO already in DB; re-use latest stored value)
+  const [aseanEtfPe, idPePoint] = await Promise.all([
+    fetchAseanEtfPeRatios(),
+    getLatestPoint('ihsg_pe_ratio'),
+  ]);
+
+  // Persist peer P/Es to DB (idempotent upsert)
+  const peDataPoints = aseanEtfPe.flatMap(p => p.dataPoint ? [p.dataPoint] : []);
+  if (peDataPoints.length > 0) await upsertPoints(peDataPoints);
+
+  const peIndonesia = idPePoint?.value ?? null;
+  const pePeers = aseanEtfPe.map(p => ({ country: p.country, etf: p.etf, pe: p.pe }));
+  const validPeerPes = aseanEtfPe.map(p => p.pe).filter((v): v is number => v !== null);
+  const peAseanMedian = validPeerPes.length > 0
+    ? parseFloat(([...validPeerPes].sort((a, b) => a - b)[Math.floor(validPeerPes.length / 2)]!).toFixed(2))
+    : null;
+
+  // Discount: positive = Indonesia cheaper than ASEAN peers (deep discount = stress or value trap)
+  const peDiscount = peIndonesia !== null && peAseanMedian !== null && peAseanMedian > 0
+    ? parseFloat(((peAseanMedian - peIndonesia) / peAseanMedian * 100).toFixed(1))
+    : null;
+
+  // Score: persistent deep discount = capital avoidance signal (Damodaran ERP + Calvo sudden stop)
+  let peDiscountScore = 0;
+  if (peDiscount !== null) {
+    if (peDiscount > 40) peDiscountScore = 25;
+    else if (peDiscount > 30) peDiscountScore = 15;
+    else if (peDiscount > 15) peDiscountScore = 5;
+  }
+
+  if (peDiscount !== null && peDiscount > 20) {
+    flags.push(
+      `IHSG P/E DISCOUNT ${peDiscount.toFixed(1)}% vs ASEAN median (EIDO ${peIndonesia?.toFixed(1)}x vs peers ${peAseanMedian?.toFixed(1)}x) — ` +
+      (peDiscount > 35
+        ? 'deep discount signals elevated country risk premium; Damodaran ERP framework: discount > 35% = structural risk repricing, not value opportunity'
+        : 'moderate discount vs ASEAN peers — watch for widening as MSCI review approaches'),
+    );
+  }
+
   // Freshness gate — ASEAN FX peers + carry inputs (keyed on usdidr + ust_10y as proxies)
   const [freshUsdidr, freshUst] = await Promise.all([
     getFreshPoint('usdidr_spot'),
@@ -258,6 +305,11 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
     jpySpot: jpyCurrent?.value ?? null,
     jpyChange1m,
     jpyCarryUnwind,
+    peIndonesia,
+    peAseanMedian,
+    peDiscount,
+    peDiscountScore,
+    pePeers,
     narrative,
     flags,
   };
@@ -335,6 +387,16 @@ function formatOutput(output: AseanRelativeValueOutput & { idrSpotPrice?: number
     `| JPY 1M change vs USD | ${output.jpyChange1m !== null ? (output.jpyChange1m >= 0 ? '+' : '') + output.jpyChange1m.toFixed(2) + '%' : 'n/a'} |`,
     `| Carry trade status | ${output.jpyCarryUnwind?.toUpperCase() ?? 'n/a'} |`,
     `_JPY strengthening (USDJPY falling) = carry unwind = EM capital flight risk. Thresholds: >2% JPY strength/1M = UNWIND; >5% = ACUTE (Aug 2024 analog)._`,
+    ``,
+    `## P/E ASEAN Relative Valuation (M7 Supplement)`,
+    `| Market | ETF | P/E | vs Indonesia |`,
+    `|--------|-----|-----|-------------|`,
+    `| 🇮🇩 Indonesia | EIDO | ${output.peIndonesia !== null ? output.peIndonesia.toFixed(1) + 'x' : 'n/a'} | — (subject) |`,
+    ...output.pePeers.map(p =>
+      `| ${p.country} | ${p.etf} | ${p.pe !== null ? p.pe.toFixed(1) + 'x' : 'n/a'} | ${p.pe !== null && output.peIndonesia !== null ? (p.pe > output.peIndonesia ? `+${(p.pe - output.peIndonesia).toFixed(1)}x premium` : `${(p.pe - output.peIndonesia).toFixed(1)}x`) : 'n/a'} |`,
+    ),
+    `| **ASEAN median** | — | ${output.peAseanMedian !== null ? output.peAseanMedian.toFixed(1) + 'x' : 'n/a'} | **Discount: ${output.peDiscount !== null ? output.peDiscount.toFixed(1) + '%' : 'n/a'}** |`,
+    `_P/E: iShares MSCI ETF trailing P/E (Yahoo Finance). All same fund family — directly comparable. Discount > 30% = elevated country risk premium [Damodaran ERP; Calvo sudden stop linkage]. Morris-Shin: deep discount lowers attack cost on IDR._`,
     ``,
     output.flags.length > 0 ? `## Flags\n${output.flags.map((f) => `- ${f}`).join('\n')}` : '',
   ]

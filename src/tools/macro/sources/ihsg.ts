@@ -171,3 +171,45 @@ export async function fetchIhsgMarketData(): Promise<IhsgMarketSnapshot> {
   ]);
   return { peRatio, advanceDecline };
 }
+
+// ASEAN iShares MSCI ETF tickers — same fund family as EIDO, directly comparable P/E.
+// All trade on NYSE. Trailing P/E from Yahoo Finance quoteSummary.
+const ASEAN_ETF_PE: Array<{ country: string; etf: string; indicator: string }> = [
+  { country: 'Malaysia',    etf: 'EWM',  indicator: 'asean_pe_ewm'  },
+  { country: 'Singapore',   etf: 'EWS',  indicator: 'asean_pe_ews'  },
+  { country: 'Thailand',    etf: 'THD',  indicator: 'asean_pe_thd'  },
+  { country: 'Philippines', etf: 'EPHE', indicator: 'asean_pe_ephe' },
+];
+
+export interface AseanEtfPePoint {
+  country: string;
+  etf: string;
+  indicator: string;
+  pe: number | null;
+  dataPoint: MacroDataPoint | null;
+}
+
+/**
+ * Fetch trailing P/E for ASEAN iShares MSCI ETFs (EWM, EWS, THD, EPHE).
+ * All same fund family as EIDO → directly comparable without conversion factor.
+ * Used for cross-ASEAN valuation discount analysis in M7.
+ */
+export async function fetchAseanEtfPeRatios(): Promise<AseanEtfPePoint[]> {
+  return Promise.all(
+    ASEAN_ETF_PE.map(async ({ country, etf, indicator }) => {
+      try {
+        const q = await yf.quote(etf);
+        const pe = (q as Record<string, unknown>)['trailingPE'];
+        if (typeof pe === 'number' && pe > 2 && pe < 80) {
+          const dataPoint: MacroDataPoint = {
+            indicator, category: 'regime',
+            date: TODAY(), value: parseFloat(pe.toFixed(2)), unit: 'ratio',
+            source: 'yahoo_finance', fetchedAt: NOW(),
+          };
+          return { country, etf, indicator, pe: parseFloat(pe.toFixed(2)), dataPoint };
+        }
+      } catch { /* ignore */ }
+      return { country, etf, indicator, pe: null, dataPoint: null };
+    }),
+  );
+}
