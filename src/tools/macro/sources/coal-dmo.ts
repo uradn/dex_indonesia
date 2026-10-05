@@ -167,13 +167,18 @@ export async function fetchCoalDmoStatus(): Promise<CoalDmoData | null> {
         getLatestPoint('coal_dmo_compliance_pct'),
         getLatestPoint('pln_coal_secured_pct'),
       ]);
-      return {
-        date: cached.date,
-        hbaUsdTon: cached.value,
-        dmoCompliancePct: comp?.value ?? null,
-        plnSecuredPct: pln?.value ?? null,
-        fetchedAt: cached.fetchedAt,
-      };
+      // If pln_coal_secured_pct is stale (>35d by date) force a fresh Exa search
+      // even though HBA is fresh — PLN contracted volumes update monthly, HBA weekly.
+      const plnAgeDays = pln ? (Date.now() - new Date(pln.date + 'T00:00:00Z').getTime()) / 86_400_000 : 999;
+      if (plnAgeDays <= 35) {
+        return {
+          date: cached.date,
+          hbaUsdTon: cached.value,
+          dmoCompliancePct: comp?.value ?? null,
+          plnSecuredPct: pln?.value ?? null,
+          fetchedAt: cached.fetchedAt,
+        };
+      }
     }
   }
 

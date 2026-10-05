@@ -96,10 +96,20 @@ export async function fetchIhsgPeRatio(): Promise<MacroDataPoint | null> {
   return null;
 }
 
+// LQ45 proxy basket for Yahoo Finance A/D fallback (25 liquid names)
+const LQ45_PROXY = [
+  'BBCA.JK','BBRI.JK','BMRI.JK','TLKM.JK','BREN.JK','ASII.JK','GOTO.JK','BYAN.JK',
+  'TPIA.JK','INDF.JK','PGAS.JK','ADRO.JK','MEDC.JK','PTBA.JK','SMGR.JK',
+  'UNVR.JK','ICBP.JK','KLBF.JK','ANTM.JK','JSMR.JK','BRPT.JK','MAPI.JK',
+  'EXCL.JK','TBIG.JK','INKP.JK',
+];
+
 /**
  * Fetch IDX advance/decline breadth.
- * Priority: IDX JSON API → Playwright EN page → Playwright ID page.
+ * Priority: IDX JSON API → Playwright EN/ID page → Yahoo Finance LQ45 proxy.
  * >1.5 = broad rally. <0.67 = broad selling. <0.5 = panic breadth.
+ * Yahoo path computes proxy A/D from 25 LQ45 blue chips (regularMarketChange).
+ * IDX full-market A/D preferred; Yahoo proxy used only when IDX Cloudflare-blocked.
  */
 export async function fetchIdxAdvanceDecline(): Promise<MacroDataPoint | null> {
   // 1. Try JSON API (fast, no Playwright)
@@ -120,8 +130,6 @@ export async function fetchIdxAdvanceDecline(): Promise<MacroDataPoint | null> {
     const text = await fetchRenderedTextWithBrowser(url);
     if (!text) continue;
 
-    // Pattern: "Advance  350  Unchanged  120  Decline  230"
-    // Or: "Naik  350  Tetap  120  Turun  230"
     const adMatch =
       text.match(/(?:Advance|Naik)\D{0,5}([\d,]+)\D{0,50}(?:Decline|Turun)\D{0,5}([\d,]+)/i);
     if (adMatch) {
@@ -136,7 +144,6 @@ export async function fetchIdxAdvanceDecline(): Promise<MacroDataPoint | null> {
       }
     }
 
-    // Alternative: look for numeric pattern near advance/naik keyword
     const advIdx = text.toLowerCase().indexOf('advance');
     const naikIdx = text.toLowerCase().indexOf('naik');
     const startIdx = advIdx >= 0 ? advIdx : naikIdx;
@@ -155,6 +162,27 @@ export async function fetchIdxAdvanceDecline(): Promise<MacroDataPoint | null> {
       }
     }
   }
+
+  // 3. Yahoo Finance LQ45 proxy — bypass IDX Cloudflare block
+  try {
+    const quotes = await yf.quote(LQ45_PROXY);
+    const arr = Array.isArray(quotes) ? quotes : [quotes];
+    let advance = 0, decline = 0;
+    for (const q of arr) {
+      const chg = (q as Record<string, unknown>)['regularMarketChange'];
+      if (typeof chg === 'number') {
+        if (chg > 0) advance++;
+        else if (chg < 0) decline++;
+      }
+    }
+    if (advance + decline >= 10 && decline > 0) {
+      return {
+        indicator: 'idx_advance_decline_ratio', category: 'regime',
+        date: TODAY(), value: parseFloat((advance / decline).toFixed(3)), unit: 'ratio',
+        source: 'yahoo_lq45_proxy', fetchedAt: NOW(),
+      };
+    }
+  } catch { /* ignore */ }
 
   return null;
 }
