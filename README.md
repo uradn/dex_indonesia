@@ -153,25 +153,25 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - USDIDR: 16,500 | ICP oil: $70/bbl | GDP growth: 5.4% | CPI: 2.5%
 - Revenue: 3,154T | Spending: 3,843T | Deficit: 2.68% GDP
 
-**Live deviations (Oct 6, 2026):**
+**Live deviations (Oct 8, 2026):**
 - BI Rate: **5.75%** — tahan Sep 23 RDG (Destry perdana, 4 bulan beruntun Jun–Sep); DFR 4.75%, LF 6.50%
 - BI Gov: **Destry Damayanti** (dilantik 2 Sep 2026, Keppres 92/P/2026) — pro-stability + pro-growth; GWM rupiah 9%
 - **Menkeu: Suahasil Nazara** (dilantik 14 Sep 2026, Keppres 97p/2026) — Menkeu ke-3 era Prabowo (SMI → Purbaya → Suahasil); prioritas: APBN kredibel, defisit <3% PDB, transparansi ALCo; rhetoric signal COMMITMENT (CI −6pts)
-- **APBN Semester I 2026**: Defisit Rp196.5T (0.76% PDB). Subsidi+kompensasi Rp233T (52.1% target). **Outlook full-year: defisit 4.23% GDP** (melampaui 3% constitutional limit per M10 engine) — tekanan subsidi energi 223% run-rate vs APBN
-- Term premium: **~1.42%** (SBN 10Y 7.167% − BI Rate 5.75%) — YELLOW zone
+- **APBN Semester I 2026**: Defisit Rp196.5T (0.76% PDB). Subsidi+kompensasi Rp233T (52.1% target). **Outlook full-year: defisit 4.23% GDP** (melampaui 3% constitutional limit per M10 engine) — subsidi energi run-rate **241%** vs APBN (naik dari 223%)
+- Term premium: **~1.42%** (SBN 10Y 7.168% − BI Rate 5.75%) — YELLOW zone
 - S&P interest/revenue ratio: **~20.5%** — 5.5pp above S&P 15% negative-watch threshold 🔴
-- USDIDR spot: **17,905**; cadev **$146.5B**; DNDF contingent $8B → effective **$138.5B**; G-G ratio **2.09x**
+- USDIDR spot: **17,885**; cadev **$146.5B**; DNDF contingent $8B → effective **$138.5B**; G-G ratio **2.09x**
 - **CAD Q2 2026: −$12.5B = −3.3% PDB** — melampaui R&R 3% danger zone
-- CDS 5Y: **95.0bps** (velocity +3.8bps/wk 🔴 → watch zone 200bps est. ~194d); SBN 10Y: **7.167%**; SBN-UST spread **186bps** (<200bps, carry declining)
-- Brent: **$100.0/bbl** 🔴 **TEPAT DI THRESHOLD BAHLIL** — komitmen "tidak naik" diuji; ICP $101.7/bbl (+45.3% vs APBN); Pertalite gap **Rp6,033/L** 🔴; Solar B50 gap **Rp14,405/L** 🔴; Coal DMO compliance 50% (HBA gap 44%)
+- CDS 5Y: **91.8bps** (velocity +3.4bps/wk 🔴 → watch zone 200bps est. ~226d); SBN 10Y: **7.168%**; SBN-UST spread **189bps** (<200bps, carry declining); UIP unattractive (real carry −0.14pp)
+- Brent: **$102.5/bbl** 🔴 **MELAMPAUI THRESHOLD BAHLIL $100** ($2.5 di atas, brent-alert fired Oct 7); ICP $102.5/bbl (+46.4% vs APBN); Pertalite gap **Rp6,135/L** 🔴; Solar B50 gap **Rp14,543/L** 🔴; Coal DMO compliance 50% (HBA gap 44%); Hormuz traffic 6% pre-war level 🔴
 - BBM: Pertamax Rp15.950 | Pertamax Green Rp19.150 | **Pertalite Rp10,000 + Solar Rp6,800 TIDAK NAIK** (komitmen Bahlil — tapi fiskal sudah menanggung)
 - **LNG**: JKM spot $28+/MMBtu; Hormuz effectively closed; vessel transits single digit/hari
 - **Russia-Indonesia Energy Deal**: Framework MoU ~**150 juta barel** G2G crude oil via **Lemigas** + LPG (Apr–Sep 2026); ESPO API 34–36° = Minas-compatible; "jangan tanya harga" (Bahlil); ESPO discount vs Brent est. ~$10–15/bbl → engine override: `RUSSIA_CRUDE_DISCOUNT_USD` (default 0). Lihat [Russia-Indonesia Energy Deal](#russia-indonesia-energy-deal-2026)
 - **Rezim: Q1 Goldilocks** (Growth↑ Inflation↓) — PMI 52.4; Growth ROC +9.93%; Inflation ROC −21.38%
-- **IHSG P/E discount 39.2%** vs Thailand (THD 14.7x vs EIDO 9.0x) — Damodaran ERP: discount >35% = structural risk repricing; M3 DCI +10pts (Morris-Shin equity factor); SG/EM gap **1.50×**
-- **⚠️ Morris-Shin alert**: CDS velocity +3.8bps/wk + oil belief dispersion (CV>12%) → multiple equilibria zone; SRBI sterilization burden 40.5% cadev; catalyst watch: Pertamina loss disclosure, APBN Kita quarterly
-- **⚠️ Political-Financial Divergence**: polrisk **87/100 🔴** (naik dari 84 Oct 5) vs financial avg 24/100 — gap 63pp; social contract stress belum terpricing oleh market (leads 2-3 quarters)
-- SCD: **30% 🟢 GREEN** | M12 Political Risk **87/100 🔴** | M10 Fiscal **71/100 🔴** | M4 Commodity **42/100 🟡** | M3 FX Defense **26/100 🟢** | **Thesis #14 TRIGGERED** (armed Sep 22, 14d) — KEDUA trigger fired (#1 polrisk 87>75, #2 subsidi 223%) — targets T+12: CDS 164bps, USDIDR 20,020, SBN 8.62% | KS#1 tidak firing (87/100) | KS#3 SBN asing 13.02% | KS#4 CDS 95.0bps
+- **IHSG P/E discount 39.6%** vs Thailand (THD 14.8x vs EIDO 8.9x) — Damodaran ERP: discount >35% = structural risk repricing; M3 DCI +10pts (Morris-Shin equity factor); SG/EM gap **1.49×**
+- **⚠️ Morris-Shin alert**: CDS velocity +3.4bps/wk + oil belief dispersion (CV>12%) → multiple equilibria zone; SRBI sterilization burden 40.6% cadev; catalyst watch: Pertamina loss disclosure, APBN Kita quarterly
+- **⚠️ Political-Financial Divergence**: polrisk **80/100 🔴** vs financial avg 25/100 — gap 55pp; Demo Cipayung di DPR 8 Okt; social contract stress belum terpricing oleh market (leads 2-3 quarters)
+- SCD: **29% 🟢 GREEN** (↓ dari 30%) | M12 Political Risk **80/100 🔴** | M10 Fiscal **71/100 🔴** | M4 Commodity **46/100 🟡** | M3 FX Defense **23/100 🟢** | **Thesis #14 TRIGGERED** (armed Sep 22, 16d) — KEDUA trigger fired (#1 polrisk 80>75, #2 subsidi 241%) — targets T+12: CDS 164bps, USDIDR 20,020, SBN 8.62% | KS#1 tidak firing (80/100) | KS#3 SBN asing 13.06% | KS#4 CDS 91.8bps
 
 ### BBM Subsidy Monitoring (Module 11)
 
