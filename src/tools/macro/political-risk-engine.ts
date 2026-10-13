@@ -86,6 +86,7 @@ export interface PoliticalRiskOutput {
   sentimentResults: SentimentResult[];
   seasonalContext: string | null;
   topHeadlines: string[];
+  unrestHeadlines: string[];   // social_unrest signal headlines (BBM langka, labor protests)
   narrative: string;
   flags: string[];
 }
@@ -269,6 +270,19 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     }
   }
 
+  // Deduplicated unrest headlines (Exa social_unrest + Tavily unrest) — explicit BBM/labor feed
+  const unrestHeadlines: string[] = [];
+  const seenUnrest = new Set<string>();
+  for (const r of [unrestSentiment, tavilyUnrest].filter((x): x is SentimentResult => x !== null)) {
+    for (let i = 0; i < r.headlines.length && unrestHeadlines.length < 4; i++) {
+      const title = r.headlines[i];
+      if (!title || seenUnrest.has(title)) continue;
+      seenUnrest.add(title);
+      const date = r.publishedDates?.[i];
+      unrestHeadlines.push(date ? `[${date}] ${title}` : title);
+    }
+  }
+
   const narrative = buildNarrative({
     politicalRiskIndex, alert, unemploymentRate, foodPressureComponent,
     socialUnrestComponent, stabilityComponent, seasonal,
@@ -296,6 +310,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     sentimentResults,
     seasonalContext: seasonal,
     topHeadlines,
+    unrestHeadlines,
     narrative,
     flags,
   };
@@ -398,8 +413,13 @@ function formatOutput(output: PoliticalRiskOutput): string {
     ].filter(Boolean).join('\n') : '_X social feed unavailable. Set X_BEARER_TOKEN for real-time minute-zero detection._',
     ``,
     output.topHeadlines.length > 0 ? [
-      `## Top Headlines (Exa + Tavily, recent 7 days)`,
+      `## Top Headlines — Food/Stability (recent 7 days)`,
       ...output.topHeadlines.map((h) => `- ${h}`),
+    ].join('\n') : '',
+    ``,
+    output.unrestHeadlines.length > 0 ? [
+      `## Unrest/BBM Headlines — Social Unrest Signal (recent 7 days)`,
+      ...output.unrestHeadlines.map((h) => `- ${h}`),
     ].join('\n') : '',
     ``,
     output.flags.length > 0 ? `## Active Flags\n${output.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '## No Critical Flags',

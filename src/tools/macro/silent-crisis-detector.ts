@@ -151,11 +151,18 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
   const moduleScores = await getModuleScores();
 
   // Weighted composite score
+  // political_risk uses dynamic weight: Indonesia polrisk is a LEADING indicator.
+  // At polrisk ≥75 (Thesis trigger), sustained political stress historically precedes
+  // financial repricing by 2-3 quarters — weight escalates to match fiscal (0.09).
+  // At polrisk ≥90, weight matches sovereign_risk (0.12) — MAX RED = confirmed leading signal.
+  // Below 75: base 0.05 (noise level). Normalization via totalWeight handles non-unit sum.
   let weightedSum = 0;
   let totalWeight = 0;
   for (const ms of moduleScores) {
     if (!ms.available) continue;
-    const weight = MODULE_WEIGHTS[ms.module] ?? 0.05;
+    const weight = ms.module === 'political_risk'
+      ? (ms.score >= 90 ? 0.12 : ms.score >= 75 ? 0.09 : 0.05)
+      : (MODULE_WEIGHTS[ms.module] ?? 0.05);
     weightedSum += ms.score * weight;
     totalWeight += weight;
   }

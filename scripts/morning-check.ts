@@ -243,8 +243,12 @@ if (political.status === 'fulfilled') {
   if (r.seasonalContext) console.log(`  📅 Seasonal: ${r.seasonalContext}`);
   for (const f of r.flags) console.log(`  ⚠️  ${f}`);
   if (r.topHeadlines.length > 0) {
-    console.log(`  Top headlines:`);
+    console.log(`  Top headlines (food/stability):`);
     r.topHeadlines.slice(0, 3).forEach(h => console.log(`    • ${h}`));
+  }
+  if (r.unrestHeadlines.length > 0) {
+    console.log(`  Unrest/BBM headlines (social_unrest signal):`);
+    r.unrestHeadlines.slice(0, 4).forEach(h => console.log(`    • ${h}`));
   }
 } else {
   console.log(`\n### 13. Political Risk  ❌ ${String(political.reason).slice(0, 80)}`);
