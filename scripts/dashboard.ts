@@ -458,14 +458,18 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
   }
 
   // ── SCD-based crisis probability ─────────────────────────────────────────────
-  const W: Record<string, number> = {
+  // political_risk: dynamic weight — leading indicator; escalates at Thesis trigger threshold
+  const W_BASE2: Record<string, number> = {
     fx_defense:0.16,uln:0.09,bop:0.10,sovereign_risk:0.09,foreign_flow:0.09,
     banking:0.08,commodity:0.07,fiscal:0.09,market:0.05,domestic_pressure:0.06,
     political_risk:0.05,regime:0.05,narrative:0.02,
   };
   let wsum = 0, wtotal = 0;
-  for (const [mod, w] of Object.entries(W)) {
-    if (ms[mod]) { wsum += ms[mod].score * w; wtotal += w; }
+  for (const [mod, baseW] of Object.entries(W_BASE2)) {
+    if (!ms[mod]) continue;
+    const s = ms[mod].score;
+    const w = mod === 'political_risk' ? (s >= 90 ? 0.12 : s >= 75 ? 0.09 : 0.05) : baseW;
+    wsum += s * w; wtotal += w;
   }
   const stressed = Object.values(ms).filter(m => m.score >= 50).length;
   const amp = stressed >= 5 ? 1.4 : stressed >= 3 ? 1.2 : stressed >= 2 ? 1.1 : 1.0;
@@ -1051,16 +1055,21 @@ function renderScd(d) {
   const scdMs = Object.keys(ms).length;
   let score, label, cls;
   if (scdMs > 0) {
-    // Replicate SCD weighted sum from module scores
-    const W = { fx_defense:0.16, uln:0.09, bop:0.10, sovereign_risk:0.09, foreign_flow:0.09,
+    // Replicate SCD weighted sum — political_risk uses dynamic weight (leading indicator)
+    // Mirrors silent-crisis-detector.ts logic: <75=0.05, ≥75=0.09, ≥90=0.12
+    const W_BASE = { fx_defense:0.16, uln:0.09, bop:0.10, sovereign_risk:0.09, foreign_flow:0.09,
                 banking:0.08, commodity:0.07, fiscal:0.09, market:0.05, domestic_pressure:0.06,
                 political_risk:0.05, regime:0.05, narrative:0.02 };
     let wsum = 0, wtotal = 0;
-    for (const [mod, w] of Object.entries(W)) {
-      if (ms[mod]) { wsum += ms[mod].score * w; wtotal += w; }
+    for (const [mod, baseW] of Object.entries(W_BASE)) {
+      if (!ms[mod]) continue;
+      const s = ms[mod].score;
+      const w = mod === 'political_risk' ? (s >= 90 ? 0.12 : s >= 75 ? 0.09 : 0.05) : baseW;
+      wsum += s * w; wtotal += w;
     }
+    // Orange/red stressed count for cross-confirmation amplifier
     const stressed = Object.values(ms).filter(m => m.score >= 50).length;
-    const amp = stressed >= 5 ? 1.4 : stressed >= 3 ? 1.2 : 1.0;
+    const amp = stressed >= 5 ? 1.4 : stressed >= 3 ? 1.2 : stressed >= 2 ? 1.05 : 1.0;
     score = Math.min(95, Math.round((wtotal > 0 ? wsum / wtotal : 0) * amp));
     const latest = Object.values(ms).sort((a,b) => b.computedAt.localeCompare(a.computedAt))[0];
     const age = latest ? Math.round((Date.now() - new Date(latest.computedAt).getTime()) / 3600000) : null;
