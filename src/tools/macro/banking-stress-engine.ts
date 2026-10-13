@@ -422,6 +422,20 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   );
   stressScore = Math.min(100, stressScore + diamondDybvig.scoreBump);
 
+  // ── AT1 Perpetual Bond — Himbara capital stress signal ───────────────────────
+  // Manual pin: set when bank BUMN issues USD AT1 perpetual bond.
+  // Signal: bank taking expensive FX capital = forward-looking CAR concern +
+  // domestic market too shallow + FX mismatch on capital base (3rd-gen channel).
+  // Expires after 180 days (one issuance cycle).
+  const at1Bn   = parseFloat(process.env.BANK_AT1_ISSUANCE_BUMN_USD_BN ?? '0');
+  const at1Date = process.env.BANK_AT1_ISSUANCE_DATE ?? null;
+  const at1AgeDays = at1Date
+    ? Math.floor((Date.now() - new Date(at1Date).getTime()) / 86_400_000)
+    : null;
+  const at1Active = at1Bn > 0 && at1AgeDays !== null && at1AgeDays <= 180;
+  const at1Bump = at1Active ? (at1Bn >= 1.0 ? 10 : 6) : 0;
+  stressScore = Math.min(100, stressScore + at1Bump);
+
   // 5. Alert level: high stressScore = more stress = higher alert
   const alert = alertFromScore(stressScore) as AlertLevel;
 
@@ -508,6 +522,16 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   }
   if (fintechNplPct !== null && nplPct !== null && fintechNplPct > nplPct * 2) {
     flags.push(`Fintech NPL ${fintechNplPct.toFixed(1)}% vs bank NPL ${nplPct.toFixed(1)}% — gap ${(fintechNplPct / nplPct).toFixed(1)}× indicates unsecured digital credit stress concentrating ahead of formal banking`);
+  }
+
+  // AT1 issuance flag
+  if (at1Active) {
+    const idrTrn = (at1Bn * (fxReservesBn ? 17_915 : 17_000) / 1_000).toFixed(1);
+    flags.push(
+      `HIMBARA AT1 ISSUANCE: $${at1Bn.toFixed(2)}bn USD perpetual bond (${at1Date}) — ` +
+      `BNI $700M Apr + Mandiri $750M Sep 2026; preemptive CAR buffer; ` +
+      `USD capital = FX mismatch ~Rp${idrTrn}T on capital base; domestic market insufficient to absorb`,
+    );
   }
 
   // Diamond-Dybvig flags
