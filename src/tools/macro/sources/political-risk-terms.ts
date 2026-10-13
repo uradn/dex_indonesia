@@ -5,7 +5,8 @@
 
 export const NEGATIVE_TERMS = [
   'protes', 'demo', 'unjuk rasa', 'phk', 'naik', 'mahal', 'krisis', 'darurat',
-  'kelangkaan', 'tuntut', 'kekacauan', 'risiko', 'berisiko', 'gejolak', 'otoriter',
+  'kelangkaan', 'langka', 'antri', 'antrean', 'kehabisan', 'tidak tersedia',
+  'tuntut', 'kekacauan', 'risiko', 'berisiko', 'gejolak', 'otoriter',
   'mogok', 'aksi massa', 'ancaman', 'gagal', 'tidak terjangkau', 'tak terjangkau',
   'kerusuhan', 'rusuh', 'bakar', 'anarkis',
   // approval/dissatisfaction signals
@@ -40,6 +41,10 @@ export const HIGH_SEVERITY_TERMS = [
   'democratic backsliding', 'backsliding', 'autocratic', 'pivot china',
   'big risk', 'major risk', 'serious concern', 'alarming', 'warning',
   'geopolitical', 'alignment shift', 'neutrality', 'sovereignty risk',
+  // supply breakdown — physical scarcity signals (BBM + pangan)
+  'kelangkaan bbm', 'bbm langka', 'antri bbm', 'antrean bbm', 'pertalite langka',
+  'solar langka', 'beras langka', 'kelangkaan pangan', 'kelangkaan beras',
+  'shortage', 'scarcity', 'fuel shortage', 'food shortage',
   // state capacity failure / disaster governance
   'negara absen', 'state absent', 'governance failure', 'pemerintah absen',
   'bencana di atas bencana', 'bantuan asing ditolak', 'belum buka bantuan',

@@ -86,16 +86,16 @@ export interface SentimentResult {
 }
 
 const SIGNAL_QUERIES: Record<NewsSentimentSignal, string> = {
-  food_pressure:       'Indonesia Prabowo sembako harga naik protes 2026',
-  social_unrest:       'Indonesia demo unjuk rasa protes PHK pengangguran buruh 2026',
+  food_pressure:       'Indonesia Prabowo sembako pangan harga naik kelangkaan langka antrean protes 2026',
+  social_unrest:       'Indonesia demo unjuk rasa protes PHK pengangguran buruh BBM langka antrean Pertalite Solar kelangkaan 2026',
   political_stability: 'Indonesia governance failure pemerintah absen bencana Prabowo separatism Dayak approval rating tidak puas instabilitas 2026',
   geopolitical_risk:   'Indonesia Prabowo China military drill geopolitical alignment risk investor concern democratic backsliding 2026',
 };
 
 // Tavily queries skew toward Indonesian domestic news portals
 const SIGNAL_QUERIES_TAVILY: Record<NewsSentimentSignal, string> = {
-  food_pressure:       'Indonesia harga sembako beras naik demo protes petani buruh pangan 2026',
-  social_unrest:       'Indonesia demo unjuk rasa kerusuhan PHK buruh mogok protes jalanan 2026',
+  food_pressure:       'Indonesia harga sembako beras naik kelangkaan langka antri antrean demo protes petani buruh pangan 2026',
+  social_unrest:       'Indonesia demo unjuk rasa kerusuhan PHK buruh mogok protes jalanan BBM langka antri SPBU kelangkaan 2026',
   political_stability: 'Indonesia negara absen bencana penanganan Prabowo tidak puas separatisme Dayak Borneo bantuan asing ditolak NTT gempa 2026',
   geopolitical_risk:   'Indonesia China latihan militer geopolitik risiko investor Prabowo demokrasi backsliding 2026',
 };
