@@ -184,8 +184,8 @@ export async function runDomesticPressureEngine(): Promise<DomesticPressureOutpu
     }
   }
 
-  const stressScore = foodStressIndex;
-  const alert = alertFromScore(stressScore);
+  let stressScore = foodStressIndex;
+  let alert = alertFromScore(stressScore);
 
   // ── 4. Food inflation vs APBN benchmark ───────────────────────────────────
   const currentFoodInflation = await getLatestPoint('food_inflation_yoy_pct');
@@ -254,6 +254,14 @@ export async function runDomesticPressureEngine(): Promise<DomesticPressureOutpu
     { indicator: 'solar_cost_recovery_idr_liter', category: 'pangan', date: today, value: solarCostRecovery, unit: 'IDR/liter', source: 'computed_mops_approx', fetchedAt: new Date().toISOString() },
     { indicator: 'solar_subsidy_gap_idr_liter', category: 'pangan', date: today, value: solarSubsidyGap, unit: 'IDR/liter', source: 'computed', fetchedAt: new Date().toISOString() },
   ]);
+
+  // BBM/ICP pressure bonus — subsidy gap and oil price directly affect domestic purchasing power
+  // and political stability; must contribute to score, not just flags.
+  const bbmBonus   = bbmHikeRisk   === 'red' ? 20 : bbmHikeRisk   === 'orange' ? 12 : bbmHikeRisk   === 'yellow' ? 5 : 0;
+  const solarBonus = solarHikeRisk === 'red' ? 10 : solarHikeRisk === 'orange' ? 6  : 0;
+  const icpBonus   = brentUsd > 100 ? 10 : brentUsd > 90 ? 5 : 0;
+  stressScore = Math.min(100, stressScore + Math.min(30, bbmBonus + solarBonus + icpBonus));
+  alert = alertFromScore(stressScore);
 
   if (bbmHikeRisk !== 'green') {
     flags.push(

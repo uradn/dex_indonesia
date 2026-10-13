@@ -247,7 +247,9 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   const volScore      = volSnapshot     ? zToRawScore(volSnapshot)     : 0;
   const reserveScore  = reserveSnapshot ? zToRawScore(reserveSnapshot) : 0;
 
-  const score = Math.round(spotScore * 0.60 + volScore * 0.25 + reserveScore * 0.15);
+  const srbiAdj = srbiSterilizationRatio !== null
+    ? (srbiSterilizationRatio > 0.50 ? 15 : srbiSterilizationRatio > 0.35 ? 8 : 0) : 0;
+  let score = Math.min(100, Math.round(spotScore * 0.60 + volScore * 0.25 + reserveScore * 0.15) + srbiAdj);
   let alertLevel = alertFromScore(score);
   const flags = detectFlags(validSnapshots);
 
@@ -381,10 +383,21 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
 
   if (gateZone === 'attack') {
     flags.push(`CONFIDENCE GATE — ATTACK ZONE (DC${netScore > 0 ? '+' : ''}${netScore} > AC): abandonment dominant — defense costs exceed credibility value. Rational speculators will attack regardless of coordination. [R&R Ch.13]`);
-    const ALERT_ORDER: AlertLevel[] = ['green', 'yellow', 'orange', 'red'];
-    alertLevel = ALERT_ORDER[Math.max(ALERT_ORDER.indexOf(alertLevel), ALERT_ORDER.indexOf('orange'))]!;
   } else if (gateZone === 'vulnerable') {
     flags.push(`CONFIDENCE GATE — VULNERABILITY ZONE (net DC-AC = ${netScore > 0 ? '+' : ''}${netScore}): self-fulfilling attack POSSIBLE. Defense and abandonment costs balanced → multiple equilibria. Sentiment shift alone can trigger crisis. [R&R Ch.13 Morris-Shin]`);
+  }
+
+  // Gate zone score adjustment — confidence gate directly affects FX defense score,
+  // not just alert level. Safe zone: no adj. Vulnerable: +8. Attack: +20.
+  const gateAdj = gateZone === 'attack' ? 20 : gateZone === 'vulnerable' ? 8 : 0;
+  if (gateAdj > 0) {
+    score = Math.min(100, score + gateAdj);
+    alertLevel = alertFromScore(score);
+  }
+  // Attack zone floor: always at least ORANGE regardless of score math.
+  if (gateZone === 'attack') {
+    const ALERT_ORDER: AlertLevel[] = ['green', 'yellow', 'orange', 'red'];
+    alertLevel = ALERT_ORDER[Math.max(ALERT_ORDER.indexOf(alertLevel), ALERT_ORDER.indexOf('orange'))]!;
   }
 
   const interventionSustainability: AlertLevel =
