@@ -33,6 +33,7 @@ import {
   fetchUnemploymentTe,
   searchNewsSentiment,
   searchNewsSentimentTavily,
+  searchBreakingNewsSentiment,
   detectSeasonalContext,
   type SentimentResult,
 } from './sources/political-risk.js';
@@ -115,6 +116,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     foodResult, unrestResult, stabilityResult, geopoliticalResult,
     tavilyFoodResult, tavilyUnrestResult, tavilyStabilityResult, tavilyGeopoliticalResult,
     xResult, phkResult,
+    breakingFoodResult, breakingUnrestResult,
   ] = await Promise.allSettled([
     searchNewsSentiment('food_pressure'),
     searchNewsSentiment('social_unrest'),
@@ -126,6 +128,8 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     searchNewsSentimentTavily('geopolitical_risk'),
     fetchXSocialSentiment(),
     fetchPhkRelokasi(),
+    searchBreakingNewsSentiment('food_pressure'),
+    searchBreakingNewsSentiment('social_unrest'),
   ]);
 
   const foodSentiment        = foodResult.status              === 'fulfilled' ? foodResult.value              : null;
@@ -138,15 +142,19 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
   const tavilyGeopolitical   = tavilyGeopoliticalResult.status === 'fulfilled' ? tavilyGeopoliticalResult.value : null;
   const xSentiment           = xResult.status                 === 'fulfilled' ? xResult.value                 : null;
   const phkData              = phkResult.status               === 'fulfilled' ? phkResult.value               : null;
+  const breakingFood         = breakingFoodResult.status      === 'fulfilled' ? breakingFoodResult.value      : null;
+  const breakingUnrest       = breakingUnrestResult.status    === 'fulfilled' ? breakingUnrestResult.value    : null;
 
-  // Blended unrest score: best of Exa + Tavily for DB storage (represents combined news coverage)
+  // Blended unrest score: best of Exa + Tavily + 48h breaking scan
   const blendedUnrestScore = Math.max(
     unrestSentiment?.stressScore ?? 0,
     tavilyUnrest?.stressScore ?? 0,
+    breakingUnrest?.stressScore ?? 0,
   );
   const blendedFoodScore = Math.max(
     foodSentiment?.stressScore ?? 0,
     tavilyFood?.stressScore ?? 0,
+    breakingFood?.stressScore ?? 0,
   );
 
   // Store sentiment scores in DB for trend tracking
@@ -182,10 +190,11 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
   // Tier 1: Exa (neural link search, hours lag)
   // Tier 2: Tavily (Bing/Indonesian portals, parallel coverage)
   // Tier 3: X (real-time tweets, 15% noise discount)
-  const exaUnrestScore = unrestSentiment?.stressScore ?? 15;
-  const tavilyUnrestScore = tavilyUnrest?.stressScore ?? 0;
-  const xUnrestScore = xSentiment !== null ? Math.round(xSentiment.stressScore * 0.85) : 0;
-  const socialUnrestComponent = Math.min(30, Math.max(exaUnrestScore, tavilyUnrestScore, xUnrestScore));
+  const exaUnrestScore     = unrestSentiment?.stressScore ?? 15;
+  const tavilyUnrestScore  = tavilyUnrest?.stressScore ?? 0;
+  const xUnrestScore       = xSentiment !== null ? Math.round(xSentiment.stressScore * 0.85) : 0;
+  const breakingUnrestScore = breakingUnrest?.stressScore ?? 0;
+  const socialUnrestComponent = Math.min(30, Math.max(exaUnrestScore, tavilyUnrestScore, xUnrestScore, breakingUnrestScore));
 
   // Political stability: cap at 25. Best of Exa + Tavily across both domestic + geopolitical signals.
   const blendedStabilityScore = Math.max(stabilitySentiment?.stressScore ?? 10, tavilyStability?.stressScore ?? 0);

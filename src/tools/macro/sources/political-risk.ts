@@ -107,6 +107,12 @@ const INDONESIAN_NEWS_DOMAINS = [
   // expanded — captures regional/tabloid/broadcast missed before
   'rmol.id', 'jawapos.com', 'kompas.tv', 'cnbcindonesia.com',
   'okezone.com', 'merdeka.com', 'viva.co.id', 'kumparan.com',
+  // regional portals — catches supply crisis news before national desks pick it up
+  'balipost.com', 'bali.tribunnews.com', 'bali.idntimes.com',
+  'nttonlinenow.com', 'gesuri.id', 'suaramakassar.com',
+  'sulawesitoday.com', 'fajar.co.id', 'wartaberita.id',
+  // official sources — faster for ombudsman/pemda crisis declarations
+  'ombudsman.go.id', 'bpbd.go.id',
 ];
 
 
@@ -122,7 +128,7 @@ function scoreTitle(title: string): { negative: number; positive: number; highSe
  * Run a single Exa news search and compute sentiment score.
  * Returns null if EXASEARCH_API_KEY not set or search fails.
  */
-export async function searchNewsSentiment(signal: NewsSentimentSignal, daysBack = 7): Promise<SentimentResult | null> {
+export async function searchNewsSentiment(signal: NewsSentimentSignal, daysBack = 7, numResults = 8): Promise<SentimentResult | null> {
   if (!process.env.EXASEARCH_API_KEY) return null;
 
   try {
@@ -131,7 +137,7 @@ export async function searchNewsSentiment(signal: NewsSentimentSignal, daysBack 
     const startDate = new Date(Date.now() - daysBack * 86_400_000).toISOString().slice(0, 10);
 
     const response = await exa.search(SIGNAL_QUERIES[signal], {
-      numResults: 8,
+      numResults,
       type: 'auto',
       startPublishedDate: startDate,
     });
@@ -174,7 +180,7 @@ export async function searchNewsSentiment(signal: NewsSentimentSignal, daysBack 
  * Scores article titles + first 200 chars of content via same keyword logic as Exa.
  * Returns null if TAVILY_API_KEY not set or search fails.
  */
-export async function searchNewsSentimentTavily(signal: NewsSentimentSignal, daysBack = 7): Promise<SentimentResult | null> {
+export async function searchNewsSentimentTavily(signal: NewsSentimentSignal, daysBack = 7, maxResults = 8): Promise<SentimentResult | null> {
   if (!process.env.TAVILY_API_KEY) return null;
   try {
     const { TavilySearchAPIWrapper } = await import('@langchain/tavily');
@@ -182,8 +188,8 @@ export async function searchNewsSentimentTavily(signal: NewsSentimentSignal, day
 
     const tavilyParams: Record<string, unknown> = {
       query: SIGNAL_QUERIES_TAVILY[signal],
-      max_results: 8,
-      time_range: daysBack <= 7 ? 'week' : 'month',
+      max_results: maxResults,
+      time_range: daysBack <= 2 ? 'day' : daysBack <= 7 ? 'week' : 'month',
     };
     // geopolitical_risk: allow international press (AFR, SCMP, FT, Reuters) — no domain filter
     if (signal !== 'geopolitical_risk') {
@@ -223,6 +229,25 @@ export async function searchNewsSentimentTavily(signal: NewsSentimentSignal, day
   } catch {
     return null;
   }
+}
+
+/**
+ * 48-hour breaking scan — higher numResults in compressed window.
+ * Catches regional breaking news before national desks syndicate it.
+ * Score is higher when a crisis just broke (12 recent results vs 8 over 7 days).
+ */
+export async function searchBreakingNewsSentiment(signal: 'food_pressure' | 'social_unrest'): Promise<SentimentResult | null> {
+  const [exa, tavily] = await Promise.allSettled([
+    searchNewsSentiment(signal, 2, 12),
+    searchNewsSentimentTavily(signal, 2, 12),
+  ]);
+  const exaResult    = exa.status    === 'fulfilled' ? exa.value    : null;
+  const tavilyResult = tavily.status === 'fulfilled' ? tavily.value : null;
+  if (!exaResult && !tavilyResult) return null;
+  // Return whichever has higher stress score (best-of-both in 48h window)
+  if (!tavilyResult) return exaResult;
+  if (!exaResult)    return tavilyResult;
+  return exaResult.stressScore >= tavilyResult.stressScore ? exaResult : tavilyResult;
 }
 
 // ─── Seasonal context ──────────────────────────────────────────────────────

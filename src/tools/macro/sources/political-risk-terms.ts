@@ -45,6 +45,17 @@ export const HIGH_SEVERITY_TERMS = [
   'kelangkaan bbm', 'bbm langka', 'antri bbm', 'antrean bbm', 'pertalite langka',
   'solar langka', 'beras langka', 'kelangkaan pangan', 'kelangkaan beras',
   'shortage', 'scarcity', 'fuel shortage', 'food shortage',
+  // multi-province / systemic supply crisis — escalation above single-region event
+  '11 provinsi', '10 provinsi', 'beberapa provinsi bbm', 'seluruh provinsi',
+  'kelangkaan bbm nasional', 'krisis bbm nasional', 'krisis bbm meluas',
+  'ombudsman bbm', 'ombudsman gangguan', 'ombudsman temukan',
+  // government forced to adapt operations = high-signal state capacity failure
+  'wfh buntut bbm', 'wfh akibat bbm', 'wfh imbas bbm', 'wfh bbm',
+  'pemprov wfh', 'pemda wfh', 'sekolah daring bbm', 'kampus daring bbm',
+  'tni polri bbm', 'bantuan tni bbm', 'dikerahkan bbm',
+  // fuel queue severity escalation
+  'antrean 2 km', 'antrean panjang spbu', 'spbu kosong', 'kehabisan pertalite',
+  'depo bbm', 'kapal terlambat bbm', 'pasokan terganggu',
   // state capacity failure / disaster governance
   'negara absen', 'state absent', 'governance failure', 'pemerintah absen',
   'bencana di atas bencana', 'bantuan asing ditolak', 'belum buka bantuan',
