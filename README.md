@@ -153,6 +153,36 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - USDIDR: 16,500 | ICP oil: $70/bbl | GDP growth: 5.4% | CPI: 2.5%
 - Revenue: 3,154T | Spending: 3,843T | Deficit: 2.68% GDP
 
+**Live deviations (Oct 16, 2026):**
+
+> ### 🚨 MSCI STANDALONE CONSULTATION — Oct 15 2026 (20:40 GMT)
+>
+> **MSCI meluncurkan konsultasi untuk reklasifikasi Indonesia dari Emerging Market → Standalone Market** — bukan Frontier, langsung Standalone. Pertama kali di dunia untuk alasan governance (bukan geopolitik/capital controls).
+>
+> **Market reaction Oct 16:**
+> - IHSG **-10.41% ke 5,253** (intraday -11.16% ke 5,206) — **TRADING HALT** circuit breaker 8% fired
+> - USDIDR **tembus 18,000** → settle ~**18,063** (+125 dari 17,938)
+> - 780 saham turun, 16 naik — total market capitulation
+> - Bank besar (BBCA, BMRI, BBRI, BBNI) + tambang/energi (ADRO, AADI, ITMG, MEDC) semua anjlok
+>
+> **Apa itu Standalone:** Di bawah Frontier. Tidak masuk index MSCI manapun. Zero passive AUM tracking. Berbeda dari Frontier (masih indexed ~$15B AUM). MSCI explicitly bypass Frontier: *"reclassification to Frontier would not properly recognize the depth of the market problems."*
+>
+> **Issues MSCI:** (1) Opaque shareholding structures, (2) Suspected coordinated trading behavior, (3) Lack of enforcement — despite announced reforms (1% disclosure, HSC reporting, 15% free float roadmap), market participants see no evidence of sustained impact.
+>
+> **Capital outflow at risk:** Mirae $3B (konservatif) | Goldman Sachs **$7.8–13B** | analis upper bound **~$15B** — vs May 2026 rebalancing $1.8B = **4–7× lebih besar.**
+>
+> **Bangkok Context (Oct 13, 2 hari sebelum):** Danantara menggelar roundtable di Bangkok mempertemukan Kemenkeu + BI + OJK + BEI + MSCI + Moody's + Fitch + S&P + JPM + investor global. MSCI hadir, ajukan pertanyaan seputar policy enforcement — tapi **tidak ada sinyal reclassification**. BEI: *"tidak ada pembahasan downgrade di Bangkok"*. Direktur BEI Iding Pardi menyatakan **kaget** (no advance signal). Implikasi: keputusan MSCI sudah bulat **sebelum Bangkok** — pertemuan itu irrelevant terhadap outcome. Indonesia gagal meyakinkan.
+>
+> **Timing anomaly:** MSCI majukan pengumuman ke luar jadwal (out-of-cycle, sebelum November Index Review). Ini sinyal severity — MSCI tidak mau tunggu November; situasi dianggap cukup buruk untuk act now.
+>
+> **Precedents:** Russia 2022 (EM→Standalone, geopolitik/sanksi), Argentina 2021 (EM→Standalone, capital controls). Indonesia = **satu-satunya** yang EM→Standalone karena market integrity/governance — tanpa geopolitik, tanpa capital controls.
+>
+> **Timeline:** Consultation open until Apr 30 2027 → final decision Jun 30 2027 → implementation ~Sep-Dec 2027. MSCI language: *"expects to proceed unless consultation identifies clear evidence of material improvements"* = essentially pre-decided.
+>
+> **Thesis #14 acceleration:** MSCI Standalone = eksogenous shock yang mempercepatkan repricing. CDS target 164bps / USDIDR 20,020 / SBN 8.62% sebelumnya diproyeksikan T+12 (Mar 2027) — sekarang mungkin T+3 (Des 2026) atau T+6 (Mar 2027 dipercepat). KS#2 (BI coordinated package) = satu-satunya kill switch yang relevan saat ini; KS#3/KS#4 bergerak berlawanan arah.
+>
+> **Bryant (1980) common knowledge — EVENT TERJADI:** Oct 15 announcement = threshold common knowledge yang kita monitor sejak T-45d. Setiap EM fund manager sekarang tahu, dan tahu bahwa yang lain tahu. Rational equilibrium = sell now. Ini bukan panik; ini koordinasi rasional.
+
 **Live deviations (Oct 15, 2026):**
 - BI Rate: **5.75%** — tahan Sep 23 RDG (Destry perdana, 4 bulan beruntun Jun–Sep); DFR 4.75%, LF 6.50%
 - BI Gov: **Destry Damayanti** (dilantik 2 Sep 2026, Keppres 92/P/2026) — pro-stability + pro-growth; GWM rupiah 9%
@@ -162,7 +192,8 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - S&P interest/revenue ratio: **~20.5%** — 5.5pp above S&P 15% negative-watch threshold 🔴
 - USDIDR spot: **17,893**; cadev **$146.5B**; DNDF contingent $8B → effective **$138.5B**; G-G ratio **2.09x**
 - **CAD Q2 2026: −$12.5B = −3.3% PDB** — melampaui R&R 3% danger zone
-- CDS 5Y: **92.2bps**; SBN 10Y: **7.169%**; SBN-UST spread **~198bps** 🚨 (**2bps dari threshold 200bps**); UIP unattractive; BI abstain 10Y+ SBN purchases — yield control abandoned
+- CDS 5Y: **94.4bps** (spike post-MSCI); SBN 10Y: **7.33%** (Oct 16 open, dari 7.2362% PHEI Oct 15) — **+9.4bps semalam**; **SBN-UST spread ~200bps 🔴 THRESHOLD TERLAMPAUI** (kemarin 198bps); UIP unattractive; BI abstain 10Y+ SBN purchases — yield control abandoned
+- **US CPI Sep 2026: 3.7% YoY** (+0.6% MoM, core 2.6%) — beat konsensus 3.6%; gasoline +9.1% (Hormuz effect); **Fed hike odds Oct 27-28 FOMC: ~42%** (dari 22% pre-release); Dec 2026 hike odds **~88%**; Fed funds rate saat ini **4.00%** (naik 25bps Sep 16); double-whammy bagi IDR: MSCI domestic shock + Fed hawkish external macro
 - Brent: **$104.4/bbl** 🔴 **MELAMPAUI THRESHOLD BAHLIL $100** ($4.4 di atas); ICP $105.4/bbl (+50.5% vs APBN); Pertalite gap **Rp6,604/L** 🟠; Solar B50 gap **Rp14,678/L** 🔴; Coal DMO compliance 50% (HBA gap 44%); Hormuz traffic 6% pre-war level 🔴; **🚨 KRISIS BBM 11 PROVINSI** — Ombudsman konfirmasi gangguan di Bali/Papua Barat/Banten/KalBar/SumBar/SumUt/SulBar/SulUt/SulTeng/Aceh/JaBar (Oct 13); **Pemprov Bali WFH 15-17 Okt** (Gubernur Koster + TNI-Polri); NTT seluruh kab/kota langka (kapal terlambat); SulSel antrean 2km Makassar; BBC Indonesia Oct 14: kelangkaan berulang
 - BBM: Pertamax Rp15.950 | Pertamax Green Rp19.150 | **Pertalite Rp10,000 + Solar Rp6,800 TIDAK NAIK** (komitmen Bahlil — tapi fiskal sudah menanggung)
 - **LNG**: JKM spot $28+/MMBtu; Hormuz effectively closed; vessel transits single digit/hari
@@ -171,9 +202,9 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - **IHSG**: P/E 8.8x | **A/D ratio 0.26 🔴 PANIC breadth** (broad selling, majority stocks declining) | P/E discount **40.4%** vs Thailand (THD 14.7x vs EIDO 8.8x) — Damodaran ERP: discount >35% = structural risk repricing; M3 DCI +10pts (Morris-Shin equity factor)
 - **⚠️ Morris-Shin alert**: CDS steady 92bps + oil belief dispersion (CV>12%) → multiple equilibria zone; SRBI sterilization burden 39.2% cadev; confidence gate VULNERABLE (net DC-AC +16); catalyst watch: Pertamina loss disclosure, APBN Kita quarterly
 - **⚠️ Political-Financial Divergence**: polrisk **94/100 🔴** (engine Oct 15, breaking scan captured BBC Indonesia BBM crisis) vs financial avg **~31/100** — gap **63pp** 🚨; social contract stress belum terpricing; historically leads financial repricing 2-3 quarters
-- **⚠️ MSCI T-27d Bryant Coordination**: Nov 12 2026 review — T-27d sudah lewati T-45d threshold Bryant (1980) common knowledge; rational funds pre-position regardless of outcome; IHSG P/E 40.4% + MSCI overhang = joint pre-positioning trigger; expected passive outflow IF downgrade: >$1.8B
+- **⚠️ MSCI STANDALONE CONSULTATION LAUNCHED** (Oct 15 20:40 GMT): Bryant common knowledge event FIRED — Oct 16 IHSG −10.41% trading halt, USDIDR 18,063 tembus 18,000, CDS spike expected. Outflow at risk: Goldman $7.8–13B. Lihat box di atas.
 - **⚠️ PHK massal**: 53.490 pekerja at risk across 14 reported events (30d window) — FDI exit + industrial region stress concentration
-- SCD: **50% 🟠 ORANGE** (Oct 15 — **pertama kali ORANGE sejak Sep**) | **5/13 modules** cross-confirmed (naik dari 3) | M12 Political Risk **94/100 🔴** | M10 Fiscal **71/100 🔴** | M11 Domestic Pressure **57/100 🟠** | M4 Commodity **52/100 🟠** | M9 Market **50/100 🟠** (A/D 0.26 PANIC) | M7 ASEAN RV **40/100 🟡** | M3 FX Defense **32/100 🟢** | M8 Banking **15/100 🟢** (AT1 Himbara $1.45B aktif) | **Thesis #14 TRIGGERED** (armed Sep 22, 23d) — targets T+12: CDS 164bps, USDIDR 20,020, SBN 8.62% | KS#1 tidak firing (94/100) | KS#3 SBN asing 13.05% | KS#4 CDS 92.2bps | **MSCI T-27d** (Nov 12 review)
+- SCD: **50% 🟠 ORANGE** (Oct 15 engine, pre-MSCI) → **perkiraan 70-80% 🔴 RED** post-MSCI shock (M5/M3/M2/M9 semua spike) | M12 Political Risk **94/100 🔴** | M10 Fiscal **71/100 🔴** | M11 Domestic Pressure **57/100 🟠** | M4 Commodity **52/100 🟠** | M9 Market **50→RED** (IHSG −10.41%, trading halt Oct 16) | M3 FX Defense **32→ORANGE** (IDR 18,063, confidence gate →ATTACK) | M5 Foreign Flow **3→RED 85+** (SSVI IMMINENT — MSCI passive outflow $7.8-13B) | M2 Sovereign Risk **37→RED** (SBN 7.33%, spread 200bps breached, CDS 94bps) | M8 Banking **15/100 🟢** (AT1 Himbara $1.45B aktif) | **Thesis #14 TRIGGERED** (armed Sep 22, 24d) — targets **dipercepat** ke T+3/T+6: CDS 164bps / USDIDR 20,020 / SBN 8.62% | **KS#2 (BI emergency package) = WATCH — satu-satunya KS relevan** | KS#3/KS#4 bergerak berlawanan arah
 
 ### BBM Subsidy Monitoring (Module 11)
 
