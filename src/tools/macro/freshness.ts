@@ -32,7 +32,7 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   // Sovereign scrape
   { name: 'indonesia_cds_5y_bps',        module: 'M2',  freshDays: 3,  yellowDays: 7,   redDays: 14 },
   { name: 'sbn_10y_yield_pct',           module: 'M2',  freshDays: 3,  yellowDays: 7,   redDays: 14 },
-  { name: 'sbn_foreign_ownership_pct',   module: 'M5',  freshDays: 30, yellowDays: 45,  redDays: 60 },
+  { name: 'sbn_foreign_ownership_pct',   module: 'M5',  freshDays: 5,  yellowDays: 10,  redDays: 21 },
   // BI monthly
   { name: 'bi_fx_reserves_bn',           module: 'M1',  freshDays: 35, yellowDays: 50,  redDays: 75 },
   { name: 'bi_rate_pct',                 module: 'M2',  freshDays: 30, yellowDays: 45,  redDays: 60 },
@@ -63,8 +63,12 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   { name: 'b50_status_numeric',          module: 'M4',  freshDays: 21, yellowDays: 45,  redDays: 90 },
   { name: 'hba_price_usd_ton',           module: 'M4',  freshDays: 21, yellowDays: 45,  redDays: 90 },
   { name: 'pln_coal_secured_pct',        module: 'M4',  freshDays: 35, yellowDays: 60,  redDays: 90 },
-  // MSCI status — result stable until Nov 12 2026 next review; 30d gate matches code comment
-  { name: 'msci_classification_numeric', module: 'M5',  freshDays: 30, yellowDays: 45,  redDays: 90 },
+  // MSCI status — Standalone consultation active Oct 15 2026; 7d gate matches downgrade_risk TTL
+  { name: 'msci_classification_numeric', module: 'M5',  freshDays: 7,  yellowDays: 14,  redDays: 30 },
+  // New indicators — EIDO redemption, NDF offshore, AT1 secondary
+  { name: 'eido_shares_outstanding',     module: 'M5',  freshDays: 4,  yellowDays: 7,   redDays: 14 },
+  { name: 'usdidr_ndf_1m_rate',          module: 'M3',  freshDays: 3,  yellowDays: 7,   redDays: 14 },
+  { name: 'himbara_at1_secondary_pct',   module: 'M8',  freshDays: 7,  yellowDays: 14,  redDays: 30 },
   // DNDF — env_manual annual update from BI LKT
   { name: 'bi_dndf_outstanding_bn',      module: 'M3',  freshDays: 100,yellowDays: 200, redDays: 400 },
   { name: 'uln_hedging_compliance_pct',  module: 'M13', freshDays: 120,yellowDays: 200, redDays: 365 },

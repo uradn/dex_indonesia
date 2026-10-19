@@ -256,6 +256,16 @@ export async function runMarketStressEngine(): Promise<MarketStressOutput> {
   if (adRatio !== null && adRatio < 0.5) flags.push(`Breadth panic: A/D ratio ${adRatio.toFixed(2)} — broad selling signal`);
   if (valuationDisconnect) flags.push('Valuation disconnect: elevated P/E + negative breadth — narrow leadership risk');
 
+  // IDX circuit breaker / trading halt — env pin IDX_LAST_CIRCUIT_BREAKER_DATE (YYYY-MM-DD)
+  // Update when circuit breaker fires (−8% intraday triggers halt). Flag active 30d post-event.
+  const cbDate = process.env.IDX_LAST_CIRCUIT_BREAKER_DATE ?? null;
+  if (cbDate) {
+    const cbAgeDays = Math.floor((Date.now() - new Date(cbDate).getTime()) / 86_400_000);
+    if (cbAgeDays <= 30) {
+      flags.push(`IDX CIRCUIT BREAKER FIRED ${cbDate} (${cbAgeDays}d ago) — trading halt asymmetric aftermath: halt pauses selling but does not create buyers; resumes against thinner bid; historically fires next cascade level on reopen. [SOUL.md Persona III]`);
+    }
+  }
+
   // Stop-loss cascade flags
   if (cascade.active) {
     const breachedLabels = cascade.nodes.filter(n => n.status === 'breached').map(n => n.label).join(', ');

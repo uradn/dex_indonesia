@@ -9,6 +9,7 @@ import { fetchBankingKpisNews } from './sources/banking-news.js';
 import { fetchFintechLendingOjkIknb } from './sources/ojk-iknb.js';
 import { fetchIndoniaRateTe, fetchExternalDebtTe, fetchIhprTe, fetchNplTe, fetchLdrTe, fetchCarTe, fetchM2MoneySupplyTe, fetchDpkDepositsTe, fetchNplWorldBank, fetchM2WorldBank } from './sources/sovereign-scraper.js';
 import type { AlertLevel, MacroDataPoint } from './types.js';
+import { fetchAt1Secondary } from './sources/at1-bonds.js';
 
 export const BANKING_STRESS_DESCRIPTION = `
 MACRO INTELLIGENCE — Banking Stress Engine (Module 8)
@@ -423,10 +424,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   stressScore = Math.min(100, stressScore + diamondDybvig.scoreBump);
 
   // ── AT1 Perpetual Bond — Himbara capital stress signal ───────────────────────
-  // Manual pin: set when bank BUMN issues USD AT1 perpetual bond.
-  // Signal: bank taking expensive FX capital = forward-looking CAR concern +
-  // domestic market too shallow + FX mismatch on capital base (3rd-gen channel).
-  // Expires after 180 days (one issuance cycle).
+  // Issuance signal (manual env pin): preemptive CAR buffer = forward-looking concern.
   const at1Bn   = parseFloat(process.env.BANK_AT1_ISSUANCE_BUMN_USD_BN ?? '0');
   const at1Date = process.env.BANK_AT1_ISSUANCE_DATE ?? null;
   const at1AgeDays = at1Date
@@ -435,6 +433,26 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   const at1Active = at1Bn > 0 && at1AgeDays !== null && at1AgeDays <= 180;
   const at1Bump = at1Active ? (at1Bn >= 1.0 ? 10 : 6) : 0;
   stressScore = Math.min(100, stressScore + at1Bump);
+
+  // Secondary market price signal (Exa-fetched): AT1 < 80% par = market pricing loss risk.
+  // More timely than issuance signal — bond desks reprice before regulators act.
+  const at1Secondary = await fetchAt1Secondary();
+  if (at1Secondary) await upsertPoints([{
+    indicator: 'himbara_at1_secondary_pct',
+    category: 'banking' as const,
+    date: new Date().toISOString().slice(0, 10),
+    value: at1Secondary.pricePct,
+    unit: 'pct_par',
+    source: at1Secondary.sourceUrl ?? 'exa_search',
+    fetchedAt: at1Secondary.fetchedAt,
+  }]);
+  if (at1Secondary) {
+    if (at1Secondary.pricePct < 80) {
+      stressScore = Math.min(100, stressScore + 15);
+    } else if (at1Secondary.pricePct < 90) {
+      stressScore = Math.min(100, stressScore + 8);
+    }
+  }
 
   // 5. Alert level: high stressScore = more stress = higher alert
   const alert = alertFromScore(stressScore) as AlertLevel;
@@ -532,6 +550,17 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
       `BNI $700M Apr + Mandiri $750M Sep 2026; preemptive CAR buffer; ` +
       `USD capital = FX mismatch ~Rp${idrTrn}T on capital base; domestic market insufficient to absorb`,
     );
+  }
+
+  // AT1 secondary market price flag
+  if (at1Secondary) {
+    if (at1Secondary.pricePct < 80) {
+      flags.push(`HIMBARA AT1 SECONDARY STRESS: price ${at1Secondary.pricePct.toFixed(1)}% of par${at1Secondary.yieldPct ? ` (yield ${at1Secondary.yieldPct.toFixed(1)}%)` : ''} — market pricing loss-absorption risk. Bond desks ahead of regulators. (+15 score)`);
+    } else if (at1Secondary.pricePct < 90) {
+      flags.push(`HIMBARA AT1 secondary watch: ${at1Secondary.pricePct.toFixed(1)}% par${at1Secondary.yieldPct ? ` / yield ${at1Secondary.yieldPct.toFixed(1)}%` : ''} — mild secondary stress, monitor for decline below 80. (+8 score)`);
+    } else {
+      flags.push(`HIMBARA AT1 secondary: ${at1Secondary.pricePct.toFixed(1)}% par${at1Secondary.yieldPct ? ` / yield ${at1Secondary.yieldPct.toFixed(1)}%` : ''} — no secondary stress signal.`);
+    }
   }
 
   // Diamond-Dybvig flags

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { formatToolResult } from '../types.js';
 import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
 import { buildSnapshot, compositeScore, alertFromScore, alertLabel } from './scoring.js';
-import { fetchEidoProxy } from './sources/yahoo-macro.js';
+import { fetchEidoProxy, fetchEidoSharesOutstanding } from './sources/yahoo-macro.js';
 import { fetchSbnForeignOwnership } from './sources/bi.js';
 import { fetchIdxForeignNetFlow } from './sources/idx.js';
 import { fetchMsciClassification } from './sources/msci-classification.js';
@@ -201,14 +201,17 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
     : null;
 
   // 1. EIDO ETF history — proxy for foreign equity demand
-  // 2. Foreign SBN ownership
-  // 3. IDX daily foreign net flow (direct equity flow signal)
-  const [eidoHistory, sbnOwnership, idxFlowPoint] = await Promise.all([
+  // 2. EIDO shares outstanding — net creation/redemption (50k shares = 1 creation unit)
+  // 3. Foreign SBN ownership
+  // 4. IDX daily foreign net flow (direct equity flow signal)
+  const [eidoHistory, eidoShares, sbnOwnership, idxFlowPoint] = await Promise.all([
     fetchEidoProxy(180),
+    fetchEidoSharesOutstanding(),
     fetchSbnForeignOwnership(),
     fetchIdxForeignNetFlow(),
   ]);
   if (eidoHistory.length > 0) await upsertPoints(eidoHistory);
+  if (eidoShares) await upsertPoints([eidoShares]);
   if (sbnOwnership) await upsertPoints([sbnOwnership]);
   if (idxFlowPoint) await upsertPoints([idxFlowPoint]);
 
@@ -349,6 +352,19 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   const score = Math.min(100, (ssviIndex >= 75 ? Math.max(baseScore, 50) : baseScore) + msciScoreBump + cascadeScoreBump);
   const alertLevel = ALERT_ORDER[Math.max(ALERT_ORDER.indexOf(alertFromScore(score)), ALERT_ORDER.indexOf(ssviFloorAlert))]!;
   const flags: string[] = [];
+  // EIDO shares outstanding — redemption acceleration signal
+  const currentEidoShares = await getLatestPoint('eido_shares_outstanding');
+  const prevEidoShares = (await getLastN('eido_shares_outstanding', 8)).slice(-2)[0] ?? null;
+  if (currentEidoShares && prevEidoShares) {
+    const sharePctChange = ((currentEidoShares.value - prevEidoShares.value) / prevEidoShares.value) * 100;
+    const redemptionUnits = Math.round(Math.abs(currentEidoShares.value - prevEidoShares.value) / 50_000);
+    if (sharePctChange < -5) {
+      flags.push(`EIDO REDEMPTION ACCELERATING: shares outstanding ${(sharePctChange).toFixed(1)}% (${redemptionUnits} creation units redeemed vs week ago = ~${(redemptionUnits * 50_000 * (currentEido?.value ?? 7) / 1e6).toFixed(0)}M USD net sell). Post-MSCI Standalone = mandate execution, not sentiment.`);
+    } else if (sharePctChange < -2) {
+      flags.push(`EIDO net redemption: shares ${(sharePctChange).toFixed(1)}% week-over-week (${redemptionUnits} units) — watch for acceleration.`);
+    }
+  }
+
   if (eidoStructuralTrend) flags.push(`EIDO 90d z-score ${eidoZ90.toFixed(2)} — 3-month structural foreign equity selling trend`);
   if (divergenceFlag) flags.push('Dual exit signal: EIDO falling + SBN foreign ownership falling simultaneously');
   if (domesticAbsorptionFlag) flags.push('Domestic absorption suspected: SBN foreign exit not reflected in yields — hidden stress');

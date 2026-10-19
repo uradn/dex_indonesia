@@ -210,6 +210,14 @@ MSCI_CLASSIFICATION_STATUS # current: downgrade_risk (Oct 15 2026 Standalone con
 # M8 Banking manual pin — from OJK SPI monthly press release (~30-45 days after month end)
 FINTECH_NPL_PCT            # P2P lending NPL gross %; OJK WAF blocks auto-scrape; current 5.0 (Jun 2026)
 
+# New data sources — env always wins when set (mirrors DNDF pattern)
+# M5 Foreign Flow
+USDIDR_NDF_1M_RATE         # offshore IDR NDF 1-month rate (IDR/USD, e.g. 18200); update when Exa parse fails
+# M8 Banking
+HIMBARA_AT1_SECONDARY_PCT  # HIMBARA AT1 secondary price (% of par, e.g. 87.5); <80=stress, <90=watch
+# M9 Market Stress
+IDX_LAST_CIRCUIT_BREAKER_DATE  # YYYY-MM-DD; update when circuit breaker fires (−8% intraday halt); flag active 30d
+
 # Brent ICP threshold alert — crontab every 4h, macOS notification + flag file
 BRENT_ALERT_THRESHOLD      # USD/bbl — default 99 (warn $1 before Bahlil $100 commitment breaks)
 BRENT_ALERT_COOLDOWN_H     # hours between repeat alerts — default 12 (anti-spam)

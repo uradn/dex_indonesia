@@ -187,6 +187,31 @@ export async function fetchEidoProxy(days = 90): Promise<MacroDataPoint[]> {
   }
 }
 
+/**
+ * EIDO shares outstanding — net creation/redemption proxy.
+ * Changes in shares outstanding = institutional AP creation/redemption.
+ * Week-over-week decline > 3% = net redemptions = forced-sell pressure accelerating.
+ * Each creation unit = 50,000 shares. Redemption = basket sell → IHSG pressure.
+ */
+export async function fetchEidoSharesOutstanding(): Promise<MacroDataPoint | null> {
+  try {
+    const summary = await yf.quoteSummary('EIDO', { modules: ['defaultKeyStatistics'] });
+    const shares = (summary.defaultKeyStatistics as Record<string, unknown> | null | undefined)?.sharesOutstanding;
+    if (typeof shares !== 'number' || shares < 500_000) return null;
+    return {
+      indicator: 'eido_shares_outstanding',
+      category: 'flow' as const,
+      date: TODAY(),
+      value: shares,
+      unit: 'shares',
+      source: 'yahoo_finance',
+      fetchedAt: NOW(),
+    };
+  } catch {
+    return null;
+  }
+}
+
 // US 10Y Treasury yield (^TNX) — for SBN-UST spread context
 export async function fetchUst10y(): Promise<MacroDataPoint | null> {
   try {

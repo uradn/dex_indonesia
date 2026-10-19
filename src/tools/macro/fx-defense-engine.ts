@@ -9,6 +9,7 @@ import { fetchBbgFxReserves, bloombergAvailable } from './sources/bloomberg.js';
 import { fetchUsdIdrRdp, refinitivAvailable } from './sources/refinitiv.js';
 import { fetchSrbiAuction, formatSrbiAuction } from './sources/srbi-auction.js';
 import { fetchDndf } from './sources/dndf.js';
+import { fetchNdfOffshore } from './sources/ndf-offshore.js';
 import type { FxDefenseEngineOutput, ShadowRateData, ConfidenceGateData, IndicatorSnapshot, AlertLevel } from './types.js';
 import type { SrbiAuctionData } from './sources/srbi-auction.js';
 import { getFreshPoint, stalenessFlag } from './freshness.js';
@@ -65,11 +66,12 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   reservePoint ??= await fetchBiFxReserves();
   if (reservePoint) await upsertPoints([reservePoint]);
 
-  // 4. SRBI outstanding + weekly auction demand (Exa/Tavily — capital flow proxy) + DNDF
-  const [srbiPoint, srbiAuction, dndfData] = await Promise.all([
+  // 4. SRBI outstanding + weekly auction demand (Exa/Tavily — capital flow proxy) + DNDF + NDF offshore
+  const [srbiPoint, srbiAuction, dndfData, ndfOffshore] = await Promise.all([
     fetchSrbiOutstanding(),
     fetchSrbiAuction(),
     fetchDndf(),
+    fetchNdfOffshore(),
   ]);
   if (srbiPoint) await upsertPoints([srbiPoint]);
 
@@ -271,6 +273,19 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     }
     if (dndfRising) {
       flags.push(`DNDF RISING: BI increasing off-balance-sheet FX commitments — watch for cadev drawdown when contracts mature`);
+    }
+  }
+
+  // IDR NDF offshore premium — leads onshore by hours
+  if (ndfOffshore !== null && currentSpot) {
+    const ndfPremium = ndfOffshore.rate - currentSpot.value;
+    const ndfPremiumPct = (ndfPremium / currentSpot.value) * 100;
+    if (ndfPremiumPct > 2) {
+      flags.push(`NDF OFFSHORE PREMIUM CRITICAL: ${ndfOffshore.rate.toLocaleString()} vs spot ${currentSpot.value.toLocaleString()} (+${ndfPremium.toFixed(0)} IDR, +${ndfPremiumPct.toFixed(1)}%) — offshore markets pricing significant IDR weakness. Signal leads onshore by hours.`);
+    } else if (ndfPremiumPct > 0.5) {
+      flags.push(`NDF offshore premium: ${ndfOffshore.rate.toLocaleString()} vs spot ${currentSpot.value.toLocaleString()} (+${ndfPremium.toFixed(0)} IDR, +${ndfPremiumPct.toFixed(1)}%) — mild offshore IDR weakness signal.`);
+    } else if (ndfPremiumPct < -0.5) {
+      flags.push(`NDF offshore discount: ${ndfOffshore.rate.toLocaleString()} vs spot ${currentSpot.value.toLocaleString()} (${ndfPremium.toFixed(0)} IDR, ${ndfPremiumPct.toFixed(1)}%) — offshore market more optimistic on IDR than onshore.`);
     }
   }
 
