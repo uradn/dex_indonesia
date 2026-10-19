@@ -2352,15 +2352,15 @@ function renderGameTheory(thesis, snap) {
   // Bryant phase [Thread 24]
   const BRYANT_EVENT    = new Date('2026-10-15');
   const daysSinceBryant = Math.max(0, Math.round((Date.now() - BRYANT_EVENT.getTime()) / 86400000));
-  const bryantPhase = daysSinceBryant <= 4  ? 'FAST MONEY'
-    : daysSinceBryant <= 30 ? 'ETF MECHANICS'
-    : daysSinceBryant <= 90 ? 'MANDATE REBALANCING'
-    : 'STRUCTURED EXIT';
-  const bryantNext = daysSinceBryant <= 4  ? (4  - daysSinceBryant) + 'd → ETF mechanics'
-    : daysSinceBryant <= 30 ? (30 - daysSinceBryant) + 'd → mandate rebalancing'
-    : daysSinceBryant <= 90 ? (90 - daysSinceBryant) + 'd → structured exit'
-    : 'ongoing';
-  const bryantCls = daysSinceBryant <= 4 ? 'red' : daysSinceBryant <= 30 ? 'orange' : 'yellow';
+  const bryantIdx = daysSinceBryant <= 4 ? 0 : daysSinceBryant <= 30 ? 1 : daysSinceBryant <= 90 ? 2 : 3;
+  const BPHASES = [
+    { label: 'FAST MONEY',         sub: 'T+0–4d · hedge funds',       cls: 'red',    range: 'T+0–4d'   },
+    { label: 'ETF MECHANICS',      sub: 'T+5–30d · passive sell',      cls: 'orange', range: 'T+5–30d'  },
+    { label: 'MANDATE REBAL.',     sub: 'T+31–90d · systematic',       cls: 'yellow', range: 'T+31–90d' },
+    { label: 'STRUCTURED EXIT',    sub: 'T+91d+',                      cls: 'yellow', range: 'T+91d+'   },
+  ];
+  const bCls  = BPHASES[bryantIdx].cls;
+  const bLeft = bryantIdx === 0 ? (4 - daysSinceBryant) : bryantIdx === 1 ? (30 - daysSinceBryant) : bryantIdx === 2 ? (90 - daysSinceBryant) : 0;
 
   // Kreps P(downgrade) [Thread 23]
   const CONSULT_END    = new Date('2027-04-30');
@@ -2370,8 +2370,8 @@ function renderGameTheory(thesis, snap) {
   const pDowngrade     = Math.round((0.85 + 0.10 * consultPct / 100) * 100);
 
   // Morris-Shin CV% from 4-Level Belief Stack
-  const brent  = ind['brent_price_usd']?.value  ?? null;
-  const dubai  = ind['dubai_crude_spot_usd']?.value ?? null;
+  const brent = ind['brent_price_usd']?.value  ?? null;
+  const dubai = ind['dubai_crude_spot_usd']?.value ?? null;
   const L3 = brent, L4 = dubai !== null ? dubai + 20 : null;
   let cvPct = null;
   if (L3 !== null && L4 !== null) {
@@ -2382,60 +2382,138 @@ function renderGameTheory(thesis, snap) {
   }
   const cvF   = cvPct !== null ? parseFloat(cvPct) : null;
   const cvCls = cvF !== null && cvF > 25 ? 'red' : cvF !== null && cvF > 15 ? 'orange' : 'yellow';
-  const cvLabel = cvF !== null && cvF > 25 ? ' 🔴 HIGH DISPERSION' : cvF !== null && cvF > 15 ? ' ELEVATED' : '';
 
-  // Morris-Shin confidence gate from M3 score
+  // Morris-Shin confidence gate + signal precision
   const m3Score  = ms['fx_defense'] ?? 0;
-  const gateState = m3Score >= 50 ? 'VULNERABILITY ZONE' : m3Score >= 33 ? 'WATCH' : 'STABLE';
+  const gateState = m3Score >= 50 ? 'VULN. ZONE' : m3Score >= 33 ? 'WATCH' : 'STABLE';
   const gateCls   = m3Score >= 50 ? 'orange' : m3Score >= 33 ? 'yellow' : 'green';
+  const pe        = ind['ihsg_pe_ratio']?.value ?? null;
+  const peDisc    = pe !== null ? ((14.8 - pe) / 14.8 * 100).toFixed(1) : null;
+  const precCls   = peDisc !== null && parseFloat(peDisc) > 35 ? 'red' : peDisc !== null && parseFloat(peDisc) > 20 ? 'orange' : 'green';
 
-  // Signal precision: IHSG P/E discount vs Thailand peer
-  const pe     = ind['ihsg_pe_ratio']?.value ?? null;
-  const peDisc = pe !== null ? ((14.8 - pe) / 14.8 * 100).toFixed(1) : null;
-  const precCls = peDisc !== null && parseFloat(peDisc) > 35 ? 'red' : peDisc !== null && parseFloat(peDisc) > 20 ? 'orange' : 'green';
-
-  // Barro-Gordon discretionary temptation [Thread 19]
+  // Barro-Gordon
   const fiscalScore = ms['fiscal'] ?? 0;
-  const bgLabel = fiscalScore >= 70 ? 'HIGH — time inconsistency active' : fiscalScore >= 50 ? 'ELEVATED' : 'MODERATE';
+  const bgLabel = fiscalScore >= 70 ? 'HIGH — time inconsistency ACTIVE' : fiscalScore >= 50 ? 'ELEVATED' : 'MODERATE';
   const bgCls   = fiscalScore >= 70 ? 'red' : fiscalScore >= 50 ? 'orange' : 'yellow';
 
-  // Overall equilibrium
-  const chain       = thesis?.transmissionChain ?? [];
-  const firedCount  = chain.filter(n => n.cls === 'red' || n.cls === 'orange').length;
-  const equilibrium = firedCount >= 5 ? 'CRISIS' : firedCount >= 3 ? 'COORDINATION FAILURE' : 'FRAGILE';
-  const eqCls       = firedCount >= 5 ? 'red' : firedCount >= 3 ? 'orange' : 'yellow';
+  // Equilibrium state
+  const chain      = thesis?.transmissionChain ?? [];
+  const firedCount = chain.filter(n => n.cls === 'red' || n.cls === 'orange').length;
+  const eqLabel    = firedCount >= 5 ? 'CRISIS EQUILIBRIUM' : firedCount >= 3 ? 'COORDINATION FAILURE' : 'FRAGILE STABILITY';
+  const eqDesc     = firedCount >= 5 ? 'Multiple equilibria collapsed — self-reinforcing bad outcome'
+    : firedCount >= 3 ? 'Multiple equilibria active — small shock can tip to crisis'
+    : 'Vulnerable but stable — coordination not yet triggered';
+  const eqCls      = firedCount >= 5 ? 'red' : firedCount >= 3 ? 'orange' : 'yellow';
+  const eqBg       = eqCls === 'red' ? 'rgba(220,50,50,.1)' : eqCls === 'orange' ? 'rgba(230,162,60,.1)' : 'rgba(210,153,34,.08)';
 
-  // Actor dominant strategies
+  // Actor strategies
   const cds    = ind['indonesia_cds_5y_bps']?.value ?? 0;
   const usdidr = ind['usdidr_spot']?.value ?? 0;
-  const biStrat    = (cds > 100 || usdidr > 18000) ? 'DEFEND: raise DFR + spot intervention (dominant)' : 'HOLD: 5.75% — monitor BI Rate next RDG';
-  const biCls      = (cds > 100 || usdidr > 18000) ? 'red' : 'yellow';
-  const kmkStrat   = fiscalScore >= 70 ? 'TRAPPED: hike BBM (political cost) OR absorb (credibility cost) — Barro-Gordon time inconsistency active' : 'DEFER: hold subsidi through 31 Des';
-  const kmkCls     = fiscalScore >= 70 ? 'red' : 'orange';
-  const fgnStrat   = daysSinceBryant <= 4  ? 'SELL: fast money coordination DONE (IHSG −11% Oct 16)'
-    : daysSinceBryant <= 30 ? 'SELL: ETF mechanics — passive redemptions in progress (' + (30 - daysSinceBryant) + 'd remaining)'
-    : 'REDUCE: mandate-driven systematic exit';
-  const fgnCls     = daysSinceBryant <= 30 ? 'red' : 'orange';
-  const domStrat   = 'HERD: Morris-Shin dominant strategy = follow DC signal when DC-AC > 0 (attack profitable)';
+  const biVerb   = (cds > 100 || usdidr > 18000) ? 'DEFEND' : 'HOLD';
+  const biDetail = (cds > 100 || usdidr > 18000) ? 'Raise DFR + spot intervention (Stackelberg dominant)' : 'Maintain 5.75% — monitor next RDG';
+  const biCls    = (cds > 100 || usdidr > 18000) ? 'red' : 'yellow';
+  const kmkVerb   = fiscalScore >= 70 ? 'TRAPPED' : 'DEFER';
+  const kmkDetail = fiscalScore >= 70 ? 'Hike BBM (political cost) OR absorb deficit (credibility cost) — no dominant strategy' : 'Hold subsidi through 31 Des';
+  const kmkCls    = fiscalScore >= 70 ? 'red' : 'orange';
+  const fgnVerb   = daysSinceBryant <= 30 ? 'SELL' : 'REDUCE';
+  const fgnDetail = daysSinceBryant <= 4  ? 'Fast money coordination DONE — IHSG −11% Oct 16'
+    : daysSinceBryant <= 30 ? 'ETF mechanics: passive redemptions in progress (' + (30 - daysSinceBryant) + 'd left)'
+    : 'Mandate-driven systematic exit';
+  const fgnCls = daysSinceBryant <= 30 ? 'red' : 'orange';
+
+  // Build Bryant phase boxes (string concat — no nested backticks needed)
+  let phaseBoxes = '';
+  for (let i = 0; i < BPHASES.length; i++) {
+    const p = BPHASES[i];
+    const isNow  = i === bryantIdx;
+    const isPast = i < bryantIdx;
+    const bdr = isNow ? 'var(--' + p.cls + ')' : isPast ? 'var(--green)' : 'var(--border)';
+    const bg  = isNow ? (p.cls === 'red' ? 'rgba(220,50,50,.1)' : 'rgba(230,162,60,.1)') : 'transparent';
+    const tc  = isNow ? 'var(--' + p.cls + ')' : isPast ? 'var(--green)' : 'var(--muted)';
+    const prefix = isPast ? '✓ ' : isNow ? '▶ ' : '';
+    const nowTxt = isNow ? '<div style="font-size:8px;color:' + tc + ';margin-top:2px">T+' + daysSinceBryant + 'd now' + (bLeft > 0 ? ' · ' + bLeft + 'd left' : ' · ends today') + '</div>' : '';
+    phaseBoxes += '<div style="border:1px solid ' + bdr + ';border-radius:4px;padding:5px 6px;background:' + bg + '">'
+      + '<div style="font-size:9px;font-weight:700;color:' + tc + '">' + prefix + p.label + '</div>'
+      + '<div style="font-size:8px;color:var(--muted);margin-top:1px">' + p.range + '</div>'
+      + nowTxt + '</div>';
+  }
 
   return \`
-    <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
-      <span class="big-num \${eqCls}">\${equilibrium}</span>
-      <span style="font-size:10px;color:var(--muted)">\${firedCount}/7 nodes active · SSS=100 TRANSMISSION</span>
+    <div style="background:\${eqBg};border:1px solid var(--\${eqCls});border-radius:6px;padding:10px 12px;margin-bottom:12px">
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <span class="\${eqCls}" style="font-size:15px;font-weight:700;letter-spacing:.04em">\${eqLabel}</span>
+        <span style="font-size:9px;color:var(--muted)">\${firedCount}/7 nodes · Thesis #14 TRIGGERED d\${daysSinceBryant + 23}</span>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px">\${eqDesc}</div>
     </div>
-    <div class="section-title">Active GT Signals</div>
-    \${kv('Bryant Phase [Thread 24]', bryantPhase + ' T+' + daysSinceBryant + 'd · next: ' + bryantNext, bryantCls)}
-    \${kv('Kreps P(Downgrade) [Thread 23]', pDowngrade + '% · consultation ' + consultPct + '% complete (rises to ~95% by Apr 30)', 'red')}
-    \${kv('Morris-Shin Confidence Gate', gateState + ' (M3 ' + m3Score + '/100) · multiple equilibria active', gateCls)}
-    \${kv('Morris-Shin Signal Precision', peDisc !== null ? 'P/E discount ' + peDisc + '% vs THD · attack window WIDEST since tracking' : '—', precCls)}
-    \${kv('Morris-Shin CV% [Belief Stack]', cvPct !== null ? cvPct + '%' + cvLabel + ' · L1=$70 L2=$80 L3=$' + (L3 != null ? L3.toFixed(0) : '—') + ' L4=$' + (L4 != null ? L4.toFixed(0) : '—') : '—', cvCls)}
-    \${kv('Barro-Gordon Discretionary [Thread 19]', bgLabel + ' · M10 ' + fiscalScore + '/100', bgCls)}
-    <div class="section-title" style="margin-top:10px">Actor Dominant Strategies</div>
-    \${kv('BI (Stackelberg leader)', biStrat, biCls)}
-    \${kv('Kemenkeu (Barro-Gordon)', kmkStrat, kmkCls)}
-    \${kv('Foreign Funds (Bryant)', fgnStrat, fgnCls)}
-    \${kv('Domestic (Morris-Shin herd)', domStrat, 'orange')}
-    <div class="hist-note" style="margin-top:8px">GT Coverage ~51% · Pending: PolEcon payoff matrix M12, Bayesian M6 posterior dari 6 krisis. Hover chain nodes untuk module-level GT logic.</div>
+
+    <div class="section-title">Bryant (1980) — Common Knowledge Exit Phase</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:12px">
+      \${phaseBoxes}
+    </div>
+
+    <div class="section-title">Kreps (1982) — MSCI Credible Commitment · P(Downgrade)</div>
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+        <span class="red" style="font-size:14px;font-weight:700">\${pDowngrade}%</span>
+        <span style="font-size:9px;color:var(--muted)">consultation \${consultPct}% elapsed · rises to ~95% by Apr 30 2027</span>
+      </div>
+      <div style="background:var(--surface);border-radius:3px;height:7px;overflow:hidden">
+        <div style="height:100%;width:\${pDowngrade}%;background:var(--red);border-radius:3px"></div>
+      </div>
+      <div style="font-size:9px;color:var(--muted);margin-top:4px">Oct 15 2026 → Apr 30 2027 comment close → Jun 30 2027 decision (T-254d)</div>
+    </div>
+
+    <div class="section-title">Morris-Shin (1998) — Confidence &amp; Attack Coordination</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:12px">
+      <div style="border:1px solid var(--\${gateCls});border-radius:4px;padding:7px 8px">
+        <div style="font-size:8px;color:var(--muted);text-transform:uppercase">Confidence Gate</div>
+        <div class="\${gateCls}" style="font-size:12px;font-weight:700;margin-top:3px">\${gateState}</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px">M3 FX Defense \${m3Score}/100</div>
+      </div>
+      <div style="border:1px solid var(--\${precCls});border-radius:4px;padding:7px 8px">
+        <div style="font-size:8px;color:var(--muted);text-transform:uppercase">Signal Precision</div>
+        <div class="\${precCls}" style="font-size:12px;font-weight:700;margin-top:3px">\${peDisc !== null ? peDisc + '%' : '—'}</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px">P/E discount vs Thailand</div>
+      </div>
+      <div style="border:1px solid var(--\${cvCls});border-radius:4px;padding:7px 8px">
+        <div style="font-size:8px;color:var(--muted);text-transform:uppercase">Belief Dispersion</div>
+        <div class="\${cvCls}" style="font-size:12px;font-weight:700;margin-top:3px">\${cvPct !== null ? cvPct + '%' : '—'} CV</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px">L1=$70 L2=$80 L3=$\${L3 != null ? L3.toFixed(0) : '—'} L4=$\${L4 != null ? L4.toFixed(0) : '—'}</div>
+      </div>
+    </div>
+
+    \${kv('Barro-Gordon (1983) — Fiscal Credibility', bgLabel + ' · M10 ' + fiscalScore + '/100 · hike BBM vs absorb deficit', bgCls)}
+
+    <div class="section-title" style="margin-top:12px">Dominant Strategy Matrix</div>
+    <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:6px">
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:3px 5px;font-size:8px;color:var(--muted);text-transform:uppercase;width:28%">Actor</td>
+        <td style="padding:3px 5px;font-size:8px;color:var(--muted);text-transform:uppercase;width:15%">Action</td>
+        <td style="padding:3px 5px;font-size:8px;color:var(--muted);text-transform:uppercase">Rationale</td>
+      </tr>
+      <tr style="border-bottom:1px solid rgba(48,54,61,.4)">
+        <td style="padding:4px 5px;color:var(--muted);font-size:9px">BI (Stackelberg)</td>
+        <td style="padding:4px 5px" class="\${biCls}"><b>\${biVerb}</b></td>
+        <td style="padding:4px 5px;font-size:9px">\${biDetail}</td>
+      </tr>
+      <tr style="border-bottom:1px solid rgba(48,54,61,.4)">
+        <td style="padding:4px 5px;color:var(--muted);font-size:9px">Kemenkeu (Barro-Gordon)</td>
+        <td style="padding:4px 5px" class="\${kmkCls}"><b>\${kmkVerb}</b></td>
+        <td style="padding:4px 5px;font-size:9px">\${kmkDetail}</td>
+      </tr>
+      <tr style="border-bottom:1px solid rgba(48,54,61,.4)">
+        <td style="padding:4px 5px;color:var(--muted);font-size:9px">Foreign Funds (Bryant)</td>
+        <td style="padding:4px 5px" class="\${fgnCls}"><b>\${fgnVerb}</b></td>
+        <td style="padding:4px 5px;font-size:9px">\${fgnDetail}</td>
+      </tr>
+      <tr>
+        <td style="padding:4px 5px;color:var(--muted);font-size:9px">Domestic (Morris-Shin)</td>
+        <td style="padding:4px 5px" class="orange"><b>HERD</b></td>
+        <td style="padding:4px 5px;font-size:9px">Follow DC signal — attack profitable when DC-AC &gt; 0 at M3 \${m3Score}</td>
+      </tr>
+    </table>
+    <div class="hist-note">GT Coverage ~51% · Pending: PolEcon payoff matrix M12, Bayesian M6 posterior. Refresh every 120s.</div>
   \`;
 }
 
