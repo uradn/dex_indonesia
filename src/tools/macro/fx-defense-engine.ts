@@ -309,8 +309,9 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   if (freshBidCover.cls === 'red' || freshBidCover.cls === 'orange') {
     flags.push(stalenessFlag('srbi_bid_cover_ratio', freshBidCover.ageDays!, freshBidCover.spec, freshBidCover.cls));
   }
-  if (freshBidCover.cls === 'red') {
-    flags.unshift('LOW CONFIDENCE: srbi_bid_cover_ratio RED-stale — M3 auction demand signal missing; FX defense alert level may not reflect current BI sterilization capacity');
+  if (freshBidCover.cls === 'red' || freshBidCover.cls === 'orange') {
+    const staleLabel = freshBidCover.cls === 'red' ? 'RED-stale' : 'ORANGE-stale (>3d)';
+    flags.unshift(`LOW CONFIDENCE: srbi_bid_cover_ratio ${staleLabel} — weekly auction demand signal degraded; BI sterilization stress may not be reflected in M3 score`);
   }
 
   // Cross-feed from ULN Engine (Module 13) + macro context for confidence gate

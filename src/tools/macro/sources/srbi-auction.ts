@@ -40,7 +40,7 @@ export interface SrbiAuctionData {
   fetchedAt: string;
 }
 
-const FRESHNESS_DAYS = 3;
+const FRESHNESS_DAYS = 1;
 
 /** Parse Indonesian number format: "1.500,75" → 1500.75 */
 function parseIdNumber(s: string): number | null {
