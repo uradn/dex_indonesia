@@ -7,6 +7,7 @@ import { fetchIndonesiaCds5y, fetchSbn10yYield, fetchEmbiSpread, bloombergAvaila
 import { fetchSbn10yRdp, fetchCds5yRdp, refinitivAvailable } from './sources/refinitiv.js';
 import { fetchSbnForeignOwnership } from './sources/bi.js';
 import { fetchSbn10yTradingEconomics, fetchBiRateTradingEconomics, fetchIndonesiaCdsAndRatingWgb, computeTermPremium } from './sources/sovereign-scraper.js';
+import { fetchCds5yNews } from './sources/cds-news.js';
 import { fetchDebtGdpImf } from './sources/imf.js';
 import { fetchUst10y } from './sources/yahoo-macro.js';
 import type { AlertLevel, IndicatorSnapshot, ModuleScoreCard, MacroDataPoint } from './types.js';
@@ -101,7 +102,7 @@ async function computeCdsVelocity(currentBps: number): Promise<CdsVelocity | nul
 }
 
 export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
-  // 1. CDS + rating — Bloomberg → Refinitiv → WorldGovernmentBonds.com (free, Playwright, ~daily)
+  // 1. CDS + rating — Bloomberg → Refinitiv → WGB Playwright → Exa/Tavily news fallback
   let cdsPoint = bloombergAvailable() ? await fetchIndonesiaCds5y() : null;
   cdsPoint ??= refinitivAvailable() ? await fetchCds5yRdp() : null;
   let ratingPoint: MacroDataPoint | null = null;
@@ -110,6 +111,8 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
     cdsPoint = wgbCds;
     ratingPoint = wgbRating;
   }
+  // Final fallback: Exa/Tavily news when all structured sources fail
+  cdsPoint ??= await fetchCds5yNews();
   if (cdsPoint) await upsertPoints([cdsPoint]);
   if (ratingPoint) await upsertPoints([ratingPoint]);
 
