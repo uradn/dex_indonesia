@@ -2207,6 +2207,10 @@ const BS_HTML = `<!DOCTYPE html>
       <div class="card-title">Transmission Chain</div>
       <div id="panel-chain">Loading…</div>
     </div>
+    <div class="card" style="border-left:3px solid var(--orange)">
+      <div class="card-title" style="color:var(--orange)">Strategic Behavior Layer</div>
+      <div id="panel-gt">Loading…</div>
+    </div>
     <div class="card">
       <div class="card-title">Timeline — T+0 / T+3 / T+6 / T+12</div>
       <div id="panel-timeline">Loading…</div>
@@ -2340,6 +2344,100 @@ const CHAIN_META = {
 };
 
 const STATUS_LABEL = { red: 'FIRED', orange: 'ACTIVATED', yellow: 'WARMING', green: 'DORMANT' };
+
+function renderGameTheory(thesis, snap) {
+  const ind = snap?.indicators ?? {};
+  const ms  = snap?.moduleScores ?? {};
+
+  // Bryant phase [Thread 24]
+  const BRYANT_EVENT    = new Date('2026-10-15');
+  const daysSinceBryant = Math.max(0, Math.round((Date.now() - BRYANT_EVENT.getTime()) / 86400000));
+  const bryantPhase = daysSinceBryant <= 4  ? 'FAST MONEY'
+    : daysSinceBryant <= 30 ? 'ETF MECHANICS'
+    : daysSinceBryant <= 90 ? 'MANDATE REBALANCING'
+    : 'STRUCTURED EXIT';
+  const bryantNext = daysSinceBryant <= 4  ? (4  - daysSinceBryant) + 'd → ETF mechanics'
+    : daysSinceBryant <= 30 ? (30 - daysSinceBryant) + 'd → mandate rebalancing'
+    : daysSinceBryant <= 90 ? (90 - daysSinceBryant) + 'd → structured exit'
+    : 'ongoing';
+  const bryantCls = daysSinceBryant <= 4 ? 'red' : daysSinceBryant <= 30 ? 'orange' : 'yellow';
+
+  // Kreps P(downgrade) [Thread 23]
+  const CONSULT_END    = new Date('2027-04-30');
+  const consultElapsed = Math.max(0, Date.now() - BRYANT_EVENT.getTime());
+  const consultWindow  = CONSULT_END.getTime() - BRYANT_EVENT.getTime();
+  const consultPct     = Math.round(Math.min(1, consultElapsed / consultWindow) * 100);
+  const pDowngrade     = Math.round((0.85 + 0.10 * consultPct / 100) * 100);
+
+  // Morris-Shin CV% from 4-Level Belief Stack
+  const brent  = ind['brent_price_usd']?.value  ?? null;
+  const dubai  = ind['dubai_crude_spot_usd']?.value ?? null;
+  const L3 = brent, L4 = dubai !== null ? dubai + 20 : null;
+  let cvPct: string | null = null;
+  if (L3 !== null && L4 !== null) {
+    const vals = [70, 80, L3, L4];
+    const mean = vals.reduce((a, b) => a + b, 0) / 4;
+    const std  = Math.sqrt(vals.reduce((s, v) => s + (v - mean) ** 2, 0) / 4);
+    cvPct = (std / mean * 100).toFixed(1);
+  }
+  const cvF   = cvPct !== null ? parseFloat(cvPct) : null;
+  const cvCls = cvF !== null && cvF > 25 ? 'red' : cvF !== null && cvF > 15 ? 'orange' : 'yellow';
+  const cvLabel = cvF !== null && cvF > 25 ? ' 🔴 HIGH DISPERSION' : cvF !== null && cvF > 15 ? ' ELEVATED' : '';
+
+  // Morris-Shin confidence gate from M3 score
+  const m3Score  = ms['fx_defense'] ?? 0;
+  const gateState = m3Score >= 50 ? 'VULNERABILITY ZONE' : m3Score >= 33 ? 'WATCH' : 'STABLE';
+  const gateCls   = m3Score >= 50 ? 'orange' : m3Score >= 33 ? 'yellow' : 'green';
+
+  // Signal precision: IHSG P/E discount vs Thailand peer
+  const pe     = ind['ihsg_pe_ratio']?.value ?? null;
+  const peDisc = pe !== null ? ((14.8 - pe) / 14.8 * 100).toFixed(1) : null;
+  const precCls = peDisc !== null && parseFloat(peDisc) > 35 ? 'red' : peDisc !== null && parseFloat(peDisc) > 20 ? 'orange' : 'green';
+
+  // Barro-Gordon discretionary temptation [Thread 19]
+  const fiscalScore = ms['fiscal'] ?? 0;
+  const bgLabel = fiscalScore >= 70 ? 'HIGH — time inconsistency active' : fiscalScore >= 50 ? 'ELEVATED' : 'MODERATE';
+  const bgCls   = fiscalScore >= 70 ? 'red' : fiscalScore >= 50 ? 'orange' : 'yellow';
+
+  // Overall equilibrium
+  const chain       = thesis?.transmissionChain ?? [];
+  const firedCount  = chain.filter((n: {cls: string}) => n.cls === 'red' || n.cls === 'orange').length;
+  const equilibrium = firedCount >= 5 ? 'CRISIS' : firedCount >= 3 ? 'COORDINATION FAILURE' : 'FRAGILE';
+  const eqCls       = firedCount >= 5 ? 'red' : firedCount >= 3 ? 'orange' : 'yellow';
+
+  // Actor dominant strategies
+  const cds    = ind['indonesia_cds_5y_bps']?.value ?? 0;
+  const usdidr = ind['usdidr_spot']?.value ?? 0;
+  const biStrat    = (cds > 100 || usdidr > 18000) ? 'DEFEND: raise DFR + spot intervention (dominant)' : 'HOLD: 5.75% — monitor BI Rate next RDG';
+  const biCls      = (cds > 100 || usdidr > 18000) ? 'red' : 'yellow';
+  const kmkStrat   = fiscalScore >= 70 ? 'TRAPPED: hike BBM (political cost) OR absorb (credibility cost) — Barro-Gordon time inconsistency active' : 'DEFER: hold subsidi through 31 Des';
+  const kmkCls     = fiscalScore >= 70 ? 'red' : 'orange';
+  const fgnStrat   = daysSinceBryant <= 4  ? 'SELL: fast money coordination DONE (IHSG −11% Oct 16)'
+    : daysSinceBryant <= 30 ? 'SELL: ETF mechanics — passive redemptions in progress (' + (30 - daysSinceBryant) + 'd remaining)'
+    : 'REDUCE: mandate-driven systematic exit';
+  const fgnCls     = daysSinceBryant <= 30 ? 'red' : 'orange';
+  const domStrat   = 'HERD: Morris-Shin dominant strategy = follow DC signal when DC-AC > 0 (attack profitable)';
+
+  return `
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
+      <span class="big-num ${eqCls}">${equilibrium}</span>
+      <span style="font-size:10px;color:var(--muted)">${firedCount}/7 nodes active · SSS=100 TRANSMISSION</span>
+    </div>
+    <div class="section-title">Active GT Signals</div>
+    ${kv('Bryant Phase [Thread 24]', bryantPhase + ' T+' + daysSinceBryant + 'd · next: ' + bryantNext, bryantCls)}
+    ${kv('Kreps P(Downgrade) [Thread 23]', pDowngrade + '% · consultation ' + consultPct + '% complete (rises to ~95% by Apr 30)', 'red')}
+    ${kv('Morris-Shin Confidence Gate', gateState + ' (M3 ' + m3Score + '/100) · multiple equilibria active', gateCls)}
+    ${kv('Morris-Shin Signal Precision', peDisc !== null ? 'P/E discount ' + peDisc + '% vs THD · attack window WIDEST since tracking' : '—', precCls)}
+    ${kv('Morris-Shin CV% [Belief Stack]', cvPct !== null ? cvPct + '%' + cvLabel + ' · L1=$70 L2=$80 L3=$' + (L3?.toFixed(0) ?? '—') + ' L4=$' + (L4?.toFixed(0) ?? '—') : '—', cvCls)}
+    ${kv('Barro-Gordon Discretionary [Thread 19]', bgLabel + ' · M10 ' + fiscalScore + '/100', bgCls)}
+    <div class="section-title" style="margin-top:10px">Actor Dominant Strategies</div>
+    ${kv('BI (Stackelberg leader)', biStrat, biCls)}
+    ${kv('Kemenkeu (Barro-Gordon)', kmkStrat, kmkCls)}
+    ${kv('Foreign Funds (Bryant)', fgnStrat, fgnCls)}
+    ${kv('Domestic (Morris-Shin herd)', domStrat, 'orange')}
+    <div class="hist-note" style="margin-top:8px">GT Coverage ~51% · Pending: PolEcon payoff matrix M12, Bayesian M6 posterior dari 6 krisis. Hover chain nodes untuk module-level GT logic.</div>
+  `;
+}
 
 function renderChain(t) {
   if (!t || !t.transmissionChain) return '—';
@@ -2926,6 +3024,7 @@ async function loadData() {
     document.getElementById('panel-divs').innerHTML = renderDivs(thesis);
     document.getElementById('panel-trigger').innerHTML = renderTrigger(thesis);
     document.getElementById('panel-chain').innerHTML = renderChain(thesis);
+    document.getElementById('panel-gt').innerHTML = renderGameTheory(thesis, snap);
     document.getElementById('panel-timeline').innerHTML = renderTimeline(thesis);
     document.getElementById('panel-kill').innerHTML = renderKill(thesis, activeArmed, snap);
     document.getElementById('panel-haye').innerHTML = renderHaye(snap);
