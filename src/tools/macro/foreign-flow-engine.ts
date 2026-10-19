@@ -333,8 +333,10 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   //   confirmed: +3 if Nov 2026 re-assessment <60d away (overhang re-emerges) else 0.
   // Indonesia EM status maintained Jun 23 2026 but MSCI extended review to Nov 2026
   // — reforms must demonstrate progress (free-float, transparency, anti-coordinated trading).
-  const NEXT_MSCI_REVIEW = new Date('2026-11-12');
-  const daysToNextMsciReview = Math.round((NEXT_MSCI_REVIEW.getTime() - Date.now()) / 86_400_000);
+  // MSCI Standalone consultation launched Oct 15 2026. Decision: Jun 30 2027.
+  // Consultation period: until Apr 30 2027. Implementation: Sep-Dec 2027 if downgrade.
+  const NEXT_MSCI_DECISION = new Date('2027-06-30');
+  const daysToNextMsciReview = Math.round((NEXT_MSCI_DECISION.getTime() - Date.now()) / 86_400_000);
   let msciScoreBump = 0;
   if (msciStatus === 'downgrade_risk') msciScoreBump = 20;
   else if (msciStatus === 'under_review') msciScoreBump = 8;
@@ -380,10 +382,10 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
     flags.push(`MSCI classification under review: passive fund uncertainty elevated (+8 score)`);
     if (idxNetSellingHeavy) flags.push('MSCI uncertainty amplifying foreign equity exit — EIDO weakness = sentiment + passive repositioning (dual cause)');
   } else if (msciStatus === 'downgrade_risk') {
-    flags.push('CRITICAL: MSCI Frontier downgrade risk — systematic EM fund forced-sell would dwarf May 2026 rebalancing (+20 score)');
+    flags.push(`MSCI STANDALONE CONSULTATION ACTIVE (Oct 15 2026): EM→Standalone reclassification — Bryant (1980) common knowledge event FIRED. Every EM-mandate fund knows every fund knows. Dominant strategy: reduce exposure regardless of outcome. P(reversal) < 15% — "expects to proceed" language = pre-decided; MSCI correction mechanism eliminates reversal incentive. Passive forced-sell: $3-15B outflow estimates (Mirae $3B / Goldman $7.8-13B). Decision: Jun 30 2027 (T-${daysToNextMsciReview}d). Do NOT use MSCI reversal as a thesis kill switch. (+20 score)`);
   } else if (msciStatus === 'confirmed' && daysToNextMsciReview > 0) {
     const bumpNote = msciScoreBump > 0 ? ` (+${msciScoreBump} score, <60d window)` : '';
-    flags.push(`MSCI Nov 2026 overhang: EM maintained Jun 23 but review extended ${daysToNextMsciReview}d ahead — reforms tracked: free-float compliance, shareholding transparency, anti-coordinated trading${bumpNote}`);
+    flags.push(`MSCI review window: ${daysToNextMsciReview}d to decision — reforms tracked: free-float compliance, shareholding transparency, anti-coordinated trading${bumpNote}`);
   }
   if (msciRebalancingOutflowUsd !== null) {
     flags.push(`MSCI May 29 rebalancing: ~$${msciRebalancingOutflowUsd}bn passive outflow (19 companies removed) — explains part of EIDO weakness; classification result Jun 23 (watch: frontier downgrade = forced-sell > May rebalancing magnitude)`);

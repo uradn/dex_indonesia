@@ -44,17 +44,18 @@ function freshnessGateDays(status: MsciStatus): number {
 }
 
 const EXA_QUERIES = [
+  'MSCI Indonesia standalone reclassification consultation October 2026 emerging market',
   'MSCI Indonesia classification result June 2026 emerging frontier',
   'MSCI Global Market Accessibility Review Indonesia reclassification 2026',
   'MSCI Indonesia frontier downgrade emerging market status 2026',
 ];
 
-const TAVILY_QUERY = 'MSCI Indonesia June 2026 classification result emerging frontier market reclassification';
+const TAVILY_QUERY = 'MSCI Indonesia 2026 standalone reclassification consultation emerging frontier market';
 
 function parseClassificationText(text: string): MsciStatus | null {
   const lower = text.toLowerCase();
 
-  // Definitive downgrade signals
+  // Definitive downgrade signals — includes Standalone consultation (EM→Standalone = downgrade_risk)
   const downgradePhrases = [
     'downgraded to frontier',
     'reclassified as frontier',
@@ -65,6 +66,19 @@ function parseClassificationText(text: string): MsciStatus | null {
     'indonesia frontier',
     'diturunkan ke frontier',
     'direklasifikasi frontier',
+    // Oct 2026 Standalone consultation phrases
+    'standalone market',
+    'standalone classification',
+    'standalone status',
+    'reclassified as standalone',
+    'reclassification to standalone',
+    'em to standalone',
+    'emerging to standalone',
+    'standalone consultation',
+    'standalone reclassification',
+    'pasar standalone',
+    'reklasifikasi standalone',
+    'konsultasi standalone',
   ];
   if (downgradePhrases.some(p => lower.includes(p))) return 'downgrade_risk';
 

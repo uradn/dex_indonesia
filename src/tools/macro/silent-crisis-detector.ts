@@ -288,7 +288,7 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
 
   if (silentCrisisProbability > 70) keyFlags.push('SYSTEMIC FRAGILITY: silent crisis probability critical — institutional positioning review warranted');
 
-  const narrative = buildNarrative({ silentCrisisProbability, syntheticStabilityScore, stressedCount, stressVectors, alertLevel });
+  const narrative = buildNarrative({ silentCrisisProbability, syntheticStabilityScore, syntheticPhase, stressedCount, stressVectors, alertLevel });
 
   return {
     date: new Date().toISOString().slice(0, 10),
@@ -308,6 +308,7 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
 function buildNarrative(ctx: {
   silentCrisisProbability: number;
   syntheticStabilityScore: number;
+  syntheticPhase: SyntheticPhase;
   stressedCount: number;
   stressVectors: string[];
   alertLevel: AlertLevel;
@@ -319,7 +320,9 @@ function buildNarrative(ctx: {
   } else {
     parts.push('No modules currently in stress zone — macro environment stable.');
   }
-  if (ctx.syntheticStabilityScore > 40) {
+  if (ctx.syntheticPhase === 'active_transmission') {
+    parts.push(`Synthetic Stability Score ${ctx.syntheticStabilityScore}/100 — ACTIVE TRANSMISSION: political stress now repricing financial markets. Gap closing — forced-sell and mandate-exit mechanics are execution-phase, not forecast.`);
+  } else if (ctx.syntheticPhase === 'silent_crisis' && ctx.syntheticStabilityScore > 40) {
     parts.push(`Synthetic Stability Score ${ctx.syntheticStabilityScore}/100 — surface calm may be deceptive; political stress not yet transmitted to financial markets.`);
   }
   return parts.join(' ');

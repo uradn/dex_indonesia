@@ -215,12 +215,23 @@ async function main() {
     }
 
     // #2 — BI coordinated package (Exa-detected, manual confirm)
+    // Structural constraint: post-MSCI Standalone consultation (Oct 15 2026), mandate-driven outflow
+    // is compliance execution, not speculative attack. BI rate/FX intervention cannot halt it.
+    // KS#2 effectiveness severely limited until Jun 30 2027 MSCI decision. Treat any candidate
+    // with extreme caution — do NOT kill unless package addresses the mandate-selling mechanism.
+    const msciStandalone = (await getLatestPoint('msci_classification_numeric'))?.value === 2;
     if (biPkg !== null) {
       console.log(`  ⚠️  #2 CANDIDATE: BI coordinated package detected — MANUAL CONFIRM required before killing`);
       console.log(`     Headline: "${biPkg.headline.slice(0, 120)}"`);
       if (biPkg.url) console.log(`     Source: ${biPkg.url}`);
+      if (msciStandalone) {
+        console.log(`     ⚠️  STRUCTURAL CONSTRAINT: MSCI Standalone consultation active — BI cannot sterilize mandate-driven outflow (compliance execution ≠ speculative attack). KS#2 ineffective until MSCI decision Jun 30 2027. Verify package explicitly addresses forced-sell mechanism.`);
+      }
     } else {
       console.log(`  ❌ #2 clear: No BI coordinated stabilization package found in news (last 30d)`);
+      if (msciStandalone) {
+        console.log(`     ℹ️  STRUCTURAL NOTE: MSCI Standalone consultation active — BI rate/FX intervention cannot stop mandate-exit selling. KS#2 baseline effectiveness: LOW.`);
+      }
     }
 
     // #3 — SBN foreign ownership return
