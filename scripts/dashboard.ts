@@ -883,6 +883,11 @@ function renderFlow(d) {
 
 function renderFiscal(d) {
   const ind = d.indicators;
+  const fiscalFlags = (d.moduleScores && d.moduleScores.fiscal && d.moduleScores.fiscal.flags) || [];
+  const fiscalLowConf = fiscalFlags.find(f => f.startsWith('LOW CONFIDENCE'));
+  const fiscalBanner = fiscalLowConf
+    ? \`<div class="tag red" style="display:block;padding:6px 8px;font-size:10px;line-height:1.3;white-space:normal;margin-bottom:6px">⚠ \${fiscalLowConf}</div>\`
+    : '';
   const brent    = ind['brent_price_usd']?.value;
   const gap        = ind['bbm_subsidy_gap_idr_liter']?.value;
   const cr         = ind['bbm_cost_recovery_idr_liter']?.value;
@@ -899,7 +904,7 @@ function renderFiscal(d) {
   const dsr      = ind['uln_dsr_pct']?.value;
   const dsrDate  = ind['uln_dsr_pct']?.date;
 
-  return [
+  return fiscalBanner + [
     kv('Brent', brent ? '$' + fmtNum(brent, 1) + '/bbl' : '—', brent > 100 ? 'red' : brent > 90 ? 'orange' : brent > 80 ? 'yellow' : 'green'),
     kv('Pertalite Gap', gap ? 'Rp' + fmtK(gap) + '/L' : '—', gap > 7000 ? 'red' : gap > 4000 ? 'orange' : gap > 2000 ? 'yellow' : 'green'),
     kv('Pertalite CR', cr ? 'Rp' + fmtK(cr) + '/L' : '—'),
@@ -1655,6 +1660,11 @@ function tag(label,c){ return \`<span class="tag \${c}">\${label}</span>\`; }
 
 function renderGG(d) {
   const ind = d.indicators;
+  const ulnFlags = (d.moduleScores && d.moduleScores.uln && d.moduleScores.uln.flags) || [];
+  const ulnLowConf = ulnFlags.find(f => f.startsWith('LOW CONFIDENCE'));
+  const ulnBanner = ulnLowConf
+    ? \`<div class="tag red" style="display:block;padding:6px 8px;font-size:10px;line-height:1.3;white-space:normal;margin-bottom:6px">⚠ \${ulnLowConf}</div>\`
+    : '';
   const gg      = ind['greenspan_guidotti']?.value ?? null;
   const res     = ind['bi_fx_reserves_bn']?.value ?? null;
   const dndf    = ind['bi_dndf_outstanding_bn']?.value ?? null;
@@ -1694,7 +1704,7 @@ function renderGG(d) {
     <text x="\${cx}" y="38" text-anchor="middle" font-size="9" fill="var(--muted)">0</text>
   </svg>\`;
 
-  return \`
+  return ulnBanner + \`
     <div class="gauge-wrap">
       \${gauge}
       <div>

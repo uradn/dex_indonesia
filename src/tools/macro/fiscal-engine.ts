@@ -20,6 +20,7 @@ import { z } from 'zod';
 import { formatToolResult } from '../types.js';
 import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
 import { alertFromScore, alertLabel } from './scoring.js';
+import { getFreshPoint, stalenessFlag } from './freshness.js';
 import { fetchFiscalRealization } from './sources/kemenkeu.js';
 import { fetchSubsidiRealisasi } from './sources/subsidi.js';
 import { fetchMbgRealisasi, MBG_APBN_2026_TARGET_TRN } from './sources/mbg.js';
@@ -495,6 +496,23 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   const deficitRisk = projectedDeficitPctGdp !== null && projectedDeficitPctGdp > 3.0;
 
   const flags: string[] = [];
+
+  // Freshness gate — APBN monthly data lags ~35d after month-end; subsidi quarterly.
+  // Stale inputs mean deficit/subsidi projections are based on outdated realisasi.
+  const [freshRevenue, freshSubsidi] = await Promise.all([
+    getFreshPoint('apbn_revenue_monthly_trn'),
+    getFreshPoint('subsidi_energi_ytd_idr_t'),
+  ]);
+  for (const fp of [freshRevenue, freshSubsidi]) {
+    if ((fp.cls === 'orange' || fp.cls === 'red') && fp.spec && fp.ageDays != null) {
+      flags.push(stalenessFlag(fp.spec.name, fp.ageDays, fp.spec, fp.cls));
+    }
+  }
+  const fiscalStaleCount = [freshRevenue, freshSubsidi].filter(fp => fp.cls === 'red' || fp.cls === 'orange').length;
+  if (fiscalStaleCount >= 1) {
+    flags.unshift(`LOW CONFIDENCE: ${fiscalStaleCount}/2 critical APBN inputs ORANGE/RED-stale — deficit projection and subsidi run-rate may not reflect current fiscal position`);
+  }
+
   if (revenueShortfall) {
     flags.push(`Revenue shortfall: ${revenueAbsorptionPct!.toFixed(0)}% of pro-rata target (expected 100% for month ${monthsElapsed})`);
   }
