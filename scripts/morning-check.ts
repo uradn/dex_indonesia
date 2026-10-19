@@ -52,7 +52,10 @@ const crisis = await runSilentCrisisDetector();
 // ─── HEADER ────────────────────────────────────────────────────────────────
 console.log(BAR);
 console.log(`SILENT CRISIS PROBABILITY: ${crisis.silentCrisisProbability}%  ${emoji(crisis.alertLevel)} ${crisis.alertLevel.toUpperCase()}`);
-console.log(`SYNTHETIC STABILITY SCORE: ${crisis.syntheticStabilityScore}/100`);
+const phaseLabel = crisis.syntheticPhase === 'active_transmission' ? '🔴 TRANSMISSION UNDERWAY'
+  : crisis.syntheticPhase === 'silent_crisis' ? '🟡 SILENT CRISIS'
+  : '🟢 STABLE';
+console.log(`SYNTHETIC STABILITY SCORE: ${crisis.syntheticStabilityScore}/100  ${phaseLabel}`);
 console.log(`CROSS-CONFIRMED MODULES:   ${crisis.crossConfirmationCount}/13`);
 console.log(BAR);
 

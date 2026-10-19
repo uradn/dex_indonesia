@@ -46,7 +46,7 @@ Cross-confirmed modules: 1/13
 | M6 | Narrative Divergence | Official guidance vs market — APBN assumptions vs aktual, BBM narrative vs cost recovery |
 | M7 | ASEAN Relative Value | IDR idiosyncratic component vs ASEAN peers (supplementary — not in SCD weight) |
 | M8 | Banking Stress | NPL (OJK/World Bank API), LDR, CAR, IndONIA corridor (DFR = BI Rate −100bps / LF = BI Rate +75bps), FSAP nexus (implied CAR hit), KLR signals, M2/FX reserves ratio, **BNPL sub-indicator** (OJK IKNB fintech NPL), **Himbara AT1 issuance** (env pin: BNI $700M Apr + Mandiri $750M Sep 2026 = $1.45B — FX mismatch on capital base, domestic market insufficient) |
-| M9 | Market Stress | IHSG P/E + breadth, valuation disconnect |
+| M9 | Market Stress | IHSG P/E + breadth, valuation disconnect, **stop-loss cascade** (3 threshold nodes: 5,000/4,800/4,500 pts — mechanical forced-sell amplifier, independent of fundamentals; +10pts/node bonus) |
 | M10 | Fiscal | APBN realisasi vs target, revenue shortfall, deficit trajectory, **S&P interest/revenue threshold** (≥15% = negative action watch; BI hike cycle uplift computed), **MBG burn rate** (Rp 335T = 8.7% APBN, 4× subsidi energi), **BPDPKS biodiesel insentif** (B50 transition cost) |
 | M11 | Domestic Pressure | PIHPS 10 komoditas pangan + BBM subsidy gap (Pertalite + Solar B50 MOPS/FAME blended) + ICP threshold watch |
 | M12 | Political Risk | Unemployment + **4-signal Exa/Tavily news** (food pressure, social unrest, political stability, **geopolitical_risk** — China drill, democratic backsliding, intl investor concern) + **governance failure** (negara absen, disaster response capacity, separatism/Dayak Borneo) + **X API v2 real-time social feed** (unrest detection, minute-zero) + **PHK/relokasi event tracker** (≥5,000 workers = FDI exit signal). Tavily geopolitical: no domain filter → AFR/SCMP/FT indexed. |
@@ -189,7 +189,7 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - **APBN Semester I 2026**: Defisit Rp196.5T (0.76% PDB). **Subsidi energi YTD: Rp331.4T** (Kemenkeu, Oct 9) vs APBN target Rp87T — run-rate **457%** 🔴; **Outlook full-year: defisit 4.23% GDP** (melampaui 3% constitutional limit)
 - Term premium: **~1.57%** (SBN 10Y 7.33% − BI Rate 5.75%) — ORANGE zone (naik dari 1.42%)
 - S&P interest/revenue ratio: **~20.5%** — 5.5pp above S&P 15% negative-watch threshold 🔴
-- USDIDR spot: **17,943** (engine Oct 19 08:00, stale — data Jumat) → **18,049** (close Oct 16); cadev **$146.5B**; DNDF contingent $8B → effective **$138.5B**; G-G ratio **2.09x**
+- USDIDR spot: **18,040** (engine Oct 19 run-2) → **18,049** (close Oct 16); cadev **$146.5B**; DNDF contingent $8B → effective **$138.5B**; G-G ratio **2.09x**
 - **CAD Q2 2026: −$12.5B = −3.3% PDB** — melampaui R&R 3% danger zone
 - CDS 5Y: **97.1bps** (engine Oct 19 — +2.7bps dari Jumat); SBN 10Y: **7.169%** (engine, belum tangkap spike penuh); **SBN-UST spread 2.08pp 🔴 MELEWATI 200bps, makin melebar**; UIP unattractive; BI abstain 10Y+ SBN purchases
 - **US CPI Sep 2026: 3.7% YoY** (+0.6% MoM, core 2.6%) — beat konsensus 3.6%; gasoline +9.1% (Hormuz effect); **Fed hike odds Oct 27-28 FOMC: ~42%** (dari 22% pre-release); Dec 2026 hike odds **~88%**; Fed funds rate **4.00%** (naik 25bps Sep 16); double-whammy: MSCI domestic shock + Fed hawkish external
@@ -198,15 +198,15 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - **LNG**: JKM spot $28+/MMBtu; Hormuz effectively closed; vessel transits single digit/hari
 - **Russia-Indonesia Energy Deal**: Framework MoU ~**150 juta barel** G2G crude oil via **Lemigas** + LPG (Apr–Sep 2026); ESPO API 34–36° = Minas-compatible; "jangan tanya harga" (Bahlil); ESPO discount vs Brent est. ~$10–15/bbl → engine override: `RUSSIA_CRUDE_DISCOUNT_USD` (default 0). Lihat [Russia-Indonesia Energy Deal](#russia-indonesia-energy-deal-2026)
 - **Rezim: Q1 Goldilocks** (Growth↑ Inflation↓) — PMI 52.4; Growth ROC +9.93%; Inflation ROC −21.38%
-- **IHSG**: P/E 8.8x | **A/D ratio 0.26 🔴 PANIC breadth** (broad selling, majority stocks declining) | P/E discount **40.4%** vs Thailand (THD 14.7x vs EIDO 8.8x) — Damodaran ERP: discount >35% = structural risk repricing; M3 DCI +10pts (Morris-Shin equity factor)
-- **⚠️ Morris-Shin alert**: CDS steady 92bps + oil belief dispersion (CV>12%) → multiple equilibria zone; SRBI sterilization burden 39.2% cadev; confidence gate VULNERABLE (net DC-AC +16); catalyst watch: Pertamina loss disclosure, APBN Kita quarterly
-- **⚠️ Political-Financial Divergence**: polrisk **94/100 🔴** (engine Oct 15, breaking scan captured BBC Indonesia BBM crisis) vs financial avg **~31/100** — gap **63pp** 🚨; social contract stress belum terpricing; historically leads financial repricing 2-3 quarters
+- **IHSG**: **4,918 pts** 🔴 SUB-5000 (Oct 19 intraday) | P/E **7.5x** | **A/D ratio 0.00 🔴 TOTAL COLLAPSE** | **Stop-Loss CASCADE 1/3 BREACHED** (node 5,000 fired; node 4,800 = next threshold) | P/E discount **49.7%** vs Thailand (THD 14.8x vs EIDO 7.5x) — Damodaran ERP: discount >35% = structural risk repricing; M3 DCI +10pts (Morris-Shin equity factor)
+- **⚠️ Morris-Shin alert**: confidence gate VULNERABILITY ZONE (net DC-AC +18); SRBI sterilization burden 38.9% cadev; USDIDR 18,040 live; P/E discount 49.7% → speculator attack window widest since tracking began
+- **⚠️ TRANSMISSION UNDERWAY (SSS=100)**: political stress **99/100 🔴** NOW transmitting to financial markets (financial avg 36.2 — crossed 35 threshold Oct 19). Gap between political and financial CLOSING. The "silent" phase is over — repricing in progress. [SSS phase: active_transmission; pre-Oct-19 phase was silent_crisis SSS=93]
 - **⚠️ MSCI STANDALONE CONSULTATION LAUNCHED** (Oct 15 20:40 GMT): Bryant common knowledge event FIRED — Oct 16 IHSG −10.41% trading halt, USDIDR 18,063 tembus 18,000, CDS spike expected. Outflow at risk: Goldman $7.8–13B. Lihat box di atas.
-- **⚠️ PHK massal**: 53.490 pekerja at risk across 14 reported events (30d window) — FDI exit + industrial region stress concentration
+- **⚠️ PHK massal**: 63.789 pekerja at risk across 14 reported events (30d window) — FDI exit + industrial region stress concentration
 - **⚠️ IHSG Oct 16 CLOSE: 5,204 (−11.25%, −659pts)** — penurunan 1 hari terbesar dalam bertahun-tahun; **TRADING HALT** 08:58 WIB (circuit breaker 8%) → tidak redam tekanan → sesi II lanjut jatuh; DSSA/BBCA/AMMN/BMRI/BBRI/BBNI semua rontok; **foreign net sell Rp2.92T** (sesi I); USDIDR close **18,049–18,053** (intraday high 18,070) — bertahan di atas 18,000 sepanjang hari
-- **⚠️ IHSG Oct 15 close**: 5,863 (−1.33%) | A/D ratio **0.19** (engine Oct 16, lebih parah dari 0.26 kemarin)
-- **⚠️ Massa gedor Kantor Gubernur Bali** (Oct 15, Aksi Kamisan): sopir mengeluh krisis BBM; ANTARA Bali: harga pangan naik akibat kelangkaan BBM; social unrest score **75/100** (naik dari 47)
-- SCD: **53% 🟠 ORANGE** (engine Oct 19) → **perkiraan 70-80% 🔴 RED** aktual (engine belum tangkap MSCI Standalone penuh) | **5/13 modules** cross-confirmed | M12 Political Risk **95/100 🔴** (tertinggi sejak tracking — PHK 63.789 workers, food 5 high-severity, unrest 72) | M10 Fiscal **71/100 🔴** | M11 Domestic Pressure **58/100 🟠** | M4 Commodity **52/100 🟠** (Brent $108) | M9 Market **50/100 🟠** (**P/E 7.5** turun dari 8.8 post-crash, A/D 0.00 total collapse) | M5 Foreign Flow **36/100 🟡** (EIDO z-score −5.18 structural exit, silent exit 65%) | M3 FX Defense **37/100 🟡** | M8 Banking **15/100 🟢** (AT1 aktif) | **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-27) — CDS 97.1bps (+5bps dari armed), targets dipercepat T+3: CDS 164bps / USDIDR 20,020 / SBN 8.62% | **KS#2 (BI emergency package) = WATCH** | KS#3 13.13% | KS#4 97.1bps
+- **⚠️ IHSG Oct 19 OPEN: 4,961 (−4.31%)** — BROKE BELOW 5,000 psychological level. Intraday low 4,918 (-5.13%). Stop-loss cascade node 1 FIRED. IHSG 14.91% weekly loss (steepest since Jan 1998).
+- **⚠️ Massa gedor Kantor Gubernur Bali** (Oct 15, Aksi Kamisan): sopir mengeluh krisis BBM; ANTARA Bali: harga pangan naik akibat kelangkaan BBM; social unrest score **72/100** (naik dari 47); unjuk rasa Oktober 2026 nasional
+- SCD: **63% 🟠 ORANGE** (engine Oct 19, run-2 post-cascade) | **6/13 modules** cross-confirmed | M12 Political Risk **99/100 🔴** (all-time high; PHK 63.789 workers, food 5 high-severity, unrest 72) | M10 Fiscal **71/100 🔴** | M9 Market **60/100 🟠** (cascade 1/3 BREACHED, IHSG 4,918 pts, +10pts bonus) | M11 Domestic Pressure **58/100 🟠** | M4 Commodity **52/100 🟠** (Brent $108) | M3 FX Defense **51/100 🟠** (USDIDR 18,040, P/E gap 49.7%) | M5 Foreign Flow **36/100 🟡** (EIDO z-score −5.18 structural exit) | **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-27) — CDS 97.1bps, USDIDR 18,040, targets T+3: CDS 164bps / USDIDR 20,020 / SBN 8.62% | **KS#2 (BI emergency package) = WATCH** | KS#3 13.13% | KS#4 97.1bps
 
 ### BBM Subsidy Monitoring (Module 11)
 
@@ -408,6 +408,15 @@ SCD bukan hanya agregasi statistik — beberapa modul mengimplementasikan **logi
 │ complementarity    │ aggregator│(Sep 15) │ each extra RED module    │
 │ (Schelling/Cooper- │          │          │ has increasing marginal  │
 │ John)              │          │          │ contribution; cap 1.70×  │
+├────────────────────┼──────────┼──────────┼──────────────────────────┤
+│ SSS 3-phase        │ SCD      │ ✅ NEW   │ stable / silent_crisis / │
+│ transmission model │ aggregator│(Oct 19) │ active_transmission.     │
+│                    │          │          │ Phase flip stable→silent │
+│                    │          │          │ →active = thesis confirm  │
+│                    │          │          │ sequence. Fixed bug:     │
+│                    │          │          │ active_transmission must  │
+│                    │          │          │ NOT score lower than     │
+│                    │          │          │ silent_crisis (93→32 bug)│
 ├────────────────────┼──────────┼──────────┼──────────────────────────┤
 │ 3rd-gen balance    │ M8+M13+  │ 🔵 ROADMAP│ Currency mismatch +     │
 │ sheet amplifier    │ M3 unified│         │ FX hedging ratio;        │

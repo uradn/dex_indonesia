@@ -65,10 +65,20 @@ interface ModuleScore {
   available: boolean;
 }
 
+// Three-phase synthetic stability classification:
+//   stable            — genuine stability; no significant political-financial divergence
+//   silent_crisis     — political stress elevated but financial markets still calm; gap OPEN
+//   active_transmission — gap CLOSING; political stress now transmitting into financial repricing
+//                         This is the most dangerous phase: markets have started reacting but
+//                         repricing is incomplete; cascade and forced-sell mechanics are active.
+// Note: active_transmission fires ABOVE silent_crisis in danger — not a signal of improvement.
+export type SyntheticPhase = 'stable' | 'silent_crisis' | 'active_transmission';
+
 interface SilentCrisisOutput {
   date: string;
   silentCrisisProbability: number;
   syntheticStabilityScore: number;
+  syntheticPhase: SyntheticPhase;
   alertLevel: AlertLevel;
   moduleScores: ModuleScore[];
   crossConfirmationCount: number;
@@ -206,11 +216,26 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
     : 0;
   const silentCrisisProbability = Math.min(100, silentCrisisProbabilityPreChain + chainAmplification);
 
-  // Synthetic Stability Score: surface calm contradicting underlying stress
-  // Two triggers:
-  //   A) Traditional: official narrative spin (narrative>50) + financial stress underneath
-  //   B) NEW: political/social stress (political_risk>50) while financial markets calm
-  //      — political leads financial by 2-3 quarters historically
+  // Synthetic Stability Score: measures the gap between political/structural stress and
+  // financial market pricing. Three phases with distinct formulas:
+  //
+  //   Phase 1 — stable: no material divergence → SSS = SCD × 0.5 (low, correct)
+  //
+  //   Phase 2 — silent_crisis: political stress > 50 but financial markets calm (avg < 35)
+  //     → SSS = min(100, SCD × 1.3 + polrisk × 0.25)  [amplified: large gap open]
+  //     → Flag: "surface calm contradicts structural stress — watch for transmission"
+  //
+  //   Phase 3 — active_transmission: polrisk > 75 AND financial markets waking (avg 35–55)
+  //     → SSS = min(100, SCD × 1.3 + polrisk × 0.20)  [still high — gap CLOSING, crisis materializing]
+  //     → Flag: "transmission underway — repricing in progress; cascade risk active"
+  //     → CRITICAL: this phase must NOT produce a lower SSS than phase 2. The drop from
+  //       93→32 (seen Oct 19 2026 pre-fix) was a formula bug — active_transmission is MORE
+  //       dangerous than silent_crisis, not less. Polrisk coefficient is slightly lower (0.20
+  //       vs 0.25) because the political leading-indicator component has partially resolved
+  //       into financial stress; the total SSS remains high due to elevated SCD.
+  //
+  //   traditionalSynthetic — covers narrative-spin divergence regardless of political path;
+  //   overridden by active_transmission when both fire simultaneously.
 
   const FINANCIAL_MODULE_SET = new Set(['fx_defense', 'uln', 'bop', 'sovereign_risk', 'foreign_flow', 'banking', 'commodity', 'fiscal', 'market']);
   const financialScores = moduleScores.filter((m) => FINANCIAL_MODULE_SET.has(m.module) && m.available);
@@ -220,11 +245,20 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
 
   const politicalScore = politicalModule?.score ?? 0;
   const politicalLeadingFinancial = politicalScore > 50 && financialAvg < 35;
+  const activeTransmission = politicalScore > 75 && financialAvg >= 35 && financialAvg < 55;
   const highNarrativeScore = (narrativeModule?.score ?? 0) > 50;
   const stressUnderneath = (fxModule?.score ?? 0) > 40 || stressedCount >= 2;
   const traditionalSynthetic = highNarrativeScore && stressUnderneath;
 
-  const syntheticStabilityScore = (politicalLeadingFinancial || traditionalSynthetic)
+  const syntheticPhase: SyntheticPhase = activeTransmission
+    ? 'active_transmission'
+    : (politicalLeadingFinancial || traditionalSynthetic)
+    ? 'silent_crisis'
+    : 'stable';
+
+  const syntheticStabilityScore = activeTransmission
+    ? Math.min(100, Math.round(silentCrisisProbability * 1.3 + politicalScore * 0.20))
+    : (politicalLeadingFinancial || traditionalSynthetic)
     ? Math.min(100, Math.round(silentCrisisProbability * 1.3 + politicalScore * 0.25))
     : Math.round(silentCrisisProbability * 0.5);
 
@@ -238,8 +272,20 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
 
   const keyFlags: string[] = [];
   if (stressedCount >= 3) keyFlags.push(`CROSS-CONFIRMATION: ${stressedCount}/13 modules signaling stress simultaneously — non-linear risk elevated`);
-  if (politicalLeadingFinancial) keyFlags.push(`POLITICAL-FINANCIAL DIVERGENCE: political risk ${politicalScore}/100 ORANGE while financial modules avg ${Math.round(financialAvg)}/100 — social contract stress not yet priced by markets (typically leads financial repricing by 2-3 quarters)`);
-  if (syntheticStabilityScore > 40) keyFlags.push(`SYNTHETIC STABILITY (${syntheticStabilityScore}/100): surface calm contradicts structural stress — watch for political → financial transmission`);
+
+  if (syntheticPhase === 'active_transmission') {
+    keyFlags.push(
+      `TRANSMISSION UNDERWAY (${syntheticStabilityScore}/100): political stress (${politicalScore}/100) now transmitting into financial markets (avg ${Math.round(financialAvg)}/100) — repricing in progress; cascade and forced-sell mechanics active. Gap closing: the "silent" phase is over. [financialAvg crossed 35 threshold]`,
+    );
+  } else if (syntheticPhase === 'silent_crisis') {
+    if (politicalLeadingFinancial) {
+      keyFlags.push(`POLITICAL-FINANCIAL DIVERGENCE: political risk ${politicalScore}/100 ORANGE while financial modules avg ${Math.round(financialAvg)}/100 — social contract stress not yet priced by markets (typically leads financial repricing by 2-3 quarters)`);
+    }
+    if (syntheticStabilityScore > 40) {
+      keyFlags.push(`SYNTHETIC STABILITY (${syntheticStabilityScore}/100): surface calm contradicts structural stress — watch for political → financial transmission`);
+    }
+  }
+
   if (silentCrisisProbability > 70) keyFlags.push('SYSTEMIC FRAGILITY: silent crisis probability critical — institutional positioning review warranted');
 
   const narrative = buildNarrative({ silentCrisisProbability, syntheticStabilityScore, stressedCount, stressVectors, alertLevel });
@@ -248,6 +294,7 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
     date: new Date().toISOString().slice(0, 10),
     silentCrisisProbability,
     syntheticStabilityScore,
+    syntheticPhase,
     alertLevel,
     moduleScores,
     crossConfirmationCount: stressedCount,
@@ -288,7 +335,7 @@ function formatOutput(output: SilentCrisisOutput): string {
     `| Metric | Score |`,
     `|--------|-------|`,
     `| **Silent Crisis Probability** | **${output.silentCrisisProbability}%** |`,
-    `| Synthetic Stability Score | ${output.syntheticStabilityScore}/100 |`,
+    `| Synthetic Stability Score | ${output.syntheticStabilityScore}/100 (${output.syntheticPhase.replace(/_/g, ' ').toUpperCase()}) |`,
     `| Cross-Confirmed Stress Modules | ${output.crossConfirmationCount}/13 |`,
     ``,
     `## Module Scorecard`,
