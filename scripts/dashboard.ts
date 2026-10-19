@@ -2430,7 +2430,7 @@ function renderGameTheory(thesis, snap) {
   const cvCls = cvF !== null && cvF > 25 ? 'red' : cvF !== null && cvF > 15 ? 'orange' : 'yellow';
 
   // Morris-Shin confidence gate + signal precision
-  const m3Score  = ms['fx_defense'] ?? 0;
+  const m3Score  = ms['fx_defense']?.score ?? 0;
   const gateState = m3Score >= 50 ? 'VULN. ZONE' : m3Score >= 33 ? 'WATCH' : 'STABLE';
   const gateCls   = m3Score >= 50 ? 'orange' : m3Score >= 33 ? 'yellow' : 'green';
   const pe        = ind['ihsg_pe_ratio']?.value ?? null;
@@ -2438,7 +2438,7 @@ function renderGameTheory(thesis, snap) {
   const precCls   = peDisc !== null && parseFloat(peDisc) > 35 ? 'red' : peDisc !== null && parseFloat(peDisc) > 20 ? 'orange' : 'green';
 
   // Barro-Gordon
-  const fiscalScore = ms['fiscal'] ?? 0;
+  const fiscalScore = ms['fiscal']?.score ?? 0;
   const bgLabel = fiscalScore >= 70 ? 'HIGH — time inconsistency ACTIVE' : fiscalScore >= 50 ? 'ELEVATED' : 'MODERATE';
   const bgCls   = fiscalScore >= 70 ? 'red' : fiscalScore >= 50 ? 'orange' : 'yellow';
 
@@ -2470,8 +2470,8 @@ function renderGameTheory(thesis, snap) {
   // PolEcon Payoff Matrix [M12 + M10]
   // Game: Kemenkeu (HIKE BBM | HOLD SUBSIDI) vs Masyarakat (ACCEPT | RESIST)
   // P(RESIST | hike) driven by M12 unrest signal
-  const m12Score = ms['political_risk'] ?? 0;
-  const m6Score  = ms['narrative']      ?? 0;
+  const m12Score = ms['political_risk']?.score ?? 0;
+  const m6Score  = ms['narrative']?.score      ?? 0;
   const pResist  = m12Score >= 85 ? 0.85 : m12Score >= 65 ? 0.65 : 0.40;
   // Payoffs for Kemenkeu (fiscal_benefit − political_cost)
   const hikeAcceptEV = 15;   // +35 fiscal relief − 20 political cost
@@ -2497,6 +2497,63 @@ function renderGameTheory(thesis, snap) {
   const crisisPost = Math.round(postOdds / (1 + postOdds) * 100);
   const m6BayCls  = crisisPost >= 80 ? 'red' : crisisPost >= 60 ? 'orange' : 'yellow';
   const m6LRlabel = m6LR >= 3 ? 'strong ↑' : m6LR >= 1.5 ? 'moderate ↑' : 'weak ↓';
+
+  // Signaling Game — SBN Issuance [Spence 1973 / Cho-Kreps D1]
+  const sbnYield     = ind['sbn_10y_yield_pct']?.value ?? null;
+  const ustYield     = ind['ust_10y_yield_pct']?.value ?? null;
+  const sbnOwnPct    = ind['sbn_foreign_ownership_pct']?.value ?? null;
+  const sbnSpreadBps = (sbnYield !== null && ustYield !== null) ? Math.round((sbnYield - ustYield) * 100) : null;
+  let sigScore = 100;
+  if (cds > 150) sigScore -= 35; else if (cds > 100) sigScore -= 20; else if (cds > 75) sigScore -= 10;
+  if (sbnSpreadBps !== null && sbnSpreadBps > 450) sigScore -= 25; else if (sbnSpreadBps !== null && sbnSpreadBps > 366) sigScore -= 12;
+  if (sbnOwnPct !== null && sbnOwnPct < 10) sigScore -= 20; else if (sbnOwnPct !== null && sbnOwnPct < 13) sigScore -= 10;
+  sigScore = Math.max(0, sigScore);
+  const sigEq    = sigScore >= 65 ? 'SEPARATING' : sigScore >= 40 ? 'DETERIORATING' : 'POOLING';
+  const sigCls   = sigScore >= 65 ? 'green' : sigScore >= 40 ? 'orange' : 'red';
+  const sigDesc  = sigScore >= 65
+    ? 'D1 holds — quality types credibly signal. Market distinguishes Indonesia risk.'
+    : sigScore >= 40
+    ? 'Signal noise rising — pooling pressure. Investors price all types at stress spread.'
+    : 'Adverse selection trap — good/bad types pooled at crisis spread. Lemon problem active.';
+  const cdsSigCls   = cds > 150 ? 'red' : cds > 100 ? 'orange' : cds > 75 ? 'yellow' : 'green';
+  const cdsSigLbl   = cds > 150 ? 'CRISIS' : cds > 100 ? 'STRESS' : cds > 75 ? 'WATCH' : 'OK';
+  const sbnSpreadCls = sbnSpreadBps !== null && sbnSpreadBps > 450 ? 'red' : sbnSpreadBps !== null && sbnSpreadBps > 366 ? 'orange' : 'green';
+  const sbnSpreadLbl = sbnSpreadBps !== null && sbnSpreadBps > 450 ? 'POOL' : sbnSpreadBps !== null && sbnSpreadBps > 366 ? 'WATCH' : 'OK';
+  const sbnOwnCls  = sbnOwnPct !== null && sbnOwnPct < 10 ? 'red' : sbnOwnPct !== null && sbnOwnPct < 13 ? 'orange' : 'green';
+  const sbnOwnLbl  = sbnOwnPct !== null && sbnOwnPct < 10 ? 'EXIT' : sbnOwnPct !== null && sbnOwnPct < 15 ? 'DECLINING' : 'STABLE';
+
+  // Multi-player Sovereign Repo Equilibrium [Bryant 1980 / Diamond-Dybvig 1983]
+  const m5Score    = ms['foreign_flow']?.score ?? 0;
+  const K_STAR     = 0.70;
+  let exitPress    = 0;
+  if (cds > 100) exitPress += 0.20;
+  if (daysSinceBryant >= 5 && daysSinceBryant <= 30) exitPress += 0.25;
+  if (m5Score > 60) exitPress += 0.15;
+  if (sbnOwnPct !== null && sbnOwnPct < 15) exitPress += 0.10;
+  exitPress = Math.min(exitPress, 0.95);
+  const expectedRoll = Math.round((1 - exitPress) * 100);
+  const kStarPct   = Math.round(K_STAR * 100);
+  const repoRegime = expectedRoll >= kStarPct + 5 ? 'STABLE ROLL'
+    : expectedRoll >= kStarPct - 10 ? 'FRAGILE'
+    : 'COORDINATION FAILURE';
+  const repoCls    = repoRegime === 'STABLE ROLL' ? 'green' : repoRegime === 'FRAGILE' ? 'orange' : 'red';
+  const repoBg     = repoCls === 'red' ? 'rgba(220,50,50,.1)' : repoCls === 'orange' ? 'rgba(230,162,60,.1)' : 'rgba(60,180,60,.06)';
+  const repoBarBg  = repoCls === 'red' ? '#dc3232' : repoCls === 'orange' ? '#e6a23c' : '#3ab97a';
+  const repoDesc   = repoRegime === 'STABLE ROLL'
+    ? 'Critical mass secure — self-fulfilling rollover stable.'
+    : repoRegime === 'FRAGILE'
+    ? 'Near k*=' + kStarPct + '% — one large exit can tip coordination failure.'
+    : 'Below k*=' + kStarPct + '% — exit dominates regardless of fundamentals.';
+  const exitPressPct = Math.round(exitPress * 100);
+  const exitK30Pct   = Math.round((1 - K_STAR) * 100);
+  const cdsPressLbl  = cds > 100 ? '+20%' : '+0%';
+  const etfPressLbl  = daysSinceBryant >= 5 && daysSinceBryant <= 30 ? '+25%' : '+0%';
+  const m5PressLbl   = m5Score > 60 ? '+15%' : '+0%';
+  const ownPressLbl  = sbnOwnPct !== null && sbnOwnPct < 15 ? '+10%' : '+0%';
+  const cdsPressActive  = cds > 100;
+  const etfPressActive  = daysSinceBryant >= 5 && daysSinceBryant <= 30;
+  const m5PressActive   = m5Score > 60;
+  const ownPressActive  = sbnOwnPct !== null && sbnOwnPct < 15;
 
   // Build Bryant phase boxes (string concat — no nested backticks needed)
   let phaseBoxes = '';
@@ -2644,7 +2701,72 @@ function renderGameTheory(thesis, snap) {
     </div>
     <div style="font-size:9px;color:var(--muted);margin-bottom:10px">LR calibrated from 6-crisis backtest: M6>60→4.0× · M6 40–60→1.8× · M6&lt;40→0.5×. Sensitivity 83%, specificity 72% at M6>40 threshold.</div>
 
-    <div class="hist-note">GT Coverage ~78% · Remaining: signaling game SBN issuance, multi-player sovereign repo equilibrium. Refresh every 120s.</div>
+    <div class="section-title" style="margin-top:12px">Signaling Game — SBN Issuance [Spence 1973 / Cho-Kreps D1]</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+      <div style="flex:1;background:rgba(48,54,61,.4);border-radius:3px;height:8px;overflow:hidden">
+        <div style="width:\${sigScore}%;height:100%;background:\${sigCls === 'red' ? '#dc3232' : sigCls === 'orange' ? '#e6a23c' : '#3ab97a'}"></div>
+      </div>
+      <div class="\${sigCls}" style="font-size:12px;font-weight:700;white-space:nowrap">\${sigEq}</div>
+      <div style="font-size:11px;color:var(--muted)">\${sigScore}/100</div>
+    </div>
+    <div style="font-size:9px;color:var(--muted);margin-bottom:6px">\${sigDesc}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:4px">
+      <div style="border:1px solid var(--border);border-radius:3px;padding:5px 6px;text-align:center">
+        <div style="font-size:8px;color:var(--muted)">CDS 5Y signal</div>
+        <div style="font-size:11px;font-weight:700" class="\${cdsSigCls}">\${cds > 0 ? cds.toFixed(0) + 'bps' : '—'}</div>
+        <div style="font-size:8px;color:var(--muted)">\${cdsSigLbl}</div>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:3px;padding:5px 6px;text-align:center">
+        <div style="font-size:8px;color:var(--muted)">SBN–UST spread</div>
+        <div style="font-size:11px;font-weight:700" class="\${sbnSpreadCls}">\${sbnSpreadBps !== null ? sbnSpreadBps + 'bps' : '—'}</div>
+        <div style="font-size:8px;color:var(--muted)">\${sbnSpreadLbl}</div>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:3px;padding:5px 6px;text-align:center">
+        <div style="font-size:8px;color:var(--muted)">Foreign own.</div>
+        <div style="font-size:11px;font-weight:700" class="\${sbnOwnCls}">\${sbnOwnPct !== null ? sbnOwnPct.toFixed(1) + '%' : '—'}</div>
+        <div style="font-size:8px;color:var(--muted)">\${sbnOwnLbl}</div>
+      </div>
+    </div>
+    <div style="font-size:9px;color:var(--muted);margin-bottom:10px">D1 equilibrium: \${sigEq}. Pooling collapses when CDS&gt;150bps or spread&gt;450bps — adverse selection: all issuers pay crisis premium regardless of quality. KS#4 spread threshold 366bps.</div>
+
+    <div class="section-title">Repo Equilibrium — SBN Rollover Coordination [Bryant 1980 / D-D 1983]</div>
+    <div style="background:\${repoBg};border:1px solid var(--border);border-radius:4px;padding:8px;margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+        <div class="\${repoCls}" style="font-size:13px;font-weight:700">\${repoRegime}</div>
+        <div style="font-size:9px;color:var(--muted)">k*=\${kStarPct}% · roll \${expectedRoll}%</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="font-size:8px;color:var(--muted);white-space:nowrap">Roll rate</div>
+        <div style="flex:1;position:relative;height:12px">
+          <div style="width:100%;height:12px;background:rgba(48,54,61,.4);border-radius:2px;overflow:hidden">
+            <div style="width:\${expectedRoll}%;height:100%;background:\${repoBarBg}"></div>
+          </div>
+          <div style="position:absolute;top:0;left:\${kStarPct}%;width:1px;height:12px;background:rgba(180,180,180,.8)"></div>
+        </div>
+        <div style="font-size:9px;color:var(--muted);white-space:nowrap">\${expectedRoll}%</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-bottom:4px">
+      <div style="padding:4px 5px;border:1px solid var(--border);border-radius:3px;text-align:center">
+        <div style="font-size:8px;color:var(--muted)">CDS&gt;100</div>
+        <div style="font-size:10px;font-weight:700" class="\${cdsPressActive ? 'orange' : 'green'}">\${cdsPressLbl}</div>
+      </div>
+      <div style="padding:4px 5px;border:1px solid var(--border);border-radius:3px;text-align:center">
+        <div style="font-size:8px;color:var(--muted)">ETF mech.</div>
+        <div style="font-size:10px;font-weight:700" class="\${etfPressActive ? 'red' : 'green'}">\${etfPressLbl}</div>
+      </div>
+      <div style="padding:4px 5px;border:1px solid var(--border);border-radius:3px;text-align:center">
+        <div style="font-size:8px;color:var(--muted)">M5 outflow</div>
+        <div style="font-size:10px;font-weight:700" class="\${m5PressActive ? 'orange' : 'green'}">\${m5PressLbl}</div>
+      </div>
+      <div style="padding:4px 5px;border:1px solid var(--border);border-radius:3px;text-align:center">
+        <div style="font-size:8px;color:var(--muted)">Own&lt;15%</div>
+        <div style="font-size:10px;font-weight:700" class="\${ownPressActive ? 'orange' : 'green'}">\${ownPressLbl}</div>
+      </div>
+    </div>
+    <div style="font-size:9px;color:var(--muted);margin-bottom:10px">Exit pressure \${exitPressPct}% → expected roll \${expectedRoll}% vs k*=\${kStarPct}%. \${repoDesc} Self-fulfilling crisis if exit fraction &gt;\${exitK30Pct}%.</div>
+
+    <div class="hist-note">GT Coverage ~100% · Bryant · Kreps · Morris-Shin · Barro-Gordon · PolEcon · Bayesian M6 · Spence/Cho-Kreps · Diamond-Dybvig. Refresh every 120s.</div>
   \`;
 }
 
