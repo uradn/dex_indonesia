@@ -301,6 +301,20 @@ Solar gap **2.7× lebih besar** dari Pertalite — tapi selama ini tidak tertrac
 | **Sep 8 2026** | Brent **$96.3/bbl** — ICP margin ke Bahlil $100 tersisa **$3.7/bbl**; IDR 17,635; Pertalite gap Rp4,951/L 🟠 |
 | **Sep 14 2026** | Serangan baru terhadap Arab Saudi & kapal di Teluk Persia; Brent **$108.3/bbl** (naik +2.8% Asia session); ICP **melewati $100** — komitmen Bahlil gugur; Pertalite gap **Rp6,781/L** 🔴; Menkeu Suahasil dilantik; BBM langka Sulsel/Jawa/Sumatra; GCC-Iran talks postponed |
 | **Sep 15 2026** | Brent **$106.93/bbl** (turun 1.18% dari $108.3 puncak 14 Sep); Saudi East-West pipeline masih offline; Houthi luncurkan serangan baru ke Arab Saudi; JKM LNG spot **$28+/MMBtu** (tertinggi 2.5 tahun); Bahlil tegaskan ulang komitmen Pertalite+Solar tidak naik 31 Des; APBN data Jul-Agu pending (Suahasil janji ALCo) |
+| **Sep mid** | Iran presentasi proposal **7-hari buka kembali Hormuz** pasca interim ceasefire; negosiasi dimulai; pasar belum yakin |
+| **Sep 22 2026** | Brent **$96.5/bbl** — aksi ambil untung pasca spike Sep 14; Russia G2G deal redam isu supply; Thesis #14 ARMED |
+| **Sep 30 2026** | Brent **$95.7/bbl**; PHK massal 60.000 pekerja dilaporkan; SCD naik ke 47% YELLOW; subsidi energi YTD Rp331.4T (run-rate 457% target APBN) |
+| **Oct 1 2026** | Menkeu Suahasil: **"Kalau minyak dunia naik, harga BBM di RI juga meningkat"** — sinyal pertama hike possible (CNN Indonesia) |
+| **Oct 4 2026 (minggu)** | **Tanker attacks surge to wartime high**: **11 kapal diserang** dalam 1 minggu — rekor tertinggi selama perang (CNBC Oct 9) |
+| **Oct 9 2026** | CNBC: "Tanker attacks in Strait of Hormuz surge to wartime high"; SRBI auction demand **Rp76.23T** (allot Rp30T, bid-cover 2.54) — BI jual lebih banyak demi topang rupiah |
+| **Oct 12 2026** | ESDM umumkan **ICP September 2026 = $112.81/bbl** resmi (+$23.38 vs Agustus) — tekanan fiskal subsidi makin akut |
+| **Oct 13 2026** | Minyak tembus **$112/bbl**; Bahlil **reaffirm** janji BBM subsidi tidak naik 31 Des 2026; Wamenkeu Juda Agung konfirmasi |
+| **Oct 14 2026** | **Prabowo panggil Bahlil ke Istana** bahas BBM langka yang memburuk di Bali |
+| **Oct 15 2026** | **Massa gedor Kantor Gubernur Bali** (Aksi Kamisan); ANTARA: harga pangan naik akibat BBM langka; **MSCI meluncurkan Standalone consultation** (EM→Standalone) — Bryant common knowledge event FIRED |
+| **Oct 16 2026** | **IHSG −10.41%, circuit breaker** 08:58 WIB (−8% intraday); USDIDR tembus **18,000** → close 18,049; foreign net sell Rp2.92T sesi I; penurunan 1 hari terbesar bertahun-tahun |
+| **Oct 17 2026** | **2 kapal kena ranjau** di Hormuz minggu ini (Oct 13–17); emergency oil reserves releases gagal tenangkan pasar; Brent tutup lebih tinggi |
+| **Oct 18 2026** | Iran FM Araghchi: proposal 7-hari buka Hormuz **"masih di meja"**; Trump suspend sanksi baru minyak Rusia → minyak turun; Brent slide |
+| **Oct 19 2026** | Brent **$107.40** (−2.24%); **IRGC klaim kapal tanker kena ranjau dan terbakar** Hormuz (ANTARA/Kompas); tanker transits **2/hari** (Oct 11 data); Hormuz deal unresolved; US renews warning warganya; **IHSG 4,918** sub-5,000 intraday; IDR 18,040–18,049; SCD 63% 🟠 ORANGE |
 
 **Dampak global:**
 
@@ -321,12 +335,16 @@ Sebelum krisis: **25% seaborne oil** + **20% LNG dunia** melewati Hormuz. Kapasi
 | Skenario | Brent | ICP Proxy | Subsidy Gap/Liter | ICP Alert | Action |
 |----------|-------|-----------|-------------------|-----------|--------|
 | Baseline APBN | $70 | $70 | ~IDR 0 | 🟢 GREEN | Tidak ada |
-| Saat ini (Sep 15) | **$106.93** | ~$106.93 | **IDR 6.413** | 🔴 RED | ICP melewati $100 — komitmen Bahlil dipertahankan retoris tapi fiskal tertekan; Saudi pipeline offline; volatilitas tinggi |
+| Saat ini (Oct 19) | **$107.40** | **$112.81** (Sep avg) | **IDR 7.056** | 🔴 RED | ICP Sep resmi $112.81 (ESDM Oct 12); Brent $107.40 spot; Bahlil reaffirm tidak naik 31 Des — fiskal menanggung; tanker mine Oct 19; IHSG circuit breaker Oct 16; SCD 63% ORANGE |
 | Threshold Bahlil | $100 | $100 | ~IDR 7.200 | 🔴 RED | Komitmen gugur |
 | Peak Mar 2026 | $126 | $126 | ~IDR 12.800 | 🔴 RED | Hike wajib fiskal |
 | Eskalasi baru | $110+ | $110+ | ~IDR 9.000+ | 🔴 RED | Hike + social unrest |
 
-**⚠️ UPDATE — TEREALISASI (Sep 14–15 2026):** Iran pada 1 Juni 2026 menghentikan negosiasi dan mengumumkan akan menutup penuh Hormuz. **Skenario yang sebelumnya forward-looking ini kini terjadi:** Brent $106–108/bbl (Sep 14–15) → ICP **melewati $100** → komitmen Bahlil secara fiskal gugur → BBM langka Sulsel/Jawa/Sumatra → M12 political risk 79/100 🔴. Yang belum terjadi: hike BBM resmi (Bahlil masih pertahankan komitmen verbal). Risiko residual: eskalasi ke $110–120 (Saudi pipeline offline + Houthi aktif) → memaksa hike atau defisit meledak.
+**⚠️ UPDATE — Oct 19 2026:** Hormuz krisis memasuki fase baru. ICP September resmi **$112.81/bbl** (ESDM, Oct 12) — rata-rata bulanan tertinggi sejak Mar 2026 peak. Tanker attacks surge to wartime high (11 kapal/minggu ended Oct 4). Dua kapal kena ranjau lagi minggu Oct 13–17; Oct 19 tanker terbakar (IRGC claim). Transit Hormuz **2 kapal/hari** (Oct 11). Iran proposal 7-hari buka kembali Hormuz masih on table tapi US belum terima — Hormuz deal unresolved.
+
+BBM: Bahlil **reaffirm** subsidi tidak naik 31 Des (Oct 13) meski ICP $112.81 — subsidi energi YTD Rp331.4T = 457% run-rate target APBN. BBM langka Bali memburuk: Prabowo panggil Bahlil (Oct 14), Aksi Kamisan gedor Kantor Gubernur Bali (Oct 15). Defisit outlook 4.23% GDP (melampaui 3% batas konstitusi).
+
+Market: IHSG circuit breaker Oct 16 (−10.41%); IHSG sub-5,000 Oct 19 (4,918 intraday); MSCI Standalone consultation launched Oct 15 → Bryant event fired → USDIDR 18,049; SCD **63% ORANGE** (dari 39% Sep 23 → 63% Oct 19). Risiko residual: eskalasi ke $115–120 (Saudi pipeline masih offline + Houthi aktif + tanker mine attacks meningkat) → hike BBM paksa atau defisit meledak sebelum 31 Des.
 
 **Cost recovery formula:**
 ```
