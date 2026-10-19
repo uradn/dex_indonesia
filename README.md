@@ -277,6 +277,47 @@ Solar gap **2.7× lebih besar** dari Pertalite — tapi selama ini tidak tertrac
 
 ---
 
+### 4-Level Belief Stack (Haye Thread — Oil Price Epistemics)
+
+Bahlil bilang $77 (April) → ICP $107 live (Sep 15). APBN pasang $70. Empat angka, satu komoditas — mana yang dipercaya? Framework "Belief Stack" di dashboard `/bs` menyusun empat lapisan **keyakinan yang beda-beda tentang harga minyak yang sama**, dari yang paling dogmatis (angka anggaran) sampai paling struktural (floor Dubai + refining premium). Jarak antar-lapis = ukuran narrative divergence; kalau semua lapis konvergen tinggi = mainstream harus revise turun, kalau semua konvergen rendah = mainstream harus revise naik. Dispersi tinggi = coordination attack risk (Morris-Shin). **Sep 15 2026 status**: L1=$70 vs L3≈$107 → gap $37 (CV% sangat tinggi, HIGH DISPERSION territory) — semua empat lapis konvergen TINGGI; APBN assumption sudah tidak relevan sebagai anchor fiskal realistis.
+
+| Level | Angka | Sumber | Sifat | Alert threshold |
+|-------|-------|--------|-------|-----------------|
+| **L1 — APBN Official** | $70/bbl | UU APBN 2026 (ICP assumption) | **Static** — patokan legal, tidak berubah tanpa APBN-P | fixed anchor |
+| **L2 — Stale Analyst Consensus** | $80/bbl¹ | INDEF-style proxy (bukan riil-time) | **Static anchor** — di-hardcode sebagai "baseline worst-case konsensus lama"; bukan angka live; konsensus riil Sep 2026 sudah >>$100 tapi L2 di sini adalah floor referensi untuk CV% calc | yellow anchor |
+| **L3 — ICP Actual (Brent proxy)** | *live* | `brent_price_usd` (Yahoo BZ=F) | **Dynamic** — updated harian | `>80` yellow · `>90` orange · `>100` red |
+| **L4 — Structural Floor (Dubai+$20)** | *live* | `dubai_crude_spot_usd + $20` (refining+distribusi premium empiris) | **Dynamic** — updated harian | `>90` yellow · `>110` orange · `>120` red |
+
+**Logika 4 lapis:**
+- **L1 vs L3** — narrative divergence pemerintah vs realitas pasar (fiskal). Kalau L3 > L1 sustained → subsidy overrun mekanis; APBN assumption bocor.
+- **L1 vs L4** — narrative divergence pemerintah vs realitas fisik. L4 hitung harga *sampai ke pengguna* (Dubai spot + biaya refining). L4 > L3 = crude tersembunyi lebih mahal karena bottleneck kilang / logistik.
+- **L2 vs L3/L4** — konsensus analis yang stale vs data live. L2 tidak boleh dipercaya di kondisi Hormuz aktif.
+- **Bahlil threshold** $100/bbl bekerja di L3 (ICP). **Sep 2026: L3 sudah $107, L4 (Dubai ~$87+$20=$107) juga melampaui threshold** — semua lapis di atas $100; kondisi sebelumnya "L4 sering menembus duluan" kini irrelevant karena keduanya sudah lampaui. Concern saat ini: apakah L3 bisa turun ke bawah $100 sebelum APBN-P diperlukan.
+
+**Yang dinamis** di panel Belief Stack live:
+- **L3, L4**, gap vs L1 (`bGap`, `dGap`), alert kelas (`green→red`)
+- **Brent–Dubai spread** (Hormuz proxy) — `<$3` normal · `$3-7` elevated · `$7-10` HIGH · `>$10` EXTREME (Dubai > Brent = Hormuz premium — physical shortage sinyal)
+- **Morris-Shin CV%** — koefisien variasi dari L1+L2+L3+L4. `>25%` HIGH DISPERSION (threshold region), `>15%` ELEVATED (coordination risk), `>8%` MODERATE. High CV = signal precision rendah → serangan koordinasi self-fulfilling. Disclosure mendadak → CV collapse → CDS discontinuous jump (Morris & Shin 2004).
+
+**Yang statis** di panel (angka referensi, update manual saat BPS/Kemenkeu rilis baru):
+- BPS Impor Migas 2025 = $32.77B (crude 28%, refined+LPG 72%)
+- 2026 run-rate = $38.8B (+49% YoY)
+- Apr 2026 YoY: +82.5% (crude +67%, refined +88%)
+- APBN Subsidi BBM+LPG target = Rp 105.4T; **realisasi Semester I = subsidi Rp116.9T + kompensasi Rp116T = Rp233T total (52.1% of combined subsidi+kompensasi target, laju 2× pro-rata)**; Q1 realisasi lama: Rp118.7T (+266% over pro-rata — sekarang digantikan data Sem-I)
+
+**Kenapa 4 (bukan 3, bukan 5):**
+- 3 lapis (APBN/consensus/live) melewatkan **structural floor** — narrative bisa tembus L3 sebelum L4, dan L4 justru anchor yang paling tahan intervensi (Dubai fisik susah di-manipulasi).
+- 5 lapis (tambah forward curve atau options-implied) menambah noise tanpa signal — futures Brent 12M lag terlalu jauh untuk kill switch.
+- 4 lapis = **2 static anchors + 2 dynamic reads** = cukup untuk CV% jadi meaningful (n≥3 syarat), tidak cukup untuk overweight satu tipe (2:2 balance).
+
+**Interpretasi cepat:**
+- L4 < L1: over-anchored, mainstream terlalu bearish — reflasi risiko
+- L1 < L3 < L4: normal — market di antara anchor & floor
+- L3 > L4 + spread negatif: Hormuz premium — physical shortage
+- CV% > 25%: pasar tidak sepakat harga wajar — coordination attack setup
+
+---
+
 **Hormuz 2026 — Situation Report (SitRep)**
 
 *Sumber utama: [Wikipedia: 2026 Strait of Hormuz crisis](https://en.wikipedia.org/wiki/2026_Strait_of_Hormuz_crisis) | [CNBC: Iran vows to completely block Hormuz](https://www.cnbc.com/2026/06/01/iran-us-negotiations-strait-of-hormuz.html) | [Al Jazeera](https://www.aljazeera.com/news/2026/6/5/how-the-us-naval-blockade-has-bled-iran-of-nearly-6bn-in-oil-revenues) | [Britannica](https://www.britannica.com/event/2026-Iran-war)*
@@ -535,47 +576,6 @@ Sep 2027  ████████████████░░░░  ~63%  (t
 - **3rd-gen balance sheet** (`M8+M13+M3 unified`) — butuh SULNI quarterly FX-hedging ratio per korporasi. Data ada tapi baru per Q-release, ~6wk lag.
 - **Political economy payoff matrix** (`M12`) — veto player mapping + Poltracking time series. Butuh political science input atau API Poltracking Indonesia.
 - **Bayesian M6 full calibration** — likelihood functions P(data|credible) vs P(data|not_credible) dikalibrasi dari 6 krisis historis (data backtest sudah ada di `backtest/crisis-calendar.ts`). Currently pakai heuristic prior, bukan proper posterior dari empirical base rate.
-
-### 4-Level Belief Stack (Haye Thread — Oil Price Epistemics)
-
-Bahlil bilang $77 (April) → ICP $107 live (Sep 15). APBN pasang $70. Empat angka, satu komoditas — mana yang dipercaya? Framework "Belief Stack" di dashboard `/bs` menyusun empat lapisan **keyakinan yang beda-beda tentang harga minyak yang sama**, dari yang paling dogmatis (angka anggaran) sampai paling struktural (floor Dubai + refining premium). Jarak antar-lapis = ukuran narrative divergence; kalau semua lapis konvergen tinggi = mainstream harus revise turun, kalau semua konvergen rendah = mainstream harus revise naik. Dispersi tinggi = coordination attack risk (Morris-Shin). **Sep 15 2026 status**: L1=$70 vs L3≈$107 → gap $37 (CV% sangat tinggi, HIGH DISPERSION territory) — semua empat lapis konvergen TINGGI; APBN assumption sudah tidak relevan sebagai anchor fiskal realistis.
-
-| Level | Angka | Sumber | Sifat | Alert threshold |
-|-------|-------|--------|-------|-----------------|
-| **L1 — APBN Official** | $70/bbl | UU APBN 2026 (ICP assumption) | **Static** — patokan legal, tidak berubah tanpa APBN-P | fixed anchor |
-| **L2 — Stale Analyst Consensus** | $80/bbl¹ | INDEF-style proxy (bukan riil-time) | **Static anchor** — di-hardcode sebagai "baseline worst-case konsensus lama"; bukan angka live; konsensus riil Sep 2026 sudah >>$100 tapi L2 di sini adalah floor referensi untuk CV% calc | yellow anchor |
-| **L3 — ICP Actual (Brent proxy)** | *live* | `brent_price_usd` (Yahoo BZ=F) | **Dynamic** — updated harian | `>80` yellow · `>90` orange · `>100` red |
-| **L4 — Structural Floor (Dubai+$20)** | *live* | `dubai_crude_spot_usd + $20` (refining+distribusi premium empiris) | **Dynamic** — updated harian | `>90` yellow · `>110` orange · `>120` red |
-
-**Logika 4 lapis:**
-- **L1 vs L3** — narrative divergence pemerintah vs realitas pasar (fiskal). Kalau L3 > L1 sustained → subsidy overrun mekanis; APBN assumption bocor.
-- **L1 vs L4** — narrative divergence pemerintah vs realitas fisik. L4 hitung harga *sampai ke pengguna* (Dubai spot + biaya refining). L4 > L3 = crude tersembunyi lebih mahal karena bottleneck kilang / logistik.
-- **L2 vs L3/L4** — konsensus analis yang stale vs data live. L2 tidak boleh dipercaya di kondisi Hormuz aktif.
-- **Bahlil threshold** $100/bbl bekerja di L3 (ICP). **Sep 2026: L3 sudah $107, L4 (Dubai ~$87+$20=$107) juga melampaui threshold** — semua lapis di atas $100; kondisi sebelumnya "L4 sering menembus duluan" kini irrelevant karena keduanya sudah lampaui. Concern saat ini: apakah L3 bisa turun ke bawah $100 sebelum APBN-P diperlukan.
-
-**Yang dinamis** di panel Belief Stack live:
-- **L3, L4**, gap vs L1 (`bGap`, `dGap`), alert kelas (`green→red`)
-- **Brent–Dubai spread** (Hormuz proxy) — `<$3` normal · `$3-7` elevated · `$7-10` HIGH · `>$10` EXTREME (Dubai > Brent = Hormuz premium — physical shortage sinyal)
-- **Morris-Shin CV%** — koefisien variasi dari L1+L2+L3+L4. `>25%` HIGH DISPERSION (threshold region), `>15%` ELEVATED (coordination risk), `>8%` MODERATE. High CV = signal precision rendah → serangan koordinasi self-fulfilling. Disclosure mendadak → CV collapse → CDS discontinuous jump (Morris & Shin 2004).
-
-**Yang statis** di panel (angka referensi, update manual saat BPS/Kemenkeu rilis baru):
-- BPS Impor Migas 2025 = $32.77B (crude 28%, refined+LPG 72%)
-- 2026 run-rate = $38.8B (+49% YoY)
-- Apr 2026 YoY: +82.5% (crude +67%, refined +88%)
-- APBN Subsidi BBM+LPG target = Rp 105.4T; **realisasi Semester I = subsidi Rp116.9T + kompensasi Rp116T = Rp233T total (52.1% of combined subsidi+kompensasi target, laju 2× pro-rata)**; Q1 realisasi lama: Rp118.7T (+266% over pro-rata — sekarang digantikan data Sem-I)
-
-**Kenapa 4 (bukan 3, bukan 5):**
-- 3 lapis (APBN/consensus/live) melewatkan **structural floor** — narrative bisa tembus L3 sebelum L4, dan L4 justru anchor yang paling tahan intervensi (Dubai fisik susah di-manipulasi).
-- 5 lapis (tambah forward curve atau options-implied) menambah noise tanpa signal — futures Brent 12M lag terlalu jauh untuk kill switch.
-- 4 lapis = **2 static anchors + 2 dynamic reads** = cukup untuk CV% jadi meaningful (n≥3 syarat), tidak cukup untuk overweight satu tipe (2:2 balance).
-
-**Interpretasi cepat:**
-- L4 < L1: over-anchored, mainstream terlalu bearish — reflasi risiko
-- L1 < L3 < L4: normal — market di antara anchor & floor
-- L3 > L4 + spread negatif: Hormuz premium — physical shortage
-- CV% > 25%: pasar tidak sepakat harga wajar — coordination attack setup
-
----
 
 ### Russia-Indonesia Energy Deal (2026)
 
