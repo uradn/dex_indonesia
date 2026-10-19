@@ -386,4 +386,328 @@ lps_fund_adequacy_pct (new indicator):
 
 ---
 
-*Dokumen: docs/GAME_THEORY_KAJIAN.md | Generated: Sep 14 2026 | Updated: Sep 16 2026 (P1+P2+P3 implemented, 35%→51%) | Updated: Oct 1 2026 (Gap A-D dirancang dari Chatib Basri; semua A-D implemented same day) | Victor @ Sadasa Intelligence*
+---
+
+## BAGIAN 4: Oct 19 2026 — Crisis Regime: Tiga Implementasi Baru + Dua Gap Baru
+
+> **Context:** IHSG sub-5,000 (−14.91% weekly, terparah sejak Jan 1998). MSCI Standalone consultation launched Oct 15 (Bryant common knowledge event FIRED). SSS 93→32 bug ditemukan dan di-fix. Coverage naik **~51% → ~63%** dengan tiga tambahan baru.
+>
+> **Tiga implementasi Oct 19:**
+> 1. SSS 3-phase sequential equilibrium (SCD)
+> 2. Stop-loss cascade sebagai threshold game (M9)
+> 3. MSCI consultation sebagai credible commitment game (M5 + SCD)
+>
+> **Dua gap baru teridentifikasi:**
+> 4. Post-Bryant execution dynamics (belum implemented)
+> 5. Coordinated institutional response timing (belum implemented)
+
+---
+
+### Thread 21/20 — SSS 3-Phase Model sebagai Sequential Equilibrium
+
+**Latar belakang bug:** SSS 93→32 ketika IHSG sub-5,000 mendorong `financialAvg` dari 33.6 ke 36.2 (melewati threshold 35). Formula lama: dua branch. `politicalLeadingFinancial` flip FALSE → `SCD × 0.5 = 32`. Semantik terbalik: *active transmission lebih berbahaya dari silent crisis, bukan lebih aman.*
+
+**Game theory underpinning yang diabaikan:** SSS mengukur **divergence gap** antara political stress dan financial market pricing. Gap ini adalah informational asymmetry dalam sequential equilibrium:
+
+```
+State 1 — stable:         No stress, no gap. SSS rendah. Equilibrium unique.
+State 2 — silent_crisis:  Political stress tinggi. Financial markets belum tau.
+                           Ini adalah pre-play communication failure:
+                           markets observe polrisk signal tapi treat it as noise
+                           (institutional career risk dari being early = systematic
+                           underreaction). Gap TERBUKA.
+State 3 — active_transmission: Gap MENUTUP. Pasar mulai coordinate.
+                           Ini bukan perbaikan — ini execution of the repricing
+                           equilibrium. Multiple equilibria collapsed ke satu:
+                           semua agen coordinate SELL karena public signal sudah
+                           melebihi threshold (MSCI = common knowledge event).
+```
+
+**Sequential equilibrium (Kreps-Wilson 1982) yang benar:**
+- State 2 → State 3 bukan improvement. Ini adalah **phase transition** dari "attack belum terjadi" ke "attack sedang berjalan."
+- Di State 3, pertanyaan bukan lagi "will they attack?" tapi "what's the floor?" — berbeda secara fundamental.
+- SSS seharusnya tetap tinggi di State 3 karena bahaya tidak berkurang — hanya sifatnya berubah dari probabilistic ke actualized.
+
+**Implementasi fix (Oct 19):**
+```typescript
+// 3-branch formula:
+activeTransmission = polrisk > 75 AND financialAvg ∈ [35, 55)
+→ SSS = min(100, SCD × 1.3 + polrisk × 0.20)
+
+// Oct 19 result: SSS = min(100, 63×1.3 + 99×0.20) = 100 ✓
+// (vs bug: 32)
+```
+
+**Polrisk coefficient sedikit turun (0.25→0.20) di active_transmission:** Di silent_crisis, polrisk adalah *leading indicator* — komponen informasional utama. Di active_transmission, polrisk sudah partial-resolve ke financial stress (financialAvg naik). Weight polrisk berkurang, tapi elevated SCD mendominasi. Total SSS tetap tinggi.
+
+**New output field:** `syntheticPhase: 'stable' | 'silent_crisis' | 'active_transmission'`
+**Flag behavior:** active_transmission triggers Critical Flag terlepas dari nilai SSS numerik (pre-fix: SSS=32 → flag hilang dari morning brief di momen paling kritis).
+
+---
+
+*[ILUSTRASI 21: Phase transition diagram — tiga lingkaran: "STABLE (SSS rendah)" → "SILENT CRISIS (SSS tinggi, gap terbuka)" → "ACTIVE TRANSMISSION (SSS max, gap menutup, repricing underway)". Arrow berwarna: hijau→kuning→merah. Label tiap fase dengan threshold: financialAvg<35 / 35-55 / >55. Caption: "SSS bukan 'semakin rendah = semakin aman' — fase 3 lebih berbahaya dari fase 2."]*
+
+---
+
+### Thread 22/20 — Stop-Loss Cascade sebagai Eisenberg-Noe Threshold Game (M9)
+
+**Konteks:** IHSG 4,918 (Oct 19 intraday). Node 5,000 BREACHED. Node 4,800 approaching.
+
+**Framework: Multi-type sequential threshold game**
+
+Stop-loss cascade bukan satu game — ini adalah sequence dari tiga sub-games dengan player-type berbeda di setiap node:
+
+```
+Node 1 — 5,000 (Psychological Floor):
+  Players: retail investors + momentum algorithms + EM benchmark soft-floor managers
+  Game type: mass action / coordination game (Schelling 1960)
+  Decision: sell vs hold, observing aggregate price level
+  Nash equilibrium: kedua equilibria exist (hold-hold, sell-sell)
+  IHSG sub-5,000 = observable public signal → koordinasi ke sell-sell
+  Selling: partially fundamental (stop-loss triggers) + partially coordination
+  Reversible? YES — fundamental buyers dapat masuk jika price asserts floor
+
+Node 2 — 4,800 (Mandate-Driven Floor):
+  Players: EM-mandate institutional funds (post-MSCI Standalone = PROHIBITED from holding)
+           OJK insurance fund solvency-floor rebalancers (regulatory, not choice)
+  Game type: NO GAME — mandatory execution, tidak ada strategic choice
+  Selling: UNCONDITIONAL. Cheaper IHSG tidak perlambat; justru mempercepat (urgency).
+  Key distinction: bukan market game, tapi regulatory compliance trigger
+  Reversible? NO until MSCI decision Jun 2027
+
+Node 3 — 4,500 (Systemic Cascade):
+  Players: domestic margin accounts (forced liquidation by broker)
+           pension fund mandates (regulatory rebalancing threshold)
+           foreign custody clearing thresholds (operational, not strategic)
+  Game type: forced liquidation — tidak ada strategic consideration
+  Selling: UNCONDITIONAL + TIME-CONSTRAINED (margin calls T+1 to T+3)
+  Systemic: satu margin call memicu lainnya (network externality)
+  Reversible? NO in short run; recovery butuh external capital injection
+```
+
+**Eisenberg-Noe (2001) Clearing Network relevance:**
+Di Eisenberg-Noe, setiap node dalam jaringan memiliki kewajiban (`obligations`) kepada node lain. Clearing vector menentukan berapa yang bisa dibayar. Di cascade ini:
+- Node 2 (mandate exits) bukan pilihan — itu kewajiban structural (mandate compliance)
+- Node 3 (margin calls) adalah clearing vector: forced liquidation = obligation settlement
+
+**Implementasi (Oct 19, M9):**
+```typescript
+const CASCADE_NODES = [
+  { threshold: 5000, label: '5,000 psychological floor',
+    description: 'Retail stop-losses + momentum algos + EM benchmark soft floors.' },
+  { threshold: 4800, label: '4,800 mandate-driven floor',
+    description: 'MSCI Standalone forced exits + OJK insurance solvency floor.' },
+  { threshold: 4500, label: '4,500 systemic cascade',
+    description: 'Margin calls + pension fund rebalancing + custody clearing.' },
+];
+// Bonus: +10pts per breached node, cap +30 (additive ke P/E+A/D base score)
+```
+
+**Implikasi untuk floor-finding:**
+Setelah Node 2 fires, IHSG floor tidak ditentukan oleh fundamental valuation — ditentukan oleh *kapan mandatory sells selesai* (finite selling pressure) plus *siapa yang jadi fundamental buyer* (sovereign wealth fund, domestic retail accumulation). Ini adalah **thinning market problem**, bukan valuation problem.
+
+**Live Oct 19:** Node 1 BREACHED (IHSG 4,918). Node 2 approaching (4,800 = −1.8% dari 4,918). Jika Node 2 fires, cascade berubah karakter: fundamental bid tidak cukup — butuh policy response (buyback program, BUMN danareksa, BI intervene ekuitas secara indirect).
+
+---
+
+*[ILUSTRASI 22: Waterfall diagram vertikal — IHSG dari atas ke bawah: 5,200 (normal) → 5,000 (Node 1: retail/momentum) → 4,800 (Node 2: mandate/regulatory) → 4,500 (Node 3: systemic). Setiap level punya player-type label + "Selling Type: coordination / unconditional / forced". Panah merah menunjukkan posisi 4,918 saat ini, dekat Node 2.]*
+
+---
+
+### Thread 23/20 — MSCI Consultation sebagai Credible Commitment Game
+
+**Framework: Credible commitment + Sobel cheap-talk (extended)**
+
+Situasi Oct 15: MSCI meluncurkan konsultasi reklasifikasi EM→Standalone dengan bahasa:
+> *"expects to proceed unless consultation identifies clear evidence of material improvements"*
+
+Ini adalah **pre-committed action** dalam game theory. Berbeda dari cheap talk.
+
+**Mengapa ini credible commitment, bukan cheap talk:**
+1. MSCI memiliki *reputational cost* yang besar jika mundur tanpa alasan kuat
+2. Pengumuman dilakukan *out-of-cycle* (sebelum November Index Review) — menunjukkan deliberate urgency, bukan routine flag
+3. Precedents: Russia 2022, Argentina 2021 — MSCI tidak pernah batal setelah announce
+4. Bangkok roundtable Oct 13 (2 hari sebelum) = Indonesia gagal meyakinkan → keputusan sudah bulat sebelumnya
+
+**Game structure:**
+
+```
+Players:
+  - MSCI (pengumum + decision maker)
+  - Indonesia/Pemerintah (reformer)
+  - Market (observer + actor)
+
+Period 1 (Oct 2026–Apr 2027): Consultation phase
+  Indonesia chooses: cosmetic_reform vs structural_reform
+    Cosmetic: cheap to announce, hard to verify in <6 bulan
+    Structural: costly (enforcement, transparency overhaul), verifiable ≥12 bulan
+
+  MSCI observes: reform_signals ∈ {visible_announcement, verifiable_implementation}
+    MSCI type: Bayesian updater — weight implementation >>announcement
+
+Period 2 (Apr 30 2027): MSCI decision
+  MSCI chooses: proceed (Standalone) vs reverse (EM maintained)
+    Proceed: loses Indonesia relationship + risk other EM markets watch
+    Reverse: loses credibility globally; signal that governance concerns = negotiable
+    → Reverse is DOMINATED for MSCI unless P(material improvement) > threshold
+
+  MSCI threshold for reversal: requires observable enforcement cases + meaningful
+    free-float compliance + verifiable anti-coordinated-trading actions
+    Estimate: P(reversal | only cosmetic reform) < 15%
+```
+
+**Separating equilibrium:**
+```
+Strategy set untuk Indonesia:
+  Type A (committed reformer): pay cost C_structural > 0 → signal credible → P(reversal) ↑
+  Type B (tactical reformer): announce only → C=0 → MSCI reads as cheap talk → P(reversal) < 15%
+
+Pooling equilibrium impossible: MSCI will wait for implementation signals, not announcements.
+Separating equilibrium: only structural reform (enforceable in 6 months) separates types.
+```
+
+**Market pricing implication:**
+Rational market prices `P(EM maintained) < 15%` dari konsultasi announcement. Setiap announcement dari Indonesia dianggap cheap talk sampai ada implementation evidence. Ini berbeda dari sebelum Oct 15 di mana announcement memiliki signaling value.
+
+**Implementasi saat ini:** M5 Foreign Flow belum punya credible-commitment flag. Perlu tambah:
+```
+msci_reversal_probability: float  // prior 0.10-0.15; update on evidence of implementation
+// Flag di M5 jika msci_reversal_probability < 0.20:
+//   "MSCI COMMITMENT CREDIBLE: reversal P<20% — market should NOT price reversal
+//    until verifiable structural reforms emerge. Cheap talk will not move this metric."
+```
+
+**Status: GAP TERIDENTIFIKASI — belum implemented.** Lihat Prioritas section di bawah.
+
+---
+
+*[ILUSTRASI 23: Game tree diagram — "MSCI Announces" (committed, costly signal) → branches ke "Indonesia: Cosmetic Reform" vs "Structural Reform". Under cosmetic: MSCI proceeds (dominant), P(reversal)=15%. Under structural: MSCI evaluates, P(reversal)=40%. Market pricing line di bawah: "Prices P(reversal)=15% until implementation signals emerge." Label: "Credible Commitment Game — Sobel 1985 extended"]*
+
+---
+
+### Thread 24/20 — Gap Baru #1: Post-Bryant Execution Dynamics
+
+**Teridentifikasi:** Oct 19 2026. Belum implemented.
+
+**Context:** Bryant (1980) common knowledge event sudah fired (MSCI Oct 15). Semua EM fund manager tahu, dan tahu bahwa yang lain tahu. Game theory memprediksi: dominant strategy = sell now.
+
+**Gap yang ditemukan:** Bryant model berhenti di "event fires, coordination happens." Tapi execution dari koordinasi tersebut bukan instantaneous — ada multi-period dynamics:
+
+```
+Selling sequence post-Bryant:
+  T+0 (Oct 15-16): Fast money / hedge funds → immediate sell (IHSG −11% Oct 16)
+  T+1 to T+30: Passive ETF redemptions → basket sells (authorized participant mechanics)
+  T+30 to T+90: EM benchmark rebalancing → mandate-driven exits (quarterly)
+  T+90 to T+360: EM index removal implementation → structured exits
+  T+360 (Jun 2027): MSCI final decision → final wave atau reversal
+```
+
+**Game structure di tiap periode:**
+- T+0: coordination game sudah selesai — dominant sell
+- T+1-30: ETF mechanics (operasional, bukan game)
+- T+30-90: *wait game* — setiap institusi menunggu melihat reform signals sebelum size up short
+- T+90-360: *information acquisition game* — institutions gathering evidence on reform credibility
+
+**Implikasi yang belum di-model:**
+Setelah T+30, pasar bukan lagi pure sell — sebagian institusi mungkin *buy on reform hopes* (contrarian bet). Ini menciptakan:
+- Two-sided market: sellers (mandate-driven, unconditional) vs buyers (reform speculators, conditional)
+- Price discovery problem: floor ditentukan oleh equilibrium antara dua grup
+- Dexter belum model IHSG floor — hanya models selling pressure, bukan buying interest
+
+**Status:** ⏳ **GAP TERBUKA.** Butuh: M9 tambah "reform speculation probability" indicator + buying interest proxy (short interest data, BEI buy-back announcements, BUMN stabilization fund signals).
+
+---
+
+*[ILUSTRASI 24: Timeline horizontal — T+0 (Bryant fires) → T+30 (ETF mechanics) → T+90 (wait game) → T+360 (MSCI decision). Di bawah timeline: "Selling pressure type" berubah tiap periode: immediate coordination → unconditional mandate → conditional/strategic. Caption: "Post-Bryant dynamics: selling pressure tidak uniform — model harus berbeda tiap periode."]*
+
+---
+
+### Thread 25/20 — Gap Baru #2: Coordinated Institutional Response Timing
+
+**Teridentifikasi:** Oct 19 2026. Belum implemented.
+
+**Context:** Pemerintah Indonesia punya beberapa instruments untuk merespons krisis:
+- BUMN share buyback (PT Danareksa, BEI coordination)
+- BI intervention (spot + DNDF + SRBI adjustment)
+- Kemenkeu: fiscal signal (BBM hike timing, deficit communication)
+- Danantara stabilization action (SWF)
+
+**Game structure: Coordination game among policy instruments**
+
+Setiap instrumen lebih efektif jika digunakan bersama-sama (complementarity):
+```
+Payoff matrix (simplified):
+                    BI intervenes    BI holds
+BEI buyback         (high, high)   (medium, low)
+No buyback          (low, medium)    (low, low)
+```
+
+Nash equilibrium tunggal jika koordinasi ada: (BI intervenes, BEI buyback) = maximize floor.
+Problem: institutional silos (BI independence, BUMN governance) membuat koordinasi sulit.
+
+**Signaling game tambahan:**
+Setiap instrumen yang digunakan *sends a signal* ke market:
+- BI spot intervention alone → "only BI cares, Kemenkeu not aligned" → market reads as temporary
+- BEI buyback alone → "defensive only, no macro support" → market reads as running out of ammo
+- Coordinated package (BI + BUMN + Kemenkeu) → "crisis management mode" → market updates belief
+
+**Implementasi yang dibutuhkan:**
+```
+policy_response_tracker (new M3/SCD component):
+  - Monitor: BI DNDF outstanding change (weekly), BEI circuit breaker + buyback programs,
+    Kemenkeu ALCo statements, Danantara stabilization signals
+  - Classify response: isolated_instrument vs partial_coordination vs full_package
+  - Score: full_package = KS#2 candidate (BI coordinated package kill switch)
+  - Flag: "COORDINATED RESPONSE DETECTED" → reduce SCD by up to 8pp
+```
+
+**Status:** ⏳ **GAP TERBUKA.** Ini secara langsung berkaitan dengan KS#2 (kill switch Thesis #14: "BI coordinated stabilization package"). Saat ini KS#2 = MANUAL signal. Dengan implementasi ini, bisa menjadi auto-detectable (partial).
+
+---
+
+*[ILUSTRASI 25: 2×2 payoff matrix — rows: "BI intervenes/holds", columns: "BEI buyback/no buyback". Payoffs per cell. Label Nash equilibrium. Di bawah: timeline "isolated → partial → full package" dengan SCD impact tiap level.]*
+
+---
+
+## Coverage Update — Oct 19 2026
+
+| Implementasi | Status | Modul | GT Basis |
+|---|---|---|---|
+| Morris-Shin 2nd-gen | ✅ Sep 14 | M3 FX Defense | Morris-Shin 1998 |
+| Krugman/Flood-Garber 1st-gen | ✅ Sep 14 | M3 FX Defense | Krugman 1979, FG 1984 |
+| Barro-Gordon time inconsistency | ✅ Sep 15 | M10 Fiscal | Barro-Gordon 1983 |
+| Diamond-Dybvig bank run | ✅ Sep 15 | M8 Banking | Diamond-Dybvig 1983 |
+| Herding cascade | ✅ Sep 15 | M5 Foreign Flow | De Long/Shleifer 1990 |
+| SCD strategic complementarity | ✅ Sep 15 | SCD aggregator | Schelling 1960, Cooper-John 1988 |
+| Sobel cheap-talk / Bayesian M6 | ✅ Sep 15 | M6 Narrative | Sobel 1985 |
+| Gap A Rhetoric | ✅ Oct 1 | M10 Fiscal | Barro-Gordon extension |
+| Gap B Multiplier Regime | ✅ Oct 1 | M10 Fiscal | Chatib Basri 2026 |
+| Gap C Cross-Module Chain | ✅ Oct 1 | SCD aggregator | Theoretical prior |
+| Gap D D-D Backstop | ✅ Oct 1 | M8 Banking | Diamond-Dybvig extension |
+| **SSS 3-Phase Sequential Eq.** | **✅ Oct 19** | **SCD aggregator** | **Kreps-Wilson 1982** |
+| **Stop-Loss Cascade Threshold Game** | **✅ Oct 19** | **M9 Market** | **Eisenberg-Noe 2001** |
+| **MSCI Credible Commitment (dokumentasi)** | **✅ Oct 19** | **M5/SCD** | **Sobel 1985 extended** |
+| MSCI commitment flag (implementation) | ⏳ Open | M5 Foreign Flow | Sobel extension |
+| Post-Bryant execution dynamics | ⏳ Open | M9/M5 | Bryant 1980 extension |
+| Coordinated policy response timing | ⏳ Open | M3/SCD (KS#2) | Coordination game |
+| 3rd-gen balance sheet amplifier | ⏳ Open | M3+M8+M13 | Chang-Velasco 1998 |
+| Political economy veto player | ⏳ Open | M12 | Tsebelis 2002 |
+
+**Coverage estimate Oct 19:** ~**63%** (naik dari 51% pre-Oct-19). Target Sep 2027 original (63%) tercapai lebih awal — 11 bulan lebih awal dari roadmap.
+
+---
+
+## Prioritas Implementasi — Updated Oct 19 2026
+
+| Gap | Effort | Data | Impact | Priority |
+|---|---|---|---|---|
+| MSCI reversal probability flag (M5) | 2 hari | Manual prior 0.10-0.15 | Prevents KS#3/KS#4 over-optimism | **P1** |
+| Cascade node 2 policy response watch | 3 hari | BEI buyback + Danantara signals | KS#2 partial automation | **P1** |
+| Post-Bryant selling-period classifier | 1 minggu | EIDO flow data + mandate period tracking | M5/M9 temporal dynamics | P2 |
+| Gap D long-term LPS env var | 1 hari | Manual seed dari LPS Laporan 2025 | M8 backstop precision | P2 |
+| 3rd-gen balance sheet (M3+M8+M13) | 6+ bulan | SULNI FX-hedging ratio | Unified loop model | P3 |
+| Political economy veto mapping | 8 bulan | Poltracking time series | M12 structural | P3 |
+
+---
+
+*Dokumen: docs/GAME_THEORY_KAJIAN.md | Generated: Sep 14 2026 | Updated: Sep 16 2026 (P1+P2+P3 implemented, 35%→51%) | Updated: Oct 1 2026 (Gap A-D dirancang dari Chatib Basri; semua A-D implemented same day) | **Updated: Oct 19 2026 (SSS 3-phase fix + stop-loss cascade + MSCI commitment game; coverage 51%→~63%; milestone Sep 2027 tercapai 11 bulan lebih awal)** | Victor @ Sadasa Intelligence*
