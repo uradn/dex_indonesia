@@ -2208,7 +2208,7 @@ const BS_HTML = `<!DOCTYPE html>
       <div id="panel-chain">Loading…</div>
     </div>
     <div class="card" style="border-left:3px solid var(--orange)">
-      <div class="card-title" style="color:var(--orange)">Strategic Behavior Layer</div>
+      <div class="card-title" style="color:var(--orange)">Strategic Behavior Layer <span style="font-size:9px;font-weight:400;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Game Theory / GT</span></div>
       <div id="panel-gt">Loading…</div>
     </div>
     <div class="card">
