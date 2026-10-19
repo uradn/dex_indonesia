@@ -2596,6 +2596,12 @@ function renderGameTheory(thesis, snap) {
         <div style="height:100%;width:\${pDowngrade}%;background:var(--red);border-radius:3px"></div>
       </div>
       <div style="font-size:9px;color:var(--muted);margin-top:4px">Oct 15 2026 → Apr 30 2027 comment close → Jun 30 2027 decision (T-254d)</div>
+      <div style="display:flex;gap:5px;margin-top:6px;align-items:center">
+        <div style="background:rgba(220,50,50,.12);border:1px solid var(--red);border-radius:3px;padding:3px 7px;font-size:9px">
+          <span class="red" style="font-weight:700">SAIR Nov 12</span>
+          <span style="color:var(--muted);margin-left:4px">T-\${Math.max(0, Math.round((new Date('2026-11-12').getTime() - Date.now()) / 86400000))}d · stock exclusions + Standalone confirmation</span>
+        </div>
+      </div>
     </div>
 
     <div class="section-title">Morris-Shin (1998) — Confidence &amp; Attack Coordination</div>
