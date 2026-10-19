@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
-import { upsertPoints, getLatestPoint } from './time-series-db.js';
+import { upsertPoints, getLatestPoint, getHistory } from './time-series-db.js';
 import { getFreshPoint, stalenessFlag } from './freshness.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchBankingRatiosOjk } from './sources/ojk.js';
@@ -10,6 +10,7 @@ import { fetchFintechLendingOjkIknb } from './sources/ojk-iknb.js';
 import { fetchIndoniaRateTe, fetchExternalDebtTe, fetchIhprTe, fetchNplTe, fetchLdrTe, fetchCarTe, fetchM2MoneySupplyTe, fetchDpkDepositsTe, fetchNplWorldBank, fetchM2WorldBank } from './sources/sovereign-scraper.js';
 import type { AlertLevel, MacroDataPoint } from './types.js';
 import { fetchAt1Secondary } from './sources/at1-bonds.js';
+import { fetchOjkPdn } from './sources/ojk-pdn.js';
 
 export const BANKING_STRESS_DESCRIPTION = `
 MACRO INTELLIGENCE — Banking Stress Engine (Module 8)
@@ -436,7 +437,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
 
   // Secondary market price signal (Exa-fetched): AT1 < 80% par = market pricing loss risk.
   // More timely than issuance signal — bond desks reprice before regulators act.
-  const at1Secondary = await fetchAt1Secondary();
+  const [at1Secondary, ojkPdn] = await Promise.all([fetchAt1Secondary(), fetchOjkPdn()]);
   if (at1Secondary) await upsertPoints([{
     indicator: 'himbara_at1_secondary_pct',
     category: 'banking' as const,
@@ -451,6 +452,39 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
       stressScore = Math.min(100, stressScore + 15);
     } else if (at1Secondary.pricePct < 90) {
       stressScore = Math.min(100, stressScore + 8);
+    }
+  }
+
+  // OJK PDN — bank net open FX position (monthly proxy for corporate hedging stress)
+  let pdnBump = 0;
+  if (ojkPdn !== null) {
+    if (ojkPdn.pdnPct > 18) pdnBump = 15;
+    else if (ojkPdn.pdnPct > 15) pdnBump = 10;
+    else if (ojkPdn.pdnPct > 10) pdnBump = 5;
+    stressScore = Math.min(100, stressScore + pdnBump);
+  }
+
+  // 3rd-gen balance sheet amplifier: unhedged FX exposure × realized IDR depreciation.
+  // Formula: (1 − hedging_compliance) × uln_shortterm_pct × idr_depr_30d
+  // No new data needed — pure cross-module computation from M3/M13 env pins.
+  let thirdGenBump = 0;
+  let thirdGenAmp: number | null = null;
+  {
+    const hedgingPct = parseFloat(process.env.BI_HEDGING_COMPLIANCE_PCT ?? '') || null;
+    const stPct      = parseFloat(process.env.ULN_SHORTTERM_PCT ?? '') || null;
+    const [spotNow, spot30d] = await Promise.all([
+      getLatestPoint('usdidr_spot'),
+      getHistory('usdidr_spot', 35),
+    ]);
+    const spot30dVal = spot30d.length >= 20 ? spot30d[0]?.value ?? null : null;
+    const idrDepr30d = (spotNow && spot30dVal)
+      ? Math.max(0, (spotNow.value - spot30dVal) / spot30dVal)
+      : null;
+
+    if (hedgingPct !== null && stPct !== null && idrDepr30d !== null) {
+      thirdGenAmp = (1 - hedgingPct / 100) * (stPct / 100) * idrDepr30d;
+      thirdGenBump = Math.min(20, Math.round(thirdGenAmp * 5000));
+      stressScore = Math.min(100, stressScore + thirdGenBump);
     }
   }
 
@@ -561,6 +595,29 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     } else {
       flags.push(`HIMBARA AT1 secondary: ${at1Secondary.pricePct.toFixed(1)}% par${at1Secondary.yieldPct ? ` / yield ${at1Secondary.yieldPct.toFixed(1)}%` : ''} — no secondary stress signal.`);
     }
+  }
+
+  // OJK PDN flag
+  if (ojkPdn !== null) {
+    if (ojkPdn.pdnPct > 18) {
+      flags.push(`OJK PDN CRITICAL: ${ojkPdn.pdnPct.toFixed(1)}% of capital — near 20% regulatory ceiling. Forced deleveraging risk if IDR depreciates further. (+${pdnBump} score)`);
+    } else if (ojkPdn.pdnPct > 15) {
+      flags.push(`OJK PDN elevated: ${ojkPdn.pdnPct.toFixed(1)}% of capital — concentrated FX exposure; banks absorbing IDR risk. (+${pdnBump} score)`);
+    } else if (ojkPdn.pdnPct > 10) {
+      flags.push(`OJK PDN watch: ${ojkPdn.pdnPct.toFixed(1)}% of capital — above normal operating range (5–10%). (+${pdnBump} score)`);
+    } else {
+      flags.push(`OJK PDN: ${ojkPdn.pdnPct.toFixed(1)}% of capital — within normal range (<10%).`);
+    }
+  }
+
+  // 3rd-gen balance sheet amplifier flag
+  if (thirdGenAmp !== null && thirdGenBump > 0) {
+    const hedgingPct = parseFloat(process.env.BI_HEDGING_COMPLIANCE_PCT ?? '');
+    const stPct      = parseFloat(process.env.ULN_SHORTTERM_PCT ?? '');
+    flags.push(
+      `3RD-GEN BALANCE SHEET: unhedged FX exposure × IDR depreciation amplifier = ${(thirdGenAmp * 100).toFixed(3)}% (+${thirdGenBump} score). ` +
+      `Non-compliance ${(100 - hedgingPct).toFixed(1)}% × ST debt ${stPct}% × IDR move → cross-module M3+M8+M13 stress feed.`,
+    );
   }
 
   // Diamond-Dybvig flags

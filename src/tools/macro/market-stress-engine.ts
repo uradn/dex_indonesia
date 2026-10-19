@@ -12,6 +12,7 @@ import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { getFreshPoint, stalenessFlag } from './freshness.js';
 import { fetchIhsgMarketData } from './sources/ihsg.js';
+import { fetchIdxShortSelling } from './sources/idx-short-selling.js';
 import type { AlertLevel } from './types.js';
 
 export const MARKET_STRESS_DESCRIPTION = `
@@ -184,8 +185,11 @@ function breadthAlertLevel(adRatio: number): AlertLevel {
 }
 
 export async function runMarketStressEngine(): Promise<MarketStressOutput> {
-  // 1. Fetch live data
-  const { peRatio: pePoint, advanceDecline: adPoint, priceLevel: priceLevelPoint } = await fetchIhsgMarketData();
+  // 1. Fetch live data (parallel: IHSG + short selling)
+  const [{ peRatio: pePoint, advanceDecline: adPoint, priceLevel: priceLevelPoint }, shortSell] = await Promise.all([
+    fetchIhsgMarketData(),
+    fetchIdxShortSelling(),
+  ]);
 
   const pointsToSave = [pePoint, adPoint, priceLevelPoint].filter(Boolean);
   if (pointsToSave.length > 0) await upsertPoints(pointsToSave as NonNullable<typeof pePoint>[]);
@@ -217,7 +221,21 @@ export async function runMarketStressEngine(): Promise<MarketStressOutput> {
 
   // 3b. Stop-loss cascade bonus (mechanical forced-sell amplifier, independent of fundamentals)
   const cascade = evaluateStopLossCascade(priceLevel);
-  const stressScore = Math.min(100, baseScore + cascade.cascadeBonus);
+
+  // 3c. Short selling surge bonus — rising institutional shorts = bearish conviction
+  let ssBonus = 0;
+  if (shortSell?.volumeIdrBn !== null && shortSell?.volumeIdrBn !== undefined) {
+    const ssHistory = await getLastN('idx_short_sell_volume_idr_bn', 20);
+    if (ssHistory.length >= 5) {
+      const avg20d = ssHistory.reduce((s, p) => s + p.value, 0) / ssHistory.length;
+      const ratio = shortSell.volumeIdrBn / avg20d;
+      if (ratio > 3) ssBonus = 15;
+      else if (ratio > 2) ssBonus = 8;
+      else if (ratio > 1.5) ssBonus = 4;
+    }
+  }
+
+  const stressScore = Math.min(100, baseScore + cascade.cascadeBonus + ssBonus);
 
   const alert = alertFromScore(stressScore) as AlertLevel;
 
@@ -276,6 +294,23 @@ export async function runMarketStressEngine(): Promise<MarketStressOutput> {
   for (const node of cascade.nodes) {
     if (node.status === 'approaching') {
       flags.push(`CASCADE APPROACH: IHSG approaching ${node.label} — ${node.description}`);
+    }
+  }
+
+  // Short selling surge flags
+  if (shortSell?.volumeIdrBn !== null && shortSell?.volumeIdrBn !== undefined && ssBonus > 0) {
+    const ssHistory = await getLastN('idx_short_sell_volume_idr_bn', 20);
+    const avg20d = ssHistory.length >= 5
+      ? ssHistory.reduce((s, p) => s + p.value, 0) / ssHistory.length
+      : null;
+    const ratio = avg20d ? (shortSell.volumeIdrBn / avg20d) : null;
+    const ratioStr = ratio ? `${ratio.toFixed(1)}× 20d avg` : '';
+    if (ssBonus >= 15) {
+      flags.push(`SHORT SELL SPIKE: ${shortSell.volumeIdrBn.toFixed(0)} IDR bn (${ratioStr}) — institutional shorts at critical surge level; forced repricing risk.`);
+    } else if (ssBonus >= 8) {
+      flags.push(`Short sell elevated: ${shortSell.volumeIdrBn.toFixed(0)} IDR bn (${ratioStr}) — bearish conviction building.`);
+    } else if (ssBonus >= 4) {
+      flags.push(`Short sell rising: ${shortSell.volumeIdrBn.toFixed(0)} IDR bn (${ratioStr}).`);
     }
   }
 

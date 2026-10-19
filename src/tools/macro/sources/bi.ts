@@ -17,9 +17,22 @@ import * as XLSX from 'xlsx';
 import { fetchBiFxReservesWorldBank } from './worldbank.js';
 import { fetchHtmlWithBrowser, fetchRenderedTextWithBrowser, withBrowserPage } from './playwright-browser.js';
 import { extractPdfText } from './pdf-parser.js';
+import { upsertPoints } from '../time-series-db.js';
 
 const NOW = () => new Date().toISOString();
 const TODAY = () => new Date().toISOString().slice(0, 10);
+
+// Returns `count` business days ending at fromDateStr (inclusive), chronological order.
+function prevBusinessDays(fromDateStr: string, count: number): string[] {
+  const dates: string[] = [];
+  const d = new Date(fromDateStr + 'T12:00:00Z');
+  while (dates.length < count) {
+    const dow = d.getUTCDay();
+    if (dow !== 0 && dow !== 6) dates.push(d.toISOString().slice(0, 10));
+    d.setUTCDate(d.getUTCDate() - 1);
+  }
+  return dates.reverse();
+}
 
 // BI publishes FX reserves monthly in its monetary statistics.
 const BI_RESERVES_URL =
@@ -239,23 +252,28 @@ export async function fetchSbnForeignOwnership(): Promise<MacroDataPoint | null>
     .filter((v) => !isNaN(v));
   if (nums.length < 3) return null;
 
-  // Each triplet: SUN%, SBN%, TOTAL% — pick last TOTAL% (index of last multiple-of-3 - 1)
-  const totalIndices = nums
-    .map((_, i) => i)
-    .filter((i) => (i + 1) % 3 === 0);
-  const latestTotal = totalIndices.length > 0 ? nums[totalIndices[totalIndices.length - 1]!] : null;
+  // Each triplet: SUN%, SBN%, TOTAL% — extract all TOTAL% values (every 3rd, 0-indexed: 2,5,8,...)
+  const totalValues = nums
+    .filter((_, i) => (i + 1) % 3 === 0)
+    .filter(v => v >= 5 && v <= 50);
+  if (totalValues.length === 0) return null;
 
-  if (latestTotal === null || latestTotal === undefined || latestTotal < 5 || latestTotal > 50) return null;
-
-  return {
+  // Map each value to a business day — last value = dataDate, earlier values = prior biz days
+  const dates = prevBusinessDays(dataDate, totalValues.length);
+  const allPoints: MacroDataPoint[] = totalValues.map((value, idx) => ({
     indicator: 'sbn_foreign_ownership_pct',
-    category: 'sovereign',
-    date: dataDate,
-    value: latestTotal,
+    category: 'sovereign' as MacroDataPoint['category'],
+    date: dates[idx]!,
+    value,
     unit: '%',
     source: 'djppr_pdf',
     fetchedAt: NOW(),
-  };
+  }));
+
+  // Bulk-upsert all points as side effect (engine upserts latest separately — idempotent)
+  await upsertPoints(allPoints);
+
+  return allPoints[allPoints.length - 1]!;
 }
 
 const BI_BASE = 'https://www.bi.go.id';

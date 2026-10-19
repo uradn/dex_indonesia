@@ -28,14 +28,17 @@ export interface NdfData {
   fetchedAt: string;
 }
 
+// Indonesian financial media report NDF quotes from Reuters/Bloomberg wire; same domains as SRBI
+const NDF_DOMAINS = ['bloombergtechnoz.com', 'bisnis.com', 'kontan.co.id', 'cnbcindonesia.com', 'reuters.com'];
+
 const EXA_QUERIES = [
+  'rupiah NDF 1 bulan forward offshore kurs NDF IDR dolar',
+  'USDIDR NDF non-deliverable forward 1 month rate rupiah',
+  'kurs NDF rupiah offshore 1 bulan Bank Indonesia pasar forward',
   'USD IDR NDF 1 month rate 2026 rupiah non-deliverable forward',
-  'USDIDR NDF 1M offshore forward rate today Indonesia rupiah',
-  'Indonesia rupiah NDF offshore rate 1 bulan kurs NDF dolar',
-  'rupiah non-deliverable forward NDF 1 month price 2026',
 ];
 
-const TAVILY_QUERY = 'USD/IDR NDF 1 month offshore forward rate Indonesia rupiah 2026';
+const TAVILY_QUERY = 'rupiah NDF offshore 1 bulan kurs forward USDIDR Indonesia 2026';
 
 function parseNdfRate(text: string): number | null {
   const t = text.replace(/[,\.]/g, (m, offset, str) => {
@@ -77,13 +80,23 @@ async function fetchViaExa(): Promise<NdfData | null> {
     const exa = new Exa(process.env.EXASEARCH_API_KEY);
     const startDate = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
 
-    for (const query of EXA_QUERIES) {
-      const response = await exa.search(query, {
-        numResults: 5,
-        type: 'neural',
-        startPublishedDate: startDate,
-        contents: { text: { maxCharacters: 1500 } },
-      } as Parameters<typeof exa.search>[1]);
+    for (const [idx, query] of EXA_QUERIES.entries()) {
+      // First two queries: domain-targeted (Indonesian financial media = higher hit rate)
+      // Remaining: open web (broader coverage for English-language NDF quotes)
+      const response = idx < 2
+        ? await exa.search(query, {
+            numResults: 4,
+            type: 'auto',
+            startPublishedDate: startDate,
+            includeDomains: NDF_DOMAINS,
+            contents: { text: { maxCharacters: 1500 } },
+          } as Parameters<typeof exa.search>[1])
+        : await exa.search(query, {
+            numResults: 5,
+            type: 'neural',
+            startPublishedDate: startDate,
+            contents: { text: { maxCharacters: 1500 } },
+          } as Parameters<typeof exa.search>[1]);
 
       for (const r of response.results ?? []) {
         const text = ((r as { text?: string }).text ?? r.title ?? '');
@@ -112,6 +125,7 @@ async function fetchViaTavily(): Promise<NdfData | null> {
     const response = await tavily.rawResults({
       query: TAVILY_QUERY,
       max_results: 4,
+      include_domains: NDF_DOMAINS,
       time_range: 'week',
       include_raw_content: true,
     } as Parameters<typeof tavily.rawResults>[0]);

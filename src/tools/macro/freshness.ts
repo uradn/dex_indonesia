@@ -65,10 +65,12 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   { name: 'pln_coal_secured_pct',        module: 'M4',  freshDays: 35, yellowDays: 60,  redDays: 90 },
   // MSCI status — Standalone consultation active Oct 15 2026; 7d gate matches downgrade_risk TTL
   { name: 'msci_classification_numeric', module: 'M5',  freshDays: 7,  yellowDays: 14,  redDays: 30 },
-  // New indicators — EIDO redemption, NDF offshore, AT1 secondary
+  // New indicators — EIDO redemption, NDF offshore, AT1 secondary, IDX short selling
   { name: 'eido_shares_outstanding',     module: 'M5',  freshDays: 4,  yellowDays: 7,   redDays: 14 },
   { name: 'usdidr_ndf_1m_rate',          module: 'M3',  freshDays: 3,  yellowDays: 7,   redDays: 14 },
   { name: 'himbara_at1_secondary_pct',   module: 'M8',  freshDays: 7,  yellowDays: 14,  redDays: 30 },
+  { name: 'idx_short_sell_volume_idr_bn',module: 'M9',  freshDays: 2,  yellowDays: 5,   redDays: 10 },
+  { name: 'bank_pdnl_pct',              module: 'M8',  freshDays: 35, yellowDays: 55,  redDays: 90 },
   // DNDF — env_manual annual update from BI LKT
   { name: 'bi_dndf_outstanding_bn',      module: 'M3',  freshDays: 100,yellowDays: 200, redDays: 400 },
   { name: 'uln_hedging_compliance_pct',  module: 'M13', freshDays: 120,yellowDays: 200, redDays: 365 },

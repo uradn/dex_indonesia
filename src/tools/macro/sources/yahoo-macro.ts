@@ -195,14 +195,21 @@ export async function fetchEidoProxy(days = 90): Promise<MacroDataPoint[]> {
  */
 export async function fetchEidoSharesOutstanding(): Promise<MacroDataPoint | null> {
   try {
-    const summary = await yf.quoteSummary('EIDO', { modules: ['defaultKeyStatistics'] });
-    const shares = (summary.defaultKeyStatistics as Record<string, unknown> | null | undefined)?.sharesOutstanding;
-    if (typeof shares !== 'number' || shares < 500_000) return null;
+    // Yahoo Finance does not expose sharesOutstanding for ETFs.
+    // Proxy: impliedShares = totalAssets / regularMarketPrice.
+    // totalAssets is always available; price from price module.
+    // Change in impliedShares week-over-week = net creation/redemption.
+    const summary = await yf.quoteSummary('EIDO', { modules: ['defaultKeyStatistics', 'price'] });
+    const totalAssets = (summary.defaultKeyStatistics as Record<string, unknown> | null | undefined)?.totalAssets;
+    const price = (summary.price as Record<string, unknown> | null | undefined)?.regularMarketPrice;
+    if (typeof totalAssets !== 'number' || typeof price !== 'number' || price <= 0) return null;
+    const impliedShares = Math.round(totalAssets / price);
+    if (impliedShares < 500_000) return null;
     return {
       indicator: 'eido_shares_outstanding',
       category: 'flow' as const,
       date: TODAY(),
-      value: shares,
+      value: impliedShares,
       unit: 'shares',
       source: 'yahoo_finance',
       fetchedAt: NOW(),

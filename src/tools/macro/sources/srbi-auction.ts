@@ -139,18 +139,20 @@ async function fetchViaExa(daysBack: number): Promise<SrbiAuctionData | null> {
     const results = response.results ?? [];
     for (const r of results) {
       const text = (r as { text?: string }).text ?? r.title ?? '';
-      if (!text) continue;
+      // Require SRBI keyword — prevents false-positive matches from SBN/sukuk articles
+      if (!text || !/SRBI|Sekuritas Rupiah Bank Indonesia/i.test(text)) continue;
       const parsed = parseSrbiText(text);
-      if (parsed.demandIdrT !== null || parsed.allotmentIdrT !== null) {
-        const date = (r.publishedDate ?? new Date().toISOString()).slice(0, 10);
-        return {
-          ...parsed,
-          date,
-          bidCoverAlert: scoreBidCover(parsed.bidCoverRatio),
-          sourceUrl: r.url ?? null,
-          fetchedAt: new Date().toISOString(),
-        };
-      }
+      // Require at least demand OR (allotment AND bid-cover) — not bare allotment only
+      const hasSignal = parsed.demandIdrT !== null || (parsed.allotmentIdrT !== null && parsed.bidCoverRatio !== null);
+      if (!hasSignal) continue;
+      const date = (r.publishedDate ?? new Date().toISOString()).slice(0, 10);
+      return {
+        ...parsed,
+        date,
+        bidCoverAlert: scoreBidCover(parsed.bidCoverRatio),
+        sourceUrl: r.url ?? null,
+        fetchedAt: new Date().toISOString(),
+      };
     }
     return null;
   } catch {
@@ -175,17 +177,17 @@ async function fetchViaTavily(daysBack: number): Promise<SrbiAuctionData | null>
 
     for (const r of (response.results ?? [])) {
       const text = r.raw_content ?? r.content ?? '';
-      if (!text) continue;
+      if (!text || !/SRBI|Sekuritas Rupiah Bank Indonesia/i.test(text)) continue;
       const parsed = parseSrbiText(text);
-      if (parsed.demandIdrT !== null || parsed.allotmentIdrT !== null) {
-        return {
-          ...parsed,
-          date: new Date().toISOString().slice(0, 10),
-          bidCoverAlert: scoreBidCover(parsed.bidCoverRatio),
-          sourceUrl: r.url ?? null,
-          fetchedAt: new Date().toISOString(),
-        };
-      }
+      const hasSignal = parsed.demandIdrT !== null || (parsed.allotmentIdrT !== null && parsed.bidCoverRatio !== null);
+      if (!hasSignal) continue;
+      return {
+        ...parsed,
+        date: new Date().toISOString().slice(0, 10),
+        bidCoverAlert: scoreBidCover(parsed.bidCoverRatio),
+        sourceUrl: r.url ?? null,
+        fetchedAt: new Date().toISOString(),
+      };
     }
     return null;
   } catch {

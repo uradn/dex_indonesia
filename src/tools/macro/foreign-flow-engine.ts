@@ -342,14 +342,47 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   const daysToMsciDecision = Math.round((NEXT_MSCI_DECISION.getTime() - Date.now()) / 86_400_000);
   // Use daysToNextMsciReview alias for flag text compatibility
   const daysToNextMsciReview = daysToMsciDecision;
+
+  // Thread 24 — Post-Bryant execution dynamics (Bryant 1980 extension).
+  // Bryant event fired Oct 15 2026. Selling pressure type changes by period:
+  //   T+0 to T+4   Fast money / hedge funds — immediate coordination sell (DONE: IHSG −11% Oct 16)
+  //   T+5 to T+30  Passive ETF redemptions — basket sell / authorized participant mechanics
+  //   T+31 to T+90 EM benchmark rebalancing — mandate-driven exits, quarterly window
+  //   T+91 to T+360 Structured exits — EM index removal implementation (Sep-Dec 2027)
+  // Score implication: T+5-30 and T+31-90 are PEAK forced-sell periods (ETF + mandate together).
+  const BRYANT_EVENT = new Date('2026-10-15');
+  const daysSinceBryant = Math.max(0, Math.floor((Date.now() - BRYANT_EVENT.getTime()) / 86_400_000));
+  const bryantPhase: 'fast_money' | 'etf_mechanics' | 'mandate_rebalancing' | 'structured_exit' | 'pre_event' =
+    daysSinceBryant < 0  ? 'pre_event'
+    : daysSinceBryant <= 4  ? 'fast_money'
+    : daysSinceBryant <= 30 ? 'etf_mechanics'
+    : daysSinceBryant <= 90 ? 'mandate_rebalancing'
+    : 'structured_exit';
+  // Peak forced-sell phase bonus: ETF mechanics + mandate rebalancing = concurrent sell waves
+  const bryantPhaseBonus = (bryantPhase === 'etf_mechanics' || bryantPhase === 'mandate_rebalancing') && msciStatus === 'downgrade_risk' ? 5 : 0;
+
+  // Thread 23 — MSCI consultation as credible commitment game (Kreps 1982).
+  // P(reversal) < 15% at Bryant (1980) common knowledge event (Oct 15 2026 consultation launch).
+  // P(reversal) decreases monotonically as consultation progresses — fewer update periods remain.
+  // At response deadline (Apr 30 2027): P(reversal) → 5% (language = "expects to proceed").
+  // Formula: P_downgrade = 0.85 + 0.10 × progress_through_consultation
+  // Score bump = P_downgrade × 24 (severity weight: $3-15B forced-sell / reserves).
+  const CONSULTATION_START = new Date('2026-10-15');
+  const CONSULTATION_END   = new Date('2027-04-30');
+  const consultationWindow = CONSULTATION_END.getTime() - CONSULTATION_START.getTime();
+  const consultationElapsed = Math.max(0, Date.now() - CONSULTATION_START.getTime());
+  const consultationProgress = Math.min(1, consultationElapsed / consultationWindow);
+  const pDowngrade = 0.85 + 0.10 * consultationProgress;
+  const pReversal  = 1 - pDowngrade;
+
   let msciScoreBump = 0;
-  if (msciStatus === 'downgrade_risk') msciScoreBump = 20;
+  if (msciStatus === 'downgrade_risk') msciScoreBump = Math.round(pDowngrade * 24);
   else if (msciStatus === 'under_review') msciScoreBump = 8;
   else if (msciStatus === 'confirmed' && daysToMsciDecision > 0 && daysToMsciDecision < 60) msciScoreBump = 3;
   // SSVI alert floor: imminent (≥75) → orange min; critical (≥90) → red min
   const ALERT_ORDER: AlertLevel[] = ['green', 'yellow', 'orange', 'red'];
   const ssviFloorAlert: AlertLevel = ssviIndex >= 90 ? 'red' : ssviIndex >= 75 ? 'orange' : ssviIndex >= 50 ? 'yellow' : 'green';
-  const score = Math.min(100, (ssviIndex >= 75 ? Math.max(baseScore, 50) : baseScore) + msciScoreBump + cascadeScoreBump);
+  const score = Math.min(100, (ssviIndex >= 75 ? Math.max(baseScore, 50) : baseScore) + msciScoreBump + cascadeScoreBump + bryantPhaseBonus);
   const alertLevel = ALERT_ORDER[Math.max(ALERT_ORDER.indexOf(alertFromScore(score)), ALERT_ORDER.indexOf(ssviFloorAlert))]!;
   const flags: string[] = [];
   // EIDO shares outstanding — redemption acceleration signal
@@ -400,13 +433,37 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
     flags.push(`MSCI classification under review: passive fund uncertainty elevated (+8 score)`);
     if (idxNetSellingHeavy) flags.push('MSCI uncertainty amplifying foreign equity exit — EIDO weakness = sentiment + passive repositioning (dual cause)');
   } else if (msciStatus === 'downgrade_risk') {
-    flags.push(`MSCI STANDALONE CONSULTATION ACTIVE (Oct 15 2026): EM→Standalone reclassification — Bryant (1980) common knowledge event FIRED. Every EM-mandate fund knows every fund knows. Dominant strategy: reduce exposure regardless of outcome. P(reversal) < 15% — "expects to proceed" language = pre-decided; MSCI correction mechanism eliminates reversal incentive. Passive forced-sell: $3-15B outflow estimates (Mirae $3B / Goldman $7.8-13B). Decision: Jun 30 2027 (T-${daysToNextMsciReview}d). Do NOT use MSCI reversal as a thesis kill switch. (+20 score)`);
+    const progressPct = Math.round(consultationProgress * 100);
+    flags.push(
+      `MSCI STANDALONE CONSULTATION ACTIVE (Oct 15 2026): EM→Standalone reclassification — Bryant (1980) common knowledge event FIRED. ` +
+      `Every EM-mandate fund knows every fund knows. Dominant strategy: reduce exposure regardless of outcome. ` +
+      `P(downgrade) = ${(pDowngrade * 100).toFixed(0)}% | P(reversal) = ${(pReversal * 100).toFixed(0)}% ` +
+      `[Thread 23: Kreps 1982 credible commitment — P(reversal) decreases as consultation progresses; consultation ${progressPct}% complete]. ` +
+      `"expects to proceed" language = pre-decided; MSCI correction mechanism eliminates reversal incentive. ` +
+      `Passive forced-sell: $3-15B outflow estimates (Mirae $3B / Goldman $7.8-13B). ` +
+      `Decision: Jun 30 2027 (T-${daysToNextMsciReview}d). Do NOT use MSCI reversal as a thesis kill switch. (+${msciScoreBump} score)`
+    );
   } else if (msciStatus === 'confirmed' && daysToNextMsciReview > 0) {
     const bumpNote = msciScoreBump > 0 ? ` (+${msciScoreBump} score, <60d window)` : '';
     flags.push(`MSCI review window: ${daysToNextMsciReview}d to decision — reforms tracked: free-float compliance, shareholding transparency, anti-coordinated trading${bumpNote}`);
   }
   if (msciRebalancingOutflowUsd !== null) {
     flags.push(`MSCI May 29 rebalancing: ~$${msciRebalancingOutflowUsd}bn passive outflow (19 companies removed) — explains part of EIDO weakness. Standalone consultation Oct 15 dwarfs this: $3-15B forced-sell if confirmed.`);
+  }
+
+  // Thread 24: Bryant phase flag — which selling-pressure type is dominant now
+  if (msciStatus === 'downgrade_risk') {
+    const phaseLabels: Record<typeof bryantPhase, string> = {
+      pre_event:           'Bryant event pending',
+      fast_money:          `T+${daysSinceBryant}d FAST MONEY: hedge fund immediate sell — coordination completed (IHSG −11% Oct 16)`,
+      etf_mechanics:       `T+${daysSinceBryant}d ETF MECHANICS: passive basket sell via authorized participant redemption — EIDO NAV pressure, not discretionary`,
+      mandate_rebalancing: `T+${daysSinceBryant}d MANDATE REBALANCING: EM benchmark quarterly window — institutional forced-sell regardless of fundamentals`,
+      structured_exit:     `T+${daysSinceBryant}d STRUCTURED EXIT: EM index removal implementation wave (Sep–Dec 2027)`,
+    };
+    const phaseNote = bryantPhase === 'etf_mechanics' || bryantPhase === 'mandate_rebalancing'
+      ? ` PEAK FORCED-SELL PERIOD — ETF mechanics + mandate rebalancing concurrent. (+${bryantPhaseBonus} score)`
+      : '';
+    flags.push(`BRYANT PHASE [Thread 24]: ${phaseLabels[bryantPhase]}${phaseNote}`);
   }
 
   // Herding cascade flags
