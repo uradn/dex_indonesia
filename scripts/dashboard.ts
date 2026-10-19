@@ -2373,7 +2373,7 @@ function renderGameTheory(thesis, snap) {
   const brent  = ind['brent_price_usd']?.value  ?? null;
   const dubai  = ind['dubai_crude_spot_usd']?.value ?? null;
   const L3 = brent, L4 = dubai !== null ? dubai + 20 : null;
-  let cvPct: string | null = null;
+  let cvPct = null;
   if (L3 !== null && L4 !== null) {
     const vals = [70, 80, L3, L4];
     const mean = vals.reduce((a, b) => a + b, 0) / 4;
@@ -2401,7 +2401,7 @@ function renderGameTheory(thesis, snap) {
 
   // Overall equilibrium
   const chain       = thesis?.transmissionChain ?? [];
-  const firedCount  = chain.filter((n: {cls: string}) => n.cls === 'red' || n.cls === 'orange').length;
+  const firedCount  = chain.filter(n => n.cls === 'red' || n.cls === 'orange').length;
   const equilibrium = firedCount >= 5 ? 'CRISIS' : firedCount >= 3 ? 'COORDINATION FAILURE' : 'FRAGILE';
   const eqCls       = firedCount >= 5 ? 'red' : firedCount >= 3 ? 'orange' : 'yellow';
 
@@ -2418,25 +2418,25 @@ function renderGameTheory(thesis, snap) {
   const fgnCls     = daysSinceBryant <= 30 ? 'red' : 'orange';
   const domStrat   = 'HERD: Morris-Shin dominant strategy = follow DC signal when DC-AC > 0 (attack profitable)';
 
-  return `
+  return \`
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
-      <span class="big-num ${eqCls}">${equilibrium}</span>
-      <span style="font-size:10px;color:var(--muted)">${firedCount}/7 nodes active · SSS=100 TRANSMISSION</span>
+      <span class="big-num \${eqCls}">\${equilibrium}</span>
+      <span style="font-size:10px;color:var(--muted)">\${firedCount}/7 nodes active · SSS=100 TRANSMISSION</span>
     </div>
     <div class="section-title">Active GT Signals</div>
-    ${kv('Bryant Phase [Thread 24]', bryantPhase + ' T+' + daysSinceBryant + 'd · next: ' + bryantNext, bryantCls)}
-    ${kv('Kreps P(Downgrade) [Thread 23]', pDowngrade + '% · consultation ' + consultPct + '% complete (rises to ~95% by Apr 30)', 'red')}
-    ${kv('Morris-Shin Confidence Gate', gateState + ' (M3 ' + m3Score + '/100) · multiple equilibria active', gateCls)}
-    ${kv('Morris-Shin Signal Precision', peDisc !== null ? 'P/E discount ' + peDisc + '% vs THD · attack window WIDEST since tracking' : '—', precCls)}
-    ${kv('Morris-Shin CV% [Belief Stack]', cvPct !== null ? cvPct + '%' + cvLabel + ' · L1=$70 L2=$80 L3=$' + (L3?.toFixed(0) ?? '—') + ' L4=$' + (L4?.toFixed(0) ?? '—') : '—', cvCls)}
-    ${kv('Barro-Gordon Discretionary [Thread 19]', bgLabel + ' · M10 ' + fiscalScore + '/100', bgCls)}
+    \${kv('Bryant Phase [Thread 24]', bryantPhase + ' T+' + daysSinceBryant + 'd · next: ' + bryantNext, bryantCls)}
+    \${kv('Kreps P(Downgrade) [Thread 23]', pDowngrade + '% · consultation ' + consultPct + '% complete (rises to ~95% by Apr 30)', 'red')}
+    \${kv('Morris-Shin Confidence Gate', gateState + ' (M3 ' + m3Score + '/100) · multiple equilibria active', gateCls)}
+    \${kv('Morris-Shin Signal Precision', peDisc !== null ? 'P/E discount ' + peDisc + '% vs THD · attack window WIDEST since tracking' : '—', precCls)}
+    \${kv('Morris-Shin CV% [Belief Stack]', cvPct !== null ? cvPct + '%' + cvLabel + ' · L1=$70 L2=$80 L3=$' + (L3 != null ? L3.toFixed(0) : '—') + ' L4=$' + (L4 != null ? L4.toFixed(0) : '—') : '—', cvCls)}
+    \${kv('Barro-Gordon Discretionary [Thread 19]', bgLabel + ' · M10 ' + fiscalScore + '/100', bgCls)}
     <div class="section-title" style="margin-top:10px">Actor Dominant Strategies</div>
-    ${kv('BI (Stackelberg leader)', biStrat, biCls)}
-    ${kv('Kemenkeu (Barro-Gordon)', kmkStrat, kmkCls)}
-    ${kv('Foreign Funds (Bryant)', fgnStrat, fgnCls)}
-    ${kv('Domestic (Morris-Shin herd)', domStrat, 'orange')}
+    \${kv('BI (Stackelberg leader)', biStrat, biCls)}
+    \${kv('Kemenkeu (Barro-Gordon)', kmkStrat, kmkCls)}
+    \${kv('Foreign Funds (Bryant)', fgnStrat, fgnCls)}
+    \${kv('Domestic (Morris-Shin herd)', domStrat, 'orange')}
     <div class="hist-note" style="margin-top:8px">GT Coverage ~51% · Pending: PolEcon payoff matrix M12, Bayesian M6 posterior dari 6 krisis. Hover chain nodes untuk module-level GT logic.</div>
-  `;
+  \`;
 }
 
 function renderChain(t) {
