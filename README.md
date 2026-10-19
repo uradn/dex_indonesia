@@ -668,7 +668,7 @@ bash env-check.sh                        # live ping semua API key di .env
 | M9 Market | `ihsg_pe_ratio`, `idx_advance_decline_ratio` | >30d / >14d |
 | M13 ULN | `indonesia_external_debt_bn`, `uln_dsr_pct`, `uln_shortterm_pct` | >180d / >730d / >730d |
 
-Threshold lengkap di `src/tools/macro/freshness.ts`. Health-check baseline Sep 15 2026: SCD 55% ORANGE · M12 Political Risk 79/100 🔴 · M10 Fiscal 63/100 🟠 · Thesis #10 kedua trigger FIRED · Brent $106.93/bbl (ICP di atas Bahlil $100) · Pertalite gap ~Rp6,413/L 🔴 · Menkeu Suahasil Nazara (dilantik 14 Sep) · BI Gov Destry Damayanti (dilantik 2 Sep) · JKM LNG $28+/MMBtu · APBN sem-I defisit 0.76% PDB, outlook 2.85%. Freshness Sep 9 2026: 38 fresh · 3 aging · 2 stale · 0 critical.
+Threshold lengkap di `src/tools/macro/freshness.ts`. Health-check baseline Oct 19 2026: SCD **63% ORANGE** · M12 Political Risk 99/100 🔴 · M10 Fiscal 71/100 🔴 · M9 Market 60/100 🟠 · M11 Domestic 58/100 🟠 · M4 Commodity 52/100 🟠 · M3 FX Defense 51/100 🟠 · **Thesis #14 TRIGGERED** (armed Sep 22) · Brent $107.40/bbl, ICP Sep $112.81/bbl · Pertalite gap Rp7,056/L 🔴 · USDIDR 18,040 · IHSG 4,918 (sub-5,000, cascade node 1 fired) · CDS 97.1bps · SBN 10Y 7.169% · MSCI Standalone consultation launched Oct 15 (Bryant event) · APBN defisit outlook 4.23% GDP · JKM LNG $28+/MMBtu. Freshness Oct 19 2026: 44 fresh · 3 aging · 0 stale · 0 critical.
 
 ---
 
