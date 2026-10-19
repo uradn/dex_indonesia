@@ -153,7 +153,7 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - USDIDR: 16,500 | ICP oil: $70/bbl | GDP growth: 5.4% | CPI: 2.5%
 - Revenue: 3,154T | Spending: 3,843T | Deficit: 2.68% GDP
 
-**Live deviations (Oct 16, 2026):**
+**Live deviations (Oct 19, 2026):**
 
 > ### 🚨 MSCI STANDALONE CONSULTATION — Oct 15 2026 (20:40 GMT)
 >
@@ -189,11 +189,11 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - **APBN Semester I 2026**: Defisit Rp196.5T (0.76% PDB). **Subsidi energi YTD: Rp331.4T** (Kemenkeu, Oct 9) vs APBN target Rp87T — run-rate **457%** 🔴; **Outlook full-year: defisit 4.23% GDP** (melampaui 3% constitutional limit)
 - Term premium: **~1.57%** (SBN 10Y 7.33% − BI Rate 5.75%) — ORANGE zone (naik dari 1.42%)
 - S&P interest/revenue ratio: **~20.5%** — 5.5pp above S&P 15% negative-watch threshold 🔴
-- USDIDR spot: **17,943** (engine 08:00) → **18,049–18,053** (close Oct 16, intraday high 18,070); cadev **$146.5B**; DNDF contingent $8B → effective **$138.5B**; G-G ratio **2.09x**
+- USDIDR spot: **17,943** (engine Oct 19 08:00, stale — data Jumat) → **18,049** (close Oct 16); cadev **$146.5B**; DNDF contingent $8B → effective **$138.5B**; G-G ratio **2.09x**
 - **CAD Q2 2026: −$12.5B = −3.3% PDB** — melampaui R&R 3% danger zone
-- CDS 5Y: **91.8bps** (engine) → **94.4bps** (intraday spike post-MSCI); SBN 10Y: **7.33%** (Oct 16 open, +9.4bps dari 7.2362% PHEI Oct 15); **SBN-UST spread ~200bps 🔴 THRESHOLD TERLAMPAUI**; UIP unattractive; BI abstain 10Y+ SBN purchases
+- CDS 5Y: **97.1bps** (engine Oct 19 — +2.7bps dari Jumat); SBN 10Y: **7.169%** (engine, belum tangkap spike penuh); **SBN-UST spread 2.08pp 🔴 MELEWATI 200bps, makin melebar**; UIP unattractive; BI abstain 10Y+ SBN purchases
 - **US CPI Sep 2026: 3.7% YoY** (+0.6% MoM, core 2.6%) — beat konsensus 3.6%; gasoline +9.1% (Hormuz effect); **Fed hike odds Oct 27-28 FOMC: ~42%** (dari 22% pre-release); Dec 2026 hike odds **~88%**; Fed funds rate **4.00%** (naik 25bps Sep 16); double-whammy: MSCI domestic shock + Fed hawkish external
-- Brent: **$104.4/bbl** 🔴 ($4.4 di atas Bahlil $100 threshold); ICP $104.4/bbl (+49.2% vs APBN); Pertalite gap **Rp6,502/L** 🟠; Solar B50 gap **Rp14,741/L** 🔴; Coal DMO compliance 50% (HBA gap 44%); Hormuz traffic 6% pre-war level 🔴; **🚨 KRISIS BBM** — massa gedor Kantor Gubernur Bali (Oct 15, Aksi Kamisan); ANTARA Bali: sinyal kenaikan pangan akibat BBM; BBC Indonesia: kelangkaan berulang
+- Brent: **$108.0/bbl** 🔴 ($8.0 di atas Bahlil $100 threshold, +32% vs APBN); ICP $108.0/bbl (+54.2% vs APBN); Pertalite gap **Rp7,056/L** 🔴 (naik ke RED); Solar B50 gap **Rp14,969/L** 🔴; Coal DMO compliance 50% (HBA gap 44%); Hormuz traffic 6% pre-war level 🔴; **🚨 KRISIS BBM** — Prabowo panggil Bahlil ke Istana bahas BBM langka Bali (Oct 14); massa gedor Kantor Gubernur Bali Aksi Kamisan (Oct 15); Ombudsman desak pembenahan distribusi; unjuk rasa Oktober 2026 skala nasional
 - BBM: Pertamax Rp15.950 | Pertamax Green Rp19.150 | **Pertalite Rp10,000 + Solar Rp6,800 TIDAK NAIK** (komitmen Bahlil — tapi fiskal sudah menanggung)
 - **LNG**: JKM spot $28+/MMBtu; Hormuz effectively closed; vessel transits single digit/hari
 - **Russia-Indonesia Energy Deal**: Framework MoU ~**150 juta barel** G2G crude oil via **Lemigas** + LPG (Apr–Sep 2026); ESPO API 34–36° = Minas-compatible; "jangan tanya harga" (Bahlil); ESPO discount vs Brent est. ~$10–15/bbl → engine override: `RUSSIA_CRUDE_DISCOUNT_USD` (default 0). Lihat [Russia-Indonesia Energy Deal](#russia-indonesia-energy-deal-2026)
@@ -206,7 +206,7 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - **⚠️ IHSG Oct 16 CLOSE: 5,204 (−11.25%, −659pts)** — penurunan 1 hari terbesar dalam bertahun-tahun; **TRADING HALT** 08:58 WIB (circuit breaker 8%) → tidak redam tekanan → sesi II lanjut jatuh; DSSA/BBCA/AMMN/BMRI/BBRI/BBNI semua rontok; **foreign net sell Rp2.92T** (sesi I); USDIDR close **18,049–18,053** (intraday high 18,070) — bertahan di atas 18,000 sepanjang hari
 - **⚠️ IHSG Oct 15 close**: 5,863 (−1.33%) | A/D ratio **0.19** (engine Oct 16, lebih parah dari 0.26 kemarin)
 - **⚠️ Massa gedor Kantor Gubernur Bali** (Oct 15, Aksi Kamisan): sopir mengeluh krisis BBM; ANTARA Bali: harga pangan naik akibat kelangkaan BBM; social unrest score **75/100** (naik dari 47)
-- SCD: **56% 🟠 ORANGE** (engine Oct 16, 08:00 WIB — **pre-MSCI shock**) → **perkiraan 70-80% 🔴 RED** aktual | **6/13 modules** cross-confirmed (naik dari 5) | M3 FX Defense **59/100 🟠** (lompat dari 32 GREEN — SRBI 39.1% + Morris-Shin +10 + vulnerability gate +8) | M12 Political Risk **85/100 🔴** (food 5 high-severity, unrest 75) | M10 Fiscal **71/100 🔴** | M11 Domestic Pressure **57/100 🟠** | M4 Commodity **51/100 🟠** | M9 Market **50/100 🟠** (A/D 0.19 PANIC) | M8 Banking **15/100 🟢** (AT1 aktif) | **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-24) — targets dipercepat ke T+3 (Des 2026): CDS 164bps / USDIDR 20,020 / SBN 8.62% | **KS#2 (BI emergency package) = WATCH** | KS#3/KS#4 berlawanan arah (asing keluar, CDS naik)
+- SCD: **53% 🟠 ORANGE** (engine Oct 19) → **perkiraan 70-80% 🔴 RED** aktual (engine belum tangkap MSCI Standalone penuh) | **5/13 modules** cross-confirmed | M12 Political Risk **95/100 🔴** (tertinggi sejak tracking — PHK 63.789 workers, food 5 high-severity, unrest 72) | M10 Fiscal **71/100 🔴** | M11 Domestic Pressure **58/100 🟠** | M4 Commodity **52/100 🟠** (Brent $108) | M9 Market **50/100 🟠** (**P/E 7.5** turun dari 8.8 post-crash, A/D 0.00 total collapse) | M5 Foreign Flow **36/100 🟡** (EIDO z-score −5.18 structural exit, silent exit 65%) | M3 FX Defense **37/100 🟡** | M8 Banking **15/100 🟢** (AT1 aktif) | **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-27) — CDS 97.1bps (+5bps dari armed), targets dipercepat T+3: CDS 164bps / USDIDR 20,020 / SBN 8.62% | **KS#2 (BI emergency package) = WATCH** | KS#3 13.13% | KS#4 97.1bps
 
 ### BBM Subsidy Monitoring (Module 11)
 
