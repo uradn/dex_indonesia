@@ -422,6 +422,8 @@ BI_GOVERNOR_VACANT=false      # Destry Damayanti dilantik 2 Sep 2026 (Keppres 92
 ```
 Sistem akan otomatis rekalkulasi subsidy gap, ICP alert, dan foreign flow risk score menggunakan nilai terbaru.
 
+> **Konteks:** Hormuz crisis yang mendorong ICP melampaui $100 adalah tekanan langsung yang memaksa pemerintah mencari alternatif pasokan — Russia G2G deal adalah respons strategis untuk menjaga komitmen Bahlil (BBM tidak naik sampai 31 Des) sambil menahan subsidi gap yang terus melebar akibat krisis yang sama.
+
 ### Russia-Indonesia Energy Deal (2026)
 
 *G2G minyak mentah Rusia — diversifikasi pasokan impor di tengah Hormuz crisis + komitmen Bahlil $100/bbl.*
