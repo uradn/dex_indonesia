@@ -1168,24 +1168,23 @@ function renderMsciBadge(snap) {
   if (!el) return;
   const ind = snap.indicators?.['msci_classification_numeric'];
   if (!ind) { el.style.display = 'none'; return; }
-  const NEXT_REVIEW = new Date('2026-11-12');
-  const days = Math.round((NEXT_REVIEW.getTime() - Date.now()) / 86400000);
-  const status = ind.value === 2 ? 'FRONTIER' : ind.value === 1 ? 'UNDER REVIEW' : 'EM CONFIRMED';
-  const cls = ind.value === 2 ? 'red' : ind.value === 1 ? 'orange' : (days > 0 && days < 60 ? 'orange' : 'green');
+  const BRYANT_EVENT = new Date('2026-10-15');
+  const daysSinceBryant = Math.max(0, Math.round((Date.now() - BRYANT_EVENT.getTime()) / 86400000));
+  const status = ind.value === 2 ? 'STANDALONE CONSULTATION' : ind.value === 1 ? 'UNDER REVIEW' : 'EM CONFIRMED';
+  const cls = ind.value === 2 ? 'red' : ind.value === 1 ? 'orange' : 'green';
   let txt;
   if (ind.value === 2) {
-    txt = '🔴 MSCI FRONTIER — forced-sell active';
+    const phase = daysSinceBryant <= 4 ? 'fast money' : daysSinceBryant <= 30 ? 'ETF mechanics' : daysSinceBryant <= 90 ? 'mandate rebalancing' : 'structured exit';
+    txt = '🔴 MSCI STANDALONE — Bryant T+' + daysSinceBryant + 'd (' + phase + ')';
   } else if (ind.value === 1) {
     txt = '🟠 MSCI UNDER REVIEW';
-  } else if (days > 0) {
-    txt = '🟢 MSCI: EM (Jun 23) · Nov ' + days + 'd overhang';
   } else {
-    txt = '🟢 MSCI: EM confirmed';
+    txt = '🟢 MSCI: EM confirmed (Jun 23 2026)';
   }
   el.textContent = txt;
   el.className = 'tag ' + cls;
   el.style.display = 'inline-block';
-  el.title = 'EM status maintained Jun 23 2026; MSCI extended review to ~Nov 12 2026. Reforms tracked: free-float compliance, shareholding transparency, anti-coordinated trading.';
+  el.title = 'MSCI Standalone consultation launched Oct 15 2026 (EM→Standalone, bypass Frontier). Decision Jun 30 2027. P(downgrade) ~85%. Outflow at risk: $3–15B. Bryant (1980) common knowledge event fired.';
 }
 
 async function refresh() {
@@ -1638,7 +1637,7 @@ const RR_HTML = `<!DOCTYPE html>
     <div style="color:var(--muted)">Loading…</div>
   </div>
   <div class="card" id="panel-msci-reforms">
-    <div class="card-title">MSCI Nov 2026 Reform Tracker</div>
+    <div class="card-title">MSCI Standalone Consultation Tracker</div>
     <div style="color:var(--muted)">Loading…</div>
   </div>
   <div class="card" id="panel-rg">
@@ -1822,66 +1821,66 @@ function renderRR(d) {
 function renderMsciReforms(d) {
   const ind = d.indicators ?? {};
   const status = ind['msci_classification_numeric']?.value;
-  const NEXT_REVIEW = new Date('2026-11-12');
-  const days = Math.round((NEXT_REVIEW.getTime() - Date.now()) / 86400000);
-  const statusLabel = status === 2 ? 'FRONTIER' : status === 1 ? 'UNDER REVIEW' : 'EM CONFIRMED (Jun 23 2026)';
-  const statusCls = status === 2 ? 'red' : status === 1 ? 'orange' : 'green';
-  const overhangCls = days > 0 && days < 60 ? 'orange' : days > 0 ? 'yellow' : 'green';
 
-  // 3 reform tracks — qualitative narrative based on June 2026 MSCI concerns
-  const tracks = [
-    { name: 'Free-Float Compliance', target: 'IDX double minimum free-float requirements (post-Jan 2026 warning)',
-      watch: 'Bursa Efek Indonesia member-firm filings, OJK disclosures, IDX listing rule revisions',
-      lastNote: 'BEI doubled minimum free-float requirements + named concentrated-ownership firms (post-Jan 2026 warning).' },
-    { name: 'Shareholding Transparency', target: 'Beneficial-owner disclosure depth (MSCI Jun 18 downgrade: information flow → NEGATIVE)',
-      watch: 'OJK POJK on beneficial ownership, public registry expansion, related-party disclosure',
-      lastNote: 'MSCI Jun 18 2026: information flow criterion downgraded to NEGATIVE despite other criteria stable.' },
-    { name: 'Anti-Coordinated Trading', target: 'Enforcement actions against suspected coordinated trading patterns',
-      watch: 'OJK enforcement bulletin, BEI suspension counts, criminal referrals',
-      lastNote: 'MSCI cited opacity in shareholding + suspected coordinated trading (Jun 18 Accessibility Review).' },
+  // Standalone consultation timeline
+  const BRYANT_EVENT    = new Date('2026-10-15');
+  const CONSULT_END     = new Date('2027-04-30');
+  const DECISION_DATE   = new Date('2027-06-30');
+  const daysSinceBryant = Math.max(0, Math.round((Date.now() - BRYANT_EVENT.getTime()) / 86400000));
+  const daysToDecision  = Math.round((DECISION_DATE.getTime() - Date.now()) / 86400000);
+  const consultTotal    = Math.round((CONSULT_END.getTime() - BRYANT_EVENT.getTime()) / 86400000);
+  const consultPct      = Math.min(100, Math.round(daysSinceBryant / consultTotal * 100));
+  const pDowngrade      = Math.round((0.85 + 0.10 * consultPct / 100) * 100);
+
+  const bryantPhase = daysSinceBryant <= 4  ? 'FAST MONEY (T+0–4d)'
+    : daysSinceBryant <= 30 ? 'ETF MECHANICS (T+5–30d)'
+    : daysSinceBryant <= 90 ? 'MANDATE REBALANCING (T+31–90d)'
+    : 'STRUCTURED EXIT (T+90d+)';
+  const bryantCls = daysSinceBryant <= 4 ? 'red' : daysSinceBryant <= 30 ? 'orange' : 'yellow';
+
+  const statusLabel = status === 2 ? 'STANDALONE CONSULTATION' : status === 1 ? 'UNDER REVIEW' : 'EM CONFIRMED (Jun 23 2026)';
+  const statusCls   = status === 2 ? 'red' : status === 1 ? 'orange' : 'green';
+
+  // Cross-ref M5 live state
+  const m5Score = d.moduleScores?.['foreign_flow']?.score;
+  const m5Alert = d.moduleScores?.['foreign_flow']?.alertLevel;
+  const m5Cls   = m5Alert === 'red' ? 'red' : m5Alert === 'orange' ? 'orange' : m5Alert === 'yellow' ? 'yellow' : 'green';
+  const m5Display = m5Score != null ? m5Score + '/100 ' + (m5Alert || '').toUpperCase() : '—';
+
+  // 3 issues MSCI cited for Standalone consultation (Oct 15 2026 announcement)
+  const issues = [
+    { name: 'Opaque Shareholding Structures',
+      detail: 'Beneficial-owner disclosure inadequate; concentrated ownership obscures real control. MSCI: information flow → NEGATIVE (Jun 18).',
+      watch: 'OJK POJK beneficial ownership registry, related-party disclosure depth, HSC reporting compliance' },
+    { name: 'Suspected Coordinated Trading',
+      detail: 'MSCI flagged patterns consistent with coordinated price manipulation across multiple counters. No criminal referrals seen.',
+      watch: 'OJK enforcement bulletin, BEI suspension counts, criminal referrals to Kejagung' },
+    { name: 'Lack of Enforcement',
+      detail: 'Reforms announced (1% disclosure, HSC reporting, 15% free float roadmap) but MSCI: "no evidence of sustained impact." BEI Bangkok roundtable Oct 13 — MSCI already decided before meeting.',
+      watch: 'OJK enforcement actions, MSCI consultation response submissions (due Apr 30 2027)' },
   ];
 
-  const trackRows = tracks.map(function(t){
+  const issueRows = issues.map(function(t) {
     return '<div style="border-bottom:1px solid var(--border);padding:8px 0">'
-      + '<div style="display:flex;justify-content:space-between;align-items:baseline">'
-      + '<span style="font-weight:600">' + t.name + '</span>'
-      + '<span style="font-size:10px;color:var(--muted)">watch ' + days + 'd</span>'
-      + '</div>'
-      + '<div style="font-size:10px;color:var(--muted);margin-top:2px"><b>Target:</b> ' + t.target + '</div>'
-      + '<div style="font-size:10px;color:var(--muted);margin-top:2px"><b>Watch:</b> ' + t.watch + '</div>'
-      + '<div style="font-size:10px;margin-top:4px">' + t.lastNote + '</div>'
+      + '<div style="font-weight:600;margin-bottom:3px">' + t.name + '</div>'
+      + '<div style="font-size:10px;margin-bottom:2px">' + t.detail + '</div>'
+      + '<div style="font-size:10px;color:var(--muted)"><b>Watch:</b> ' + t.watch + '</div>'
       + '</div>';
   }).join('');
 
-  // Cross-ref M5 foreign flow live state from snapshot
-  const m5Score = d.moduleScores?.['foreign_flow']?.score;
-  const m5Alert = d.moduleScores?.['foreign_flow']?.alertLevel;
-  const m5Cls = m5Alert === 'red' ? 'red' : m5Alert === 'orange' ? 'orange' : m5Alert === 'yellow' ? 'yellow' : 'green';
-  const m5Display = m5Score != null ? m5Score + '/100 ' + (m5Alert || '').toUpperCase() : '—';
-
-  // Score-bump activation: M5 gets +3 once days_to_review <60.
-  const bumpAt = days - 60;
-  const bumpDisplay = days <= 60 ? 'ACTIVE (+3 bump on)' : 'in ' + bumpAt + 'd (M5 +3)';
-  const bumpCls = days <= 60 ? 'orange' : days <= 90 ? 'yellow' : 'green';
-
-  // Data-cutoff window: MSCI Nov reviews historically snapshot last business day of Oct.
-  // Reforms not visible in market data by Oct 30 effectively won't count for Nov decision.
-  const NOV_CUTOFF = new Date('2026-10-30');
-  const cutoffDays = Math.round((NOV_CUTOFF.getTime() - Date.now()) / 86400000);
-  const cutoffCls = cutoffDays < 30 ? 'red' : cutoffDays < 60 ? 'orange' : cutoffDays < 90 ? 'yellow' : 'green';
-
   return '<div style="display:flex;gap:12px;align-items:baseline;margin-bottom:8px">'
     + '<div class="big-num ' + statusCls + '">' + statusLabel + '</div>'
-    + '<div style="font-size:11px;color:var(--muted)">Result Jun 23 2026 • Review extended ke Nov 12 2026</div>'
+    + '<div style="font-size:11px;color:var(--muted)">Oct 15 2026 — EM→Standalone (bypass Frontier)</div>'
     + '</div>'
-    + kv('Hari ke Nov Review', days + 'd (Nov 12 2026)', overhangCls)
-    + kv('Reform Data Cutoff', cutoffDays + 'd (~Oct 30 — last day reforms terlihat)', cutoffCls)
-    + kv('M5 Score Bump', bumpDisplay, bumpCls)
+    + kv('Bryant Phase', bryantPhase + ' (T+' + daysSinceBryant + 'd)', bryantCls)
+    + kv('P(Downgrade)', pDowngrade + '% [Thread 23 — rises as consultation progresses]', 'red')
+    + kv('Consultation Progress', consultPct + '% of 197d window (ends Apr 30 2027)', consultPct > 50 ? 'red' : 'orange')
+    + kv('Decision Date', daysToDecision + 'd (Jun 30 2027) → impl Sep–Dec 2027', 'orange')
+    + kv('Outflow at Risk', '$3–15B ($3B Mirae / $7.8–13B Goldman Sachs)', 'red')
     + kv('M5 Foreign Flow', m5Display, m5Cls)
-    + kv('Tail Risk', '$13bn forced passive outflow jika frontier', status === 2 ? 'red' : 'orange')
-    + '<div class="section-title">3 Reform Tracks</div>'
-    + trackRows
-    + '<div class="hist-note">MSCI mempertahankan EM Jun 23 dengan catatan: bila Nov 2026 review tidak menunjukkan kemajuan cukup → konsultasi reklasifikasi Frontier. Cross-check M5 foreign_flow di atas (otomatis +3 score saat &lt;60d).</div>';
+    + '<div class="section-title">3 Issues Cited by MSCI</div>'
+    + issueRows
+    + '<div class="hist-note">Standalone = di bawah Frontier. Tidak masuk index MSCI manapun — zero passive AUM tracking. MSCI bypass Frontier langsung: "reclassification to Frontier would not properly recognize the depth of the market problems." Precedents: Russia 2022 (geopolitik), Argentina 2021 (capital controls). Indonesia = satu-satunya EM→Standalone karena governance/market integrity.</div>';
 }
 
 function renderRG(d) {
@@ -1983,7 +1982,7 @@ async function refresh() {
   const snap = await fetch('/api/snapshot').then(r => r.json());
   document.getElementById('panel-gg').innerHTML = '<div class="card-title">G-G Shield — Greenspan-Guidotti Ratio</div>' + renderGG(snap);
   document.getElementById('panel-rr').innerHTML = '<div class="card-title">R&R Open Economy — 7 Frameworks Live</div>' + renderRR(snap);
-  document.getElementById('panel-msci-reforms').innerHTML = '<div class="card-title">MSCI Nov 2026 Reform Tracker</div>' + renderMsciReforms(snap);
+  document.getElementById('panel-msci-reforms').innerHTML = '<div class="card-title">MSCI Standalone Consultation Tracker</div>' + renderMsciReforms(snap);
   document.getElementById('panel-rg').innerHTML = '<div class="card-title">r − g Debt Dynamics — Blanchard / R&R Ch.13</div>' + renderRG(snap);
   document.getElementById('last-updated-rr').textContent = 'Updated ' + new Date().toLocaleTimeString('id-ID');
 }
