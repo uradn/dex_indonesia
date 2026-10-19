@@ -190,9 +190,9 @@ function computeSsvi(components: SsviComponents): { index: number; phase: Sudden
 }
 
 export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
-  // MSCI classification risk — auto-detected via Exa/Tavily after Jun 23 result date.
-  // Falls back to env var MSCI_CLASSIFICATION_STATUS if search unavailable.
-  // 'confirmed': EM status secure | 'under_review': evaluation ongoing | 'downgrade_risk': downgrade likely
+  // MSCI classification risk — auto-detected via Exa/Tavily.
+  // Env var MSCI_CLASSIFICATION_STATUS always wins when set (default: downgrade_risk post Oct 15 2026).
+  // 'confirmed': EM status secure | 'under_review': evaluation ongoing | 'downgrade_risk': Standalone consultation active
   // MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN: passive outflow from May 29 rebalancing (19 cos removed)
   const msciResult = await fetchMsciClassification();
   const msciStatus = msciResult.status;
@@ -333,14 +333,16 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   //   confirmed: +3 if Nov 2026 re-assessment <60d away (overhang re-emerges) else 0.
   // Indonesia EM status maintained Jun 23 2026 but MSCI extended review to Nov 2026
   // — reforms must demonstrate progress (free-float, transparency, anti-coordinated trading).
-  // MSCI Standalone consultation launched Oct 15 2026. Decision: Jun 30 2027.
-  // Consultation period: until Apr 30 2027. Implementation: Sep-Dec 2027 if downgrade.
+  // MSCI Standalone consultation: launched Oct 15 2026, response deadline Apr 30 2027,
+  // decision Jun 30 2027, implementation Sep-Dec 2027 if confirmed.
   const NEXT_MSCI_DECISION = new Date('2027-06-30');
-  const daysToNextMsciReview = Math.round((NEXT_MSCI_DECISION.getTime() - Date.now()) / 86_400_000);
+  const daysToMsciDecision = Math.round((NEXT_MSCI_DECISION.getTime() - Date.now()) / 86_400_000);
+  // Use daysToNextMsciReview alias for flag text compatibility
+  const daysToNextMsciReview = daysToMsciDecision;
   let msciScoreBump = 0;
   if (msciStatus === 'downgrade_risk') msciScoreBump = 20;
   else if (msciStatus === 'under_review') msciScoreBump = 8;
-  else if (msciStatus === 'confirmed' && daysToNextMsciReview > 0 && daysToNextMsciReview < 60) msciScoreBump = 3;
+  else if (msciStatus === 'confirmed' && daysToMsciDecision > 0 && daysToMsciDecision < 60) msciScoreBump = 3;
   // SSVI alert floor: imminent (≥75) → orange min; critical (≥90) → red min
   const ALERT_ORDER: AlertLevel[] = ['green', 'yellow', 'orange', 'red'];
   const ssviFloorAlert: AlertLevel = ssviIndex >= 90 ? 'red' : ssviIndex >= 75 ? 'orange' : ssviIndex >= 50 ? 'yellow' : 'green';
@@ -388,7 +390,7 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
     flags.push(`MSCI review window: ${daysToNextMsciReview}d to decision — reforms tracked: free-float compliance, shareholding transparency, anti-coordinated trading${bumpNote}`);
   }
   if (msciRebalancingOutflowUsd !== null) {
-    flags.push(`MSCI May 29 rebalancing: ~$${msciRebalancingOutflowUsd}bn passive outflow (19 companies removed) — explains part of EIDO weakness; classification result Jun 23 (watch: frontier downgrade = forced-sell > May rebalancing magnitude)`);
+    flags.push(`MSCI May 29 rebalancing: ~$${msciRebalancingOutflowUsd}bn passive outflow (19 companies removed) — explains part of EIDO weakness. Standalone consultation Oct 15 dwarfs this: $3-15B forced-sell if confirmed.`);
   }
 
   // Herding cascade flags

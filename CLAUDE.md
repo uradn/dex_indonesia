@@ -200,6 +200,13 @@ BI_DNDF_OUTSTANDING_BN     # USD billion — effectiveReserves = cadev − DNDF 
 ULN_DSR_PCT                # debt service ratio % of exports; IMF threshold 25%; current 24.69 (SULNI Q4 2024)
 ULN_SHORTTERM_PCT          # short-term debt as % of total ULN; current 15.47 (SULNI Q4 2024)
 
+# M5 MSCI classification manual pin — env ALWAYS WINS when set (DNDF pattern)
+# Default (no env set): downgrade_risk — Standalone consultation launched Oct 15 2026.
+# Set to 'confirmed' ONLY if MSCI explicitly reverses (P<15% per Thread 23).
+# Values: 'confirmed' | 'under_review' | 'downgrade_risk'
+# Standalone timeline: consultation→Apr 30 2027, decision→Jun 30 2027, impl→Sep-Dec 2027
+MSCI_CLASSIFICATION_STATUS # current: downgrade_risk (Oct 15 2026 Standalone consultation)
+
 # M8 Banking manual pin — from OJK SPI monthly press release (~30-45 days after month end)
 FINTECH_NPL_PCT            # P2P lending NPL gross %; OJK WAF blocks auto-scrape; current 5.0 (Jun 2026)
 

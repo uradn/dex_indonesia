@@ -38,9 +38,9 @@ const STATUS_NUMERIC: Record<MsciStatus, number> = {
   downgrade_risk: 2,
 };
 
-// After Jun 23, result is stable — extend freshness gate significantly
+// active situations (under_review, downgrade_risk) need frequent refresh
 function freshnessGateDays(status: MsciStatus): number {
-  return status === 'under_review' ? 7 : 30;
+  return status === 'confirmed' ? 30 : 7;
 }
 
 const EXA_QUERIES = [
@@ -197,14 +197,29 @@ async function fetchViaTavily(): Promise<MsciClassificationResult | null> {
 
 /**
  * Fetch MSCI Indonesia classification status. Returns cached result if fresh.
- * Falls back to env var MSCI_CLASSIFICATION_STATUS if no search data available.
+ * Env var MSCI_CLASSIFICATION_STATUS always wins when explicitly set (DNDF pattern).
+ * Default: 'downgrade_risk' — Standalone consultation launched Oct 15 2026.
+ * Update: set MSCI_CLASSIFICATION_STATUS=confirmed if/when MSCI reverses (P<15%).
  */
 export async function fetchMsciClassification(): Promise<MsciClassificationResult> {
-  const envStatus = (process.env.MSCI_CLASSIFICATION_STATUS ?? 'under_review') as MsciStatus;
+  // Env always wins when explicitly set — mirrors BI_DNDF_OUTSTANDING_BN pattern
+  if (process.env.MSCI_CLASSIFICATION_STATUS) {
+    const envStatus = process.env.MSCI_CLASSIFICATION_STATUS as MsciStatus;
+    return {
+      status: envStatus,
+      resultDate: null,
+      sourceUrl: null,
+      fetchedAt: new Date().toISOString(),
+      raw: 'env override',
+    };
+  }
+
+  // Default: downgrade_risk (Standalone consultation Oct 15 2026 = known fact)
+  const defaultStatus: MsciStatus = 'downgrade_risk';
 
   const cached = await getLatestPoint('msci_classification_numeric');
   if (cached) {
-    const cachedStatus = (Object.entries(STATUS_NUMERIC).find(([, v]) => v === cached.value)?.[0] ?? 'under_review') as MsciStatus;
+    const cachedStatus = (Object.entries(STATUS_NUMERIC).find(([, v]) => v === cached.value)?.[0] ?? defaultStatus) as MsciStatus;
     const ageDays = (Date.now() - new Date(cached.fetchedAt ?? cached.date).getTime()) / 86_400_000;
     if (ageDays < freshnessGateDays(cachedStatus)) {
       return {
@@ -217,25 +232,11 @@ export async function fetchMsciClassification(): Promise<MsciClassificationResul
     }
   }
 
-  // Only search after Jun 23 2026 (result date) OR if already past that
-  const resultReleaseDate = new Date('2026-06-23');
-  const now = new Date();
-  if (now < resultReleaseDate) {
-    // Result not yet out — return env var status without wasting a search call
-    return {
-      status: envStatus,
-      resultDate: null,
-      sourceUrl: null,
-      fetchedAt: new Date().toISOString(),
-      raw: null,
-    };
-  }
-
   const data = await fetchViaExa() ?? await fetchViaTavily();
   if (!data) {
-    // No result found — return env var as fallback
+    // No search result — return default (downgrade_risk post Oct 15 2026)
     return {
-      status: envStatus,
+      status: defaultStatus,
       resultDate: null,
       sourceUrl: null,
       fetchedAt: new Date().toISOString(),
