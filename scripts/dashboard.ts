@@ -1675,6 +1675,16 @@ function renderGG(d) {
   const sbn     = ind['sbn_10y_yield_pct']?.value ?? null;
   const gdp     = ind['gdp_growth_pct']?.value ?? null;
   const rg      = (sbn != null && gdp != null) ? +(sbn - gdp).toFixed(2) : null;
+  const debtGdp = ind['indonesia_debt_gdp_pct']?.value ?? null;
+  // P12: primary surplus required to stabilize debt/GDP [R&R Ch.14-16]
+  // s* = (r - g) × d  — if r > g, debt/GDP expands without primary surplus ≥ s*
+  const sPrimary = (rg !== null && debtGdp !== null) ? +(rg * debtGdp / 100).toFixed(2) : null;
+  // APBN 2026 structural primary balance: Revenue 3153.6T - Non-interest spending (3842.7T - 552.7T interest) = -136.4T = -0.53% GDP
+  // M10 projected trajectory (deficit 4.23% GDP - interest 2.15% GDP) ≈ -2.08% primary deficit
+  const APBN_PRIMARY_STRUCTURAL = -0.53;  // % GDP, APBN 2026 budget
+  const APBN_PRIMARY_PROJECTED  = -2.08;  // % GDP, M10 fiscal stress trajectory
+  const primaryGapStructural = sPrimary !== null ? +(sPrimary - APBN_PRIMARY_STRUCTURAL).toFixed(2) : null;
+  const primaryGapProjected  = sPrimary !== null ? +(sPrimary - APBN_PRIMARY_PROJECTED).toFixed(2) : null;
   const extDebt = ind['indonesia_external_debt_bn']?.value ?? null;
   const stDebt  = (extDebt != null && stPct != null) ? +(extDebt * stPct / 100).toFixed(1) : null;
   // Adjusted GG using effective reserves (cadev − DNDF)
@@ -1721,11 +1731,37 @@ function renderGG(d) {
     \${kv('Short-term ULN', stDebt ? '$'+fmtNum(stDebt,1)+'bn ('+fmtNum(stPct,1)+'%)' : stPct ? stPct+'%' : '—')}
     \${kv('ULN DSR', dsr ? fmtNum(dsr,2)+'%' : '—', dsrCls)}
     \${kv('ULN / GDP', ulnGdp ? fmtNum(ulnGdp,1)+'%' : '—', ulnGdp > 45 ? 'red' : ulnGdp > 40 ? 'orange' : ulnGdp > 35 ? 'yellow' : 'green')}
-    <div class="section-title">r − g Debt Dynamics</div>
-    \${kv('SBN 10Y (r)', sbn ? fmtNum(sbn,2)+'%' : '—')}
-    \${kv('GDP Growth (g)', gdp ? fmtNum(gdp,1)+'%' : '—')}
+    <div class="section-title">r − g Debt Dynamics [R&amp;R Ch.14–16]</div>
+    \${kv('SBN 10Y (r — nominal)', sbn ? fmtNum(sbn,2)+'%' : '—')}
+    \${kv('GDP Growth (g — real)', gdp ? fmtNum(gdp,1)+'%' : '—')}
     \${kv('r − g spread', rg != null ? (rg > 0 ? '+' : '')+fmtNum(rg,2)+'% '+rgLbl : '—', rgCls)}
-    <div class="hist-note">1997 analog: GG ratio Indonesia ~0.4x saat krisis — reserves depleted vs ST debt. Saat ini 2.09x (Agu 2026: cadev $146.5bn / ST debt $70.1bn) = buffer signifikan, tapi DSR 24.69% naik (2022→2023→2024: 23.3%→20.3%→24.7%).</div>
+    \${debtGdp != null ? kv('Debt / GDP', fmtNum(debtGdp,1)+'%', debtGdp > 60 ? 'red' : debtGdp > 50 ? 'orange' : debtGdp > 40 ? 'yellow' : 'green') : ''}
+    \${sPrimary !== null ? \`
+    <div style="margin:8px 0 4px;border-top:1px solid var(--border);padding-top:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:10px;font-weight:600">Primary Surplus Required (s*)</span>
+        <span class="\${sPrimary > 0 ? 'orange' : 'green'}" style="font-size:13px;font-weight:700">\${sPrimary > 0 ? '+' : ''}\${fmtNum(sPrimary,2)}% GDP</span>
+      </div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:8px">s* = (r−g) × d = \${rg > 0 ? '+' : ''}\${fmtNum(rg,2)}% × \${fmtNum(debtGdp,1)}% — \${sPrimary > 0 ? 'primary surplus needed to stop debt/GDP expanding' : 'debt/GDP self-stabilizing at current r−g'}</div>
+      <div class="section-title" style="margin-bottom:4px;font-size:8px">Current vs Required Primary Balance</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px">
+        <div style="border:1px solid var(--border);border-radius:4px;padding:5px 7px">
+          <div style="font-size:8px;color:var(--muted)">APBN 2026 structural</div>
+          <div class="orange" style="font-size:12px;font-weight:700;margin-top:2px">\${fmtNum(APBN_PRIMARY_STRUCTURAL,2)}% GDP</div>
+          <div style="font-size:8px;color:var(--muted);margin-top:1px">gap vs s*: +\${fmtNum(primaryGapStructural,2)}pp</div>
+        </div>
+        <div style="border:1px solid var(--red);border-radius:4px;padding:5px 7px">
+          <div style="font-size:8px;color:var(--muted)">M10 projected trajectory</div>
+          <div class="red" style="font-size:12px;font-weight:700;margin-top:2px">\${fmtNum(APBN_PRIMARY_PROJECTED,2)}% GDP</div>
+          <div style="font-size:8px;color:var(--muted);margin-top:1px">gap vs s*: +\${fmtNum(primaryGapProjected,2)}pp</div>
+        </div>
+      </div>
+      <div style="background:var(--surface);border-radius:3px;height:5px;overflow:hidden;margin-bottom:3px">
+        <div style="height:100%;width:\${Math.min(100, Math.abs(APBN_PRIMARY_PROJECTED) / (Math.abs(APBN_PRIMARY_PROJECTED) + sPrimary) * 100).toFixed(0)}%;background:var(--red);border-radius:3px"></div>
+      </div>
+      <div style="font-size:8px;color:var(--muted)">← required \${fmtNum(sPrimary,2)}% surplus | current \${fmtNum(APBN_PRIMARY_PROJECTED,2)}% deficit → fiscal adjustment needed: \${fmtNum(primaryGapProjected,2)}pp GDP</div>
+    </div>\` : ''}
+    <div class="hist-note">1997 analog: GG ratio Indonesia ~0.4x saat krisis — reserves depleted vs ST debt. Saat ini 2.09x (Agu 2026: cadev $146.5bn / ST debt $70.1bn) = buffer signifikan, tapi DSR 24.69% naik (2022→2023→2024: 23.3%→20.3%→24.7%). r−g adverse = debt/GDP expands mechanically tanpa primary surplus ≥s* [Chatib Basri 2026; R&amp;R Ch.14-16].</div>
   \`;
 }
 
