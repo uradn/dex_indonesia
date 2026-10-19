@@ -422,6 +422,66 @@ BI_GOVERNOR_VACANT=false      # Destry Damayanti dilantik 2 Sep 2026 (Keppres 92
 ```
 Sistem akan otomatis rekalkulasi subsidy gap, ICP alert, dan foreign flow risk score menggunakan nilai terbaru.
 
+### Russia-Indonesia Energy Deal (2026)
+
+*G2G minyak mentah Rusia — diversifikasi pasokan impor di tengah Hormuz crisis + komitmen Bahlil $100/bbl.*
+
+| Tanggal | Event |
+|---------|-------|
+| **~Apr 2026** | Prabowo kunjungi Moskow — bilateral dengan Putin; energy security masuk agenda utama (konteks: Hormuz krisis sudah aktif sejak 28 Feb, ICP naik ke $77+ YTD) |
+| **16 Apr 2026** | Bahlil statement BBM tidak naik — "pasca kunjungan ke Rusia dan Prancis" (verbatim); konfirmasi energy diplomasi sedang berjalan; margin ke $100 saat itu $23/bbl |
+| **Mei–Jul 2026** | Bahlil serangkaian kunjungan ke Moskow; negosiasi volume, jalur distribusi, mekanisme pembayaran alternatif (IDR/RUB swap atau barter) |
+| **~Jul–Agu 2026** | Framework MoU disepakati: **150 juta barel** crude G2G via **Lemigas** + LPG inclusion. Pricing tidak dipublikasikan |
+| **Sep 2026** | Pertemuan bilateral Prabowo-Putin kedua; deal dikonfirmasi. Bahlil: **"jangan tanya harga"** — komersial sensitivity + secondary sanctions concern. ICP resmi Sep $112.81/bbl (+$23.38 MoM, ESDM Oct 12) — gap subsidi makin melebar |
+| **1 Okt 2026** | Suahasil Nazara (Menkeu baru, dilantik 14 Sep): **"kalau minyak naik, BBM harus naik"** — divergensi publik dari posisi Bahlil ($100 ceiling). Signal: Kemenkeu tidak confident deal Russia cukup menutup fiskal gap; defisit trajectory over 3% |
+| **13 Okt 2026** | Bahlil **reaffirm BBM subsidi tidak naik sampai 31 Des 2026** meski Brent $112. Explicitly cite G2G Rusia sebagai cushion. Pertalite gap saat itu Rp6.900/L — total subsidi burden sudah Rp331.4T YTD (run-rate 457%) |
+| **18 Okt 2026** | Trump suspend new Russia sanctions (executive order) → ESPO deal geopolitical risk **sedikit berkurang** (US OFAC enforcement window lebih sempit). Tapi payment mechanism (IDR/RUB swap vs USD) masih belum dikonfirmasi publik |
+| **19 Okt 2026** | Brent $107.40 (−2.24% hari ini); ESPO discount est. $10–15/bbl = net ~$92–97/bbl untuk Indonesia. Pertalite gap Rp7.056/L (at $107.40 spot + USDIDR 18,040) — deal hanya offset Rp485–975/L dari gap Rp7.056/L (~7–14%) |
+
+**Deal structure:**
+
+| Parameter | Detail |
+|-----------|--------|
+| **Crude spec** | ESPO Blend (API 34–36°, sulfur ~0.5–0.6%) |
+| **Refinery compatibility** | ✅ Compatible — ESPO API 34° ≈ Minas/Duri (API 34°); Balongan + Cilacap siap proses tanpa upgrade |
+| **Vehicle** | Lemigas (Puslitbang Teknologi Minyak & Gas ESDM) — G2G channel, bukan Pertamina langsung. Buffers secondary sanctions risk |
+| **Volume** | ~150 juta barel total framework; ~65–70% total impor crude Indonesia selama ~7–8 bulan (konsumsi ~600–650k bbl/hari) |
+| **LPG** | Included — mengurangi exposure ke LPG Qatar via Hormuz (JKM $28+/MMBtu Sep 2026) |
+| **Pricing** | Tidak dipublikasikan. Est. ESPO discount vs Brent: **~$10–15/bbl** (historical Asia ESPO spread). Bahlil refuse to confirm |
+| **Payment** | Tidak dikonfirmasi; kemungkinan IDR/RUB swap atau barter (batubara/CPO/nikel) — menghindari USD SWIFT clearing |
+
+**Dampak ke engine Dexter:**
+
+| Engine | Dampak | Status engine saat ini |
+|--------|--------|------------------------|
+| **M11 `computeCostRecovery()`** | Formula Brent-based **overstates subsidi gap** ~Rp485–975/L jika deal 25–50% of supply. Gap Rp7.056/L (Oct 19, $107.40 Brent + USDIDR 18,040) adalah ceiling — aktual sedikit lebih rendah jika ESPO delivery terealisasi | Env var `RUSSIA_CRUDE_DISCOUNT_USD` tersedia (default 0 = conservative). Set 3.1 (25% supply) atau 6.25 (50%) saat delivery terkonfirmasi |
+| **M10 Subsidi run-rate (457%)** | Slight overstate jika Russia discount material — mungkin aktual ~440–450% bukan 457%; deal hanya offset ~7–14% dari gap per liter | Akan terkoreksi otomatis saat `RUSSIA_CRUDE_DISCOUNT_USD` diset |
+| **M6 Narrative** | "Jangan tanya harga" = **opacity signal** — pemerintah sadar selisih vs Brent tapi tidak akui. Melemahkan akuntabilitas fiskal → divergence score bertahan | Treated as narrative divergence check #9 amplifier |
+| **M12 Geopolitical** | Prabowo-Putin 2× + Lemigas vehicle = Indonesia non-aligned aktif; concern institutional EM investors (EU-aligned + ESG funds) | `geopolitical_risk` sub-signal diperkuat |
+| **M5 Foreign Flow** | Russia alignment bisa trigger ESG/sanctions-concern screen dari Western fund; partially offset oleh MSCI EM CONFIRMED Jun 23 | Monitor EIDO autocorrelation (herding cascade signal) pasca-deal announcement |
+| **M4 Commodity** | Deal **mengurangi Hormuz exposure** untuk portion crude yang di-supply via ESPO; tapi tidak eliminasi — 50–75% impor sisanya masih exposed | `oil_vulnerability_score` harus dicatat dengan caveat jika ESPO volume material |
+
+**Engine override (update di `.env` saat delivery terkonfirmasi):**
+
+```bash
+# G2G Russia ESPO crude discount — blended (accounting for Russia share of total imports)
+# ESPO discount vs Brent: ~$10–15/bbl (Asia market historical). Russia supply fraction: 25–50% est.
+# Blended impact: 0.25 × $12.5 = ~$3.1/bbl (conservative) → $6.25/bbl (50% aggressive)
+# Reduces bbm_subsidy_gap_idr_liter by ~Rp485–975/L at current Brent+USDIDR.
+# Default: 0 (no confirmed delivery volume). Update saat Lemigas/ESDM konfirmasi bulk delivery.
+# RUSSIA_CRUDE_DISCOUNT_USD=3.1    # blended $/bbl — conservative (25% supply share)
+# RUSSIA_CRUDE_DISCOUNT_USD=6.25   # blended $/bbl — aggressive (50% supply share)
+```
+
+**⚠️ Caveat:** Deal ini framework MoU — realisasi bergantung pada:
+1. **Secondary sanctions** — Trump suspend new Russia sanctions Oct 18 → OFAC enforcement window lebih sempit; risiko residual **sedikit berkurang** tapi belum eliminated. Lemigas buffer masih relevan untuk European counterparty exposure
+2. **Shipping/insurance** — ESPO route (Kozmino → Asia) tidak via Hormuz ✅; tapi war risk premium + P&I club coverage; shadow fleet pricing naik
+3. **Payment mechanism** — USD clearing alternative (IDR/RUB swap, barter batubara/CPO/nikel) masih dalam finalisasi → execution risk. Bahlil belum konfirmasi publik per Oct 19
+4. **Volume timeline** — 150 juta barel adalah total framework, bukan bulanan; pace delivery belum dikonfirmasi publik
+5. **Fiscal arithmetic** — Suahasil Oct 1 signal: Kemenkeu internally skeptis deal cukup tutup fiskal gap. Run-rate subsidi 457% (Rp331.4T YTD) — deal offset hanya ~7–14% per liter. BBM hike masih tabel pilihan Kemenkeu post-31 Des jika Brent bertahan $100+
+
+---
+
 ### Game Theory — Strategic Behavior Engine
 
 > Ref lengkap: [`docs/GAME_THEORY_KAJIAN.md`](docs/GAME_THEORY_KAJIAN.md) — serial 20-tweet + data gap table + roadmap.
@@ -576,66 +636,6 @@ Sep 2027  ████████████████░░░░  ~63%  (t
 - **3rd-gen balance sheet** (`M8+M13+M3 unified`) — butuh SULNI quarterly FX-hedging ratio per korporasi. Data ada tapi baru per Q-release, ~6wk lag.
 - **Political economy payoff matrix** (`M12`) — veto player mapping + Poltracking time series. Butuh political science input atau API Poltracking Indonesia.
 - **Bayesian M6 full calibration** — likelihood functions P(data|credible) vs P(data|not_credible) dikalibrasi dari 6 krisis historis (data backtest sudah ada di `backtest/crisis-calendar.ts`). Currently pakai heuristic prior, bukan proper posterior dari empirical base rate.
-
-### Russia-Indonesia Energy Deal (2026)
-
-*G2G minyak mentah Rusia — diversifikasi pasokan impor di tengah Hormuz crisis + komitmen Bahlil $100/bbl.*
-
-| Tanggal | Event |
-|---------|-------|
-| **~Apr 2026** | Prabowo kunjungi Moskow — bilateral dengan Putin; energy security masuk agenda utama (konteks: Hormuz krisis sudah aktif sejak 28 Feb, ICP naik ke $77+ YTD) |
-| **16 Apr 2026** | Bahlil statement BBM tidak naik — "pasca kunjungan ke Rusia dan Prancis" (verbatim); konfirmasi energy diplomasi sedang berjalan; margin ke $100 saat itu $23/bbl |
-| **Mei–Jul 2026** | Bahlil serangkaian kunjungan ke Moskow; negosiasi volume, jalur distribusi, mekanisme pembayaran alternatif (IDR/RUB swap atau barter) |
-| **~Jul–Agu 2026** | Framework MoU disepakati: **150 juta barel** crude G2G via **Lemigas** + LPG inclusion. Pricing tidak dipublikasikan |
-| **Sep 2026** | Pertemuan bilateral Prabowo-Putin kedua; deal dikonfirmasi. Bahlil: **"jangan tanya harga"** — komersial sensitivity + secondary sanctions concern. ICP resmi Sep $112.81/bbl (+$23.38 MoM, ESDM Oct 12) — gap subsidi makin melebar |
-| **1 Okt 2026** | Suahasil Nazara (Menkeu baru, dilantik 14 Sep): **"kalau minyak naik, BBM harus naik"** — divergensi publik dari posisi Bahlil ($100 ceiling). Signal: Kemenkeu tidak confident deal Russia cukup menutup fiskal gap; defisit trajectory over 3% |
-| **13 Okt 2026** | Bahlil **reaffirm BBM subsidi tidak naik sampai 31 Des 2026** meski Brent $112. Explicitly cite G2G Rusia sebagai cushion. Pertalite gap saat itu Rp6.900/L — total subsidi burden sudah Rp331.4T YTD (run-rate 457%) |
-| **18 Okt 2026** | Trump suspend new Russia sanctions (executive order) → ESPO deal geopolitical risk **sedikit berkurang** (US OFAC enforcement window lebih sempit). Tapi payment mechanism (IDR/RUB swap vs USD) masih belum dikonfirmasi publik |
-| **19 Okt 2026** | Brent $107.40 (−2.24% hari ini); ESPO discount est. $10–15/bbl = net ~$92–97/bbl untuk Indonesia. Pertalite gap Rp7.056/L (at $107.40 spot + USDIDR 18,040) — deal hanya offset Rp485–975/L dari gap Rp7.056/L (~7–14%) |
-
-**Deal structure:**
-
-| Parameter | Detail |
-|-----------|--------|
-| **Crude spec** | ESPO Blend (API 34–36°, sulfur ~0.5–0.6%) |
-| **Refinery compatibility** | ✅ Compatible — ESPO API 34° ≈ Minas/Duri (API 34°); Balongan + Cilacap siap proses tanpa upgrade |
-| **Vehicle** | Lemigas (Puslitbang Teknologi Minyak & Gas ESDM) — G2G channel, bukan Pertamina langsung. Buffers secondary sanctions risk |
-| **Volume** | ~150 juta barel total framework; ~65–70% total impor crude Indonesia selama ~7–8 bulan (konsumsi ~600–650k bbl/hari) |
-| **LPG** | Included — mengurangi exposure ke LPG Qatar via Hormuz (JKM $28+/MMBtu Sep 2026) |
-| **Pricing** | Tidak dipublikasikan. Est. ESPO discount vs Brent: **~$10–15/bbl** (historical Asia ESPO spread). Bahlil refuse to confirm |
-| **Payment** | Tidak dikonfirmasi; kemungkinan IDR/RUB swap atau barter (batubara/CPO/nikel) — menghindari USD SWIFT clearing |
-
-**Dampak ke engine Dexter:**
-
-| Engine | Dampak | Status engine saat ini |
-|--------|--------|------------------------|
-| **M11 `computeCostRecovery()`** | Formula Brent-based **overstates subsidi gap** ~Rp485–975/L jika deal 25–50% of supply. Gap Rp7.056/L (Oct 19, $107.40 Brent + USDIDR 18,040) adalah ceiling — aktual sedikit lebih rendah jika ESPO delivery terealisasi | Env var `RUSSIA_CRUDE_DISCOUNT_USD` tersedia (default 0 = conservative). Set 3.1 (25% supply) atau 6.25 (50%) saat delivery terkonfirmasi |
-| **M10 Subsidi run-rate (457%)** | Slight overstate jika Russia discount material — mungkin aktual ~440–450% bukan 457%; deal hanya offset ~7–14% dari gap per liter | Akan terkoreksi otomatis saat `RUSSIA_CRUDE_DISCOUNT_USD` diset |
-| **M6 Narrative** | "Jangan tanya harga" = **opacity signal** — pemerintah sadar selisih vs Brent tapi tidak akui. Melemahkan akuntabilitas fiskal → divergence score bertahan | Treated as narrative divergence check #9 amplifier |
-| **M12 Geopolitical** | Prabowo-Putin 2× + Lemigas vehicle = Indonesia non-aligned aktif; concern institutional EM investors (EU-aligned + ESG funds) | `geopolitical_risk` sub-signal diperkuat |
-| **M5 Foreign Flow** | Russia alignment bisa trigger ESG/sanctions-concern screen dari Western fund; partially offset oleh MSCI EM CONFIRMED Jun 23 | Monitor EIDO autocorrelation (herding cascade signal) pasca-deal announcement |
-| **M4 Commodity** | Deal **mengurangi Hormuz exposure** untuk portion crude yang di-supply via ESPO; tapi tidak eliminasi — 50–75% impor sisanya masih exposed | `oil_vulnerability_score` harus dicatat dengan caveat jika ESPO volume material |
-
-**Engine override (update di `.env` saat delivery terkonfirmasi):**
-
-```bash
-# G2G Russia ESPO crude discount — blended (accounting for Russia share of total imports)
-# ESPO discount vs Brent: ~$10–15/bbl (Asia market historical). Russia supply fraction: 25–50% est.
-# Blended impact: 0.25 × $12.5 = ~$3.1/bbl (conservative) → $6.25/bbl (50% aggressive)
-# Reduces bbm_subsidy_gap_idr_liter by ~Rp485–975/L at current Brent+USDIDR.
-# Default: 0 (no confirmed delivery volume). Update saat Lemigas/ESDM konfirmasi bulk delivery.
-# RUSSIA_CRUDE_DISCOUNT_USD=3.1    # blended $/bbl — conservative (25% supply share)
-# RUSSIA_CRUDE_DISCOUNT_USD=6.25   # blended $/bbl — aggressive (50% supply share)
-```
-
-**⚠️ Caveat:** Deal ini framework MoU — realisasi bergantung pada:
-1. **Secondary sanctions** — Trump suspend new Russia sanctions Oct 18 → OFAC enforcement window lebih sempit; risiko residual **sedikit berkurang** tapi belum eliminated. Lemigas buffer masih relevan untuk European counterparty exposure
-2. **Shipping/insurance** — ESPO route (Kozmino → Asia) tidak via Hormuz ✅; tapi war risk premium + P&I club coverage; shadow fleet pricing naik
-3. **Payment mechanism** — USD clearing alternative (IDR/RUB swap, barter batubara/CPO/nikel) masih dalam finalisasi → execution risk. Bahlil belum konfirmasi publik per Oct 19
-4. **Volume timeline** — 150 juta barel adalah total framework, bukan bulanan; pace delivery belum dikonfirmasi publik
-5. **Fiscal arithmetic** — Suahasil Oct 1 signal: Kemenkeu internally skeptis deal cukup tutup fiskal gap. Run-rate subsidi 457% (Rp331.4T YTD) — deal offset hanya ~7–14% per liter. BBM hike masih tabel pilihan Kemenkeu post-31 Des jika Brent bertahan $100+
-
----
 
 ### Scripts Tambahan
 
