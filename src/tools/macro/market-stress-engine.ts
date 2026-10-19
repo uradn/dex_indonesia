@@ -40,6 +40,21 @@ Indicators:
 
 export type MarketTiming = 'oversold' | 'neutral' | 'overheated';
 
+export interface CascadeNode {
+  threshold: number;
+  label: string;
+  status: 'breached' | 'approaching' | 'clear';
+  description: string;
+}
+
+export interface StopLossCascade {
+  priceLevel: number | null;
+  levelsBreached: number;
+  nodes: CascadeNode[];
+  cascadeBonus: number;
+  active: boolean;
+}
+
 interface MarketStressOutput {
   alert: AlertLevel;
   stressScore: number;
@@ -49,9 +64,80 @@ interface MarketStressOutput {
   breadthAlert: AlertLevel;
   valuationDisconnect: boolean;
   timing: MarketTiming;
+  cascade: StopLossCascade;
   dataDate: string;
   flags: string[];
   narrative: string;
+}
+
+/**
+ * Stop-loss cascade thresholds — each level represents a different institutional
+ * forced-sell type. Cascade is mechanical (not fundamental-driven); amplifies
+ * Morris-Shin confidence erosion independently of macro signals.
+ *
+ * 5,000 — Psychological floor: retail stop-losses + momentum algos + EM mandate soft floors.
+ *          First breach expands speculator attack window (Morris-Shin DCI +5pts).
+ * 4,800 — Mandate-driven institutional floor: EM benchmark funds with drawdown limits
+ *          (post-MSCI Standalone = forced exit regardless of fundamentals); insurance
+ *          fund regulatory minimums (OJK Solvency floor triggers rebalancing).
+ * 4,500 — Systemic cascade: domestic margin calls on leveraged retail + pension fund
+ *          rebalancing mandates + foreign custody clearing thresholds. At this level
+ *          forced supply overwhelms any fundamental bid.
+ */
+const CASCADE_NODES: Array<{ threshold: number; label: string; description: string }> = [
+  {
+    threshold: 5000,
+    label: '5,000 psychological floor',
+    description: 'Retail stop-losses + momentum algos + EM benchmark soft floors. Morris-Shin DCI +5pts at breach.',
+  },
+  {
+    threshold: 4800,
+    label: '4,800 mandate-driven floor',
+    description: 'EM mandate forced exits (post-MSCI Standalone) + OJK insurance fund solvency floor rebalancing.',
+  },
+  {
+    threshold: 4500,
+    label: '4,500 systemic cascade',
+    description: 'Domestic margin calls + pension fund rebalancing mandates + foreign custody clearing thresholds.',
+  },
+];
+
+// Within 2% of threshold = "approaching" warning zone
+const CASCADE_APPROACH_PCT = 0.02;
+
+function evaluateStopLossCascade(priceLevel: number | null): StopLossCascade {
+  if (priceLevel === null) {
+    return {
+      priceLevel: null,
+      levelsBreached: 0,
+      nodes: CASCADE_NODES.map(n => ({ ...n, status: 'clear' as const })),
+      cascadeBonus: 0,
+      active: false,
+    };
+  }
+
+  let levelsBreached = 0;
+  const nodes: CascadeNode[] = CASCADE_NODES.map(n => {
+    if (priceLevel <= n.threshold) {
+      levelsBreached++;
+      return { ...n, status: 'breached' as const };
+    }
+    if (priceLevel <= n.threshold * (1 + CASCADE_APPROACH_PCT)) {
+      return { ...n, status: 'approaching' as const };
+    }
+    return { ...n, status: 'clear' as const };
+  });
+
+  // +10 per breached level, capped at 30
+  const cascadeBonus = Math.min(30, levelsBreached * 10);
+
+  return {
+    priceLevel,
+    levelsBreached,
+    nodes,
+    cascadeBonus,
+    active: levelsBreached > 0,
+  };
 }
 
 // EIDO ETF P/E proxy → approximate IHSG composite P/E.
@@ -99,19 +185,21 @@ function breadthAlertLevel(adRatio: number): AlertLevel {
 
 export async function runMarketStressEngine(): Promise<MarketStressOutput> {
   // 1. Fetch live data
-  const { peRatio: pePoint, advanceDecline: adPoint } = await fetchIhsgMarketData();
+  const { peRatio: pePoint, advanceDecline: adPoint, priceLevel: priceLevelPoint } = await fetchIhsgMarketData();
 
-  const pointsToSave = [pePoint, adPoint].filter(Boolean);
+  const pointsToSave = [pePoint, adPoint, priceLevelPoint].filter(Boolean);
   if (pointsToSave.length > 0) await upsertPoints(pointsToSave as NonNullable<typeof pePoint>[]);
 
   // 2. Read from DB (use cached if live fetch failed)
-  const [dbPe, dbAd] = await Promise.all([
+  const [dbPe, dbAd, dbPrice] = await Promise.all([
     getLatestPoint('ihsg_pe_ratio'),
     getLatestPoint('idx_advance_decline_ratio'),
+    getLatestPoint('ihsg_price_level'),
   ]);
 
   const peRatio = dbPe?.value ?? null;
   const adRatio = dbAd?.value ?? null;
+  const priceLevel = dbPrice?.value ?? null;
 
   // Convert EIDO proxy P/E to composite-equivalent before scoring
   const peForScoring = peRatio !== null ? compositeEquivPe(peRatio) : null;
@@ -121,11 +209,15 @@ export async function runMarketStressEngine(): Promise<MarketStressOutput> {
   if (peForScoring !== null) components.push([scorePe(peForScoring), 0.50]);
   if (adRatio !== null) components.push([scoreAd(adRatio), 0.50]);
 
-  let stressScore = 15;
+  let baseScore = 15;
   if (components.length > 0) {
     const totalWeight = components.reduce((s, [, w]) => s + w, 0);
-    stressScore = Math.round(components.reduce((s, [score, w]) => s + score * w, 0) / totalWeight);
+    baseScore = Math.round(components.reduce((s, [score, w]) => s + score * w, 0) / totalWeight);
   }
+
+  // 3b. Stop-loss cascade bonus (mechanical forced-sell amplifier, independent of fundamentals)
+  const cascade = evaluateStopLossCascade(priceLevel);
+  const stressScore = Math.min(100, baseScore + cascade.cascadeBonus);
 
   const alert = alertFromScore(stressScore) as AlertLevel;
 
@@ -164,6 +256,19 @@ export async function runMarketStressEngine(): Promise<MarketStressOutput> {
   if (adRatio !== null && adRatio < 0.5) flags.push(`Breadth panic: A/D ratio ${adRatio.toFixed(2)} — broad selling signal`);
   if (valuationDisconnect) flags.push('Valuation disconnect: elevated P/E + negative breadth — narrow leadership risk');
 
+  // Stop-loss cascade flags
+  if (cascade.active) {
+    const breachedLabels = cascade.nodes.filter(n => n.status === 'breached').map(n => n.label).join(', ');
+    flags.push(
+      `STOP-LOSS CASCADE: ${cascade.levelsBreached}/3 threshold(s) BREACHED (${breachedLabels}) — mechanical forced-sell amplifier active (+${cascade.cascadeBonus}pts). Selling is mandate-driven, not fundamental.`,
+    );
+  }
+  for (const node of cascade.nodes) {
+    if (node.status === 'approaching') {
+      flags.push(`CASCADE APPROACH: IHSG approaching ${node.label} — ${node.description}`);
+    }
+  }
+
   // 6. Data date
   const dates = [dbPe, dbAd].filter(Boolean).map(p => p!.date).sort().reverse();
   const dataDate = dates[0] ?? 'unknown';
@@ -184,7 +289,16 @@ export async function runMarketStressEngine(): Promise<MarketStressOutput> {
     flags.length === 0 ? 'No active stress flags.' : '',
   ].filter(Boolean).join(' ');
 
-  return { alert, stressScore, peRatio, adRatio, peAlert, breadthAlert, valuationDisconnect, timing, dataDate, flags, narrative };
+  return { alert, stressScore, peRatio, adRatio, peAlert, breadthAlert, valuationDisconnect, timing, cascade, dataDate, flags, narrative };
+}
+
+function formatCascadeStatus(cascade: StopLossCascade): string {
+  if (cascade.priceLevel === null) return '| Stop-Loss Cascade | price n/a | — | 5,000 / 4,800 / 4,500 |';
+  const nodeStr = cascade.nodes.map(n => {
+    const icon = n.status === 'breached' ? '🔴' : n.status === 'approaching' ? '🟡' : '🟢';
+    return `${icon} ${n.threshold.toLocaleString()}`;
+  }).join(' → ');
+  return `| Stop-Loss Cascade | IHSG ${cascade.priceLevel.toLocaleString()} pts | ${cascade.levelsBreached > 0 ? cascade.levelsBreached + '/3 BREACHED' : 'CLEAR'} | ${nodeStr} (+${cascade.cascadeBonus}pts bonus) |`;
 }
 
 function formatMarketStressOutput(output: MarketStressOutput): string {
@@ -198,12 +312,13 @@ function formatMarketStressOutput(output: MarketStressOutput): string {
     `| A/D Ratio | ${output.adRatio !== null ? output.adRatio.toFixed(2) : 'n/a'} | ${output.breadthAlert.toUpperCase()} | YELLOW <0.8, RED <0.5 |`,
     `| Valuation Disconnect | ${output.valuationDisconnect ? 'DETECTED' : 'No'} | — | P/E>20 + A/D<0.8 |`,
     `| Market Timing | ${output.timing.toUpperCase()} | — | Oversold: P/E<14+selling or A/D<0.5; Overheated: P/E>22+A/D>1.0 |`,
+    formatCascadeStatus(output.cascade),
     ``,
     output.flags.length > 0 ? `**Flags:**\n${output.flags.map(f => `- ${f}`).join('\n')}` : '**No active flags.**',
     ``,
     output.narrative,
     ``,
-    `_P/E: EIDO ETF proxy (iShares MSCI Indonesia, top ~85 stocks). Raw EIDO ×1.65 = composite-equiv. TE IHSG composite P/E removed from platform. A/D: IDX daily breadth._`,
+    `_P/E: EIDO ETF proxy (iShares MSCI Indonesia, top ~85 stocks). Raw EIDO ×1.65 = composite-equiv. TE IHSG composite P/E removed from platform. A/D: IDX daily breadth. Cascade: stop-loss thresholds 5,000/4,800/4,500 pts._`,
     `_Data as of: ${output.dataDate}._`,
   ].join('\n');
 }

@@ -187,17 +187,39 @@ export async function fetchIdxAdvanceDecline(): Promise<MacroDataPoint | null> {
   return null;
 }
 
+/**
+ * Fetch IHSG composite price level via ^JKSE Yahoo Finance quote.
+ * Returns index value in points (e.g. 4961 = IHSG at 4,961).
+ * Used for stop-loss cascade threshold tracking in M9.
+ */
+export async function fetchIhsgPriceLevel(): Promise<MacroDataPoint | null> {
+  try {
+    const q = await yf.quote('^JKSE');
+    const price = (q as Record<string, unknown>)['regularMarketPrice'];
+    if (typeof price === 'number' && price > 1000 && price < 20000) {
+      return {
+        indicator: 'ihsg_price_level', category: 'regime',
+        date: TODAY(), value: parseFloat(price.toFixed(0)), unit: 'index_points',
+        source: 'yahoo_finance', fetchedAt: NOW(),
+      };
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
 export interface IhsgMarketSnapshot {
   peRatio: MacroDataPoint | null;
   advanceDecline: MacroDataPoint | null;
+  priceLevel: MacroDataPoint | null;
 }
 
 export async function fetchIhsgMarketData(): Promise<IhsgMarketSnapshot> {
-  const [peRatio, advanceDecline] = await Promise.all([
+  const [peRatio, advanceDecline, priceLevel] = await Promise.all([
     fetchIhsgPeRatio(),
     fetchIdxAdvanceDecline(),
+    fetchIhsgPriceLevel(),
   ]);
-  return { peRatio, advanceDecline };
+  return { peRatio, advanceDecline, priceLevel };
 }
 
 // ASEAN iShares MSCI ETF tickers — same fund family as EIDO, directly comparable P/E.

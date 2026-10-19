@@ -208,7 +208,11 @@ if (banking.status === 'fulfilled') {
 if (market.status === 'fulfilled') {
   const r = market.value;
   console.log(`\n### 10. Market (IHSG)  ${emoji(r.alert)} ${r.stressScore}/100`);
-  console.log(`  P/E: ${r.peRatio?.toFixed(1) ?? 'n/a'} | A/D ratio: ${r.adRatio?.toFixed(2) ?? 'n/a'}`);
+  const priceStr = r.cascade.priceLevel !== null ? `IHSG ${r.cascade.priceLevel.toLocaleString()} pts | ` : '';
+  const cascadeStr = r.cascade.active
+    ? `Cascade ${r.cascade.levelsBreached}/3 BREACHED (+${r.cascade.cascadeBonus}pts)`
+    : r.cascade.priceLevel !== null ? 'Cascade CLEAR' : 'Cascade n/a';
+  console.log(`  P/E: ${r.peRatio?.toFixed(1) ?? 'n/a'} | A/D ratio: ${r.adRatio?.toFixed(2) ?? 'n/a'} | ${priceStr}${cascadeStr}`);
   for (const f of r.flags ?? []) console.log(`  ⚠️  ${f}`);
 } else {
   console.log(`\n### 10. Market  ❌ ${String(market.reason).slice(0, 80)}`);
