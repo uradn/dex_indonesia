@@ -23,6 +23,15 @@
  * Blending: socialUnrestComponent = max(exaScore, tavilyScore, xScore × 0.85)
  * Tavily active when TAVILY_API_KEY set; X active when X_BEARER_TOKEN set.
  * Exa alone = minimum baseline; Tavily adds Indonesian news coverage breadth.
+ *
+ * PolEcon Payoff Matrix (Game Theory — Barro-Gordon / Kydland-Prescott):
+ *   Game: Kemenkeu (HIKE BBM | HOLD SUBSIDI) × Masyarakat (ACCEPT | RESIST)
+ *   pResist derived from blended unrest signal; holdEV Brent-adjusted.
+ *   polEconAdj 0–8pts added to stressScore:
+ *     TRAPPED (|hikeEV−holdEV|<5): +8 — no dominant strategy, both options negative
+ *     FORCED_HOLD (pResist>0.60, hold dominates): +6 — fiscal bleeds while government paralyzed
+ *     RISKY_HIKE (pResist>0.60, hike dominates): +5 — dominant but protest risk high
+ *     STABLE: +0
  */
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
@@ -70,6 +79,8 @@ B) Governance: authoritarian drift, investor confidence → CDS + IDR risk premi
 const UNEMPLOYMENT_NORMAL = 4.8;    // % — BPS historical average
 const UNEMPLOYMENT_STRESS = 6.5;    // % — elevated political risk threshold
 
+export type PolEconState = 'TRAPPED' | 'FORCED_HOLD' | 'RISKY_HIKE' | 'STABLE';
+
 export interface PoliticalRiskOutput {
   date: string;
   stressScore: number;           // 0-100 (Silent Crisis Detector input)
@@ -80,6 +91,12 @@ export interface PoliticalRiskOutput {
   foodPressureComponent: number; // 0-35 sub-score
   socialUnrestComponent: number; // 0-30 sub-score (Exa + Tavily + X blended)
   stabilityComponent: number;    // 0-25 sub-score (negative = international concern)
+  // PolEcon game theory adjustment
+  polEconState: PolEconState;    // dominant strategy equilibrium
+  polEconAdj: number;            // 0-8pts score adjustment
+  polEconPResist: number;        // P(masyarakat resist BBM hike)
+  polEconHikeEV: number;         // Kemenkeu expected value of hiking
+  polEconHoldEV: number;         // Kemenkeu expected value of holding
   xSocialResult: XSentimentResult | null;
   xSocialScore: number | null;   // raw X score before blending
   tavilyUnrestScore: number | null; // raw Tavily score before blending
@@ -203,13 +220,64 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
   const combinedStability = Math.round(blendedStabilityScore * 0.4 + blendedGeopoliticalScore * 0.6);
   const stabilityComponent = Math.min(25, Math.max(blendedStabilityScore, combinedStability));
 
-  // ── 3. Political Risk Index ────────────────────────────────────────────────
-  // Base 10 + component sum (normalised — components can sum to 115 max → cap at 100)
-  const politicalRiskIndex = Math.min(100, 10 + unemploymentComponent + foodPressureComponent + socialUnrestComponent + stabilityComponent);
+  // ── 3. PolEcon Payoff Matrix (Barro-Gordon / Kydland-Prescott) ───────────────
+  // Game: Kemenkeu (HIKE BBM | HOLD SUBSIDI) × Masyarakat (ACCEPT | RESIST)
+  // pResist: probability masyarakat resists a BBM hike — derived from blended unrest score.
+  //   Uses M12's own signals (not M12 score itself) to avoid circular dependency.
+  const polEconPResist = blendedUnrestScore >= 70 ? 0.85 : blendedUnrestScore >= 45 ? 0.65 : 0.40;
+
+  // Brent-adjusted holdEV: fiscal drag worsens as ICP rises above APBN $70/bbl assumption.
+  // Brent >$100 = subsidi overrun >$5bn/yr → holdEV worsens to -28.
+  const brentPt = await getLatestPoint('brent_price_usd');
+  const brentUsd = brentPt?.value ?? 85;
+  const polEconHoldEV = brentUsd > 100 ? -28 : brentUsd > 90 ? -22 : -18;
+
+  // Kemenkeu payoffs (fiscal_benefit − political_cost):
+  //   HIKE + ACCEPT: +35 fiscal relief − 20 political cost = +15
+  //   HIKE + RESIST: +35 fiscal relief − 60 political cost = −25
+  //   HOLD (any):    holdEV (fiscal drag, partial political buffer)
+  const HIKE_ACCEPT_EV = 15;
+  const HIKE_RESIST_EV = -25;
+  const polEconHikeEV = parseFloat(((1 - polEconPResist) * HIKE_ACCEPT_EV + polEconPResist * HIKE_RESIST_EV).toFixed(1));
+
+  const evSpread = polEconHikeEV - polEconHoldEV;
+  const polEconState: PolEconState =
+    Math.abs(evSpread) < 5                          ? 'TRAPPED'      :  // no dominant strategy
+    evSpread < -5 && polEconPResist > 0.60          ? 'FORCED_HOLD'  :  // hold dominates but fiscal bleeds
+    evSpread > 5  && polEconPResist > 0.60          ? 'RISKY_HIKE'   :  // hike dominates but protest risk high
+                                                       'STABLE';
+
+  const polEconAdj = polEconState === 'TRAPPED'     ? 8 :
+                     polEconState === 'FORCED_HOLD'  ? 6 :
+                     polEconState === 'RISKY_HIKE'   ? 5 : 0;
+
+  // ── 4. Political Risk Index ────────────────────────────────────────────────
+  // Base 10 + component sum + PolEcon adjustment (cap at 100)
+  const politicalRiskIndex = Math.min(100, 10 + unemploymentComponent + foodPressureComponent + socialUnrestComponent + stabilityComponent + polEconAdj);
   const stressScore = politicalRiskIndex;
   const alert = alertFromScore(stressScore);
 
-  // ── 4. Flags ───────────────────────────────────────────────────────────────
+  // ── 5. Flags ───────────────────────────────────────────────────────────────
+  if (polEconState === 'TRAPPED') {
+    flags.push(
+      `POLECON TRAPPED: hikeEV ${polEconHikeEV.toFixed(1)} ≈ holdEV ${polEconHoldEV.toFixed(1)} — no dominant strategy; ` +
+      `fiscal drag (Brent $${brentUsd.toFixed(0)}/bbl) AND protest risk (P(resist)=${(polEconPResist * 100).toFixed(0)}%) bind simultaneously. ` +
+      `[Barro-Gordon: commitment vs discretion dilemma active — +8 score adj]`,
+    );
+  } else if (polEconState === 'FORCED_HOLD') {
+    flags.push(
+      `POLECON FORCED HOLD: hold dominates (hikeEV ${polEconHikeEV.toFixed(1)} < holdEV ${polEconHoldEV.toFixed(1)}) BUT ` +
+      `P(resist)=${(polEconPResist * 100).toFixed(0)}% — government paralyzed; fiscal bleeds at Brent $${brentUsd.toFixed(0)}/bbl. ` +
+      `Credibility cost compounds without reform. [Kydland-Prescott time-inconsistency — +6 score adj]`,
+    );
+  } else if (polEconState === 'RISKY_HIKE') {
+    flags.push(
+      `POLECON RISKY HIKE: hike dominates (hikeEV ${polEconHikeEV.toFixed(1)} > holdEV ${polEconHoldEV.toFixed(1)}) BUT ` +
+      `P(resist)=${(polEconPResist * 100).toFixed(0)}% — dominant strategy exists but protest probability high. ` +
+      `Social contract stress if government acts. [+5 score adj]`,
+    );
+  }
+
   if (unemploymentRate !== null && unemploymentRate > UNEMPLOYMENT_STRESS) {
     flags.push(`Unemployment ${unemploymentRate.toFixed(1)}% — above ${UNEMPLOYMENT_STRESS}% stress threshold; labor market breakdown risk`);
   }
@@ -300,6 +368,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     hasX: xSentiment !== null,
     xLeadingExa: xSentiment !== null && xSentiment.stressScore > Math.max(exaUnrestScore, tavilyUnrestScore),
     tavilyLeadingExa: tavilyUnrestScore > exaUnrestScore,
+    polEconState, polEconAdj, polEconPResist,
   });
 
   return {
@@ -312,6 +381,11 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     foodPressureComponent,
     socialUnrestComponent,
     stabilityComponent,
+    polEconState,
+    polEconAdj,
+    polEconPResist,
+    polEconHikeEV,
+    polEconHoldEV,
     xSocialResult: xSentiment,
     xSocialScore: xSentiment?.stressScore ?? null,
     tavilyUnrestScore: tavilyUnrest?.stressScore ?? null,
@@ -338,6 +412,9 @@ function buildNarrative(ctx: {
   hasX: boolean;
   xLeadingExa: boolean;
   tavilyLeadingExa: boolean;
+  polEconState: PolEconState;
+  polEconAdj: number;
+  polEconPResist: number;
 }): string {
   const parts: string[] = [];
   parts.push(`Political Risk Index: ${ctx.politicalRiskIndex}/100 (${ctx.alert.toUpperCase()}).`);
@@ -371,6 +448,14 @@ function buildNarrative(ctx: {
   } else {
     parts.push('No news sources active — scoring based on unemployment data only. Set EXASEARCH_API_KEY or TAVILY_API_KEY.');
   }
+  if (ctx.polEconAdj > 0) {
+    const stateDesc = ctx.polEconState === 'TRAPPED'
+      ? `no dominant strategy — fiscal drag and protest risk bind simultaneously (+${ctx.polEconAdj}pts)`
+      : ctx.polEconState === 'FORCED_HOLD'
+        ? `government forced to hold subsidi while fiscal bleeds — credibility erodes (+${ctx.polEconAdj}pts)`
+        : `hike dominates but P(resist)=${(ctx.polEconPResist*100).toFixed(0)}% — social contract stress if acted upon (+${ctx.polEconAdj}pts)`;
+    parts.push(`PolEcon [${ctx.polEconState}]: ${stateDesc}.`);
+  }
   return parts.join(' ');
 }
 
@@ -395,7 +480,17 @@ function formatOutput(output: PoliticalRiskOutput): string {
     `| Food Price Political Pressure | ${output.foodPressureComponent} | 35 |`,
     `| Social Unrest (Exa + Tavily + X) | ${output.socialUnrestComponent} | 30 |`,
     `| Political/Governance Stability | ${output.stabilityComponent} | 25 |`,
+    `| PolEcon Adj (${output.polEconState}) | +${output.polEconAdj} | 8 |`,
     `| **Total (+ base 10)** | **${output.politicalRiskIndex}** | **100** |`,
+    ``,
+    `## PolEcon Payoff Matrix — BBM Hike Game`,
+    `_Kemenkeu (HIKE|HOLD) × Masyarakat (ACCEPT|RESIST) [Barro-Gordon / Kydland-Prescott]_`,
+    `| | ACCEPT | RESIST |`,
+    `|---|---|---|`,
+    `| **HIKE** | +15 | −25 |`,
+    `| **HOLD** | ${output.polEconHoldEV} | ${output.polEconHoldEV} |`,
+    ``,
+    `P(resist) = **${(output.polEconPResist * 100).toFixed(0)}%** · hikeEV = **${output.polEconHikeEV.toFixed(1)}** · holdEV = **${output.polEconHoldEV}** · Equilibrium: **${output.polEconState}**`,
     ``,
     `## Economic Indicators`,
     `| Metric | Value |`,
