@@ -199,9 +199,11 @@ async function estimateAt1FromCds(): Promise<At1BondData | null> {
     const cdsBps = cdsPoint.value;
     const sbn10y = sbn10yPoint.value;
 
-    // AT1 yield ≈ SBN10Y + AT1 subordination premium (300-400bps above sovereign)
-    // Conservative: use 350bps AT1 premium over sovereign CDS floor
-    const at1Spread = cdsBps / 100 + 3.5; // CDS (as %) + 350bps AT1 premium
+    // AT1 yield ≈ rfRate + CDS% + AT1 subordination premium
+    // 175bps AT1 premium calibrated for ASEAN bank AT1 perpetuals (typical 150-200bps over sovereign).
+    // 350bps was too high — drove price below 80% at moderate CDS (100bps), suppressing valid signal.
+    const at1Premium = 1.75; // 175bps AT1 premium over sovereign CDS floor
+    const at1Spread = cdsBps / 100 + at1Premium;
     // Risk-free approx: SBN10Y minus BI-UST spread (~2% typical)
     const rfRate = Math.max(3.5, sbn10y - 2.0);
     const impliedYield = rfRate + at1Spread;
@@ -211,10 +213,9 @@ async function estimateAt1FromCds(): Promise<At1BondData | null> {
     const price = Math.min(105, Math.max(60, (avgCoupon / impliedYield) * 100));
     const pricePct = parseFloat(price.toFixed(1));
 
-    // Only return if in plausible range AND not triggering stress signals falsely
-    // Stress thresholds: <80 = +15 score, <90 = +8 score
-    // Don't return synthetic estimate below 85 to avoid false positives
-    if (pricePct < 85) return null;
+    // Floor at 75%: below that, CDS is in deep crisis territory (>~150bps) where
+    // perpetuity math is unreliable — media/Bloomberg would have coverage by then.
+    if (pricePct < 75) return null;
 
     return {
       pricePct,
