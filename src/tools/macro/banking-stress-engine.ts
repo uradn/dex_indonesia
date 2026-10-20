@@ -5,7 +5,8 @@ import { upsertPoints, getLatestPoint, getHistory } from './time-series-db.js';
 import { getFreshPoint, stalenessFlag } from './freshness.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchBankingRatiosOjk } from './sources/ojk.js';
-import { fetchBankingRatiosSjkPublic, fetchBankingDpkSjkPublic } from './sources/ojk-sjkpublic.js';
+import { fetchBankingRatiosSjkPublic } from './sources/ojk-sjkpublic.js';
+import { fetchBankingDpkBiSeki } from './sources/bi-seki-money.js';
 import { fetchBankingKpisNews } from './sources/banking-news.js';
 import { fetchFintechLendingOjkIknb } from './sources/ojk-iknb.js';
 import { fetchIndoniaRateTe, fetchExternalDebtTe, fetchIhprTe, fetchNplTe, fetchLdrTe, fetchCarTe, fetchM2MoneySupplyTe, fetchNplWorldBank, fetchM2WorldBank } from './sources/sovereign-scraper.js';
@@ -295,10 +296,9 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     m2 = await fetchM2WorldBank();
   }
 
-  // DPK: OJK SJKPublic MetricID=331 (replaces broken TE deposits scrape)
-  // tabungan=savings (sticky), deposito=time deposits (hot money, rate-sensitive)
-  const dpkResult = await fetchBankingDpkSjkPublic().catch(() => null);
-  // dpkResult already upserts to DB internally; dpk point for pointsToSave covered
+  // DPK: BI SEKI TABEL1_1.xls — monthly data since 1985, direct HTTP download, no Playwright.
+  // Backfills full history on first run. bank_savings_deposito_ratio_pct = deposito/(dep+tab).
+  await fetchBankingDpkBiSeki().catch(() => null);
 
   // 1d. Fintech lending / BNPL (OJK IKNB, monthly, 30d TTL — fetch in parallel with 1c)
   const fintechResult = await fetchFintechLendingOjkIknb().catch(() => null);
@@ -340,7 +340,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     getLatestPoint('fintech_lending_outstanding_idr_t'),
     getLatestPoint('fintech_lending_growth_yoy_pct'),
     getLatestPoint('apbn_deficit_pct_gdp'),   // Gap D: sovereign backstop proxy for D-D condition_6
-    getLatestPoint('bank_deposito_share_pct'), // hot money concentration (deposito/total DPK %)
+    getLatestPoint('bank_savings_deposito_ratio_pct'), // deposito/(deposito+tabungan): savings hot-money proxy
   ]);
   const dbNpl = freshNpl.point;
   const dbLdr = freshLdr.point;
@@ -360,7 +360,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   const m2IdrBn = dbM2Idr?.value ?? null;
   const fxReservesBn = dbFxReserves?.value ?? null;
   const usdidrSpot = dbUsdidr?.value ?? null;
-  const depositoSharePct = dbDepositoShare?.value ?? null;
+  const depositoSharePct = (dbDepositoShare as typeof dbDepositoShare)?.value ?? null;
 
   // FINTECH_NPL_PCT env override — pin from OJK SPI monthly release when Playwright blocked (WAF).
   const fintechNplEnv = process.env.FINTECH_NPL_PCT;
@@ -470,13 +470,14 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     }
   }
 
-  // Deposito hot money concentration (OJK SJKPublic MetricID=331)
-  // deposito = time deposits, rate-sensitive, can be pulled at maturity → flight risk amplifier
-  // Historical Indonesia norm: ~50-55% of DPK. >58% = elevated; >62% = high hot money exposure.
+  // Deposito savings ratio: deposito/(deposito+tabungan) — hot-money concentration in savings DPK.
+  // Source: BI SEKI TABEL1_1 (monthly, 1985-present). Excludes transactional giro.
+  // Historical range: ~52-60% (2010=60%, 2026=52.5% — declining via financial inclusion).
+  // >57% = elevated (above recent norm), >60% = high (above historical peak — institutional surge).
   let depositoBump = 0;
   if (depositoSharePct !== null) {
-    if (depositoSharePct > 62) depositoBump = 8;
-    else if (depositoSharePct > 58) depositoBump = 4;
+    if (depositoSharePct > 60) depositoBump = 8;
+    else if (depositoSharePct > 57) depositoBump = 4;
   }
   stressScore = Math.min(100, stressScore + depositoBump);
 
@@ -635,14 +636,14 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     }
   }
 
-  // Deposito hot money concentration flag
+  // Deposito savings ratio flag (BI SEKI, deposito/(deposito+tabungan))
   if (depositoSharePct !== null) {
-    if (depositoSharePct > 62) {
-      flags.push(`DEPOSITO HOT MONEY HIGH: ${depositoSharePct.toFixed(1)}% of DPK is time deposits — elevated flight risk. Rate-sensitive; institutional depositors pull at maturity. (+${depositoBump} score)`);
-    } else if (depositoSharePct > 58) {
-      flags.push(`Deposito concentration elevated: ${depositoSharePct.toFixed(1)}% of DPK — above 58% norm. Monitor for deposit rotation if BI Rate declines. (+${depositoBump} score)`);
+    if (depositoSharePct > 60) {
+      flags.push(`DEPOSITO HOT MONEY HIGH: savings ratio ${depositoSharePct.toFixed(1)}% — above 60% historical peak. Institutional term-deposit surge; rate-sensitive funding elevated. (+${depositoBump} score)`);
+    } else if (depositoSharePct > 57) {
+      flags.push(`Deposito concentration elevated: savings ratio ${depositoSharePct.toFixed(1)}% — above recent norm (52-55%). Monitor deposit rotation risk. (+${depositoBump} score)`);
     } else {
-      flags.push(`Deposito share: ${depositoSharePct.toFixed(1)}% of DPK — within normal range. Deposit base stable.`);
+      flags.push(`Deposito savings ratio: ${depositoSharePct.toFixed(1)}% — within normal range (BI SEKI hist: 52-60%). Deposit base stable.`);
     }
   }
 
@@ -728,7 +729,7 @@ export const bankingStressEngine = new DynamicStructuredTool({
         `| Fintech NPL % | ${output.fintechNplPct !== null ? output.fintechNplPct.toFixed(1) + '%' : 'n/a'} | OJK IKNB; >5% = watch, 2-3Q bank lead |`,
         `| Fintech Outstanding | ${output.fintechOutstandingIdrT !== null ? 'Rp' + output.fintechOutstandingIdrT.toFixed(1) + 'T' : 'n/a'} | P2P + paylater combined (OJK IKNB) |`,
         `| Fintech Growth YoY | ${output.fintechGrowthYoyPct !== null ? output.fintechGrowthYoyPct.toFixed(1) + '%' : 'n/a'} | BNPL signal: ${output.bnplSignal.toUpperCase()} |`,
-        `| Deposito Share | ${output.depositoSharePct !== null ? output.depositoSharePct.toFixed(1) + '%' : 'n/a'} | Hot money: norm <58%, >62% = elevated flight risk |`,
+        `| Deposito Savings Ratio | ${output.depositoSharePct !== null ? output.depositoSharePct.toFixed(1) + '%' : 'n/a'} | deposito/(dep+tab): norm 52-55%, >57% watch, >60% elevated (BI SEKI hist) |`,
         ``,
         Object.keys(output.sectorNpl).length > 0
           ? `**Sector NPL:**\n${Object.entries(output.sectorNpl).map(([s, v]) => `- ${s}: ${v.toFixed(1)}%`).join('\n')}`
