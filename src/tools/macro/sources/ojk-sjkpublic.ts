@@ -1,25 +1,29 @@
 /**
  * OJK SJKPublic portal scraper — data.ojk.go.id/SJKPublic
  *
- * Fetches Bank Umum financial ratios (MetricID=338, IndustriID=45) from the new OJK portal
+ * Fetches Bank Umum financial ratios and balance sheet data from the new OJK portal
  * (live from July 2025+, supersedes legacy ojk.ts which maxes out at June 2025).
  *
  * Approach: Playwright intercepts XMLA Execute POST responses to /SJKPublic/datasource/.
  * The WAF only blocks plain HTTP clients, not browser-originated requests. The DevExtreme
  * XmlaStore sends XMLA automatically when the page loads — we just capture the response.
  *
- * XMLA structure (MetricID=338 BU_RasioKeuangan cube):
+ * MetricID=338 (BU_RasioKeuangan cube):
  *   Axis0 (cols): tuples of [Bulan × Measures] — 9 tuples (1 All + 8 months Jan-Aug)
  *   Axis1 (rows): tuples of [Akun × KBMI] — 40 tuples
- *     Row 0: All|All  Row 1: 001.CAR|All  ...  Row 6: 006.LDR|All
- *     Rows 8-11: All|KBMI 1/2/3/4  Rows 12+: individual ratios × KBMI groups
  *   CellData: Value with xsi:type="xsd:double" (scientific notation)
- *   ordinal = rowIdx * numCols + colIdx
+ *   Available ratios: 001=CAR, 002=Tier1/ATMR, 003=ROA, 004=BOPO, 005=NIM, 006=LDR, 007=LAR
+ *   NPL is NOT in MetricID=338.
+ *   DB indicators: bank_car_pct, bank_ldr_pct
  *
- * Available ratios: 001=CAR, 002=Tier1/ATMR, 003=ROA, 004=BOPO, 005=NIM, 006=LDR, 007=LAR
- * NPL is NOT in MetricID=338 — falls through to banking-news.ts fallback.
+ * MetricID=331 (BU_LaporanPosisiKeuangan / balance sheet cube):
+ *   Axis1 (rows): balance sheet items × KBMI — includes DPK breakdown:
+ *     tabungan (savings), deposito (time deposits = hot money), giro, total DPK
+ *   Values: absolute IDR (scale TBD from cube; expected IDR miliar or triliun)
+ *   DB indicators: bank_dpk_idr_bn, bank_tabungan_idr_bn, bank_deposito_idr_bn,
+ *                  bank_deposito_share_pct
  *
- * DB indicators: bank_car_pct, bank_ldr_pct
+ * NPL is NOT in either cube — falls through to banking-news.ts fallback.
  * Freshness gate: 30d (OJK publishes monthly, ~30d lag)
  */
 
@@ -27,7 +31,9 @@ import { withBrowserPage } from './playwright-browser.js';
 import { getLatestPoint, upsertPoints } from '../time-series-db.js';
 import type { MacroDataPoint } from '../types.js';
 
-const OJK_DATASET_URL = 'https://data.ojk.go.id/SJKPublic/Dataset/Dataset/Dataset/338';
+const OJK_DATASET_338_URL = 'https://data.ojk.go.id/SJKPublic/Dataset/Dataset/Dataset/338';
+const OJK_DATASET_331_URL = 'https://data.ojk.go.id/SJKPublic/Dataset/Dataset/Dataset/331';
+const OJK_DATASET_URL = OJK_DATASET_338_URL; // backward compat alias used by fetchBankingRatiosSjkPublic
 const FRESHNESS_DAYS = 30;
 const NOW = () => new Date().toISOString();
 
@@ -211,6 +217,164 @@ export async function fetchBankingRatiosSjkPublic(): Promise<{
     if (toSave.length > 0) await upsertPoints(toSave);
 
     return { car: carPt, ldr: ldrPt };
+  } catch {
+    return empty;
+  }
+}
+
+// ─── MetricID=331: DPK breakdown (tabungan + deposito) ────────────────────────
+
+interface DpkExtracted {
+  tabungan: number | null;   // savings accounts (IDR bn)
+  deposito: number | null;   // time deposits — hot money (IDR bn)
+  dpkTotal: number | null;   // total Dana Pihak Ketiga (IDR bn)
+  date: string;
+}
+
+function extractDpk(ds: XmlaDataset): DpkExtracted | null {
+  const numCols = ds.axis0Tuples.length;
+  if (numCols < 2) return null;
+
+  // Find latest month column (same logic as extractRatios)
+  let latestColIdx = 0;
+  let latestMonthKey = '';
+  for (let i = 0; i < ds.axis0Tuples.length; i++) {
+    const cap0 = ds.axis0Tuples[i]!.captions[0] ?? '';
+    if (/^\d{4}-\d{2}$/.test(cap0) && cap0 > latestMonthKey) {
+      latestMonthKey = cap0;
+      latestColIdx = i;
+    }
+  }
+  if (!latestMonthKey) return null;
+
+  const [yr, mo] = latestMonthKey.split('-').map(Number) as [number, number];
+  const lastDay = new Date(yr, mo, 0).getDate();
+  const date = `${yr}-${String(mo).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+  let tabungan: number | null = null;
+  let deposito: number | null = null;
+  let dpkTotal: number | null = null;
+
+  for (let rowIdx = 0; rowIdx < ds.axis1Tuples.length; rowIdx++) {
+    const caps = ds.axis1Tuples[rowIdx]!.captions;
+    const rowCap = (caps[0] ?? '').toLowerCase();
+    const kbmiCap = (caps[1] ?? '').toLowerCase();
+
+    // Pick "All" KBMI rows only (total Bank Umum)
+    if (kbmiCap !== 'all') continue;
+
+    const ordinal = rowIdx * numCols + latestColIdx;
+    const rawVal = ds.cells.get(ordinal) ?? null;
+    if (rawVal === null || rawVal <= 0) continue;
+
+    // Scale detection: OJK MetricID=331 likely in IDR Miliar (billions IDR)
+    // Typical DPK Indonesia ~8,000+ trn IDR → value would be ~8,000,000 if miliar
+    // or ~8,000 if triliun. Accept any large positive value and normalise later.
+    const val = rawVal;
+
+    if (rowCap.includes('tabungan') && tabungan === null) {
+      tabungan = val;
+    } else if ((rowCap.includes('deposito') || rowCap.includes('deposit')) && deposito === null) {
+      deposito = val;
+    } else if (
+      (rowCap.includes('dana pihak ketiga') || rowCap.includes('total dpk') || rowCap.includes('dpk')) &&
+      dpkTotal === null
+    ) {
+      dpkTotal = val;
+    }
+  }
+
+  return { tabungan, deposito, dpkTotal, date };
+}
+
+/**
+ * Fetch Bank Umum DPK breakdown from OJK SJKPublic MetricID=331.
+ * Returns tabungan (savings), deposito (time deposits = hot money), total DPK, and deposito share.
+ * Replaces the broken fetchDpkDepositsTe() — TE deposits page is paywalled.
+ *
+ * deposito share > 55% = elevated hot money concentration (flight risk amplifier).
+ */
+export async function fetchBankingDpkSjkPublic(): Promise<{
+  dpk: MacroDataPoint | null;
+  tabungan: MacroDataPoint | null;
+  deposito: MacroDataPoint | null;
+  depositoSharePct: MacroDataPoint | null;
+}> {
+  const empty = { dpk: null, tabungan: null, deposito: null, depositoSharePct: null };
+
+  try {
+    // Freshness gate: skip if dpk is fresh (< 30d) from ojk_sjkpublic source
+    const cached = await getLatestPoint('bank_dpk_idr_bn');
+    const isFresh = cached !== null &&
+      cached.source === 'ojk_sjkpublic' &&
+      (Date.now() - new Date(cached.fetchedAt).getTime()) / 86_400_000 < FRESHNESS_DAYS;
+    if (isFresh) return empty;
+
+    const xmlaList = await withBrowserPage(async (page) => {
+      const captured: string[] = [];
+
+      page.on('response', async (response) => {
+        if (response.url().includes('/datasource/') && response.status() === 200) {
+          try {
+            const body = await response.text();
+            if (body.includes('CellData')) captured.push(body);
+          } catch { /* ignore */ }
+        }
+      });
+
+      await page.goto(OJK_DATASET_331_URL, { waitUntil: 'networkidle', timeout: 60_000 });
+      await page.waitForTimeout(6_000);
+      return captured;
+    });
+
+    if (!xmlaList || xmlaList.length === 0) return empty;
+
+    const bestXml = xmlaList.reduce((a, b) =>
+      (b.match(/<Cell CellOrdinal/g) ?? []).length > (a.match(/<Cell CellOrdinal/g) ?? []).length ? b : a
+    );
+
+    const ds = parseXmlaDataset(bestXml);
+    if (!ds || ds.cells.size === 0) return empty;
+
+    const ex = extractDpk(ds);
+    if (!ex) return empty;
+
+    // Normalise units: OJK likely publishes in IDR Miliar. DPK total ~8,000,000 miliar = ~8,000 trn.
+    // Detect scale: if dpkTotal > 1_000_000 → miliar (divide by 1000 to get bn); else already bn.
+    const scaleFactor = (ex.dpkTotal ?? 0) > 1_000_000 ? 1000 : 1;
+    const tobn = (v: number | null) => v !== null ? parseFloat((v / scaleFactor).toFixed(0)) : null;
+
+    const base = {
+      category: 'banking' as const,
+      source: 'ojk_sjkpublic',
+      fetchedAt: NOW(),
+      date: ex.date,
+    };
+
+    const dpkBn     = tobn(ex.dpkTotal);
+    const tabBn     = tobn(ex.tabungan);
+    const depBn     = tobn(ex.deposito);
+    const depShare  = dpkBn !== null && depBn !== null && dpkBn > 0
+      ? parseFloat(((depBn / dpkBn) * 100).toFixed(1))
+      : null;
+
+    const dpkPt = dpkBn !== null
+      ? { ...base, indicator: 'bank_dpk_idr_bn', value: dpkBn, unit: 'bn_IDR' } as MacroDataPoint
+      : null;
+    const tabPt = tabBn !== null
+      ? { ...base, indicator: 'bank_tabungan_idr_bn', value: tabBn, unit: 'bn_IDR' } as MacroDataPoint
+      : null;
+    const depPt = depBn !== null
+      ? { ...base, indicator: 'bank_deposito_idr_bn', value: depBn, unit: 'bn_IDR' } as MacroDataPoint
+      : null;
+    const sharePt = depShare !== null
+      ? { ...base, indicator: 'bank_deposito_share_pct', value: depShare, unit: '%' } as MacroDataPoint
+      : null;
+
+    const toSave = [dpkPt, tabPt, depPt, sharePt].filter((p): p is MacroDataPoint => p !== null);
+    if (toSave.length > 0) await upsertPoints(toSave);
+
+    return { dpk: dpkPt, tabungan: tabPt, deposito: depPt, depositoSharePct: sharePt };
   } catch {
     return empty;
   }
