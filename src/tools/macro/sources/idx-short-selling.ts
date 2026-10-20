@@ -21,18 +21,52 @@
  *   1. Env override  IDX_SHORT_SELL_VOLUME_IDR_BN — manual pin (e.g. from terminal/media)
  *   2. Exa neural    — media search (bisnis/kontan/bloombergtechnoz/cnbcindonesia/pasardana)
  *   3. Tavily        — broad Indonesian financial media fallback
- *   4. FlareSolverr  — if FLARESOLVERR_URL set (http://localhost:8191); bypasses CF "Attention Required"
+ *   4. cf_clearance cache — reuse solved CF cookie from FlareSolverr (25 min TTL, ~/.dexter/cf-clearance-idx.json)
+ *   5. FlareSolverr  — if FLARESOLVERR_URL set (http://localhost:8191); bypasses CF "Attention Required"
  *                      docker: docker run -p 8191:8191 ghcr.io/flaresolverr/flaresolverr:latest
+ *                      After successful solve, cf_clearance cookie saved for tier 4 reuse.
  *
  * NOTE: IDX launched intraday short selling Oct 2026 — data exists from Oct 2026 onward only.
  */
 
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { getLatestPoint, upsertPoints } from '../time-series-db.js';
 import type { MacroDataPoint } from '../types.js';
 
 const FRESHNESS_DAYS = 2;
 const NOW = () => new Date().toISOString();
 const TODAY = () => new Date().toISOString().slice(0, 10);
+
+// cf_clearance cookie cache — reuse after FlareSolverr solves CF challenge.
+// Avoids re-solving on every fetch; cookies typically last 30 minutes.
+const CF_CLEARANCE_PATH = (() => {
+  const base = process.env.DEXTER_DATA_DIR ?? (process.env.HOME ? `${process.env.HOME}/.dexter` : '.dexter');
+  return `${base}/cf-clearance-idx.json`;
+})();
+
+interface CfClearanceStore {
+  cookies: string; // cookie header value: "cf_clearance=xxx; __cf_bm=yyy"
+  userAgent: string;
+  savedAt: string;
+}
+
+function loadCfClearance(): CfClearanceStore | null {
+  try {
+    if (!existsSync(CF_CLEARANCE_PATH)) return null;
+    const store = JSON.parse(readFileSync(CF_CLEARANCE_PATH, 'utf-8')) as CfClearanceStore;
+    const ageMins = (Date.now() - new Date(store.savedAt).getTime()) / 60_000;
+    return ageMins < 25 ? store : null; // cf_clearance lasts ~30 min; use 25 min TTL
+  } catch { return null; }
+}
+
+function saveCfClearance(cookies: string, userAgent: string): void {
+  try {
+    const dir = CF_CLEARANCE_PATH.slice(0, CF_CLEARANCE_PATH.lastIndexOf('/'));
+    mkdirSync(dir, { recursive: true });
+    const store: CfClearanceStore = { cookies, userAgent, savedAt: NOW() };
+    writeFileSync(CF_CLEARANCE_PATH, JSON.stringify(store, null, 2), 'utf-8');
+  } catch { /* ignore */ }
+}
 
 const IDX_SHORT_SELL_URL = 'https://www.idx.co.id/en/market-data/stock-data/short-selling/';
 
@@ -182,10 +216,44 @@ async function fetchViaTavily(): Promise<IdxShortSellData | null> {
 }
 
 /**
+ * Plain fetch using cached cf_clearance cookie — avoids FlareSolverr re-solve.
+ * Works only while the 25-minute TTL cache is valid (cf_clearance lasts ~30 min).
+ */
+async function fetchViaCachedClearance(): Promise<IdxShortSellData | null> {
+  const store = loadCfClearance();
+  if (!store) return null;
+  try {
+    const res = await fetch(IDX_SHORT_SELL_URL, {
+      headers: {
+        'User-Agent': store.userAgent,
+        'Cookie': store.cookies,
+        'Accept': 'text/html,application/xhtml+xml,*/*;q=0.9',
+        'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8',
+      },
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    // If CF served a challenge page instead of the real page, bail
+    if (html.includes('Just a moment') || html.includes('Attention Required') || html.length < 500) return null;
+    const text = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/\s+/g, ' ');
+    const parsed = parseShortSellText(text);
+    if (parsed.volumeIdrBn === null) return null;
+    return { date: TODAY(), ...parsed, sourceUrl: IDX_SHORT_SELL_URL, fetchedAt: NOW() };
+  } catch { return null; }
+}
+
+/**
  * FlareSolverr bypass — handles Cloudflare "Attention Required" (binary-level CF detection).
  * Requires FLARESOLVERR_URL env (e.g. http://localhost:8191).
  * Run: docker run -p 8191:8191 ghcr.io/flaresolverr/flaresolverr:latest
- * Standard Playwright cannot bypass this CF tier (headless_shell is detectable via TLS + canvas fingerprint).
+ * Saves cf_clearance cookie to cache after successful solve; reused by fetchViaCachedClearance().
  */
 async function fetchViaFlareSolverr(): Promise<IdxShortSellData | null> {
   const solverrUrl = process.env.FLARESOLVERR_URL?.replace(/\/$/, '');
@@ -202,10 +270,25 @@ async function fetchViaFlareSolverr(): Promise<IdxShortSellData | null> {
       signal: AbortSignal.timeout(70_000),
     });
     if (!res.ok) return null;
-    const json = await res.json() as { solution?: { response?: string; status?: number } };
+    const json = await res.json() as {
+      solution?: {
+        response?: string;
+        status?: number;
+        cookies?: Array<{ name: string; value: string }>;
+        userAgent?: string;
+      };
+    };
     const html = json.solution?.response;
     if (!html || html.length < 500) return null;
-    // Strip HTML tags → plain text for regex parsing
+
+    // Cache cf_clearance + __cf_bm for subsequent plain-fetch reuse
+    const rawCookies = json.solution?.cookies ?? [];
+    if (rawCookies.length > 0) {
+      const cookieHeader = rawCookies.map(c => `${c.name}=${c.value}`).join('; ');
+      const ua = json.solution?.userAgent ?? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+      saveCfClearance(cookieHeader, ua);
+    }
+
     const text = html
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
@@ -261,13 +344,15 @@ export async function fetchIdxShortSelling(): Promise<IdxShortSellData | null> {
     }
   }
 
-  // Auto-fetch tier: Exa → Tavily → FlareSolverr (if FLARESOLVERR_URL set)
-  const data = (await fetchViaExa()) ?? (await fetchViaTavily()) ?? (await fetchViaFlareSolverr());
+  // Auto-fetch tier: Exa → Tavily → cf_clearance cache → FlareSolverr (if FLARESOLVERR_URL set)
+  const data = (await fetchViaExa()) ?? (await fetchViaTavily()) ?? (await fetchViaCachedClearance()) ?? (await fetchViaFlareSolverr());
   if (!data || data.volumeIdrBn === null) return null;
 
-  const source = process.env.FLARESOLVERR_URL && !process.env.EXASEARCH_API_KEY && !process.env.TAVILY_API_KEY
-    ? 'flaresolverr'
-    : 'exa_media_search';
+  const source = process.env.EXASEARCH_API_KEY || process.env.TAVILY_API_KEY
+    ? 'exa_media_search'
+    : process.env.FLARESOLVERR_URL
+      ? 'flaresolverr'
+      : 'cf_clearance_cache';
 
   const points: MacroDataPoint[] = [{
     indicator: 'idx_short_sell_volume_idr_bn',

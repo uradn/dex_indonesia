@@ -42,6 +42,15 @@ function saveCookieStore(cookies: Record<string, unknown>[]): void {
   } catch { /* ignore */ }
 }
 
+// Stealth script: mask automation signals detected by CF JS challenge (managed tier).
+// Does NOT bypass "Attention Required" (binary CF tier) — that requires FlareSolverr.
+const STEALTH_SCRIPT = `
+  Object.defineProperty(navigator, 'webdriver', { get: () => false });
+  Object.defineProperty(navigator, 'plugins', { get: () => [1,2,3,4,5] });
+  Object.defineProperty(navigator, 'languages', { get: () => ['id-ID','id','en-US','en'] });
+  window.chrome = { runtime: {}, loadTimes: () => ({}), csi: () => ({}), app: {} };
+`;
+
 async function getContext(): Promise<BrowserContext> {
   if (!browser || !browser.isConnected()) {
     browser = await chromium.launch({
@@ -58,11 +67,13 @@ async function getContext(): Promise<BrowserContext> {
   }
   if (!context) {
     context = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      // Chrome 128 on macOS to match cf_clearance cookies obtained via FlareSolverr UA
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
       viewport: { width: 1280, height: 800 },
       locale: 'id-ID',
       timezoneId: 'Asia/Jakarta',
     });
+    await context.addInitScript(STEALTH_SCRIPT);
     // Restore persisted cookies
     const saved = loadCookieStore();
     if (saved.length > 0) {
