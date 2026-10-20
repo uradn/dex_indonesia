@@ -31,6 +31,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { getLatestPoint, upsertPoints } from '../time-series-db.js';
+import { injectCookies } from './playwright-browser.js';
 import type { MacroDataPoint } from '../types.js';
 
 const FRESHNESS_DAYS = 2;
@@ -281,12 +282,14 @@ async function fetchViaFlareSolverr(): Promise<IdxShortSellData | null> {
     const html = json.solution?.response;
     if (!html || html.length < 500) return null;
 
-    // Cache cf_clearance + __cf_bm for subsequent plain-fetch reuse
+    // Cache cf_clearance for (a) plain-fetch reuse and (b) Playwright context injection
     const rawCookies = json.solution?.cookies ?? [];
     if (rawCookies.length > 0) {
       const cookieHeader = rawCookies.map(c => `${c.name}=${c.value}`).join('; ');
       const ua = json.solution?.userAgent ?? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
       saveCfClearance(cookieHeader, ua);
+      // Inject into Playwright context + disk store → idx.ts / ihsg.ts Playwright tiers reuse clearance
+      void injectCookies(rawCookies);
     }
 
     const text = html

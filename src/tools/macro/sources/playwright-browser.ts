@@ -220,6 +220,27 @@ export async function withBrowserPage<T>(
   }
 }
 
+/**
+ * Inject cookies into the running browser context AND persist to disk.
+ * Called by external sources (e.g. idx-short-selling) after FlareSolverr
+ * obtains a cf_clearance cookie — allows Playwright tiers for idx.co.id
+ * to reuse the solved challenge without re-solving via FlareSolverr.
+ */
+export async function injectCookies(
+  cookies: Array<{ name: string; value: string; domain?: string; path?: string; expires?: number; secure?: boolean; httpOnly?: boolean; sameSite?: string }>,
+): Promise<void> {
+  try {
+    if (context) {
+      await context.addCookies(cookies as Parameters<BrowserContext['addCookies']>[0]);
+    }
+    // Also merge into the on-disk store for next cold start
+    const existing = loadCookieStore();
+    const names = new Set(cookies.map(c => c.name));
+    const merged = existing.filter(c => !(c as Record<string, unknown>)['name'] || !names.has((c as Record<string, unknown>)['name'] as string));
+    saveCookieStore([...merged, ...cookies] as Record<string, unknown>[]);
+  } catch { /* ignore */ }
+}
+
 /** Gracefully shut down browser (call on process exit if needed). */
 export async function closeBrowser(): Promise<void> {
   await context?.close().catch(() => undefined);
