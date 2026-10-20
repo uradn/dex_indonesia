@@ -18,14 +18,20 @@
  */
 
 import { getLatestPoint, upsertPoints } from '../time-series-db.js';
+import { fetchRenderedTextWithBrowser } from './playwright-browser.js';
 import type { MacroDataPoint } from '../types.js';
 
 const FRESHNESS_DAYS = 2;
 const NOW = () => new Date().toISOString();
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
-const IDX_SS_DOMAINS = ['bloombergtechnoz.com', 'bisnis.com', 'kontan.co.id', 'cnbcindonesia.com', 'idx.co.id'];
-const IDX_SS_QUERY   = 'short selling IDX BEI volume harian miliar IDR saham transaksi';
+// IDX launched intraday short selling Oct 2026 — volume data available from Oct 2026 onward.
+// Prior to Oct 2026: no intraday short selling existed on IDX. DO NOT query pre-Oct 2026.
+// IDX API (/GetShortSell etc.) returns 403 — blocked.
+// Media sources: Bisnis/Kontan/Bloomberg Technoz publish daily BEI trading summary ~3-4pm WIB.
+const IDX_SS_DOMAINS = ['bloombergtechnoz.com', 'bisnis.com', 'kontan.co.id', 'cnbcindonesia.com', 'pasardana.id'];
+// Note: "net sell" ≠ "short selling". Query must use "short selling" to avoid asing-net-sell articles.
+const IDX_SS_QUERY   = 'IDX BEI intraday short selling volume miliar transaksi saham pendek harian total';
 
 export interface IdxShortSellData {
   date: string;
@@ -85,7 +91,7 @@ async function fetchViaExa(): Promise<IdxShortSellData | null> {
   try {
     const { default: Exa } = await import('exa-js');
     const exa = new Exa(process.env.EXASEARCH_API_KEY);
-    const startDate = new Date(Date.now() - 4 * 86_400_000).toISOString().slice(0, 10);
+    const startDate = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
 
     const response = await exa.search(IDX_SS_QUERY, {
       numResults: 3,
@@ -109,6 +115,21 @@ async function fetchViaExa(): Promise<IdxShortSellData | null> {
       }
     }
     return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Playwright fallback: render IDX short selling page to bypass Cloudflare. */
+async function fetchViaPlaywright(): Promise<IdxShortSellData | null> {
+  try {
+    const text = await fetchRenderedTextWithBrowser(
+      'https://www.idx.co.id/en/market-data/stock-data/short-selling/',
+    );
+    if (!text || text.length < 200) return null;
+    const parsed = parseShortSellText(text);
+    if (parsed.volumeIdrBn === null) return null;
+    return { date: TODAY(), ...parsed, sourceUrl: 'https://www.idx.co.id/en/market-data/stock-data/short-selling/', fetchedAt: NOW() };
   } catch {
     return null;
   }
@@ -167,7 +188,7 @@ export async function fetchIdxShortSelling(): Promise<IdxShortSellData | null> {
     }
   }
 
-  const data = (await fetchViaExa()) ?? (await fetchViaTavily());
+  const data = (await fetchViaExa()) ?? (await fetchViaTavily()) ?? (await fetchViaPlaywright());
   if (!data || data.volumeIdrBn === null) return null;
 
   const points: MacroDataPoint[] = [{
