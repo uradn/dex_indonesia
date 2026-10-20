@@ -32,6 +32,7 @@ const ENV_VARS: Array<{ name: string; required: boolean; feature: string }> = [
   { name: 'BANK_LDR_PCT',                       required: false, feature: 'M8 banking LDR override (same OJK source)' },
   { name: 'MSCI_CLASSIFICATION_STATUS',         required: false, feature: 'M5 MSCI status override (default: auto-detect)' },
   { name: 'PERTALITE_PRICE_IDR',                required: false, feature: 'M11 BBM subsidy gap override on price hike' },
+  { name: 'SBN_FOREIGN_OWNERSHIP_PCT',          required: false, feature: 'M5/M2 SBN non-resident ownership % — pin when DJPPR geo-IP blocks Playwright (target ≤5d fresh)' },
 ];
 
 function loadEnv(): Record<string, string> {

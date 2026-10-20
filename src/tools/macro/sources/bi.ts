@@ -207,6 +207,26 @@ export async function fetchBiOfficialRate(): Promise<MacroDataPoint | null> {
  *   Section B "Dalam Persentase" → "Non Residen" row → last TOTAL% value (9th triplet).
  */
 export async function fetchSbnForeignOwnership(): Promise<MacroDataPoint | null> {
+  // Env override — manual pin (DNDF pattern). Use when DJPPR TCP-blocks non-ID IPs.
+  // Source: DJPPR daily kepemilikan SBN page or BI/Kemenkeu press releases.
+  const envVal = process.env.SBN_FOREIGN_OWNERSHIP_PCT;
+  if (envVal) {
+    const v = parseFloat(envVal);
+    if (!isNaN(v) && v >= 5 && v <= 50) {
+      const pt: MacroDataPoint = {
+        indicator: 'sbn_foreign_ownership_pct',
+        category: 'sovereign',
+        date: TODAY(),
+        value: v,
+        unit: '%',
+        source: 'env_manual',
+        fetchedAt: NOW(),
+      };
+      await upsertPoints([pt]);
+      return pt;
+    }
+  }
+
   // 1. Get page HTML (Playwright) to extract first API media link + date text
   const [html, renderedText] = await Promise.all([
     fetchHtmlWithBrowser(DJPPR_OWNERSHIP_URL),

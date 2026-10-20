@@ -207,6 +207,12 @@ ULN_SHORTTERM_PCT          # short-term debt as % of total ULN; current 15.47 (S
 # Standalone timeline: consultation→Apr 30 2027, decision→Jun 30 2027, impl→Sep-Dec 2027
 MSCI_CLASSIFICATION_STATUS # current: downgrade_risk (Oct 15 2026 Standalone consultation)
 
+# M5 SBN foreign ownership — DJPPR TCP-blocks non-Indonesian IPs intermittently (geo-IP / govt firewall).
+# Source: DJPPR daily page https://djppr.kemenkeu.go.id/kepemilikansbndomestikyangdapatdiperdagangkan
+# or Kemenkeu/BI press releases. Range 5–50%; current ~14% (mid-2026). Freshness target ≤5d.
+# Update when Playwright DJPPR fetch fails (health-check shows sbn_foreign_ownership_pct YELLOW).
+SBN_FOREIGN_OWNERSHIP_PCT  # % non-resident SBN holdings; e.g. 14.2; env wins over Playwright/PDF scrape
+
 # M8 Banking manual pin — from OJK SPI monthly press release (~30-45 days after month end)
 FINTECH_NPL_PCT            # P2P lending NPL gross %; OJK WAF blocks auto-scrape; current 5.0 (Jun 2026)
 
