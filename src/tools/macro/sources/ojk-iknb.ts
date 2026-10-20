@@ -21,9 +21,12 @@
  *   low growth  + high NPL → CREDIT_CYCLE_TURN (contraction + defaults)
  *
  * DATA SOURCE:
- *   Exa/Tavily search: OJK IKNB press releases + kontan.co.id/bisnis.com coverage.
- *   ojk.go.id itself not indexed by Exa; news coverage is reliable proxy.
- *   30-day freshness gate (monthly release cadence, ~6-week lag).
+ *   Tier 0: FINTECH_NPL_PCT env override — manual pin from OJK SPI press release.
+ *   Tier 1: Exa neural — media + OJK Siaran Pers coverage (kontan/bisnis/cnbcindonesia).
+ *   Tier 2: Tavily — broad Indonesian financial media fallback.
+ *   ojk.go.id direct (Excel/API) blocked by F5 BIG-IP WAF; Exa/Tavily is the only
+ *   automated path. Monthly release cadence, ~6-week pub lag.
+ *   30-day freshness gate.
  *
  * DB INDICATORS:
  *   fintech_npl_pct                — NPL/NPB rate fintech lending %
@@ -39,9 +42,16 @@ const FRESHNESS_DAYS = 30;
 const IKNB_DOMAINS = [
   'kontan.co.id', 'bisnis.com', 'cnbcindonesia.com',
   'ojk.go.id', 'republika.co.id', 'infobanknews.com',
+  'finansial.bisnis.com', 'investor.id', 'idxchannel.com',
 ];
+
+// OJK uses "NPB" (Non-Performing Borrower) for fintech; "NPL" in headlines; both covered.
+// "Siaran Pers OJK" + "IKNB" = official press release language. "pembiayaan bermasalah" = NPL in Indonesian.
 const IKNB_QUERY =
-  'OJK fintech lending paylater BNPL pembiayaan bermasalah NPL outstanding triliun 2026';
+  '(OJK IKNB "fintech lending" OR "pinjaman online" OR "P2P lending") ' +
+  '("pembiayaan bermasalah" OR NPB OR NPL OR TKB90) ' +
+  '(triliun OR outstanding OR penyaluran) 2026 ' +
+  'OR "Siaran Pers OJK" IKNB fintech NPB 2026';
 
 /** Parse Indonesian number: "56,3" → 56.3, "1.500" → 1500 */
 function parseIdNumber(s: string): number | null {
@@ -68,6 +78,15 @@ interface FintechLendingRaw {
 }
 
 function parseFintechText(text: string): FintechLendingRaw {
+  // TKB90 = tingkat keberhasilan bayar 90 (success rate); NPB = 100 - TKB90
+  let tkb90: number | null = null;
+  const tkb90Raw = parseFirst(
+    text,
+    /TKB90[\s\S]{0,40}?([\d,]+)\s*%/i,
+    /tingkat\s+keberhasilan\s+(?:bayar\s+)?90[\s\S]{0,40}?([\d,]+)\s*%/i,
+  );
+  if (tkb90Raw !== null && tkb90Raw >= 0 && tkb90Raw <= 100) tkb90 = tkb90Raw;
+
   const fintechNplPct = parseFirst(
     text,
     /rasio\s+pembiayaan\s+bermasalah[\s\S]{0,80}?([\d,]+)\s*%/i,
@@ -75,7 +94,7 @@ function parseFintechText(text: string): FintechLendingRaw {
     /NPB[\s\S]{0,60}?([\d,]+)\s*%/i,
     /NPL\s+fintech[\s\S]{0,60}?([\d,]+)\s*%/i,
     /pembiayaan\s+bermasalah[\s\S]{0,40}?([\d,]+)\s*%/i,
-  );
+  ) ?? (tkb90 !== null ? parseFloat((100 - tkb90).toFixed(2)) : null);
 
   const outstandingIdrT = parseFirst(
     text,
@@ -104,11 +123,11 @@ async function fetchViaExa(daysBack: number): Promise<FintechLendingRaw | null> 
     const startDate = new Date(Date.now() - daysBack * 86_400_000).toISOString().slice(0, 10);
 
     const response = await exa.search(IKNB_QUERY, {
-      numResults: 3,
+      numResults: 5,
       type: 'auto',
       startPublishedDate: startDate,
       includeDomains: IKNB_DOMAINS,
-      contents: { text: { maxCharacters: 3000 } },
+      contents: { text: { maxCharacters: 4000 } },
     } as Parameters<typeof exa.search>[1]);
 
     for (const r of (response.results ?? [])) {
@@ -131,7 +150,7 @@ async function fetchViaTavily(daysBack: number): Promise<FintechLendingRaw | nul
 
     const response = await tavily.rawResults({
       query: IKNB_QUERY,
-      max_results: 3,
+      max_results: 5,
       include_domains: IKNB_DOMAINS,
       include_raw_content: true,
       time_range: 'month',
@@ -170,6 +189,22 @@ export async function fetchFintechLendingOjkIknb(): Promise<FintechLendingData |
         outstandingIdrT: cachedOutstanding?.value ?? null,
         growthYoyPct: cachedGrowth?.value ?? null,
       };
+    }
+  }
+
+  // Tier 0: env override — wins over all auto-fetch (DNDF pattern)
+  // ojk.go.id blocks all direct requests (F5 BIG-IP WAF); update manually from OJK SPI press release.
+  const envNpl = process.env.FINTECH_NPL_PCT;
+  if (envNpl) {
+    const v = parseFloat(envNpl);
+    if (!isNaN(v) && v > 0 && v < 100) {
+      const date = new Date().toISOString().slice(0, 10);
+      const fetchedAt = new Date().toISOString();
+      await upsertPoints([{
+        indicator: 'fintech_npl_pct', category: 'banking',
+        date, value: v, unit: '%', source: 'env_manual', fetchedAt,
+      }]);
+      return { fintechNplPct: v, outstandingIdrT: null, growthYoyPct: null };
     }
   }
 
