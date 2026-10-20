@@ -7,9 +7,9 @@
  * Note (audited 2026-05-27):
  *   - Old OJK SPI page (pre-July 2025): Excel downloads accessible via Playwright with OJK cookies.
  *     Most recent available: June 2025.
- *   - New OJK portal (July 2025+): data.ojk.go.id/SJKPublic — MetricID 338 (Rasio Keuangan,
- *     Bank Umum, IndustriID=45). Portal is DevExtreme SPA; download endpoint not yet identified.
- *     TODO: implement new portal scraper for more recent data.
+ *   - New OJK portal (July 2025+): data.ojk.go.id/SJKPublic — implemented in ojk-sjkpublic.ts
+ *     (Playwright XMLA intercept, CAR + LDR only; NPL not in MetricID=338 Rasio Keuangan).
+ *     This file kept as NPL fallback only.
  *   - Data staleness is clearly marked in MacroDataPoint.date.
  *   - DB caches last known value if live fetch fails.
  *

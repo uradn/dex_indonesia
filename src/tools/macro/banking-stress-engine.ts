@@ -5,6 +5,7 @@ import { upsertPoints, getLatestPoint, getHistory } from './time-series-db.js';
 import { getFreshPoint, stalenessFlag } from './freshness.js';
 import { alertFromScore, alertLabel } from './scoring.js';
 import { fetchBankingRatiosOjk } from './sources/ojk.js';
+import { fetchBankingRatiosSjkPublic } from './sources/ojk-sjkpublic.js';
 import { fetchBankingKpisNews } from './sources/banking-news.js';
 import { fetchFintechLendingOjkIknb } from './sources/ojk-iknb.js';
 import { fetchIndoniaRateTe, fetchExternalDebtTe, fetchIhprTe, fetchNplTe, fetchLdrTe, fetchCarTe, fetchM2MoneySupplyTe, fetchDpkDepositsTe, fetchNplWorldBank, fetchM2WorldBank } from './sources/sovereign-scraper.js';
@@ -39,8 +40,8 @@ Tracks Indonesia's banking sector health and hidden credit cycle stress. Detects
 
 ## Data Sources
 
-- NPL / LDR / CAR: OJK SPI Excel (Playwright, monthly, ~11 month lag due to portal migration)
-  TODO: new OJK portal (data.ojk.go.id) for July 2025+ data
+- CAR / LDR: OJK SJKPublic portal (data.ojk.go.id, Playwright XMLA intercept, monthly, Jul 2025+)
+- NPL: OJK SPI Excel fallback (legacy portal, Jun 2025 max) → news scrape → World Bank
 - IndONIA 3M: Trading Economics scraper (Playwright, monthly) — BI discontinued JIBOR Dec 2023
 - BI Rate (for spread): macro DB (from sovereign_risk_engine last run)
 - External Debt: Trading Economics scraper (Playwright, quarterly, source: Bank Indonesia)
@@ -236,7 +237,15 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   ratios.car = envOverride('BANK_CAR_PCT', 'bank_car_pct', 12, 35);
 
   if (!kpisFresh) {
-    // Tier 1: OJK SPI Playwright (legacy portal, stuck at Jun 2025; new data.ojk.go.id WAF-blocked)
+    // Tier 1: OJK SJKPublic portal (data.ojk.go.id — live Jul 2025+, CAR+LDR only; NPL not in MetricID=338)
+    if (!ratios.ldr || !ratios.car) {
+      const sjkResult = await fetchBankingRatiosSjkPublic().catch(() => null);
+      if (sjkResult) {
+        ratios.ldr ??= sjkResult.ldr;
+        ratios.car ??= sjkResult.car;
+      }
+    }
+    // Tier 2: OJK SPI Playwright (legacy portal, stuck at Jun 2025; kept as NPL fallback)
     if (!ratios.npl || !ratios.ldr || !ratios.car) {
       const ojkResult = await fetchBankingRatiosOjk().catch(() => null);
       if (ojkResult) {
