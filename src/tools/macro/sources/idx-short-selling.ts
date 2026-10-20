@@ -1,9 +1,10 @@
 /**
- * IDX daily short selling volume — via Exa/Tavily media search.
+ * IDX daily short selling volume — via Exa/Tavily media search or FlareSolverr.
  *
  * IDX publishes short selling data daily after market close.
- * IDX API endpoints (/GetShortSellSummary etc.) return 403 — blocked.
- * Media sources (Bloomberg Technoz, Bisnis, Kontan, CNBC Indonesia) report daily figures.
+ * IDX direct pages (idx.co.id) return Cloudflare "Attention Required" — headless Playwright
+ * cannot bypass this tier (binary-level Chrome detection). FlareSolverr (undetected-chromedriver)
+ * handles it when running locally.
  *
  * WHY IT MATTERS:
  *   Rising short selling = institutional shorts building → bearish conviction signal.
@@ -15,23 +16,37 @@
  *   idx_short_sell_pct_volume     — short sell as % of total IHSG volume (if available)
  *
  * FRESHNESS: 2-day gate (daily publication)
+ *
+ * DATA SOURCE TIER ORDER:
+ *   1. Env override  IDX_SHORT_SELL_VOLUME_IDR_BN — manual pin (e.g. from terminal/media)
+ *   2. Exa neural    — media search (bisnis/kontan/bloombergtechnoz/cnbcindonesia/pasardana)
+ *   3. Tavily        — broad Indonesian financial media fallback
+ *   4. FlareSolverr  — if FLARESOLVERR_URL set (http://localhost:8191); bypasses CF "Attention Required"
+ *                      docker: docker run -p 8191:8191 ghcr.io/flaresolverr/flaresolverr:latest
+ *
+ * NOTE: IDX launched intraday short selling Oct 2026 — data exists from Oct 2026 onward only.
  */
 
 import { getLatestPoint, upsertPoints } from '../time-series-db.js';
-import { fetchRenderedTextWithBrowser } from './playwright-browser.js';
 import type { MacroDataPoint } from '../types.js';
 
 const FRESHNESS_DAYS = 2;
 const NOW = () => new Date().toISOString();
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
-// IDX launched intraday short selling Oct 2026 — volume data available from Oct 2026 onward.
-// Prior to Oct 2026: no intraday short selling existed on IDX. DO NOT query pre-Oct 2026.
-// IDX API (/GetShortSell etc.) returns 403 — blocked.
-// Media sources: Bisnis/Kontan/Bloomberg Technoz publish daily BEI trading summary ~3-4pm WIB.
-const IDX_SS_DOMAINS = ['bloombergtechnoz.com', 'bisnis.com', 'kontan.co.id', 'cnbcindonesia.com', 'pasardana.id'];
-// Note: "net sell" ≠ "short selling". Query must use "short selling" to avoid asing-net-sell articles.
-const IDX_SS_QUERY   = 'IDX BEI intraday short selling volume miliar transaksi saham pendek harian total';
+const IDX_SHORT_SELL_URL = 'https://www.idx.co.id/en/market-data/stock-data/short-selling/';
+
+const IDX_SS_DOMAINS = [
+  'bloombergtechnoz.com', 'bisnis.com', 'kontan.co.id',
+  'cnbcindonesia.com', 'pasardana.id', 'detik.com', 'kompas.com',
+];
+
+// Broad query: cover both media articles AND IDX trading summary recaps
+const IDX_SS_QUERY =
+  'IDX BEI "short selling" volume nilai transaksi total harian miliar IDR ' +
+  'OR "ringkasan perdagangan" "short selling" BEI ' +
+  'OR "rekap transaksi" "short selling" bursa efek indonesia ' +
+  'OR "transaksi short sell" BEI miliar';
 
 export interface IdxShortSellData {
   date: string;
@@ -57,30 +72,43 @@ function parseShortSellText(text: string): { volumeIdrBn: number | null; pctOfTo
     return null;
   };
 
-  // Volume patterns (IDR billions / trillions — normalize to bn)
+  // Volume patterns — IDR billions (narrative text from media articles)
   let volumeIdrBn = matchNum(text,
     /short.?sell(?:ing)?\s+(?:sebesar\s+)?Rp\s*([\d.,]+)\s*(?:miliar|billion)/i,
     /transaksi\s+short.?sell(?:ing)?\s+(?:mencapai\s+)?Rp\s*([\d.,]+)\s*(?:miliar|billion)/i,
     /short.?sell(?:ing)?\s+(?:volume\s+)?(?:senilai\s+)?Rp\s*([\d.,]+)\s*(?:miliar|billion)/i,
     /nilai\s+short.?sell(?:ing)?\s+Rp\s*([\d.,]+)\s*(?:miliar|billion)/i,
+    /nilai\s+transaksi\s+short.?sell(?:ing)?[^.]*?([\d.,]+)\s*(?:miliar|Miliar)/i,
   );
 
   // Trillion IDR → convert to bn
   const volumeTrn = matchNum(text,
     /short.?sell(?:ing)?\s+(?:sebesar\s+)?Rp\s*([\d.,]+)\s*triliun/i,
     /transaksi\s+short.?sell(?:ing)?[^.]*?Rp\s*([\d.,]+)\s*triliun/i,
+    /nilai\s+transaksi\s+short.?sell(?:ing)?[^.]*?([\d.,]+)\s*(?:triliun|Triliun)/i,
   );
   if (volumeTrn !== null && volumeIdrBn === null) {
     volumeIdrBn = volumeTrn * 1000;
   }
 
-  // Sanity: IDX daily short selling typically 100–10,000 IDR bn
-  if (volumeIdrBn !== null && (volumeIdrBn < 10 || volumeIdrBn > 50_000)) volumeIdrBn = null;
+  // IDX page table format: "Nilai Transaksi Short Selling (Juta Rp)" column — convert juta→bn
+  // Table cells appear as bare numbers after HTML stripping: look for large round numbers near SS context
+  if (volumeIdrBn === null) {
+    const jutaMatch = matchNum(text,
+      /nilai\s+transaksi\s+short\s+selling[^0-9]*([\d.,]+)\s*(?:juta|Juta)/i,
+      /short\s+selling[^0-9]{0,30}([\d.,]+)\s*(?:juta|Juta)/i,
+    );
+    if (jutaMatch !== null) volumeIdrBn = jutaMatch / 1000; // juta → bn
+  }
+
+  // Sanity: IDX daily short selling typically 10–50,000 IDR bn
+  if (volumeIdrBn !== null && (volumeIdrBn < 1 || volumeIdrBn > 100_000)) volumeIdrBn = null;
 
   // Percentage of total volume
   const pctOfTotalVolume = matchNum(text,
     /short.?sell(?:ing)?[^.]*?([\d.,]+)\s*%\s+(?:dari\s+total|of\s+total)/i,
     /porsi\s+short.?sell(?:ing)?[^.]*?([\d.,]+)\s*%/i,
+    /short.?sell(?:ing)?[^.]*?(?:porsi|bagian)[^.]*?([\d.,]+)\s*%/i,
   );
 
   return { volumeIdrBn, pctOfTotalVolume };
@@ -94,11 +122,11 @@ async function fetchViaExa(): Promise<IdxShortSellData | null> {
     const startDate = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
 
     const response = await exa.search(IDX_SS_QUERY, {
-      numResults: 3,
+      numResults: 5,
       type: 'auto',
       startPublishedDate: startDate,
       includeDomains: IDX_SS_DOMAINS,
-      contents: { text: { maxCharacters: 2000 } },
+      contents: { text: { maxCharacters: 3000 } },
     } as Parameters<typeof exa.search>[1]);
 
     for (const r of (response.results ?? [])) {
@@ -120,21 +148,6 @@ async function fetchViaExa(): Promise<IdxShortSellData | null> {
   }
 }
 
-/** Playwright fallback: render IDX short selling page to bypass Cloudflare. */
-async function fetchViaPlaywright(): Promise<IdxShortSellData | null> {
-  try {
-    const text = await fetchRenderedTextWithBrowser(
-      'https://www.idx.co.id/en/market-data/stock-data/short-selling/',
-    );
-    if (!text || text.length < 200) return null;
-    const parsed = parseShortSellText(text);
-    if (parsed.volumeIdrBn === null) return null;
-    return { date: TODAY(), ...parsed, sourceUrl: 'https://www.idx.co.id/en/market-data/stock-data/short-selling/', fetchedAt: NOW() };
-  } catch {
-    return null;
-  }
-}
-
 async function fetchViaTavily(): Promise<IdxShortSellData | null> {
   if (!process.env.TAVILY_API_KEY) return null;
   try {
@@ -143,7 +156,7 @@ async function fetchViaTavily(): Promise<IdxShortSellData | null> {
 
     const response = await tavily.rawResults({
       query: IDX_SS_QUERY,
-      max_results: 3,
+      max_results: 5,
       include_domains: IDX_SS_DOMAINS,
       include_raw_content: true,
       time_range: 'week',
@@ -169,10 +182,51 @@ async function fetchViaTavily(): Promise<IdxShortSellData | null> {
 }
 
 /**
+ * FlareSolverr bypass — handles Cloudflare "Attention Required" (binary-level CF detection).
+ * Requires FLARESOLVERR_URL env (e.g. http://localhost:8191).
+ * Run: docker run -p 8191:8191 ghcr.io/flaresolverr/flaresolverr:latest
+ * Standard Playwright cannot bypass this CF tier (headless_shell is detectable via TLS + canvas fingerprint).
+ */
+async function fetchViaFlareSolverr(): Promise<IdxShortSellData | null> {
+  const solverrUrl = process.env.FLARESOLVERR_URL?.replace(/\/$/, '');
+  if (!solverrUrl) return null;
+  try {
+    const res = await fetch(`${solverrUrl}/v1`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cmd: 'request.get',
+        url: IDX_SHORT_SELL_URL,
+        maxTimeout: 60000,
+      }),
+      signal: AbortSignal.timeout(70_000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json() as { solution?: { response?: string; status?: number } };
+    const html = json.solution?.response;
+    if (!html || html.length < 500) return null;
+    // Strip HTML tags → plain text for regex parsing
+    const text = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/\s+/g, ' ');
+    const parsed = parseShortSellText(text);
+    if (parsed.volumeIdrBn === null) return null;
+    return { date: TODAY(), ...parsed, sourceUrl: IDX_SHORT_SELL_URL, fetchedAt: NOW() };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fetch IDX daily short selling volume. 2-day freshness gate.
- * Returns null if no data found.
+ * Returns null if no data found (all sources exhausted).
  */
 export async function fetchIdxShortSelling(): Promise<IdxShortSellData | null> {
+  // Freshness gate
   const cached = await getLatestPoint('idx_short_sell_volume_idr_bn');
   if (cached) {
     const ageDays = (Date.now() - new Date(cached.fetchedAt).getTime()) / 86_400_000;
@@ -188,8 +242,32 @@ export async function fetchIdxShortSelling(): Promise<IdxShortSellData | null> {
     }
   }
 
-  const data = (await fetchViaExa()) ?? (await fetchViaTavily()) ?? (await fetchViaPlaywright());
+  // Env override — manual pin (DNDF pattern); wins over all auto-fetch
+  const envOverride = process.env.IDX_SHORT_SELL_VOLUME_IDR_BN;
+  if (envOverride) {
+    const v = parseFloat(envOverride);
+    if (!isNaN(v) && v > 0) {
+      const pt: MacroDataPoint = {
+        indicator: 'idx_short_sell_volume_idr_bn',
+        category: 'regime',
+        date: TODAY(),
+        value: v,
+        unit: 'bn_IDR',
+        source: 'env_manual',
+        fetchedAt: NOW(),
+      };
+      await upsertPoints([pt]);
+      return { date: TODAY(), volumeIdrBn: v, pctOfTotalVolume: null, sourceUrl: null, fetchedAt: NOW() };
+    }
+  }
+
+  // Auto-fetch tier: Exa → Tavily → FlareSolverr (if FLARESOLVERR_URL set)
+  const data = (await fetchViaExa()) ?? (await fetchViaTavily()) ?? (await fetchViaFlareSolverr());
   if (!data || data.volumeIdrBn === null) return null;
+
+  const source = process.env.FLARESOLVERR_URL && !process.env.EXASEARCH_API_KEY && !process.env.TAVILY_API_KEY
+    ? 'flaresolverr'
+    : 'exa_media_search';
 
   const points: MacroDataPoint[] = [{
     indicator: 'idx_short_sell_volume_idr_bn',
@@ -197,7 +275,7 @@ export async function fetchIdxShortSelling(): Promise<IdxShortSellData | null> {
     date: data.date,
     value: data.volumeIdrBn,
     unit: 'bn_IDR',
-    source: 'exa_media_search',
+    source,
     fetchedAt: data.fetchedAt,
   }];
 
@@ -208,7 +286,7 @@ export async function fetchIdxShortSelling(): Promise<IdxShortSellData | null> {
       date: data.date,
       value: data.pctOfTotalVolume,
       unit: '%',
-      source: 'exa_media_search',
+      source,
       fetchedAt: data.fetchedAt,
     });
   }

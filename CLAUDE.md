@@ -217,6 +217,11 @@ USDIDR_NDF_1M_RATE         # offshore IDR NDF 1-month rate (IDR/USD, e.g. 18200)
 HIMBARA_AT1_SECONDARY_PCT  # HIMBARA AT1 secondary price (% of par, e.g. 87.5); <80=stress, <90=watch
 # M9 Market Stress
 IDX_LAST_CIRCUIT_BREAKER_DATE  # YYYY-MM-DD; update when circuit breaker fires (−8% intraday halt); flag active 30d
+IDX_SHORT_SELL_VOLUME_IDR_BN   # IDR billions; manual pin when you see figure in media/terminal (IDX Oct 2026 feature, media coverage thin)
+# IDX Cloudflare bypass — idx.co.id blocks headless Playwright ("Attention Required" tier)
+# Run FlareSolverr then set this env for direct IDX page scraping:
+#   docker run -p 8191:8191 ghcr.io/flaresolverr/flaresolverr:latest
+FLARESOLVERR_URL               # e.g. http://localhost:8191 — enables fetchViaFlareSolverr() in idx-short-selling.ts
 
 # Brent ICP threshold alert — crontab every 4h, macOS notification + flag file
 BRENT_ALERT_THRESHOLD      # USD/bbl — default 99 (warn $1 before Bahlil $100 commitment breaks)
