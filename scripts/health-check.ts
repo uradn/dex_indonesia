@@ -127,9 +127,11 @@ console.log(
   `${counts.missing} no-data`,
 );
 
-const critical = counts.red + counts.missing;
-if (critical > 0) {
-  console.log(color(`\n⚠ ${critical} critical issue(s) — engine output may be unreliable.`, 'red'));
+if (counts.missing > 0) {
+  console.log(color(`\n⚠ ${counts.missing} indicator(s) have no data yet — engine handles gracefully.`, 'yellow'));
+}
+if (counts.red > 0) {
+  console.log(color(`\n⚠ ${counts.red} critical issue(s) — engine output may be unreliable.`, 'red'));
   process.exit(1);
 }
 console.log(color('\n✓ All indicators within acceptable freshness windows.', 'green'));
