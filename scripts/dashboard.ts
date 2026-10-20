@@ -1349,11 +1349,35 @@ function renderPolRisk(d) {
     ? \`<div style="margin-top:6px;font-size:9px;color:var(--orange);padding:3px 6px;background:rgba(227,114,28,.08);border-radius:3px;border:1px solid rgba(227,114,28,.2)">⚠ Feed offline: \${missingFeed.join(', ')}. Unrest score may be understated.\${!env.hasX ? ' Set X_BEARER_TOKEN for minute-zero demo detection.' : ''}</div>\`
     : \`<div style="margin-top:6px;font-size:9px;color:var(--green);padding:3px 6px;background:rgba(63,185,80,.08);border-radius:3px;border:1px solid rgba(63,185,80,.2)">✓ All 3 sources active: Exa + Tavily + X</div>\`;
 
+  // PolEcon badge — mirrors engine logic (pResist from unrest signal, holdEV Brent-adjusted)
+  const brent    = ind['brent_price_usd']?.value ?? 85;
+  const pResist  = (unrest ?? 0) >= 70 ? 0.85 : (unrest ?? 0) >= 45 ? 0.65 : 0.40;
+  const holdEV   = brent > 100 ? -28 : brent > 90 ? -22 : -18;
+  const hikeEV   = parseFloat(((1 - pResist) * 15 + pResist * (-25)).toFixed(1));
+  const evSpread = hikeEV - holdEV;
+  const peState  = Math.abs(evSpread) < 5 ? 'TRAPPED'
+                 : evSpread < -5 && pResist > 0.60 ? 'FORCED HOLD'
+                 : evSpread > 5  && pResist > 0.60 ? 'RISKY HIKE'
+                 : 'STABLE';
+  const peCls    = peState === 'TRAPPED' ? 'red' : peState === 'FORCED HOLD' ? 'orange' : peState === 'RISKY HIKE' ? 'orange' : 'green';
+  const peAdj    = peState === 'TRAPPED' ? '+8' : peState === 'FORCED HOLD' ? '+6' : peState === 'RISKY HIKE' ? '+5' : '+0';
+  const peBadge  = \`<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px">PolEcon — BBM Hike Game</div>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span class="tag \${peCls}" style="font-size:10px;font-weight:700">\${peState}</span>
+      <span style="font-size:10px;color:var(--muted)">score adj <span class="\${peCls}">\${peAdj}</span></span>
+      <span style="font-size:10px;color:var(--muted)">P(resist)=<span style="color:var(--fg)">\${(pResist*100).toFixed(0)}%</span></span>
+      <span style="font-size:10px;color:var(--muted)">hikeEV=<span style="color:var(--fg)">\${hikeEV}</span></span>
+      <span style="font-size:10px;color:var(--muted)">holdEV=<span style="color:var(--fg)">\${holdEV}</span> <span style="color:var(--muted)">(Brent $\${brent.toFixed(0)})</span></span>
+    </div>
+  </div>\`;
+
   return \`
     \${scoreRows}
     <div style="margin-top:8px;font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">1998 Template Checklist</div>
     \${t98rows}
     \${ctxSection}
+    \${peBadge}
     \${feedWarning}
   \`;
 }
