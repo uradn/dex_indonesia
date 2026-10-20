@@ -153,7 +153,7 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - USDIDR: 16,500 | ICP oil: $70/bbl | GDP growth: 5.4% | CPI: 2.5%
 - Revenue: 3,154T | Spending: 3,843T | Deficit: 2.68% GDP
 
-**Live deviations (Oct 19, 2026):**
+**Live deviations (Oct 20, 2026):**
 
 > ### 🚨 MSCI STANDALONE CONSULTATION — Oct 15 2026 (20:40 GMT)
 >
@@ -189,25 +189,25 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - **APBN Semester I 2026**: Defisit Rp196.5T (0.76% PDB). **Subsidi energi YTD: Rp331.4T** (Kemenkeu, Oct 9) vs APBN target Rp87T — run-rate **457%** 🔴; **Outlook full-year: defisit 4.23% GDP** (melampaui 3% constitutional limit)
 - Term premium: **~1.57%** (SBN 10Y 7.33% − BI Rate 5.75%) — ORANGE zone (naik dari 1.42%)
 - S&P interest/revenue ratio: **~20.5%** — 5.5pp above S&P 15% negative-watch threshold 🔴
-- USDIDR spot: **18,040** (engine Oct 19 run-2) → **18,049** (close Oct 16); cadev **$146.5B**; DNDF contingent $8B → effective **$138.5B**; G-G ratio **2.09x**
+- USDIDR spot: **17,995** (engine Oct 20); cadev **$146.3B**; DNDF contingent $8B → effective **$138.3B**; G-G ratio **2.09x**
 - **CAD Q2 2026: −$12.5B = −3.3% PDB** — melampaui R&R 3% danger zone
-- CDS 5Y: **97.1bps** (engine Oct 19 — +2.7bps dari Jumat); SBN 10Y: **7.169%** (engine, belum tangkap spike penuh); **SBN-UST spread 2.08pp 🔴 MELEWATI 200bps, makin melebar**; UIP unattractive; BI abstain 10Y+ SBN purchases
+- CDS 5Y: **99.5bps** (engine Oct 20, +2.4bps dari kemarin); SBN 10Y: **7.169%** (engine); **SBN-UST spread 2.03pp 🔴 MELEWATI 200bps**; UIP unattractive; BI abstain 10Y+ SBN purchases
 - **US CPI Sep 2026: 3.7% YoY** (+0.6% MoM, core 2.6%) — beat konsensus 3.6%; gasoline +9.1% (Hormuz effect); **Fed hike odds Oct 27-28 FOMC: ~42%** (dari 22% pre-release); Dec 2026 hike odds **~88%**; Fed funds rate **4.00%** (naik 25bps Sep 16); double-whammy: MSCI domestic shock + Fed hawkish external
-- Brent: **$107.40/bbl** 🔴 ($7.40 di atas Bahlil $100 threshold, +53.4% vs APBN); ICP Sep 2026 **$112.81/bbl** (+61.2% vs APBN, ESDM resmi Oct 12); Pertalite gap **Rp7,056/L** 🔴 (naik ke RED); Solar B50 gap **Rp14,969/L** 🔴; Coal DMO compliance 50% (HBA gap 44%); Hormuz traffic 6% pre-war level 🔴; **🚨 KRISIS BBM** — Prabowo panggil Bahlil ke Istana bahas BBM langka Bali (Oct 14); massa gedor Kantor Gubernur Bali Aksi Kamisan (Oct 15); Ombudsman desak pembenahan distribusi; unjuk rasa Oktober 2026 skala nasional
+- Brent: **$110.7/bbl** 🔴 ($10.7 di atas Bahlil $100 threshold, +58.1% vs APBN); ICP Sep 2026 **$112.81/bbl** (+61.2% vs APBN, ESDM resmi Oct 12); Pertalite gap **Rp7,546/L** 🔴; Solar B50 gap **Rp15,213/L** 🔴; Coal DMO compliance 50% (HBA gap 44%); Hormuz traffic 6% pre-war level 🔴; **🚨 KRISIS BBM + DEMO 20 OKTOBER** — Demo nasional berlangsung hari ini; Prabowo panggil Bahlil ke Istana bahas BBM langka Bali (Oct 14); massa gedor Kantor Gubernur Bali Aksi Kamisan (Oct 15); **kelangkaan BBM Bali** meluas (BBC Indonesia Oct 17); unjuk rasa Oktober 2026 skala nasional
 - BBM: Pertamax Rp15.950 | Pertamax Green Rp19.150 | **Pertalite Rp10,000 + Solar Rp6,800 TIDAK NAIK** (komitmen Bahlil — tapi fiskal sudah menanggung)
 - **LNG**: JKM spot $28+/MMBtu; Hormuz effectively closed; vessel transits single digit/hari
 - **Russia-Indonesia Energy Deal**: Framework MoU ~**150 juta barel** G2G crude oil via **Lemigas** + LPG (Apr–Sep 2026); ESPO API 34–36° = Minas-compatible; "jangan tanya harga" (Bahlil); ESPO discount vs Brent est. ~$10–15/bbl → engine override: `RUSSIA_CRUDE_DISCOUNT_USD` (default 0). Lihat [Russia-Indonesia Energy Deal](#russia-indonesia-energy-deal-2026)
 - **Rezim: Q1 Goldilocks** (Growth↑ Inflation↓) — PMI 52.4; Growth ROC +9.93%; Inflation ROC −21.38%
-- **IHSG**: **4,918 pts** 🔴 SUB-5000 (Oct 19 intraday) | P/E **7.5x** | **A/D ratio 0.00 🔴 TOTAL COLLAPSE** | **Stop-Loss CASCADE 1/3 BREACHED** (node 5,000 fired; node 4,800 = next threshold) | P/E discount **49.7%** vs Thailand (THD 14.8x vs EIDO 7.5x) — Damodaran ERP: discount >35% = structural risk repricing; M3 DCI +10pts (Morris-Shin equity factor)
-- **⚠️ Morris-Shin alert**: confidence gate VULNERABILITY ZONE (net DC-AC +18); SRBI sterilization burden 38.9% cadev; USDIDR 18,040 live; P/E discount 49.7% → speculator attack window widest since tracking began
-- **⚠️ TRANSMISSION UNDERWAY (SSS=100)**: political stress **99/100 🔴** NOW transmitting to financial markets (financial avg 39/100 — crossed 35 threshold Oct 19). Gap between political and financial CLOSING. The "silent" phase is over — repricing in progress. [SSS phase: active_transmission; **Bryant T+4d FAST MONEY COMPLETE** → **ETF MECHANICS phase starts Oct 20** (T+5–30d): passive forced-sell via EIDO redemptions + MSCI mandate rebalancing, $3–15B at risk; hedge fund coordination DONE (IHSG −11% Oct 16)]
+- **IHSG**: **5,205 pts** 🟠 (Oct 20 — recovery from 4,918 intraday Oct 19; −20.3% dari Sep peak 6,525) | P/E **7.2x** | **A/D ratio 7.33** (recovery from 0.00 total collapse Oct 19) | Stop-Loss CASCADE node 1 FIRED (5,000) — node 4,800 = next threshold | P/E discount **51.1%** vs Thailand (EIDO 7.2x vs THD 14.7x) — Damodaran ERP: discount >35% = structural risk repricing; M3 DCI +10pts (Morris-Shin equity factor)
+- **⚠️ Morris-Shin alert**: confidence gate VULNERABILITY ZONE (net DC-AC +17); SRBI sterilization burden 39.1% cadev; USDIDR 17,995 live; P/E discount 51.1% → speculator attack window POSSIBLE — multiple equilibria
+- **⚠️ TRANSMISSION ONGOING (SSS=98)**: political stress **97/100 🔴** transmitting to financial markets (financial avg 34/100). Gap narrowing — partial repricing done (IHSG −20%). **Bryant T+5d: ETF MECHANICS PHASE** (T+5–30d): passive forced-sell via EIDO redemptions + MSCI mandate rebalancing, $3–15B at risk; authorized participant redemptions active. IHSG recovery Oct 20 = temporary bid — does not erase forced-sell dynamic.
 - **⚠️ MSCI STANDALONE CONSULTATION LAUNCHED** (Oct 15 20:40 GMT): Bryant common knowledge event FIRED — Oct 16 IHSG −10.41% trading halt, USDIDR 18,063 tembus 18,000, CDS spike expected. Outflow at risk: Goldman $7.8–13B. Lihat box di atas.
 - **⚠️ PHK massal**: 63.789 pekerja at risk across 14 reported events (30d window) — FDI exit + industrial region stress concentration
 - **⚠️ IHSG Oct 16 CLOSE: 5,204 (−11.25%, −659pts)** — penurunan 1 hari terbesar dalam bertahun-tahun; **TRADING HALT** 08:58 WIB (circuit breaker 8%) → tidak redam tekanan → sesi II lanjut jatuh; DSSA/BBCA/AMMN/BMRI/BBRI/BBNI semua rontok; **foreign net sell Rp2.92T** (sesi I); USDIDR close **18,049–18,053** (intraday high 18,070) — bertahan di atas 18,000 sepanjang hari
 - **⚠️ IHSG Oct 19 OPEN: 4,961 (−4.31%)** — BROKE BELOW 5,000 psychological level. Intraday low 4,918 (-5.13%). Stop-loss cascade node 1 FIRED. IHSG 14.91% weekly loss (steepest since Jan 1998).
-- **⚠️ Massa gedor Kantor Gubernur Bali** (Oct 15, Aksi Kamisan): sopir mengeluh krisis BBM; ANTARA Bali: harga pangan naik akibat kelangkaan BBM; social unrest score **72/100** (naik dari 47); unjuk rasa Oktober 2026 nasional
-- SCD: **73% 🔴 RED** (morning check Oct 19) | **7/13 modules** cross-confirmed | M12 Political Risk **99/100 🔴** (all-time high; PHK 63.789 workers, food 5 high-severity, unrest 72) | M10 Fiscal **71/100 🔴** | M9 Market **60/100 🟠** (cascade 1/3 BREACHED, IHSG 4,939 pts) | M11 Domestic Pressure **58/100 🟠** | M3 FX Defense **56/100 🟠** (USDIDR 18,045, P/E gap 49.7%) | M5 Foreign Flow **53/100 🟠** (EIDO z-score −5.18 structural exit; Bryant T+4d FAST MONEY complete) | M4 Commodity **52/100 🟠** (Brent $107.30) | M8 Narrative **49/100 🟡** | **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-27) — CDS 97.1bps, USDIDR 18,045, targets T+3: CDS 164bps / USDIDR 20,020 / SBN 8.62% | **KS#2 (BI emergency package) = WATCH** | KS#3 13.13% | KS#4 97.1bps
-- **📅 Milestone watch**: T+3=Oct 22 (CDS 164bps / USDIDR 20,020 / SBN 8.62%) · T+6=Oct 25 · T+12=Oct 31 — auto-check via cron 07:30 WIB + macOS alert each date. Bryant ETF mechanics Oct 20–Nov 18.
+- **⚠️ Massa gedor Kantor Gubernur Bali** (Oct 15, Aksi Kamisan): sopir mengeluh krisis BBM; ANTARA Bali: harga pangan naik akibat kelangkaan BBM; **Demo 20 Oktober berlangsung** (Oct 20, hari ini) — tuntutan lapangan kerja + karhutla (Detik); social unrest score **63/100**; unjuk rasa Oktober 2026 nasional
+- SCD: **57% 🟠 ORANGE** (morning check Oct 20) | **5/13 modules** cross-confirmed | M12 Political Risk **97/100 🔴** (PHK 63.789 workers, food 5 high-severity, Demo 20 Oktober; Demo nasional hari ini) | M10 Fiscal **71/100 🔴** | M5 Foreign Flow **68/100 🟠** (EIDO z-score −5.14; Bryant T+5d ETF mechanics; MSCI consultation T-253d) | M11 Domestic Pressure **58/100 🟠** | M4 Commodity **52/100 🟠** (Brent $110.7) | M3 FX Defense **45/100 🟡** (USDIDR 17,995, P/E gap 51.1%) | M6 Narrative **49/100 🟡** | M8 Banking **25/100 🟢** (himbara AT1 81.4% synthetic watch; DPK savings ratio 52.5% normal; CAR 26.5%; NPL 2.1%) | M9 Market **5/100 🟢** (circuit breaker Oct 16 flag active 30d; IHSG 5,205 recovery) | **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-28) — CDS 99.5bps, USDIDR 17,995, targets: CDS 164bps / USDIDR 20,020 / SBN 8.62% | KS#1 97/100 🔴 | KS#3 13.12% 🔴 | KS#4 99.5bps 🔴
+- **📅 Milestone watch**: T+90=Dec 21 (CDS 164bps / USDIDR 20,020 / SBN 8.62%) — auto-check via cron 07:30 WIB. Bryant ETF mechanics Oct 20–Nov 18 🔴 ACTIVE.
 
 ### BBM Subsidy Monitoring (Module 11)
 
@@ -356,7 +356,8 @@ Bahlil bilang $77 (April) → ICP $107 live (Sep 15). APBN pasang $70. Empat ang
 | **Oct 16 2026** | **IHSG −10.41%, circuit breaker** 08:58 WIB (−8% intraday); USDIDR tembus **18,000** → close 18,049; foreign net sell Rp2.92T sesi I; penurunan 1 hari terbesar bertahun-tahun |
 | **Oct 17 2026** | **2 kapal kena ranjau** di Hormuz minggu ini (Oct 13–17); emergency oil reserves releases gagal tenangkan pasar; Brent tutup lebih tinggi |
 | **Oct 18 2026** | Iran FM Araghchi: proposal 7-hari buka Hormuz **"masih di meja"**; Trump suspend sanksi baru minyak Rusia → minyak turun; Brent slide |
-| **Oct 19 2026** | Brent **$107.40** (−2.24%); **IRGC klaim kapal tanker kena ranjau dan terbakar** Hormuz (ANTARA/Kompas); tanker transits **2/hari** (Oct 11 data); Hormuz deal unresolved; US renews warning warganya; **IHSG 4,918** sub-5,000 intraday; IDR 18,040–18,049; SCD 63% 🟠 ORANGE |
+| **Oct 19 2026** | Brent **$107.40** (−2.24%); **IRGC klaim kapal tanker kena ranjau dan terbakar** Hormuz (ANTARA/Kompas); tanker transits **2/hari** (Oct 11 data); Hormuz deal unresolved; US renews warning warganya; **IHSG 4,918** sub-5,000 intraday; IDR 18,040–18,049; SCD 73% 🔴 RED (7/13 cross-confirmed) |
+| **Oct 20 2026** | **Demo 20 Oktober** berlangsung (tuntutan lapangan kerja + karhutla); IHSG recovery **5,205** (+5.5% dari intraday Oct 19); USDIDR 17,995; Brent **$110.7** ($10.7 di atas threshold); CDS 99.5bps; **SCD 57% 🟠 ORANGE** (5/13) — IHSG recovery tidak ubah forced-sell dynamic; Bryant ETF mechanics ACTIVE (T+5d) |
 
 **Dampak global:**
 
@@ -377,7 +378,7 @@ Sebelum krisis: **25% seaborne oil** + **20% LNG dunia** melewati Hormuz. Kapasi
 | Skenario | Brent | ICP Proxy | Subsidy Gap/Liter | ICP Alert | Action |
 |----------|-------|-----------|-------------------|-----------|--------|
 | Baseline APBN | $70 | $70 | ~IDR 0 | 🟢 GREEN | Tidak ada |
-| Saat ini (Oct 19) | **$107.40** | **$112.81** (Sep avg) | **IDR 7.056** | 🔴 RED | ICP Sep resmi $112.81 (ESDM Oct 12); Brent $107.40 spot; Bahlil reaffirm tidak naik 31 Des — fiskal menanggung; tanker mine Oct 19; IHSG circuit breaker Oct 16; SCD 63% ORANGE |
+| Saat ini (Oct 20) | **$110.7** | **$112.81** (Sep avg) | **IDR 7.546** | 🔴 RED | ICP Sep resmi $112.81 (ESDM Oct 12); Brent $110.7 spot; Bahlil reaffirm tidak naik 31 Des — fiskal menanggung; Demo 20 Oktober berlangsung; IHSG recovery 5,205; SCD 57% ORANGE |
 | Threshold Bahlil | $100 | $100 | ~IDR 7.200 | 🔴 RED | Komitmen gugur |
 | Peak Mar 2026 | $126 | $126 | ~IDR 12.800 | 🔴 RED | Hike wajib fiskal |
 | Eskalasi baru | $110+ | $110+ | ~IDR 9.000+ | 🔴 RED | Hike + social unrest |
@@ -669,7 +670,7 @@ bash env-check.sh                        # live ping semua API key di .env
 | M9 Market | `ihsg_pe_ratio`, `idx_advance_decline_ratio` | >30d / >14d |
 | M13 ULN | `indonesia_external_debt_bn`, `uln_dsr_pct`, `uln_shortterm_pct` | >180d / >730d / >730d |
 
-Threshold lengkap di `src/tools/macro/freshness.ts`. Health-check baseline Oct 19 2026: SCD **73% RED** · M12 Political Risk 99/100 🔴 · M10 Fiscal 71/100 🔴 · M9 Market 60/100 🟠 · M11 Domestic 58/100 🟠 · M3 FX Defense 56/100 🟠 · M5 Foreign Flow 53/100 🟠 · M4 Commodity 52/100 🟠 · **Thesis #14 TRIGGERED** (armed Sep 22, 7/13 cross-confirmed) · Brent $107.30/bbl, ICP Sep $112.81/bbl · Pertalite gap Rp7,048/L 🔴 · USDIDR 18,045 · IHSG 4,939 · CDS 97.1bps · SBN 10Y 7.169% · MSCI Standalone consultation launched Oct 15 (Bryant T+4d FAST MONEY) · APBN defisit outlook 4.23% GDP · SSS=100 ACTIVE TRANSMISSION. Freshness Oct 19 2026: 44 fresh · 3 aging · 0 stale · 0 critical.
+Threshold lengkap di `src/tools/macro/freshness.ts`. Health-check baseline Oct 20 2026: SCD **57% ORANGE** · M12 Political Risk 97/100 🔴 · M10 Fiscal 71/100 🔴 · M5 Foreign Flow 68/100 🟠 · M11 Domestic 58/100 🟠 · M4 Commodity 52/100 🟠 · M3 FX Defense 45/100 🟡 · M6 Narrative 49/100 🟡 · M8 Banking 25/100 🟢 (AT1 fix + DPK BI SEKI) · M9 Market 5/100 🟢 · **Thesis #14 TRIGGERED** (armed Sep 22, 5/13 cross-confirmed, hari ke-28) · Brent $110.7/bbl · Pertalite gap Rp7,546/L 🔴 · USDIDR 17,995 · IHSG 5,205 (recovery dari 4,918 Oct 19) · CDS 99.5bps · SBN 10Y 7.169% · Demo 20 Oktober ACTIVE · Bryant ETF mechanics T+5d · APBN defisit outlook 4.23% GDP · SSS=98. Freshness Oct 20 2026: 45 fresh · 2 aging · 1 stale · 0 critical.
 
 ---
 
