@@ -49,7 +49,7 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   { name: 'bank_car_pct',                module: 'M8',  freshDays: 120,yellowDays: 200, redDays: 365 },
   { name: 'bank_ldr_pct',                module: 'M8',  freshDays: 60, yellowDays: 120, redDays: 240 },
   // ULN quarterly + annual WB / IMF series
-  { name: 'indonesia_external_debt_bn',  module: 'M13', freshDays: 100,yellowDays: 130, redDays: 180 },
+  { name: 'indonesia_external_debt_bn',  module: 'M13', freshDays: 140,yellowDays: 165, redDays: 200 },
   { name: 'uln_dsr_pct',                 module: 'M13', freshDays: 400,yellowDays: 540, redDays: 730 },
   { name: 'uln_shortterm_pct',           module: 'M13', freshDays: 400,yellowDays: 540, redDays: 730 },
   { name: 'indonesia_debt_gdp_pct',      module: 'M2',  freshDays: 400,yellowDays: 540, redDays: 730 },
