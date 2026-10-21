@@ -426,13 +426,13 @@ All P1/P2/DOC items (except KS#2 auto and China PMI — explicitly deferred P3) 
 | Dashboard: P(reversal) in MSCI badge | ✅ DONE | `renderMsciBadge()` appends `P(reversal)=X%` when Standalone |
 
 **Still open / deferred:**
-- **KS#2 auto (policy response tracker)**: P3 deferred — 3-day effort, Bryant ETF mechanics window already past peak
-- **China PMI weekly (M4)**: P3 deferred — no Yahoo Finance ticker for NBS/Caixin PMI; needs Exa-based source
-- **Post-Bryant selling-period classifier**: P3 deferred — complex two-sided market model
-- **Deposit concentration M8**: P3 deferred — OJK LSPI access unclear
-- **3rd-gen balance sheet amplifier**: P3 deferred — needs SULNI Q3 2026 FX-hedging data (Nov 2026)
-- **Veto player (Tsebelis)**: P3 deferred — needs Poltracking time series
-- **Bayesian M6 calibration**: P3 deferred — 6-month statistical work
+- **KS#2 auto (policy response tracker)**: **P1** — 3-day effort; deferred for timing (Bryant fast-money window past), NOT deprioritized; resume next sprint before T+30 mandate-rebalancing phase
+- **China PMI weekly (M4)**: **P2** — no Yahoo Finance ticker for NBS/Caixin; needs Exa-based source design
+- **Post-Bryant selling-period classifier**: **P2** — complex two-sided market model; target before Thesis #14 T+3 milestone Dec 21
+- **Deposit concentration M8**: P3 — OJK LSPI access unclear; blocked pending investigation
+- **3rd-gen balance sheet amplifier**: P3 — needs SULNI Q3 2026 FX-hedging data (~Nov 2026)
+- **Veto player (Tsebelis)**: P3 — needs Poltracking time series
+- **Bayesian M6 calibration**: P3 — 6-month statistical work
 - **SRBI Oct 23 backfill**: OPS — run after Oct 23 auction (14:00–17:00 WIB)
 - **Health-check.ts README reorder (section 1.5)**: DOC — minor, not blocking
 
