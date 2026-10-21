@@ -960,17 +960,22 @@ cp env.example .env
 bun start                          # interactive CLI
 bun dev                            # watch mode
 bun scripts/morning-check.ts       # morning brief langsung
-bash health-check.sh --verbose     # infrastructure check
+bun scripts/health-check.ts        # freshness audit + env gap check (authoritative)
+bash health-check.sh --verbose     # infrastructure-only check (Playwright/SQLite)
 bash env-check.sh --verbose        # API key validation
 ```
 
 ## Health Checks
 
 ```bash
-# Infrastructure (Playwright, SQLite, scrapers, TypeScript)
+# Macro data freshness + env var audit (authoritative — checks all 47 indicators)
+bun scripts/health-check.ts              # exit 1 if any RED-tier gaps
+bun scripts/health-check.ts --all        # also list every fresh indicator
+
+# Infrastructure only (Playwright, SQLite, scrapers — lighter check)
 bash health-check.sh
 bash health-check.sh --verbose
-bash health-check.sh --timeout 60  # per-check timeout
+bash health-check.sh --timeout 60
 
 # API keys (.env validation + live ping)
 bash env-check.sh

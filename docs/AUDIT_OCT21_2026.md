@@ -434,6 +434,6 @@ All P1/P2/DOC items (except KS#2 auto and China PMI — explicitly deferred P3) 
 - **Veto player (Tsebelis)**: P3 — needs Poltracking time series
 - **Bayesian M6 calibration**: P3 — 6-month statistical work
 - **SRBI Oct 23 backfill**: OPS — run after Oct 23 auction (14:00–17:00 WIB)
-- **Health-check.ts README reorder (section 1.5)**: DOC — minor, not blocking
+- **Health-check.ts README reorder (section 1.5)**: ✅ DONE — `bun scripts/health-check.ts` promoted as authoritative; `bash health-check.sh` labeled infrastructure-only
 
 *Generated: Oct 21 2026 | Victor @ Sadasa Intelligence | docs/AUDIT_OCT21_2026.md*
