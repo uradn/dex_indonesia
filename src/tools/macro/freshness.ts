@@ -90,6 +90,8 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   { name: 'usdjpy_spot',  module: 'M7', freshDays: 2, yellowDays: 4, redDays: 7 },
   // China PMI monthly (Caixin/NBS) — demand signal for Indonesia export basket
   { name: 'china_pmi_manufacturing', module: 'M4', freshDays: 35, yellowDays: 50, redDays: 75 },
+  // Veto player friction — Tsebelis M12 institutional capacity (72h cache; rerun with news)
+  { name: 'veto_player_friction_index', module: 'M12', freshDays: 3, yellowDays: 7, redDays: 14 },
 ];
 
 const SPEC_BY_NAME: Map<string, IndicatorFreshnessSpec> = new Map(INDICATORS.map(s => [s.name, s]));

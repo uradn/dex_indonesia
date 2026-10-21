@@ -48,6 +48,7 @@ import {
 } from './sources/political-risk.js';
 import { fetchXSocialSentiment, type XSentimentResult } from './sources/x-social.js';
 import { fetchPhkRelokasi, type PhkRelokasiData } from './sources/phk-relokasi.js';
+import { fetchVetoPlayerFriction, type VetoPlayerData } from './sources/veto-player.js';
 import type { AlertLevel } from './types.js';
 
 export const POLITICAL_RISK_DESCRIPTION = `
@@ -101,6 +102,7 @@ export interface PoliticalRiskOutput {
   xSocialScore: number | null;   // raw X score before blending
   tavilyUnrestScore: number | null; // raw Tavily score before blending
   phkRelokasi: PhkRelokasiData | null;
+  vetoPlayer: VetoPlayerData | null;      // Tsebelis veto player friction index
   sentimentResults: SentimentResult[];
   seasonalContext: string | null;
   topHeadlines: string[];
@@ -134,6 +136,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     tavilyFoodResult, tavilyUnrestResult, tavilyStabilityResult, tavilyGeopoliticalResult,
     xResult, phkResult,
     breakingFoodResult, breakingUnrestResult,
+    vetoResult,
   ] = await Promise.allSettled([
     searchNewsSentiment('food_pressure'),
     searchNewsSentiment('social_unrest'),
@@ -147,6 +150,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     fetchPhkRelokasi(),
     searchBreakingNewsSentiment('food_pressure'),
     searchBreakingNewsSentiment('social_unrest'),
+    fetchVetoPlayerFriction(),
   ]);
 
   const foodSentiment        = foodResult.status              === 'fulfilled' ? foodResult.value              : null;
@@ -161,6 +165,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
   const phkData              = phkResult.status               === 'fulfilled' ? phkResult.value               : null;
   const breakingFood         = breakingFoodResult.status      === 'fulfilled' ? breakingFoodResult.value      : null;
   const breakingUnrest       = breakingUnrestResult.status    === 'fulfilled' ? breakingUnrestResult.value    : null;
+  const vetoData             = vetoResult.status              === 'fulfilled' ? vetoResult.value               : null;
 
   // Blended unrest score: best of Exa + Tavily + 48h breaking scan
   const blendedUnrestScore = Math.max(
@@ -252,8 +257,9 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
                      polEconState === 'RISKY_HIKE'   ? 5 : 0;
 
   // ── 4. Political Risk Index ────────────────────────────────────────────────
-  // Base 10 + component sum + PolEcon adjustment (cap at 100)
-  const politicalRiskIndex = Math.min(100, 10 + unemploymentComponent + foodPressureComponent + socialUnrestComponent + stabilityComponent + polEconAdj);
+  // Base 10 + component sum + PolEcon adjustment + Tsebelis VPI (cap at 100)
+  const vetoAdj = vetoData?.scoreAdj ?? 0;
+  const politicalRiskIndex = Math.min(100, 10 + unemploymentComponent + foodPressureComponent + socialUnrestComponent + stabilityComponent + polEconAdj + vetoAdj);
   const stressScore = politicalRiskIndex;
   const alert = alertFromScore(stressScore);
 
@@ -315,6 +321,24 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
 
   if (!process.env.EXASEARCH_API_KEY) {
     flags.push('EXASEARCH_API_KEY not set — news sentiment unavailable; unemployment-only scoring active');
+  }
+
+  // Tsebelis veto player friction flags
+  if (vetoData) {
+    if (vetoData.frictionTier === 'high') {
+      flags.push(
+        `VETO PLAYER FRICTION HIGH (VPI ${vetoData.frictionIndex}/100): institutional gridlock risk elevated. ` +
+        `${vetoData.approvalPct !== null ? `Presidential approval ${vetoData.approvalPct.toFixed(0)}%.` : ''} ` +
+        `Coalition: ${vetoData.coalitionFragmentation.toUpperCase()}. Opposition activism: ${vetoData.oppositionActivism.toUpperCase()}. ` +
+        `[Tsebelis 2002: veto players block reform even when incentives exist — +${vetoData.scoreAdj} score]`
+      );
+    } else if (vetoData.frictionTier === 'moderate') {
+      flags.push(
+        `Veto player friction MODERATE (VPI ${vetoData.frictionIndex}/100): some institutional resistance. ` +
+        `${vetoData.approvalPct !== null ? `Approval ${vetoData.approvalPct.toFixed(0)}%. ` : ''}` +
+        `Coalition ${vetoData.coalitionFragmentation}, opposition ${vetoData.oppositionActivism}. (+${vetoData.scoreAdj} score)`
+      );
+    }
   }
 
   if (!process.env.X_BEARER_TOKEN) {
@@ -390,6 +414,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     xSocialScore: xSentiment?.stressScore ?? null,
     tavilyUnrestScore: tavilyUnrest?.stressScore ?? null,
     phkRelokasi: phkData,
+    vetoPlayer: vetoData,
     sentimentResults,
     seasonalContext: seasonal,
     topHeadlines,

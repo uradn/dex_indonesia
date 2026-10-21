@@ -231,6 +231,8 @@ FINTECH_NPL_PCT            # P2P lending NPL gross %; OJK WAF blocks auto-scrape
 # New data sources — env always wins when set (mirrors DNDF pattern)
 # M4 Commodity
 CHINA_PMI_MANUFACTURING    # Caixin/NBS China mfg PMI (e.g. 49.5); set when Exa/Tavily parse fails; monthly release Caixin ~1st biz day, NBS ~last biz day
+# M12 Political Risk
+PRABOWO_APPROVAL_PCT       # Presidential approval % (e.g. 72.5); update from Poltracking/LSI/Indikator monthly surveys; used in Tsebelis VPI component
 # M5 Foreign Flow
 USDIDR_NDF_1M_RATE         # offshore IDR NDF 1-month rate (IDR/USD, e.g. 18200); update when Exa parse fails
 # M8 Banking
