@@ -11,10 +11,10 @@
 # value: approval % (e.g. 72.5)
 # source: pollster name or "manual"
 date,value,source
-2026-02,,poltracking
-2026-03,,poltracking
-2026-04,,lsi
-2026-05,,lsi
-2026-06,,poltracking
-2026-07,,poltracking
-2026-08,,poltracking
+2026-02,79.9,indikator
+2026-03,74.9,poltracking
+2026-04,74.9,poltracking
+2026-05,73.2,poltracking
+2026-06,64.8,puspoll
+2026-07,58.4,poltracking
+2026-08,55.1,poltracking
