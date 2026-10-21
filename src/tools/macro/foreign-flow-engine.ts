@@ -138,6 +138,9 @@ interface ForeignFlowOutput {
   msciClassificationRisk: 'confirmed' | 'under_review' | 'downgrade_risk';
   msciReversalProbability: number | null; // P(MSCI reverses Standalone → EM maintained); prior 0.12–0.15
   reformSpeculationProbability: number;   // P(active reform speculators in market now, 0–75); Thread 24 wait-game
+  ihsgFloor: number | null;              // Two-sided market equilibrium floor (Thread 24); PE-reversion model
+  bryantPhase: 'fast_money' | 'etf_mechanics' | 'mandate_rebalancing' | 'structured_exit' | 'pre_event';
+  daysSinceBryant: number;
   narrative: string;
 }
 
@@ -399,6 +402,21 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   const prPhaseMultiplier = bryantPhase === 'mandate_rebalancing' ? 1.3 : 1.0;
   const reformSpeculationProbability = Math.min(75, Math.round((prBase + prPolicyBonus + prSbnBonus) * prPhaseMultiplier));
 
+  // Thread 24: IHSG two-sided market equilibrium floor.
+  // Mandate sellers (unconditional) vs reform speculators (conditional on P(reversal)).
+  // PE reversion: if MSCI reversal → EM peers ~12x; if downgrade confirmed → distressed ~5.5x.
+  // Floor = current_ihsg / current_pe × weighted_pe
+  const ihsgLevel = await getLatestPoint('ihsg_level');
+  const ihsgPe    = await getLatestPoint('ihsg_pe_ratio');
+  let ihsgFloor: number | null = null;
+  if (ihsgLevel && ihsgPe && ihsgPe.value > 0) {
+    const peReversal   = 12.0;  // EM median if MSCI status confirmed
+    const peDistressed = 5.5;   // Indonesia taper-tantrum / post-downgrade floor P/E
+    const weightedPe   = pReversal * peReversal + (1 - pReversal) * peDistressed;
+    const earningsPerPoint = ihsgLevel.value / ihsgPe.value;
+    ihsgFloor = Math.round(earningsPerPoint * weightedPe);
+  }
+
   let msciScoreBump = 0;
   if (msciStatus === 'downgrade_risk') msciScoreBump = Math.round(pDowngrade * 24);
   else if (msciStatus === 'under_review') msciScoreBump = 8;
@@ -507,6 +525,15 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
       ? ` PEAK FORCED-SELL PERIOD — ETF mechanics + mandate rebalancing concurrent. (+${bryantPhaseBonus} score)`
       : '';
     flags.push(`BRYANT PHASE [Thread 24]: ${phaseLabels[bryantPhase]}${phaseNote}`);
+    if (ihsgFloor !== null) {
+      const ihsgCurrent = ihsgLevel?.value;
+      const downsideRisk = ihsgCurrent ? Math.round((ihsgCurrent - ihsgFloor) / ihsgCurrent * 100) : null;
+      flags.push(
+        `IHSG FLOOR ESTIMATE [Thread 24 two-sided market]: ${ihsgFloor.toLocaleString('id')}` +
+        (downsideRisk !== null ? ` (−${downsideRisk}% from current ${ihsgCurrent!.toLocaleString('id')})` : '') +
+        ` — PE reversion model: P(reversal)=${(pReversal*100).toFixed(0)}%×12x + P(downgrade)=${(pDowngrade*100).toFixed(0)}%×5.5x = ${(pReversal*12.0 + (1-pReversal)*5.5).toFixed(1)}x weighted PE`
+      );
+    }
   }
 
   // Herding cascade flags
@@ -551,6 +578,9 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
     msciClassificationRisk: msciStatus,
     msciReversalProbability: msciStatus === 'downgrade_risk' ? parseFloat(pReversal.toFixed(3)) : null,
     reformSpeculationProbability,
+    ihsgFloor,
+    bryantPhase,
+    daysSinceBryant,
     narrative,
   };
 }
@@ -596,6 +626,8 @@ function formatOutput(output: ForeignFlowOutput): string {
     `| Dual exit (EIDO + SBN simultaneously falling) | ${output.divergenceFlag ? '⚠️ ACTIVE' : 'No'} |`,
     `| Domestic absorption masking foreign exit | ${output.domesticAbsorptionFlag ? '⚠️ ACTIVE' : 'No'} |`,
     `| MSCI EM classification status | ${output.msciClassificationRisk === 'downgrade_risk' ? '🔴 DOWNGRADE RISK' : output.msciClassificationRisk === 'under_review' ? '⚠️ UNDER REVIEW' : '✅ CONFIRMED'} |`,
+    output.ihsgFloor !== null ? `| IHSG floor (Thread 24 PE-reversion) | ${output.ihsgFloor.toLocaleString('id')} (reformSpecProb ${output.reformSpeculationProbability}%) |` : '',
+    output.bryantPhase !== 'pre_event' ? `| Bryant phase (Thread 24) | T+${output.daysSinceBryant}d ${output.bryantPhase.replace(/_/g, ' ')} |` : '',
     ``,
     output.scoreCard.flags.length > 0 ? `## Flags\n${output.scoreCard.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '',
     ``,

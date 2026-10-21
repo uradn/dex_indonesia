@@ -878,13 +878,31 @@ function renderFlow(d) {
   const srbiCover = ind['srbi_bid_cover_ratio']?.value;
   const srbiOuts = ind['srbi_outstanding_trn_idr']?.value;
   const msciClass = ind['msci_classification_numeric']?.value;
+  const ihsgLevel = ind['ihsg_level']?.value ?? null;
+  const ihsgPe    = ind['ihsg_pe_ratio']?.value ?? null;
 
   let msciRow = '';
+  let bryantRow = '';
+  let floorRow = '';
   if (msciClass === 2) {
     const cStart = new Date('2026-10-15').getTime();
     const cEnd = new Date('2027-04-30').getTime();
     const pRev = Math.round(100 - Math.min(95, 85 + 10 * Math.min(1, Math.max(0, (Date.now() - cStart) / (cEnd - cStart)))));
     msciRow = kv('MSCI P(reversal)', pRev + '%', pRev < 10 ? 'red' : pRev < 20 ? 'orange' : 'yellow');
+
+    // Bryant phase + IHSG floor (Thread 24 two-sided market)
+    const daysSince = Math.max(0, Math.round((Date.now() - cStart) / 86400000));
+    const bPhase = daysSince <= 4 ? 'fast money' : daysSince <= 30 ? 'ETF mechanics' : daysSince <= 90 ? 'wait game' : 'info acquisition';
+    const bCls   = daysSince <= 30 ? 'red' : daysSince <= 90 ? 'orange' : 'yellow';
+    bryantRow = kv('Bryant Phase', 'T+' + daysSince + 'd ' + bPhase, bCls);
+
+    if (ihsgLevel && ihsgPe && ihsgPe > 0) {
+      const peRev  = pRev / 100 * 12.0 + (1 - pRev / 100) * 5.5;
+      const floor  = Math.round(ihsgLevel / ihsgPe * peRev);
+      const downPct = Math.round((ihsgLevel - floor) / ihsgLevel * 100);
+      const floorCls = downPct > 25 ? 'red' : downPct > 15 ? 'orange' : 'yellow';
+      floorRow = kv('IHSG Floor (2-sided)', floor.toLocaleString('id') + ' (−' + downPct + '%)', floorCls);
+    }
   }
 
   return [
@@ -894,6 +912,8 @@ function renderFlow(d) {
     kv('SRBI Bid-Cover', srbiCover ? fmtNum(srbiCover, 2) + 'x' : '—', srbiCover < 1.0 ? 'red' : srbiCover < 1.5 ? 'orange' : srbiCover < 2.5 ? 'yellow' : 'green'),
     kv('SRBI Outstanding', srbiOuts ? fmtNum(srbiOuts, 0) + 'T IDR' : '—'),
     msciRow,
+    bryantRow,
+    floorRow,
   ].join('');
 }
 
