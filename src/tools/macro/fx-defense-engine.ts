@@ -10,6 +10,8 @@ import { fetchUsdIdrRdp, refinitivAvailable } from './sources/refinitiv.js';
 import { fetchSrbiAuction, formatSrbiAuction } from './sources/srbi-auction.js';
 import { fetchDndf } from './sources/dndf.js';
 import { fetchNdfOffshore } from './sources/ndf-offshore.js';
+import { fetchPolicyResponse } from './sources/policy-response.js';
+import type { PolicyResponseLevel, PolicyResponseSignal } from './sources/policy-response.js';
 import type { FxDefenseEngineOutput, ShadowRateData, ConfidenceGateData, IndicatorSnapshot, AlertLevel } from './types.js';
 import type { SrbiAuctionData } from './sources/srbi-auction.js';
 import { getFreshPoint, stalenessFlag } from './freshness.js';
@@ -66,12 +68,13 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   reservePoint ??= await fetchBiFxReserves();
   if (reservePoint) await upsertPoints([reservePoint]);
 
-  // 4. SRBI outstanding + weekly auction demand (Exa/Tavily — capital flow proxy) + DNDF + NDF offshore
-  const [srbiPoint, srbiAuction, dndfData, ndfOffshore] = await Promise.all([
+  // 4. SRBI outstanding + weekly auction demand (Exa/Tavily — capital flow proxy) + DNDF + NDF offshore + policy response
+  const [srbiPoint, srbiAuction, dndfData, ndfOffshore, policyResponse] = await Promise.all([
     fetchSrbiOutstanding(),
     fetchSrbiAuction(),
     fetchDndf(),
     fetchNdfOffshore(),
+    fetchPolicyResponse(),
   ]);
   if (srbiPoint) await upsertPoints([srbiPoint]);
 
@@ -416,6 +419,36 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     alertLevel = ALERT_ORDER[Math.max(ALERT_ORDER.indexOf(alertLevel), ALERT_ORDER.indexOf('orange'))]!;
   }
 
+  // Policy response coordination adjustment — KS#2 feed.
+  // Coordinated multi-instrument response reduces FX defense stress (genuine stabilization).
+  // MSCI Standalone caveat: mandate-driven outflow is compliance execution — BI cannot sterilize it.
+  // Even full_package has limited effectiveness while Standalone consultation is active.
+  const policyLevel = policyResponse.level;
+  const policySignals = policyResponse.signals;
+  const msciStandalone = (await getLatestPoint('msci_classification_numeric'))?.value === 2;
+  if (policyLevel === 'partial_coordination') {
+    score = Math.max(0, score - 4);
+    alertLevel = alertFromScore(score);
+    const instruments = policySignals.map(s => s.instrument).join('+');
+    flags.push(
+      `COORDINATED RESPONSE (PARTIAL): ${instruments} detected within 72h window — SCD M3 −4pts. ` +
+      (msciStandalone ? 'MSCI Standalone caveat: cannot sterilize mandate-exit selling (compliance execution).' : 'KS#2 candidate — verify package scope before kill.'),
+    );
+  } else if (policyLevel === 'full_package') {
+    score = Math.max(0, score - 8);
+    alertLevel = alertFromScore(score);
+    const instruments = policySignals.map(s => s.instrument).join('+');
+    const windowStr = policyResponse.coordinationWindowHours != null
+      ? `${policyResponse.coordinationWindowHours.toFixed(0)}h window`
+      : '72h window';
+    flags.push(
+      `COORDINATED RESPONSE (FULL PACKAGE): ${instruments} in ${windowStr} — SCD M3 −8pts. ` +
+      (msciStandalone
+        ? '⚠️ KS#2 CANDIDATE — MSCI Standalone active: BI package cannot stop mandate-exit selling. Manual confirm required: does package explicitly address forced-sell mechanism? [Thread 25]'
+        : '⚠️ KS#2 CANDIDATE — manual confirm required before kill. Verify genuine Bagehot package (not routine statement).'),
+    );
+  }
+
   const interventionSustainability: AlertLevel =
     reserveBurnRate !== null
       ? reserveBurnRate < 3 ? 'red' : reserveBurnRate < 6 ? 'orange' : reserveBurnRate < 12 ? 'yellow' : 'green'
@@ -457,6 +490,8 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     interventionSustainability,
     shadowRate,
     confidenceGate,
+    policyResponseLevel: policyLevel,
+    policyResponseSignals: policySignals,
   };
 }
 

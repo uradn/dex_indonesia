@@ -10,6 +10,7 @@
  *   #4 — CDS 5Y < 75bps sustained 7d + ALL 3 credit signals must confirm (thesis invalidated)
  */
 import { getAllTheses, updateThesisStatus, getLatestPoint, getLastN, getModuleScoreHistory, getHistory } from '../src/tools/macro/time-series-db.js';
+import { fetchPolicyResponse } from '../src/tools/macro/sources/policy-response.js';
 
 const MILESTONES = [
   { days: 90,  label: 'T+3' },
@@ -24,53 +25,9 @@ function pctDiff(actual: number, predicted: number): string {
   return (parseFloat(d) > 0 ? '+' : '') + d + '%';
 }
 
-// Kill switch #2: Exa/Tavily search for BI coordinated stabilization package announcement.
-// Returns { detected: true, url, headline } if found; null otherwise.
-// Does NOT auto-kill — qualitative judgment call (need to verify it's a genuine package, not routine statement).
-async function detectBiCoordinatedPackage(): Promise<{ headline: string; url: string | null } | null> {
-  const query = 'Bank Indonesia coordinated stabilization package rupiah 2026 OR paket kebijakan BI stabilisasi nilai tukar koordinasi 2026';
-  try {
-    if (process.env.EXASEARCH_API_KEY) {
-      const { default: Exa } = await import('exa-js');
-      const exa = new Exa(process.env.EXASEARCH_API_KEY);
-      const startDate = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
-      const response = await exa.search(query, {
-        numResults: 3,
-        type: 'neural',
-        startPublishedDate: startDate,
-        contents: { text: { maxCharacters: 500 } },
-      } as Parameters<typeof exa.search>[1]);
-      for (const r of response.results ?? []) {
-        const text = ((r as { text?: string }).text ?? r.title ?? '').toLowerCase();
-        const isCoordinated =
-          (text.includes('coordinated') || text.includes('koordinasi') || text.includes('paket kebijakan')) &&
-          (text.includes('stabiliz') || text.includes('stabilisasi') || text.includes('rupiah') || text.includes('idr'));
-        if (isCoordinated) {
-          return { headline: r.title ?? 'BI coordinated package detected', url: r.url ?? null };
-        }
-      }
-    }
-    if (process.env.TAVILY_API_KEY) {
-      const { TavilySearchAPIWrapper } = await import('@langchain/tavily');
-      const tavily = new TavilySearchAPIWrapper({ tavilyApiKey: process.env.TAVILY_API_KEY });
-      const response = await tavily.rawResults({
-        query: 'Bank Indonesia coordinated stabilization package rupiah 2026',
-        max_results: 3,
-        time_range: 'month',
-      } as Parameters<typeof tavily.rawResults>[0]);
-      for (const r of (response.results ?? [])) {
-        const text = (r.content ?? '').toLowerCase();
-        const isCoordinated =
-          (text.includes('coordinated') || text.includes('koordinasi') || text.includes('paket kebijakan')) &&
-          (text.includes('stabiliz') || text.includes('stabilisasi') || text.includes('rupiah'));
-        if (isCoordinated) {
-          return { headline: r.title ?? 'BI coordinated package detected', url: r.url ?? null };
-        }
-      }
-    }
-  } catch { /* silent */ }
-  return null;
-}
+// Kill switch #2 detection is now handled by sources/policy-response.ts (fetchPolicyResponse).
+// Classification: none | isolated_instrument | partial_coordination | full_package.
+// Does NOT auto-kill — manual confirm required for all levels (qualitative judgment call).
 
 async function main() {
   const today = new Date();
@@ -83,7 +40,7 @@ async function main() {
   }
 
   // Fetch live indicators once — all in parallel
-  const [cdsPoint, idrPoint, sbnPoint, ustPoint, polScores, sbnOwnPoint, cdsHistory, idrHistory, biPkg] = await Promise.all([
+  const [cdsPoint, idrPoint, sbnPoint, ustPoint, polScores, sbnOwnPoint, cdsHistory, idrHistory, policyResp] = await Promise.all([
     getLatestPoint('indonesia_cds_5y_bps'),
     getLatestPoint('usdidr_spot'),
     getLatestPoint('sbn_10y_yield_pct'),
@@ -92,7 +49,7 @@ async function main() {
     getLatestPoint('sbn_foreign_ownership_pct'),
     getLastN('indonesia_cds_5y_bps', 10),              // for KS #4 sustained CDS check
     getHistory('usdidr_spot', 45),                     // for KS #4 IDR 30d realized vol
-    detectBiCoordinatedPackage(),                       // KS #2 Exa/Tavily search
+    fetchPolicyResponse(),                             // KS #2 — 4-instrument coordination scan
   ]);
 
   const cdsActual    = cdsPoint?.value ?? null;
@@ -214,23 +171,31 @@ async function main() {
       console.log(`  ❌ #1 clear: Political risk min ${minPol?.toFixed(0) ?? '—'}/100 over last ${polLast14.length}d (need <55 sustained 14d)`);
     }
 
-    // #2 — BI coordinated package (Exa-detected, manual confirm)
+    // #2 — BI coordinated package (policy-response.ts 4-instrument scan, manual confirm)
     // Structural constraint: post-MSCI Standalone consultation (Oct 15 2026), mandate-driven outflow
     // is compliance execution, not speculative attack. BI rate/FX intervention cannot halt it.
-    // KS#2 effectiveness severely limited until Jun 30 2027 MSCI decision. Treat any candidate
-    // with extreme caution — do NOT kill unless package addresses the mandate-selling mechanism.
+    // KS#2 effectiveness severely limited until Jun 30 2027 MSCI decision.
     const msciStandalone = (await getLatestPoint('msci_classification_numeric'))?.value === 2;
-    if (biPkg !== null) {
-      console.log(`  ⚠️  #2 CANDIDATE: BI coordinated package detected — MANUAL CONFIRM required before killing`);
-      console.log(`     Headline: "${biPkg.headline.slice(0, 120)}"`);
-      if (biPkg.url) console.log(`     Source: ${biPkg.url}`);
+    const prLevel = policyResp.level;
+    const prSignals = policyResp.signals;
+    if (prLevel === 'full_package') {
+      const instruments = prSignals.map(s => s.instrument).join('+');
+      const windowStr = policyResp.coordinationWindowHours != null ? `${policyResp.coordinationWindowHours.toFixed(0)}h` : '<72h';
+      console.log(`  ⚠️  #2 CANDIDATE [FULL PACKAGE]: ${instruments} in ${windowStr} — MANUAL CONFIRM required before killing`);
+      prSignals.forEach(s => console.log(`     [${s.instrument}] "${s.headline.slice(0, 100)}" (${s.publishedAt})`));
       if (msciStandalone) {
-        console.log(`     ⚠️  STRUCTURAL CONSTRAINT: MSCI Standalone consultation active — BI cannot sterilize mandate-driven outflow (compliance execution ≠ speculative attack). KS#2 ineffective until MSCI decision Jun 30 2027. Verify package explicitly addresses forced-sell mechanism.`);
+        console.log(`     ⚠️  MSCI STANDALONE CONSTRAINT: mandate-exit selling = compliance execution, not speculative attack. BI package cannot sterilize it. KS#2 ineffective until Jun 30 2027. Manual confirm must address forced-sell mechanism.`);
       }
+    } else if (prLevel === 'partial_coordination') {
+      const instruments = prSignals.map(s => s.instrument).join('+');
+      console.log(`  ⚠️  #2 PARTIAL: ${instruments} detected (${prSignals.length}/4 instruments) — insufficient for kill; monitor for escalation to full_package`);
+      prSignals.forEach(s => console.log(`     [${s.instrument}] "${s.headline.slice(0, 100)}"`));
+    } else if (prLevel === 'isolated_instrument' && prSignals.length > 0) {
+      console.log(`  ❌ #2 clear [isolated]: ${prSignals[0]!.instrument} only — routine BI ops, not coordinated package`);
     } else {
-      console.log(`  ❌ #2 clear: No BI coordinated stabilization package found in news (last 30d)`);
+      console.log(`  ❌ #2 clear: No policy coordination signals detected (last 5d, 4 instruments: dndf/bei_buyback/alco/danantara)`);
       if (msciStandalone) {
-        console.log(`     ℹ️  STRUCTURAL NOTE: MSCI Standalone consultation active — BI rate/FX intervention cannot stop mandate-exit selling. KS#2 baseline effectiveness: LOW.`);
+        console.log(`     ℹ️  MSCI Standalone active — BI rate/FX intervention cannot stop mandate-exit selling. KS#2 baseline effectiveness: LOW.`);
       }
     }
 

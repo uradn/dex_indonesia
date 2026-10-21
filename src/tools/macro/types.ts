@@ -86,6 +86,8 @@ export interface FxDefenseEngineOutput {
   interventionSustainability: AlertLevel;
   shadowRate: ShadowRateData | null;
   confidenceGate: ConfidenceGateData | null;
+  policyResponseLevel: import('./sources/policy-response.js').PolicyResponseLevel | null;
+  policyResponseSignals: import('./sources/policy-response.js').PolicyResponseSignal[];
 }
 
 export interface MacroDataSource {
