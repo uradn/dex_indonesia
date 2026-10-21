@@ -201,6 +201,8 @@ const SNAPSHOT_INDICATORS = [
   'policy_response_level',
   // m4 china pmi — 6-8w lead signal for coal/nickel/CPO export demand
   'china_pmi_manufacturing',
+  // m10 fiscal deficit — used on /rr page r-g section
+  'apbn_deficit_pct_gdp',
 ];
 
 const CHART_INDICATORS = [
@@ -460,7 +462,7 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
     triggerLabel += ` | Subsidi energi run rate ${subsidyRunRatePct!.toFixed(0)}% (>135% FIRED — fiscal rescue underway)`;
   }
   if (biVacancyTriggerFired) {
-    triggerLabel += ` | BI GOVERNOR VACANT — Destry Damayanti (Surpres 10 Agu) fit & proper test DPR 26-27 Agu; Pj Sementara menjabat sejak 27 Jul [ACTIVE — belum dilantik]`;
+    triggerLabel += ` | BI GOVERNOR VACANT — check BI_GOVERNOR_VACANT env flag`;
   }
 
   // ── SCD-based crisis probability ─────────────────────────────────────────────
@@ -497,7 +499,7 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
     `#2 — BI announces coordinated stabilization package (fiscal letter + reserves defense ≥$5bn + rate guidance) [MANUAL CONFIRM]`,
     `#3 — SBN foreign ownership > 15% (capital return; meaningful re-entry from depressed levels)`,
     `#4 — ALL 3 credit signals benign: CDS 5Y <75bps + SBN-UST <366bps + IDR vol <5% (6/6 required)`,
-    ...(biGovernorVacant ? [`#5 — Destry Damayanti dilantik sebagai Gubernur BI + kebijakan rate definitif diumumkan (institutional vacuum resolved) [FIT & PROPER TEST DPR 26-27 AGU — MANUAL CONFIRM setelah pelantikan]`] : []),
+    ...(biGovernorVacant ? [`#5 — BI Governor dilantik + rate guidance definitif diumumkan (institutional vacuum resolved) [MANUAL CONFIRM]`] : []),
   ];
 
   // ── Transmission chain ────────────────────────────────────────────────────────
@@ -593,6 +595,61 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
   if (marketTop)  chainReadings.foreign_flow      = fmtRead(marketTop);
   if (fxTop)      chainReadings.fx_defense        = fmtRead(fxTop);
   if (bankingTop) chainReadings.banking           = fmtRead(bankingTop);
+
+  // Live DB readings — override CHAIN_META hardcodes for modules without fresh news
+  // Priority: news headline (above) > DB live reading > CHAIN_META static string
+  const _n = (v: number | undefined | null, d = 1) => v != null ? v.toFixed(d) : null;
+  const dbR: Record<string, string | null> = {
+    political_risk: (() => {
+      const unrest = _n(ind['political_social_unrest_score']?.value, 0);
+      const food   = _n(ind['political_food_stress_score']?.value, 0);
+      const appr   = _n(ind['prabowo_approval_pct']?.value, 1);
+      const ms12   = ms['political_risk']?.score;
+      return [unrest && 'Unrest ' + unrest + '/100', food && 'Food stress ' + food + '/100', appr && 'Approval ' + appr + '%', ms12 != null && 'M12 score ' + ms12 + '/100'].filter(Boolean).join(' | ') || null;
+    })(),
+    domestic_pressure: (() => {
+      const gap  = ind['bbm_subsidy_gap_idr_liter']?.value;
+      const food = _n(ind['political_food_stress_score']?.value, 0);
+      const ms11 = ms['domestic_pressure']?.score;
+      return [gap && 'BBM gap Rp' + Math.round(gap).toLocaleString('id') + '/L', food && 'Food stress ' + food + '/100', ms11 != null && 'M11 score ' + ms11 + '/100'].filter(Boolean).join(' | ') || null;
+    })(),
+    fiscal: (() => {
+      const def  = _n(ind['apbn_deficit_pct_gdp']?.value, 2);
+      const brent = _n(ind['brent_price_usd']?.value, 1);
+      const ms10 = ms['fiscal']?.score;
+      return [def && 'Deficit ' + def + '% GDP', brent && 'Brent $' + brent, ms10 != null && 'M10 score ' + ms10 + '/100'].filter(Boolean).join(' | ') || null;
+    })(),
+    sovereign_risk: (() => {
+      const cds  = _n(ind['indonesia_cds_5y_bps']?.value, 1);
+      const sbn  = _n(ind['sbn_10y_yield_pct']?.value, 3);
+      const tp   = _n(der.termPremium, 2);
+      const ms2  = ms['sovereign_risk']?.score;
+      return [cds && 'CDS ' + cds + 'bps', sbn && 'SBN ' + sbn + '%', tp && 'Term prem ' + tp + '%', ms2 != null && 'M2 score ' + ms2 + '/100'].filter(Boolean).join(' | ') || null;
+    })(),
+    foreign_flow: (() => {
+      const sbnOwn = _n(ind['sbn_foreign_ownership_pct']?.value, 2);
+      const idxFlow = ind['idx_foreign_net_buy_idr_bn']?.value;
+      const ms5  = ms['foreign_flow']?.score;
+      return [sbnOwn && 'SBN own ' + sbnOwn + '%', idxFlow != null && 'IDX flow ' + idxFlow.toFixed(0) + 'bn IDR', ms5 != null && 'M5 score ' + ms5 + '/100'].filter(Boolean).join(' | ') || null;
+    })(),
+    fx_defense: (() => {
+      const usdidr = ind['usdidr_spot']?.value;
+      const vol    = _n(ind['usdidr_vol_30d']?.value, 2);
+      const srbi   = _n(ind['srbi_outstanding_trn_idr']?.value, 0);
+      const ms3    = ms['fx_defense']?.score;
+      return [usdidr && 'USDIDR ' + Math.round(usdidr).toLocaleString('id'), vol && 'Vol ' + vol + '%', srbi && 'SRBI ' + srbi + 'T IDR', ms3 != null && 'M3 score ' + ms3 + '/100'].filter(Boolean).join(' | ') || null;
+    })(),
+    banking: (() => {
+      const npl  = _n(ind['bank_npl_gross_pct']?.value, 2);
+      const car  = _n(ind['bank_car_pct']?.value, 1);
+      const ldr  = _n(ind['bank_ldr_pct']?.value, 2);
+      const ms8  = ms['banking']?.score;
+      return [npl && 'NPL ' + npl + '%', car && 'CAR ' + car + '%', ldr && 'LDR ' + ldr + '%', ms8 != null && 'M8 score ' + ms8 + '/100'].filter(Boolean).join(' | ') || null;
+    })(),
+  };
+  for (const [mod, dbStr] of Object.entries(dbR)) {
+    if (!chainReadings[mod] && dbStr) chainReadings[mod] = dbStr;
+  }
 
   return {
     primaryDivergence: primary.id,
@@ -947,7 +1004,7 @@ function renderFiscal(d) {
     kv('Pertalite', pertalite ? 'Rp' + Math.round(pertalite).toLocaleString('id') + '/L' : '—'),
     kv('Solar Gap (MOPS)', solarGap ? 'Rp' + fmtK(solarGap) + '/L' : '—', solarGap > 7000 ? 'red' : solarGap > 4000 ? 'orange' : solarGap > 2000 ? 'yellow' : 'green'),
     kv('Solar CR (MOPS≈)', solarCr ? 'Rp' + fmtK(solarCr) + '/L' : '—'),
-    kv('Solar B40', solar ? 'Rp' + Math.round(solar).toLocaleString('id') + '/L' : '—'),
+    kv('Solar B50', solar ? 'Rp' + Math.round(solar).toLocaleString('id') + '/L' : '—'),
     kv('Pertamax', pertamax ? 'Rp' + Math.round(pertamax).toLocaleString('id') + '/L' : '—'),
     kv('Pertamax Green', pertamaxG ? 'Rp' + Math.round(pertamaxG).toLocaleString('id') + '/L' : '—'),
     kv('FX Reserves', reserves ? '$' + fmtNum(reserves, 1) + 'bn' + stale(resDate, 90) : '—', reserves < 100 ? 'red' : reserves < 120 ? 'orange' : reserves < 130 ? 'yellow' : 'green'),
@@ -1725,7 +1782,7 @@ const RR_HTML = `<!DOCTYPE html>
     <div style="color:var(--muted)">Loading…</div>
   </div>
   <div class="card" id="panel-rr">
-    <div class="card-title">R&R Open Economy — 9 Frameworks Live</div>
+    <div class="card-title">R&R Open Economy — 7 Frameworks Live</div>
     <div style="color:var(--muted)">Loading…</div>
   </div>
   <div class="card" id="panel-msci-reforms">
@@ -2859,7 +2916,7 @@ function renderGameTheory(thesis, snap) {
     </div>
     <div style="font-size:9px;color:var(--muted);margin-bottom:10px">Exit pressure \${exitPressPct}% → expected roll \${expectedRoll}% vs k*=\${kStarPct}%. \${repoDesc} Self-fulfilling crisis if exit fraction &gt;\${exitK30Pct}%.</div>
 
-    <div class="hist-note">GT Coverage ~100% · Bryant · Kreps · Morris-Shin · Barro-Gordon · PolEcon · Bayesian M6 · Spence/Cho-Kreps · Diamond-Dybvig. Refresh every 120s.</div>
+    <div class="hist-note">GT Coverage ~65% · Bryant · Kreps · Morris-Shin · Barro-Gordon · PolEcon · Bayesian M6 · Spence/Cho-Kreps · Diamond-Dybvig. Refresh every 120s.</div>
   \`;
 }
 
