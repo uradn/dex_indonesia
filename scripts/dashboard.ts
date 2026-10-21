@@ -1097,7 +1097,7 @@ function renderScd(d) {
     const latest = Object.values(ms).sort((a,b) => b.computedAt.localeCompare(a.computedAt))[0];
     const age = latest ? Math.round((Date.now() - new Date(latest.computedAt).getTime()) / 3600000) : null;
     const ageTxt = age !== null ? (age < 1 ? ' · <1h ago' : ' · '+age+'h ago') : '';
-    const reductionTag = policyReduction > 0 ? ` · −${policyReduction}pp coordinated response` : '';
+    const reductionTag = policyReduction > 0 ? ' · −' + policyReduction + 'pp coordinated response' : '';
     label = (score >= 70 ? '🔴 RED — CRISIS RISK' : score >= 50 ? '🟠 ORANGE — ELEVATED' : score >= 33 ? '🟡 YELLOW — WATCH' : '🟢 GREEN — NORMAL') + ageTxt + reductionTag;
   } else {
     score = computeScdProxy(d);
