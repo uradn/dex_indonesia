@@ -36,8 +36,10 @@ const MIN_CONF   = parseInt(args.find(a => a.startsWith('--min-confidence='))?.s
 // --interactive prompts when confidence < INTERACTIVE_PROMPT_THRESHOLD (even if result found)
 const INTERACTIVE_PROMPT_THRESHOLD = parseInt(args.find(a => a.startsWith('--prompt-below='))?.slice(15) ?? '60');
 
-// Domains known to return noisy generic content, not survey results
-const BLOCKED_DOMAINS = ['bitvonline.com'];
+// Domains known to return noisy content:
+//   bitvonline.com — same article returned for many different month queries
+//   facebook.com   — social media posts include capres simulation polls, wrong time periods
+const BLOCKED_DOMAINS = ['bitvonline.com', 'facebook.com'];
 
 // ── Month iteration helpers ───────────────────────────────────────────────────
 

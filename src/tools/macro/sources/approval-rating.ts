@@ -82,6 +82,15 @@ function detectPollster(text: string): Pollster {
 const APPROVAL_MIN = 45;
 const APPROVAL_MAX = 92;
 
+// Negative context: reject if nearby text is about FUTURE election simulation, not current kinerja
+// "capres", "pilpres 2029", "calon presiden", "head to head", "dedi mulyadi", "simulasi"
+// These indicate elektabilitas capres polls, not kepuasan kinerja presiden
+const CAPRES_CONTEXT = /capres|pilpres\s*20[0-9]{2}|calon presiden|head.to.head|simulasi elekt|anies|ganjar|dedi mulyadi|puan maharani|kandidat presiden/i;
+
+function isElectabilityContext(windowText: string): boolean {
+  return CAPRES_CONTEXT.test(windowText);
+}
+
 function parseApproval(text: string): ParseResult | null {
   // Normalise Indonesian comma-decimal separator
   const normalized = text.replace(/(\d),(\d)/g, '$1.$2');
@@ -89,15 +98,16 @@ function parseApproval(text: string): ParseResult | null {
 
   const pollster = detectPollster(lower);
   const confidence = pollster !== null ? 85 : (
-    /survei|polling|survey|elektabilitas|kepuasan|approval/.test(lower) ? 50 : 25
+    /survei|polling|survey|kepuasan|approval/.test(lower) ? 50 : 25
   );
 
-  // Patterns ordered strongest → weakest
+  // Patterns ordered strongest → weakest — NOTE: removed standalone `elektabilitas` to avoid
+  // capres simulation polls (elektabilitas capres 2029 ≠ kepuasan kinerja presiden)
   const patterns: RegExp[] = [
-    /(?:kepuasan|elektabilitas|approval|puas|approval rating)[^\d]*(\d{2,3}(?:\.\d)?)\s*%/i,
-    /prabowo[^\d]{0,30}(\d{2,3}(?:\.\d)?)\s*%[^\d]{0,40}(?:puas|approv|survei|poltracking|lsi)/i,
-    /(\d{2,3}(?:\.\d)?)\s*%[^\d]{0,30}(?:kepuasan|puas|approv|elektabilitas)/i,
-    /presiden[^\d]{0,20}(\d{2,3}(?:\.\d)?)\s*%/i,
+    /(?:kepuasan|approval|puas|approval rating|satisfaction)[^\d]*(\d{2,3}(?:\.\d)?)\s*%/i,
+    /prabowo[^\d]{0,30}(\d{2,3}(?:\.\d)?)\s*%[^\d]{0,40}(?:puas|approv|survei|poltracking|lsi|kepuasan)/i,
+    /(\d{2,3}(?:\.\d)?)\s*%[^\d]{0,30}(?:kepuasan|puas|approv)/i,
+    /presiden[^\d]{0,20}(\d{2,3}(?:\.\d)?)\s*%[^\d]{0,30}(?:puas|kepuas|approv)/i,
   ];
 
   for (const pat of patterns) {
@@ -105,6 +115,8 @@ function parseApproval(text: string): ParseResult | null {
     if (m) {
       const val = parseFloat(m[1]!);
       if (val >= APPROVAL_MIN && val <= APPROVAL_MAX) {
+        const window = normalized.slice(Math.max(0, (m.index ?? 0) - 120), (m.index ?? 0) + 120);
+        if (isElectabilityContext(window)) continue; // capres simulation — skip
         return { pct: val, pollster, confidence };
       }
     }
@@ -118,17 +130,18 @@ function parseAllApprovals(text: string): ParseResult[] {
   const seen = new Set<number>();
 
   for (const pat of [
-    /(?:kepuasan|elektabilitas|approval)[^\d]*(\d{2,3}(?:\.\d)?)\s*%/gi,
-    /(\d{2,3}(?:\.\d)?)\s*%[^\d]{0,30}(?:kepuasan|puas|approv|elektabilitas)/gi,
+    /(?:kepuasan|approval|satisfaction)[^\d]*(\d{2,3}(?:\.\d)?)\s*%/gi,
+    /(\d{2,3}(?:\.\d)?)\s*%[^\d]{0,30}(?:kepuasan|puas|approv)/gi,
   ]) {
     const normalized = text.replace(/(\d),(\d)/g, '$1.$2');
     for (const m of normalized.matchAll(pat)) {
       const val = parseFloat(m[1]!);
       if (val >= APPROVAL_MIN && val <= APPROVAL_MAX && !seen.has(val)) {
+        const window = normalized.slice(Math.max(0, (m.index ?? 0) - 120), (m.index ?? 0) + 120);
+        if (isElectabilityContext(window)) continue; // skip capres simulation
         seen.add(val);
-        const pctText = normalized.slice(Math.max(0, (m.index ?? 0) - 80), (m.index ?? 0) + 80);
-        const pollster = detectPollster(pctText);
-        const confidence = pollster !== null ? 85 : (/survei|polling|survey/.test(pctText.toLowerCase()) ? 50 : 25);
+        const pollster = detectPollster(window);
+        const confidence = pollster !== null ? 85 : (/survei|polling|survey|kepuasan/.test(window.toLowerCase()) ? 50 : 25);
         results.push({ pct: val, pollster, confidence });
       }
     }
