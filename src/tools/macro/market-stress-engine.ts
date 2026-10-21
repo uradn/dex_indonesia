@@ -66,6 +66,7 @@ interface MarketStressOutput {
   valuationDisconnect: boolean;
   timing: MarketTiming;
   cascade: StopLossCascade;
+  ihsgFloorEstimate: { level: number; impliedEps: number; troughPe: number } | null;
   dataDate: string;
   flags: string[];
   narrative: string;
@@ -208,6 +209,16 @@ export async function runMarketStressEngine(): Promise<MarketStressOutput> {
   // Convert EIDO proxy P/E to composite-equivalent before scoring
   const peForScoring = peRatio !== null ? compositeEquivPe(peRatio) : null;
 
+  // IHSG structural floor — current implied EPS × COVID trough P/E (7.0×)
+  // Structural support assuming earnings hold at current level but multiple contracts to crisis floor.
+  const ihsgFloorEstimate = (priceLevel !== null && peForScoring !== null && peForScoring > 0)
+    ? (() => {
+        const troughPe = 7.0;
+        const impliedEps = parseFloat((priceLevel / peForScoring).toFixed(1));
+        return { level: Math.round(impliedEps * troughPe), impliedEps, troughPe };
+      })()
+    : null;
+
   // 3. Compute stress score
   const components: Array<[number, number]> = [];
   if (peForScoring !== null) components.push([scorePe(peForScoring), 0.50]);
@@ -273,6 +284,10 @@ export async function runMarketStressEngine(): Promise<MarketStressOutput> {
   if (adRatio !== null && adRatio < 0.67) flags.push(`Breadth bearish: A/D ratio ${adRatio.toFixed(2)} — majority of stocks declining`);
   if (adRatio !== null && adRatio < 0.5) flags.push(`Breadth panic: A/D ratio ${adRatio.toFixed(2)} — broad selling signal`);
   if (valuationDisconnect) flags.push('Valuation disconnect: elevated P/E + negative breadth — narrow leadership risk');
+  if (ihsgFloorEstimate !== null && priceLevel !== null && priceLevel <= ihsgFloorEstimate.level * 1.20) {
+    const pctAbove = ((priceLevel - ihsgFloorEstimate.level) / ihsgFloorEstimate.level * 100).toFixed(1);
+    flags.push(`IHSG NEAR STRUCTURAL FLOOR: ${priceLevel.toLocaleString()} pts — ${pctAbove}% above implied EPS floor (${ihsgFloorEstimate.level.toLocaleString()} pts at ${ihsgFloorEstimate.troughPe}× P/E × EPS ${ihsgFloorEstimate.impliedEps}). Below floor = earnings collapse priced in.`);
+  }
 
   // IDX circuit breaker / trading halt — env pin IDX_LAST_CIRCUIT_BREAKER_DATE (YYYY-MM-DD)
   // Update when circuit breaker fires (−8% intraday triggers halt). Flag active 30d post-event.
@@ -334,7 +349,7 @@ export async function runMarketStressEngine(): Promise<MarketStressOutput> {
     flags.length === 0 ? 'No active stress flags.' : '',
   ].filter(Boolean).join(' ');
 
-  return { alert, stressScore, peRatio, adRatio, peAlert, breadthAlert, valuationDisconnect, timing, cascade, dataDate, flags, narrative };
+  return { alert, stressScore, peRatio, adRatio, peAlert, breadthAlert, valuationDisconnect, timing, cascade, ihsgFloorEstimate, dataDate, flags, narrative };
 }
 
 function formatCascadeStatus(cascade: StopLossCascade): string {

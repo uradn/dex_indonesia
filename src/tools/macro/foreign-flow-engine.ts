@@ -137,6 +137,7 @@ interface ForeignFlowOutput {
   herdingCascade: HerdingCascade;
   msciClassificationRisk: 'confirmed' | 'under_review' | 'downgrade_risk';
   msciReversalProbability: number | null; // P(MSCI reverses Standalone → EM maintained); prior 0.12–0.15
+  reformSpeculationProbability: number;   // P(active reform speculators in market now, 0–75); Thread 24 wait-game
   narrative: string;
 }
 
@@ -234,10 +235,11 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   const idxFlowSnap = currentIdxFlow ? await buildSnapshot('idx_foreign_net_buy_idr_bn', currentIdxFlow, prevIdxFlow) : null;
 
   // SSVI additional DB reads — no new fetches, all cross-fed from other engines
-  const [ust10yFromDb, ggFromDb, idrHistory90] = await Promise.all([
+  const [ust10yFromDb, ggFromDb, idrHistory90, policyRespLevel] = await Promise.all([
     getLatestPoint('ust_10y_yield_pct'),
     getLatestPoint('greenspan_guidotti'),
     getLastN('usdidr_spot', 90),
+    getLatestPoint('policy_response_level'),
   ]);
   const idrCurrent = await getLatestPoint('usdidr_spot');
 
@@ -388,6 +390,15 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   const pDowngrade = 0.85 + 0.10 * consultationProgress;
   const pReversal  = 1 - pDowngrade;
 
+  // Thread 24 wait-game: P(active reform speculators in market, 0–75)
+  const sbnOwnTrend = currentSbn && prevSbn ? currentSbn.value - prevSbn.value : null;
+  const prLevelNum = policyRespLevel?.value ?? 0;
+  const prBase = pReversal * 100;
+  const prPolicyBonus = prLevelNum >= 3 ? 25 : prLevelNum >= 2 ? 12 : 0;
+  const prSbnBonus = sbnOwnTrend !== null && sbnOwnTrend > 0.5 ? 10 : 0;
+  const prPhaseMultiplier = bryantPhase === 'mandate_rebalancing' ? 1.3 : 1.0;
+  const reformSpeculationProbability = Math.min(75, Math.round((prBase + prPolicyBonus + prSbnBonus) * prPhaseMultiplier));
+
   let msciScoreBump = 0;
   if (msciStatus === 'downgrade_risk') msciScoreBump = Math.round(pDowngrade * 24);
   else if (msciStatus === 'under_review') msciScoreBump = 8;
@@ -395,7 +406,8 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   // SSVI alert floor: imminent (≥75) → orange min; critical (≥90) → red min
   const ALERT_ORDER: AlertLevel[] = ['green', 'yellow', 'orange', 'red'];
   const ssviFloorAlert: AlertLevel = ssviIndex >= 90 ? 'red' : ssviIndex >= 75 ? 'orange' : ssviIndex >= 50 ? 'yellow' : 'green';
-  const score = Math.min(100, (ssviIndex >= 75 ? Math.max(baseScore, 50) : baseScore) + msciScoreBump + cascadeScoreBump + bryantPhaseBonus + sairBonus);
+  const waitGameDiscount = bryantPhase === 'mandate_rebalancing' && reformSpeculationProbability > 50 ? 5 : 0;
+  const score = Math.min(100, Math.max(0, (ssviIndex >= 75 ? Math.max(baseScore, 50) : baseScore) + msciScoreBump + cascadeScoreBump + bryantPhaseBonus + sairBonus - waitGameDiscount));
   const alertLevel = ALERT_ORDER[Math.max(ALERT_ORDER.indexOf(alertFromScore(score)), ALERT_ORDER.indexOf(ssviFloorAlert))]!;
   const flags: string[] = [];
   // EIDO shares outstanding — redemption acceleration signal
@@ -488,8 +500,8 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
       pre_event:           'Bryant event pending',
       fast_money:          `T+${daysSinceBryant}d FAST MONEY: hedge fund immediate sell — coordination completed (IHSG −11% Oct 16)`,
       etf_mechanics:       `T+${daysSinceBryant}d ETF MECHANICS: passive basket sell via authorized participant redemption — EIDO NAV pressure, not discretionary`,
-      mandate_rebalancing: `T+${daysSinceBryant}d MANDATE REBALANCING: EM benchmark quarterly window — institutional forced-sell regardless of fundamentals`,
-      structured_exit:     `T+${daysSinceBryant}d STRUCTURED EXIT: EM index removal implementation wave (Sep–Dec 2027)`,
+      mandate_rebalancing: `T+${daysSinceBryant}d MANDATE REBALANCING — WAIT GAME [Thread 24]: two-sided market — mandate sellers (forced-exit) vs reform speculators (P(reversal)=${(pReversal * 100).toFixed(0)}% | reformProb=${reformSpeculationProbability}%). Net flow = mandate-sell dominant if reformProb <50%.`,
+      structured_exit:     `T+${daysSinceBryant}d STRUCTURED EXIT — INFO ACQUISITION [Thread 24]: reform evidence gathering phase — market watches verifiable structural implementation vs announcement-only`,
     };
     const phaseNote = bryantPhase === 'etf_mechanics' || bryantPhase === 'mandate_rebalancing'
       ? ` PEAK FORCED-SELL PERIOD — ETF mechanics + mandate rebalancing concurrent. (+${bryantPhaseBonus} score)`
@@ -538,6 +550,7 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
     herdingCascade,
     msciClassificationRisk: msciStatus,
     msciReversalProbability: msciStatus === 'downgrade_risk' ? parseFloat(pReversal.toFixed(3)) : null,
+    reformSpeculationProbability,
     narrative,
   };
 }
