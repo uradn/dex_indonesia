@@ -43,6 +43,11 @@ bun scripts/backfill-srbi-history.ts    # backfill SRBI auction history Sep 2023
 bun scripts/backfill-srbi-news.ts       # backfill srbi_bid_cover_ratio 2023-2025 gap via Exa media search (CNBC/Bisnis/Kontan)
 #   complementary to backfill-srbi-history (media articles vs BI official pages)
 #   --dry-run | --from=YYYY-MM-DD --to=YYYY-MM-DD | ran Sep 16 2026: 84 pts saved (Sep 2023–May 2025)
+bun scripts/backfill-approval-history.ts   # backfill prabowo_approval_pct monthly time series (VPI M12)
+#   Auto: Exa/Tavily media scrape (~60-70% hit last 9mo) | --interactive: prompt for gaps
+#   --csv=path.csv: bulk import (date,value,source — date=YYYY-MM; no header required)
+#   --dry-run | --from=YYYY-MM --to=YYYY-MM | --min-confidence=N (skip low-conf auto results)
+#   Run once after setup; monthly cron not needed (morning-check auto-refreshes latest via VPI fetch)
 
 # Dashboard (localhost:6080)
 bun scripts/dashboard.ts                  # start dashboard server (port 6080)
@@ -232,7 +237,10 @@ FINTECH_NPL_PCT            # P2P lending NPL gross %; OJK WAF blocks auto-scrape
 # M4 Commodity
 CHINA_PMI_MANUFACTURING    # Caixin/NBS China mfg PMI (e.g. 49.5); set when Exa/Tavily parse fails; monthly release Caixin ~1st biz day, NBS ~last biz day
 # M12 Political Risk
-PRABOWO_APPROVAL_PCT       # Presidential approval % (e.g. 72.5); update from Poltracking/LSI/Indikator monthly surveys; used in Tsebelis VPI component
+PRABOWO_APPROVAL_PCT       # EMERGENCY override only — VPI now auto-fetches 3m rolling median from DB (sources/approval-rating.ts).
+                           # Set ONLY when Exa/Tavily parse fails AND no DB data for current month.
+                           # Normal path: backfill-approval-history.ts populates DB; morning-check refreshes.
+                           # Source hierarchy: env > DB cache (30d) > Exa media scrape > Tavily > null.
 # M8 Banking — D-D depositor concentration
 LPS_DEPOSIT_COVERAGE_PCT   # % of total deposit VALUE insured by LPS (e.g. 16.5); from LPS quarterly siaran pers; fires D-D condition when <15% (uninsured >85%); structural baseline ~16% → condition normally off
 # M5 Foreign Flow

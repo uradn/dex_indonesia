@@ -92,6 +92,8 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   { name: 'china_pmi_manufacturing', module: 'M4', freshDays: 35, yellowDays: 50, redDays: 75 },
   // Veto player friction — Tsebelis M12 institutional capacity (72h cache; rerun with news)
   { name: 'veto_player_friction_index', module: 'M12', freshDays: 3, yellowDays: 7, redDays: 14 },
+  // Presidential approval — monthly survey scrape; 30d fresh, backfill via backfill-approval-history.ts
+  { name: 'prabowo_approval_pct', module: 'M12', freshDays: 30, yellowDays: 45, redDays: 60 },
   // LPS deposit coverage — quarterly press release; 90d freshness
   { name: 'lps_deposit_coverage_value_pct', module: 'M8', freshDays: 90, yellowDays: 120, redDays: 180 },
   // Policy response coordination — KS#2 feed; 24h cache per policy-response.ts

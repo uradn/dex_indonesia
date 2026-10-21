@@ -325,19 +325,24 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
 
   // Tsebelis veto player friction flags
   if (vetoData) {
+    const approvalStr = vetoData.approvalPct !== null
+      ? `Approval ${vetoData.approvalPct.toFixed(0)}% 3m-median${vetoData.approvalTrend && vetoData.approvalTrend !== 'stable' ? ` (${vetoData.approvalTrend})` : ''}.`
+      : '';
     if (vetoData.frictionTier === 'high') {
       flags.push(
         `VETO PLAYER FRICTION HIGH (VPI ${vetoData.frictionIndex}/100): institutional gridlock risk elevated. ` +
-        `${vetoData.approvalPct !== null ? `Presidential approval ${vetoData.approvalPct.toFixed(0)}%.` : ''} ` +
+        `${approvalStr} ` +
         `Coalition: ${vetoData.coalitionFragmentation.toUpperCase()}. Opposition activism: ${vetoData.oppositionActivism.toUpperCase()}. ` +
         `[Tsebelis 2002: veto players block reform even when incentives exist — +${vetoData.scoreAdj} score]`
       );
     } else if (vetoData.frictionTier === 'moderate') {
       flags.push(
         `Veto player friction MODERATE (VPI ${vetoData.frictionIndex}/100): some institutional resistance. ` +
-        `${vetoData.approvalPct !== null ? `Approval ${vetoData.approvalPct.toFixed(0)}%. ` : ''}` +
-        `Coalition ${vetoData.coalitionFragmentation}, opposition ${vetoData.oppositionActivism}. (+${vetoData.scoreAdj} score)`
+        `${approvalStr} Coalition ${vetoData.coalitionFragmentation}, opposition ${vetoData.oppositionActivism}. (+${vetoData.scoreAdj} score)`
       );
+    }
+    if (vetoData.approvalTrend === 'falling' && vetoData.approvalPct !== null && vetoData.approvalPct < 65) {
+      flags.push(`APPROVAL DECLINING: 3-month trend falling below 65% — presidential mandate weakening, reform capacity eroding`);
     }
   }
 

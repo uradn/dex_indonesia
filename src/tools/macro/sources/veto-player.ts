@@ -25,12 +25,14 @@
  */
 
 import { getLatestPoint, upsertPoints } from '../time-series-db.js';
+import { computeApproval3mMedian } from './approval-rating.js';
 
 const FRESHNESS_HOURS = 72;
 
 export interface VetoPlayerData {
   frictionIndex: number;           // 0–100 composite (higher = more gridlock)
-  approvalPct: number | null;      // presidential approval % (Poltracking/LSI/Indikator)
+  approvalPct: number | null;      // 3-month rolling median approval % (Poltracking/LSI/Indikator)
+  approvalTrend: 'rising' | 'falling' | 'stable' | null; // vs prior 3 months
   approvalSource: string | null;
   coalitionFragmentation: 'low' | 'moderate' | 'high';
   oppositionActivism: 'low' | 'moderate' | 'high';
@@ -39,25 +41,6 @@ export interface VetoPlayerData {
   fetchedAt: string;
 }
 
-function parseApprovalFromText(text: string): number | null {
-  // Match "72.5%", "approval 68%", "elektabilitas 71.3%", "tingkat kepuasan 65%"
-  const patterns = [
-    /approval[^0-9]*(\d{2,3}\.?\d*)\s*%/i,
-    /elektabilitas[^0-9]*(\d{2,3}\.?\d*)\s*%/i,
-    /kepuasan[^0-9]*(\d{2,3}\.?\d*)\s*%/i,
-    /(\d{2,3}\.?\d*)\s*%[^0-9a-z]{0,20}approval/i,
-    /prabowo[^0-9]*(\d{2,3}\.?\d*)\s*%/i,
-    /presiden[^0-9]*(\d{2,3}\.?\d*)\s*%[^0-9]{0,30}(approv|kepuas|puas|survey|survei)/i,
-  ];
-  for (const pat of patterns) {
-    const m = text.match(pat);
-    if (m) {
-      const val = parseFloat(m[1]!);
-      if (val >= 20 && val <= 100) return val;
-    }
-  }
-  return null;
-}
 
 function scoreCoalitionFragmentation(text: string): 'low' | 'moderate' | 'high' {
   const lower = text.toLowerCase();
@@ -113,19 +96,15 @@ function computeFrictionIndex(
   return Math.round(Math.min(100, approvalComponent + coalitionComponent + oppositionComponent));
 }
 
-async function fetchViaExa(): Promise<{ approvalPct: number | null; approvalSource: string | null; coalitionText: string; oppositionText: string } | null> {
+// Coalition + opposition signals only (approval now via approval-rating.ts)
+async function fetchCoalitionOppositionViaExa(): Promise<{ coalitionText: string; oppositionText: string } | null> {
   if (!process.env.EXASEARCH_API_KEY) return null;
   const startDate = new Date(Date.now() - 35 * 86_400_000).toISOString().slice(0, 10);
   try {
     const { default: Exa } = await import('exa-js');
     const exa = new Exa(process.env.EXASEARCH_API_KEY);
 
-    // Fetch approval + coalition + opposition signals in parallel
-    const [approvalResp, coalitionResp, oppositionResp] = await Promise.allSettled([
-      exa.search('Prabowo elektabilitas kepuasan approval rating 2026 Poltracking LSI Indikator', {
-        numResults: 4, type: 'neural', startPublishedDate: startDate,
-        contents: { text: { maxCharacters: 500 } },
-      } as Parameters<typeof exa.search>[1]),
+    const [coalitionResp, oppositionResp] = await Promise.allSettled([
       exa.search('koalisi Indonesia berseberangan Prabowo 2026 DPR partai keluar', {
         numResults: 4, type: 'neural', startPublishedDate: startDate,
         contents: { text: { maxCharacters: 400 } },
@@ -136,21 +115,9 @@ async function fetchViaExa(): Promise<{ approvalPct: number | null; approvalSour
       } as Parameters<typeof exa.search>[1]),
     ]);
 
-    let approvalPct: number | null = null;
-    let approvalSource: string | null = null;
     const coalitionTexts: string[] = [];
     const oppositionTexts: string[] = [];
 
-    if (approvalResp.status === 'fulfilled') {
-      for (const r of approvalResp.value.results ?? []) {
-        const text = ((r as { text?: string }).text ?? '') + ' ' + (r.title ?? '');
-        const val = parseApprovalFromText(text);
-        if (val !== null && approvalPct === null) {
-          approvalPct = val;
-          approvalSource = r.url ?? null;
-        }
-      }
-    }
     if (coalitionResp.status === 'fulfilled') {
       for (const r of coalitionResp.value.results ?? []) {
         coalitionTexts.push(((r as { text?: string }).text ?? '') + ' ' + (r.title ?? ''));
@@ -161,71 +128,42 @@ async function fetchViaExa(): Promise<{ approvalPct: number | null; approvalSour
         oppositionTexts.push(((r as { text?: string }).text ?? '') + ' ' + (r.title ?? ''));
       }
     }
-
-    return {
-      approvalPct,
-      approvalSource,
-      coalitionText: coalitionTexts.join(' '),
-      oppositionText: oppositionTexts.join(' '),
-    };
+    return { coalitionText: coalitionTexts.join(' '), oppositionText: oppositionTexts.join(' ') };
   } catch { /* silent */ }
   return null;
 }
 
-async function fetchViaTavily(): Promise<{ approvalPct: number | null; approvalSource: string | null; coalitionText: string; oppositionText: string } | null> {
+async function fetchCoalitionOppositionViaTavily(): Promise<{ coalitionText: string; oppositionText: string } | null> {
   if (!process.env.TAVILY_API_KEY) return null;
   try {
     const { TavilySearchAPIWrapper } = await import('@langchain/tavily');
     const tavily = new TavilySearchAPIWrapper({ tavilyApiKey: process.env.TAVILY_API_KEY });
 
-    const [approvalResp, coalitionResp] = await Promise.allSettled([
-      tavily.rawResults({
-        query: 'Prabowo approval rating elektabilitas 2026 survei Poltracking LSI',
-        max_results: 4, include_raw_content: false, time_range: 'month',
-      } as Parameters<typeof tavily.rawResults>[0]),
-      tavily.rawResults({
-        query: 'koalisi Indonesia DPR 2026 oposisi interpelasi berseberangan',
-        max_results: 4, include_raw_content: false, time_range: 'month',
-      } as Parameters<typeof tavily.rawResults>[0]),
-    ]);
+    const resp = await tavily.rawResults({
+      query: 'koalisi Indonesia DPR 2026 oposisi interpelasi berseberangan Prabowo',
+      max_results: 6, include_raw_content: false, time_range: 'month',
+    } as Parameters<typeof tavily.rawResults>[0]);
 
-    let approvalPct: number | null = null;
-    let approvalSource: string | null = null;
-    const combinedText: string[] = [];
-
-    if (approvalResp.status === 'fulfilled') {
-      for (const r of approvalResp.value.results ?? []) {
-        const text = (r.content ?? '') + ' ' + (r.title ?? '');
-        const val = parseApprovalFromText(text);
-        if (val !== null && approvalPct === null) {
-          approvalPct = val;
-          approvalSource = r.url ?? null;
-        }
-        combinedText.push(text);
-      }
-    }
-    if (coalitionResp.status === 'fulfilled') {
-      for (const r of coalitionResp.value.results ?? []) combinedText.push((r.content ?? '') + ' ' + (r.title ?? ''));
-    }
-
-    const allText = combinedText.join(' ');
-    return { approvalPct, approvalSource, coalitionText: allText, oppositionText: allText };
+    const text = (resp.results ?? []).map((r: { content?: string; title?: string }) => (r.content ?? '') + ' ' + (r.title ?? '')).join(' ');
+    return { coalitionText: text, oppositionText: text };
   } catch { /* silent */ }
   return null;
 }
 
 /**
  * Fetch veto player friction index.
- * Priority: env override → DB cache (72h) → Exa → Tavily.
+ * Approval: 3-month rolling median via approval-rating.ts (Exa/Tavily media scrape).
+ * Coalition/opposition: fresh Exa/Tavily 35d scan.
+ * Cache: DB 72h for the composite VPI index.
  */
 export async function fetchVetoPlayerFriction(): Promise<VetoPlayerData> {
   const fetchedAt = new Date().toISOString();
   const today = new Date().toISOString().slice(0, 10);
 
-  // Env override for presidential approval
+  // Env override bypasses cache and forces recompute with given approval value
   const envApproval = process.env.PRABOWO_APPROVAL_PCT ? parseFloat(process.env.PRABOWO_APPROVAL_PCT) : null;
 
-  // DB freshness check (72h)
+  // DB freshness check (72h) — skip if env override set (env always forces fresh compute)
   const cached = await getLatestPoint('veto_player_friction_index');
   if (cached && !envApproval) {
     const ageH = (Date.now() - new Date(cached.fetchedAt ?? cached.date).getTime()) / 3_600_000;
@@ -236,7 +174,8 @@ export async function fetchVetoPlayerFriction(): Promise<VetoPlayerData> {
       return {
         frictionIndex,
         approvalPct: null,
-        approvalSource: null,
+        approvalTrend: null,
+        approvalSource: 'db:veto_player_friction_index',
         coalitionFragmentation: 'low',
         oppositionActivism: 'low',
         frictionTier: tier,
@@ -246,12 +185,23 @@ export async function fetchVetoPlayerFriction(): Promise<VetoPlayerData> {
     }
   }
 
-  // Fetch
-  const raw = (await fetchViaExa()) ?? (await fetchViaTavily());
-  const approvalPct = envApproval ?? raw?.approvalPct ?? null;
-  const approvalSource = envApproval ? 'env:PRABOWO_APPROVAL_PCT' : (raw?.approvalSource ?? null);
-  const coalitionFragmentation = raw ? scoreCoalitionFragmentation(raw.coalitionText) : 'low';
-  const oppositionActivism = raw ? scoreOppositionActivism(raw.oppositionText) : 'low';
+  // Parallel fetch: approval 3m series + coalition/opposition signals
+  const [approvalSeries, coalitionRaw] = await Promise.all([
+    envApproval
+      ? Promise.resolve(null) // env override bypasses approval-rating.ts
+      : computeApproval3mMedian().catch(() => null),
+    fetchCoalitionOppositionViaExa().catch(() => null)
+      .then(r => r ?? fetchCoalitionOppositionViaTavily().catch(() => null)),
+  ]);
+
+  const approvalPct = envApproval ?? approvalSeries?.avg3m ?? null;
+  const approvalTrend = envApproval ? null : (approvalSeries?.trend ?? null);
+  const approvalSource = envApproval
+    ? 'env:PRABOWO_APPROVAL_PCT'
+    : (approvalSeries?.points[approvalSeries.points.length - 1]?.source ?? null);
+
+  const coalitionFragmentation = coalitionRaw ? scoreCoalitionFragmentation(coalitionRaw.coalitionText) : 'low';
+  const oppositionActivism     = coalitionRaw ? scoreOppositionActivism(coalitionRaw.oppositionText)    : 'low';
 
   const frictionIndex = computeFrictionIndex(approvalPct, coalitionFragmentation, oppositionActivism);
   const tier: VetoPlayerData['frictionTier'] = frictionIndex >= 67 ? 'high' : frictionIndex >= 33 ? 'moderate' : 'low';
@@ -263,9 +213,9 @@ export async function fetchVetoPlayerFriction(): Promise<VetoPlayerData> {
     date: today,
     value: frictionIndex,
     unit: 'index_0_100',
-    source: approvalSource ?? (raw ? 'exa_tavily' : 'default'),
+    source: approvalSource ?? 'default',
     fetchedAt,
   }]);
 
-  return { frictionIndex, approvalPct, approvalSource, coalitionFragmentation, oppositionActivism, frictionTier: tier, scoreAdj, fetchedAt };
+  return { frictionIndex, approvalPct, approvalTrend, approvalSource, coalitionFragmentation, oppositionActivism, frictionTier: tier, scoreAdj, fetchedAt };
 }
