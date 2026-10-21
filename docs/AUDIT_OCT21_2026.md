@@ -431,7 +431,7 @@ All P1/P2/DOC items (except KS#2 auto and China PMI — explicitly deferred P3) 
 - **Post-Bryant selling-period classifier**: **P2** — complex two-sided market model; target before Thesis #14 T+3 milestone Dec 21
 - **Deposit concentration M8**: P3 — OJK LSPI access unclear; blocked pending investigation
 - **3rd-gen balance sheet amplifier**: P3 — needs SULNI Q3 2026 FX-hedging data (~Nov 2026)
-- **Veto player (Tsebelis)**: P3 — needs Poltracking time series
+- **Veto player (Tsebelis)**: P3 partial — approval rating time series ✅ DONE (Jan–Sep 2026, `prabowo_approval_pct` DB, `computeApproval3mMedian()` wired into M12 VPI); coalition fragmentation + opposition activism mapping still P3
 - **Bayesian M6 calibration**: P3 — 6-month statistical work
 - **SRBI Oct 23 backfill**: OPS — run after Oct 23 auction (14:00–17:00 WIB)
 - **Health-check.ts README reorder (section 1.5)**: ✅ DONE — `bun scripts/health-check.ts` promoted as authoritative; `bash health-check.sh` labeled infrastructure-only
