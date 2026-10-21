@@ -195,6 +195,10 @@ const SNAPSHOT_INDICATORS = [
   'hba_price_usd_ton', 'coal_dmo_compliance_pct', 'pln_coal_secured_pct',
   // m12 PHK + relokasi
   'phk_workers_at_risk_30d', 'phk_events_30d_count',
+  // m12 presidential approval rating (VPI)
+  'prabowo_approval_pct',
+  // ks#2 policy response level (0=none,1=isolated,2=partial,3=full_package)
+  'policy_response_level',
 ];
 
 const CHART_INDICATORS = [
@@ -1086,10 +1090,15 @@ function renderScd(d) {
     const stressed = Object.values(ms).filter(m => m.score >= 50).length;
     const amp = stressed >= 5 ? 1.4 : stressed >= 3 ? 1.2 : stressed >= 2 ? 1.05 : 1.0;
     score = Math.min(95, Math.round((wtotal > 0 ? wsum / wtotal : 0) * amp));
+    // Apply KS#2 policy response reduction (mirrors silent-crisis-detector.ts)
+    const policyRespLevel = d.indicators?.['policy_response_level']?.value ?? 0;
+    const policyReduction = policyRespLevel >= 3 ? 8 : policyRespLevel >= 2 ? 4 : 0;
+    score = Math.max(0, score - policyReduction);
     const latest = Object.values(ms).sort((a,b) => b.computedAt.localeCompare(a.computedAt))[0];
     const age = latest ? Math.round((Date.now() - new Date(latest.computedAt).getTime()) / 3600000) : null;
     const ageTxt = age !== null ? (age < 1 ? ' · <1h ago' : ' · '+age+'h ago') : '';
-    label = (score >= 70 ? '🔴 RED — CRISIS RISK' : score >= 50 ? '🟠 ORANGE — ELEVATED' : score >= 33 ? '🟡 YELLOW — WATCH' : '🟢 GREEN — NORMAL') + ageTxt;
+    const reductionTag = policyReduction > 0 ? ` · −${policyReduction}pp coordinated response` : '';
+    label = (score >= 70 ? '🔴 RED — CRISIS RISK' : score >= 50 ? '🟠 ORANGE — ELEVATED' : score >= 33 ? '🟡 YELLOW — WATCH' : '🟢 GREEN — NORMAL') + ageTxt + reductionTag;
   } else {
     score = computeScdProxy(d);
     label = score == null ? '—' : (score >= 70 ? '🔴 RED — CRISIS RISK' : score >= 50 ? '🟠 ORANGE — ELEVATED' : score >= 33 ? '🟡 YELLOW — WATCH' : '🟢 GREEN — NORMAL') + ' (proxy)';
@@ -1343,9 +1352,16 @@ function renderPolRisk(d) {
   const foodInflCls = foodInfl !== null ? (foodInfl > 7 ? 'red' : foodInfl > 5 ? 'orange' : foodInfl > 3.75 ? 'yellow' : 'green') : '';
   const pmiCls     = pmi !== null ? (pmi < 48 ? 'red' : pmi < 50 ? 'orange' : pmi < 51 ? 'yellow' : 'green') : '';
 
+  const approval      = ind['prabowo_approval_pct']?.value ?? null;
+  const approvalDate  = ind['prabowo_approval_pct']?.date ?? null;
+  const approvalCls   = approval !== null ? (approval < 50 ? 'red' : approval < 60 ? 'orange' : approval < 70 ? 'yellow' : 'green') : '';
+  const approvalFlags = msPolRisk?.flags?.filter(f => f.includes('APPROVAL') || f.includes('approval')) ?? [];
+  const approvalTrend = approvalFlags.find(f => f.includes('DECLINING')) ? ' ▼ falling' : approvalFlags.find(f => f.includes('RISING') || f.includes('rising')) ? ' ▲ rising' : '';
+
   const ctxSection = \`
     <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px">
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px">Macro Context</div>
+      \${approval !== null ? kv('Prabowo Approval', fmtNum(approval,1)+'%'+stale(approvalDate,45)+approvalTrend+' <span style="color:var(--muted)">(VPI)</span>', approvalCls) : ''}
       \${kv('CPI Inflation', inflCpi !== null ? fmtNum(inflCpi,1)+'%'+stale(inflDate,90)+' <span style="color:var(--muted)">(target 2.5%)</span>' : '—', inflCls)}
       \${kv('Food Inflation', foodInfl !== null ? fmtNum(foodInfl,2)+'% YoY' : '—', foodInflCls)}
       \${kv('GDP Growth', gdpGrowth !== null ? fmtNum(gdpGrowth,1)+'%'+stale(gdpDate,90) : '—', gdpCls)}
