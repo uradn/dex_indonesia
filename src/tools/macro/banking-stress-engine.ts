@@ -13,6 +13,7 @@ import { fetchIndoniaRateTe, fetchExternalDebtTe, fetchIhprTe, fetchNplTe, fetch
 import type { AlertLevel, MacroDataPoint } from './types.js';
 import { fetchAt1Secondary } from './sources/at1-bonds.js';
 import { fetchOjkPdn } from './sources/ojk-pdn.js';
+import { fetchLpsDepositCoverage } from './sources/lps-deposit-coverage.js';
 
 export const BANKING_STRESS_DESCRIPTION = `
 MACRO INTELLIGENCE — Banking Stress Engine (Module 8)
@@ -87,7 +88,7 @@ interface BankingStressOutput {
 interface DiamondDybvig {
   runRisk: 'low' | 'watch' | 'elevated' | 'critical';
   runCoordinationScore: number;  // 0–100
-  conditionsMet: number;         // out of 5.5 effective conditions (c6 weight 0.5)
+  conditionsMet: number;         // out of 6.0 effective conditions (c6/c7 weight 0.5 each)
   conditions: {
     nplStress: boolean;          // NPL > 3.5% (depositors fear solvency)
     ldrOverextended: boolean;    // LDR > 92% (illiquidity = can't meet run demand)
@@ -96,6 +97,8 @@ interface DiamondDybvig {
     sbnCarErosion: boolean;      // implied CAR hit > 0.8pp (sovereign-bank nexus)
     backstopStrained: boolean;   // APBN deficit >4.5% GDP = sovereign bailout credibility impaired
                                  // [Gap D — Chatib Basri fiscal backstop, Oct 2026; weight 0.5]
+    depositorConcentration: boolean; // uninsured deposit share >85% = large depositor first-mover advantage
+                                 // [LPS coverage <15% of total deposit value; weight 0.5]
   };
   scoreBump: number;             // contribution to M8 stress score
   flags: string[];
@@ -110,6 +113,7 @@ function computeDiamondDybvig(
   impliedCarHitPp: number | null,
   apbnDeficitPctGdp: number | null,
   lpsAdequacyPct: number | null,
+  uninsuredDepositSharePct: number | null,
 ): DiamondDybvig {
   const c = {
     nplStress:        (nplPct ?? 0) > 3.5,
@@ -122,12 +126,17 @@ function computeDiamondDybvig(
     // Long-term: LPS_FUND_ADEQUACY_PCT <2% (from LPS Laporan Tahunan, annual ~Apr; Gap D long-term).
     backstopStrained: (apbnDeficitPctGdp !== null && apbnDeficitPctGdp > 4.5)
                    || (lpsAdequacyPct !== null && lpsAdequacyPct < 2.0),
+    // Depositor concentration (weight 0.5): fires when >85% of deposit VALUE is uninsured.
+    // Indonesia structural baseline ~82–84%; >85% = elevated large-depositor first-mover advantage.
+    // Uninsured depositors (>Rp2B) run earlier = D-D coordination threshold effectively lower.
+    depositorConcentration: (uninsuredDepositSharePct ?? 84) > 85,
   };
-  // Effective conditions: 5 full + 1 half-weight = max 5.5
+  // Effective conditions: 5 full + 2 half-weight = max 6.0
   const conditionsMet = [c.nplStress, c.ldrOverextended, c.indoniaSpike, c.fintechContagion, c.sbnCarErosion].filter(Boolean).length
-    + (c.backstopStrained ? 0.5 : 0);
+    + (c.backstopStrained ? 0.5 : 0)
+    + (c.depositorConcentration ? 0.5 : 0);
 
-  // Coordination risk: ≥3/5.5 effective conditions = two equilibria unstable; panic is rational
+  // Coordination risk: ≥3/6.0 effective conditions = two equilibria unstable; panic is rational
   let runCoordinationScore = 0;
   let runRisk: DiamondDybvig['runRisk'] = 'low';
   if (conditionsMet >= 4) { runCoordinationScore = 85; runRisk = 'critical'; }
@@ -137,20 +146,24 @@ function computeDiamondDybvig(
 
   const scoreBump = Math.round(runCoordinationScore * 0.15); // max +12.75 at score=85
 
-  const condStr = `NPL ${c.nplStress ? '✓' : '✗'} LDR ${c.ldrOverextended ? '✓' : '✗'} IndONIA ${c.indoniaSpike ? '✓' : '✗'} Fintech ${c.fintechContagion ? '✓' : '✗'} CAR-erosion ${c.sbnCarErosion ? '✓' : '✗'} Backstop ${c.backstopStrained ? '✓(½)' : '✗'}`;
+  const condStr = `NPL ${c.nplStress ? '✓' : '✗'} LDR ${c.ldrOverextended ? '✓' : '✗'} IndONIA ${c.indoniaSpike ? '✓' : '✗'} Fintech ${c.fintechContagion ? '✓' : '✗'} CAR-erosion ${c.sbnCarErosion ? '✓' : '✗'} Backstop ${c.backstopStrained ? '✓(½)' : '✗'} DepConc ${c.depositorConcentration ? '✓(½)' : '✗'}`;
   const flags: string[] = [];
   if (runRisk === 'critical') {
-    flags.push(`DIAMOND-DYBVIG CRITICAL: ${conditionsMet}/5.5 run conditions met — bank run equilibrium reachable. Depositor panic self-fulfilling if sentiment shifts. [Diamond-Dybvig 1983]`);
+    flags.push(`DIAMOND-DYBVIG CRITICAL: ${conditionsMet}/6.0 run conditions met — bank run equilibrium reachable. Depositor panic self-fulfilling if sentiment shifts. [Diamond-Dybvig 1983]`);
   } else if (runRisk === 'elevated') {
-    flags.push(`Diamond-Dybvig ELEVATED: ${conditionsMet}/5.5 conditions (${condStr}) — run coordination risk elevated. [Diamond-Dybvig 1983]`);
+    flags.push(`Diamond-Dybvig ELEVATED: ${conditionsMet}/6.0 conditions (${condStr}) — run coordination risk elevated. [Diamond-Dybvig 1983]`);
   } else if (runRisk === 'watch' && conditionsMet > 0) {
-    flags.push(`Diamond-Dybvig watch: ${conditionsMet}/5.5 run condition(s) — insufficient for coordination failure now. Monitor.`);
+    flags.push(`Diamond-Dybvig watch: ${conditionsMet}/6.0 run condition(s) — insufficient for coordination failure now. Monitor.`);
   }
   if (c.backstopStrained) {
     const lpsNote = lpsAdequacyPct !== null && lpsAdequacyPct < 2.0
       ? ` | LPS adequacy ${lpsAdequacyPct.toFixed(2)}% <2% threshold`
       : apbnDeficitPctGdp !== null ? ` | APBN deficit ${apbnDeficitPctGdp.toFixed(2)}% GDP >4.5%` : '';
     flags.push(`Sovereign backstop STRAINED${lpsNote} — LPS/BI LOLR credibility impaired; D-D panic equilibrium easier to reach. [Chatib Basri 2026 + Gap D long-term]`);
+  }
+  if (c.depositorConcentration) {
+    const uninsuredStr = uninsuredDepositSharePct !== null ? `${uninsuredDepositSharePct.toFixed(1)}%` : '>85%';
+    flags.push(`DEPOSITOR CONCENTRATION: ${uninsuredStr} of deposit VALUE is uninsured (above LPS Rp2B ceiling) — large depositors have first-mover advantage in run equilibrium. Coordination threshold structurally lower. [LPS penjaminan simpanan; threshold: >85% uninsured]`);
   }
 
   return { runRisk, runCoordinationScore, conditionsMet, conditions: c, scoreBump, flags };
@@ -306,6 +319,9 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   // Backfills full history on first run. bank_savings_deposito_ratio_pct = deposito/(dep+tab).
   await fetchBankingDpkBiSeki().catch(() => null);
 
+  // LPS deposit coverage (quarterly press release — 90d cache; env: LPS_DEPOSIT_COVERAGE_PCT)
+  const lpsDepositCoverage = await fetchLpsDepositCoverage().catch(() => null);
+
   // 1d. Fintech lending / BNPL (OJK IKNB, monthly, 30d TTL — fetch in parallel with 1c)
   const fintechResult = await fetchFintechLendingOjkIknb().catch(() => null);
 
@@ -359,6 +375,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   // Gap D long-term: LPS fund adequacy from env override (annual, LPS Laporan Tahunan ~Apr each year)
   const lpsEnv = process.env.LPS_FUND_ADEQUACY_PCT;
   const lpsAdequacyPct = lpsEnv ? (parseFloat(lpsEnv) || null) : null;
+  const uninsuredDepositSharePct = lpsDepositCoverage?.uninsuredSharePct ?? null;
   const indoniaPct = dbIndonia?.value ?? null;
   const biRatePct = dbBiRate?.value ?? null;
   const externalDebtBn = dbExtDebt?.value ?? null;
@@ -446,6 +463,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     impliedCarHitPp,
     apbnDeficitPctGdp,
     lpsAdequacyPct,
+    uninsuredDepositSharePct,
   );
   stressScore = Math.min(100, stressScore + diamondDybvig.scoreBump);
 
