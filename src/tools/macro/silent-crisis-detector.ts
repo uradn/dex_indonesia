@@ -28,7 +28,7 @@ import { runPoliticalRiskEngine } from './political-risk-engine.js';
 import { runUlnEngine } from './uln-engine.js';
 import { runAseanRelativeValueEngine } from './asean-relative-value-engine.js';
 import type { AlertLevel } from './types.js';
-import { saveModuleScore } from './time-series-db.js';
+import { saveModuleScore, getLatestPoint } from './time-series-db.js';
 
 export const SILENT_CRISIS_DESCRIPTION = `
 MACRO INTELLIGENCE — Big Short Mode / Silent Crisis Detector
@@ -83,6 +83,7 @@ interface SilentCrisisOutput {
   moduleScores: ModuleScore[];
   crossConfirmationCount: number;
   chainAmplification: number;    // Gap C: cross-module CI chain amplification (pp added to SCD)
+  policyResponseReduction: number; // KS#2 feed: -4pp partial_coordination, -8pp full_package
   keyFlags: string[];
   stressVectors: string[];
   narrative: string;
@@ -214,7 +215,20 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
   const chainAmplification = chainActive
     ? Math.min(8, Math.round(silentCrisisProbabilityPreChain * CHAIN_CORR_PRODUCT))
     : 0;
-  const silentCrisisProbability = Math.min(100, silentCrisisProbabilityPreChain + chainAmplification);
+  const silentCrisisProbabilityPostChain = Math.min(100, silentCrisisProbabilityPreChain + chainAmplification);
+
+  // Policy response coordination reduction — KS#2 feed (Gap Node 2).
+  // Reads cached policy_response_level from DB (written by fx-defense-engine on same run).
+  // Partial coordination (-4pp): multi-instrument but not Bagehot-scale.
+  // Full package (-8pp): 3+ instruments in 72h — genuine systemic dampener.
+  // Rationale: coordinated response reduces self-fulfilling attack probability across ALL modules,
+  // not just M3. SCD-level reduction is distinct from M3 score reduction (no double-count:
+  // M3 captures direct FX mechanics; SCD captures systemic confidence effect).
+  // MSCI Standalone caveat preserved — flag notes mandate-exit is compliance execution.
+  const policyRespCached = await getLatestPoint('policy_response_level').catch(() => null);
+  const policyRespNumeric = (policyRespCached?.value ?? 0) as 0 | 1 | 2 | 3;
+  const policyResponseReduction = policyRespNumeric >= 3 ? 8 : policyRespNumeric >= 2 ? 4 : 0;
+  const silentCrisisProbability = Math.max(0, silentCrisisProbabilityPostChain - policyResponseReduction);
 
   // Synthetic Stability Score: measures the gap between political/structural stress and
   // financial market pricing. Three phases with distinct formulas:
@@ -272,6 +286,15 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
 
   const keyFlags: string[] = [];
   if (stressedCount >= 3) keyFlags.push(`CROSS-CONFIRMATION: ${stressedCount}/13 modules signaling stress simultaneously — non-linear risk elevated`);
+  if (policyResponseReduction > 0) {
+    const levelLabel = policyRespNumeric >= 3 ? 'FULL PACKAGE' : 'PARTIAL';
+    keyFlags.push(
+      `COORDINATED RESPONSE DETECTED [${levelLabel}]: BI/Kemenkeu multi-instrument intervention — SCD reduced ${policyResponseReduction}pp (${silentCrisisProbability + policyResponseReduction}% → ${silentCrisisProbability}%). ` +
+      (policyRespNumeric >= 3
+        ? '⚠️ KS#2 CANDIDATE — manual confirm required before killing thesis (verify genuine Bagehot package).'
+        : 'Monitor for escalation to full_package (3+ instruments in 72h → KS#2 candidate).'),
+    );
+  }
 
   if (syntheticPhase === 'active_transmission') {
     keyFlags.push(
@@ -299,6 +322,7 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
     moduleScores,
     crossConfirmationCount: stressedCount,
     chainAmplification,
+    policyResponseReduction,
     keyFlags,
     stressVectors,
     narrative,
@@ -340,6 +364,7 @@ function formatOutput(output: SilentCrisisOutput): string {
     `| **Silent Crisis Probability** | **${output.silentCrisisProbability}%** |`,
     `| Synthetic Stability Score | ${output.syntheticStabilityScore}/100 (${output.syntheticPhase.replace(/_/g, ' ').toUpperCase()}) |`,
     `| Cross-Confirmed Stress Modules | ${output.crossConfirmationCount}/13 |`,
+    ...(output.policyResponseReduction > 0 ? [`| Policy Response Reduction | −${output.policyResponseReduction}pp (${output.policyResponseReduction >= 8 ? 'full package' : 'partial coordination'}) |`] : []),
     ``,
     `## Module Scorecard`,
     `| Module | Score | Alert | Available |`,

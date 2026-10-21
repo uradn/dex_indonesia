@@ -94,6 +94,8 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   { name: 'veto_player_friction_index', module: 'M12', freshDays: 3, yellowDays: 7, redDays: 14 },
   // LPS deposit coverage — quarterly press release; 90d freshness
   { name: 'lps_deposit_coverage_value_pct', module: 'M8', freshDays: 90, yellowDays: 120, redDays: 180 },
+  // Policy response coordination — KS#2 feed; 24h cache per policy-response.ts
+  { name: 'policy_response_level', module: 'M3', freshDays: 1, yellowDays: 2, redDays: 5 },
 ];
 
 const SPEC_BY_NAME: Map<string, IndicatorFreshnessSpec> = new Map(INDICATORS.map(s => [s.name, s]));
