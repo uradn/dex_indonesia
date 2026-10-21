@@ -229,6 +229,8 @@ SBN_FOREIGN_OWNERSHIP_PCT  # % non-resident SBN holdings; e.g. 14.2; env wins ov
 FINTECH_NPL_PCT            # P2P lending NPL gross %; OJK WAF blocks auto-scrape; current 5.0 (Jun 2026)
 
 # New data sources — env always wins when set (mirrors DNDF pattern)
+# M4 Commodity
+CHINA_PMI_MANUFACTURING    # Caixin/NBS China mfg PMI (e.g. 49.5); set when Exa/Tavily parse fails; monthly release Caixin ~1st biz day, NBS ~last biz day
 # M5 Foreign Flow
 USDIDR_NDF_1M_RATE         # offshore IDR NDF 1-month rate (IDR/USD, e.g. 18200); update when Exa parse fails
 # M8 Banking

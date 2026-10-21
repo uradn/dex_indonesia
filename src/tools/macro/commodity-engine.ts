@@ -13,6 +13,7 @@ import { fetchEiaCrudeStocks, type EiaInventoryData } from './sources/eia-invent
 import { fetchHormuzGhostTransit, formatGhostTransit, type GhostTransitData } from './sources/ghost-transit.js';
 import { fetchBiodieselStatus, B50_MANDATE_DATE } from './sources/biodiesel.js';
 import { fetchCoalDmoStatus } from './sources/coal-dmo.js';
+import { fetchChinaPmi, scoreChinaPmi } from './sources/china-pmi.js';
 import type { AlertLevel, IndicatorSnapshot, ModuleScoreCard } from './types.js';
 
 export const COMMODITY_DESCRIPTION = `
@@ -77,6 +78,8 @@ interface CommodityEngineOutput {
   eiaInventory: EiaInventoryData | null;
   // Hormuz ghost transit — dark shipping / AIS-invisible tanker flow
   ghostTransit: GhostTransitData | null;
+  // China PMI — demand signal for coal/nickel/CPO exports
+  chinaPmi: number | null;
   narrative: string;
 }
 
@@ -131,13 +134,14 @@ export async function runCommodityEngine(): Promise<CommodityEngineOutput> {
     });
   }
 
-  // Cushion score + EIA inventory + ghost transit + biodiesel + DMO (parallel)
-  const [{ score: cushionScore }, eiaInventory, ghostTransit, biodieselData, coalDmoData] = await Promise.all([
+  // Cushion score + EIA inventory + ghost transit + biodiesel + DMO + China PMI (parallel)
+  const [{ score: cushionScore }, eiaInventory, ghostTransit, biodieselData, coalDmoData, chinaPmiData] = await Promise.all([
     Promise.resolve(computeCommodityCushionScore(currentPrices, historicalStats)),
     fetchEiaCrudeStocks(),
     fetchHormuzGhostTransit(),
     fetchBiodieselStatus(),
     fetchCoalDmoStatus(),
+    fetchChinaPmi(),
   ]);
 
   // Oil vulnerability
@@ -171,8 +175,22 @@ export async function runCommodityEngine(): Promise<CommodityEngineOutput> {
     ? { rubberPriceUsd, cpoPriceUsd, coalEtfUsd, estimatedOffsetBnUsd }
     : null;
 
-  const compositeAlert = alertFromScore(cushionScore);
+  const chinaPmiValue = chinaPmiData?.value ?? null;
+  const chinaPmiAdj = chinaPmiValue !== null ? scoreChinaPmi(chinaPmiValue) : 0;
+  const finalCushionScore = Math.min(100, Math.max(0, cushionScore + chinaPmiAdj));
+
+  const compositeAlert = alertFromScore(finalCushionScore);
   const flags: string[] = [];
+  if (chinaPmiValue !== null && chinaPmiValue < 49) {
+    const pmiDir = chinaPmiValue < 48 ? 'DEMAND DESTRUCTION' : 'CONTRACTION';
+    flags.push(
+      `CHINA PMI ${pmiDir}: ${chinaPmiValue.toFixed(1)} (manufacturing, ${chinaPmiData!.date}) — ` +
+      `Indonesia's largest export market contracting. Coal (HBA-linked), nickel (HPAL feedstock), CPO (processed food demand) at risk. ` +
+      `(+${chinaPmiAdj} score pts)`
+    );
+  } else if (chinaPmiValue !== null && chinaPmiValue > 51) {
+    flags.push(`China PMI EXPANDING: ${chinaPmiValue.toFixed(1)} — demand tailwind for Indonesian exports (coal/nickel/CPO). (−${Math.abs(chinaPmiAdj)} score pts)`);
+  }
   if (oilResult && oilResult.deviation > 20) {
     flags.push(`Oil ${oilResult.deviation.toFixed(0)}% above APBN assumption — import bill ${oilResult.impliedImportBillBnUsd.toFixed(1)} bn USD/yr`);
   }
@@ -236,19 +254,19 @@ export async function runCommodityEngine(): Promise<CommodityEngineOutput> {
     }
   }
 
-  const narrative = buildNarrative({ cushionScore, oilResult, brentPrice, stressDetails, compositeAlert, oilShockHedge, eiaInventory, ghostTransit });
+  const narrative = buildNarrative({ cushionScore: finalCushionScore, oilResult, brentPrice, stressDetails, compositeAlert, oilShockHedge, eiaInventory, ghostTransit });
 
   return {
     scoreCard: {
       module: 'commodity',
       scoreDate: new Date().toISOString().slice(0, 10),
-      score: cushionScore,
+      score: finalCushionScore,
       alertLevel: compositeAlert,
       indicators: snapshots,
       narrative,
       flags,
     },
-    commodityCushionScore: cushionScore,
+    commodityCushionScore: finalCushionScore,
     oilVulnerabilityIndex: oilResult?.score ?? 50,
     brentPrice,
     impliedOilImportBillBnUsd: oilResult?.impliedImportBillBnUsd ?? null,
@@ -257,6 +275,7 @@ export async function runCommodityEngine(): Promise<CommodityEngineOutput> {
     oilShockHedge,
     eiaInventory,
     ghostTransit,
+    chinaPmi: chinaPmiValue,
     narrative,
   };
 }
@@ -322,6 +341,7 @@ function formatOutput(output: CommodityEngineOutput): string {
     `| APBN Deviation | ${output.oilDeviation !== null ? `${output.oilDeviation >= 0 ? '+' : ''}${output.oilDeviation.toFixed(1)}%` : 'n/a'} |`,
     `| Implied Annual Import Bill | ${output.impliedOilImportBillBnUsd !== null ? `$${output.impliedOilImportBillBnUsd.toFixed(1)} bn` : 'n/a'} |`,
     `| Oil Vulnerability Index | ${output.oilVulnerabilityIndex}/100 |`,
+    `| China Manufacturing PMI | ${output.chinaPmi !== null ? output.chinaPmi.toFixed(1) + (output.chinaPmi < 49 ? ' ⚠️ CONTRACTING' : output.chinaPmi > 51 ? ' ✅ EXPANDING' : ' — neutral') : 'n/a'} |`,
     ``,
     output.scoreCard.flags.length > 0 ? `## Flags\n${output.scoreCard.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '',
     ``,

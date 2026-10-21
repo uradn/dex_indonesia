@@ -88,6 +88,8 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   { name: 'ust_10y_yield_pct', module: 'M7', freshDays: 3, yellowDays: 7, redDays: 14 },
   // JPY carry unwind signal (Yahoo daily) — sudden JPY strength = EM capital flight risk (HSBC 1997 analog)
   { name: 'usdjpy_spot',  module: 'M7', freshDays: 2, yellowDays: 4, redDays: 7 },
+  // China PMI monthly (Caixin/NBS) — demand signal for Indonesia export basket
+  { name: 'china_pmi_manufacturing', module: 'M4', freshDays: 35, yellowDays: 50, redDays: 75 },
 ];
 
 const SPEC_BY_NAME: Map<string, IndicatorFreshnessSpec> = new Map(INDICATORS.map(s => [s.name, s]));
