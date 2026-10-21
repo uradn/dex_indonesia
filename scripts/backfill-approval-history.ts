@@ -33,6 +33,11 @@ const CSV_PATH   = args.find(a => a.startsWith('--csv='))?.slice(6) ?? null;
 const FROM_ARG   = args.find(a => a.startsWith('--from='))?.slice(7) ?? null;
 const TO_ARG     = args.find(a => a.startsWith('--to='))?.slice(5) ?? null;
 const MIN_CONF   = parseInt(args.find(a => a.startsWith('--min-confidence='))?.slice(17) ?? '0');
+// --interactive prompts when confidence < INTERACTIVE_PROMPT_THRESHOLD (even if result found)
+const INTERACTIVE_PROMPT_THRESHOLD = parseInt(args.find(a => a.startsWith('--prompt-below='))?.slice(15) ?? '60');
+
+// Domains known to return noisy generic content, not survey results
+const BLOCKED_DOMAINS = ['bitvonline.com'];
 
 // ── Month iteration helpers ───────────────────────────────────────────────────
 
@@ -89,11 +94,11 @@ function parseCsv(path: string): CsvRow[] {
 
 // ── Interactive prompt ────────────────────────────────────────────────────────
 
-async function promptManual(month: string): Promise<number | null> {
+async function promptManual(monthWithHint: string): Promise<number | null> {
   return new Promise(resolve => {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     rl.question(
-      `  → Enter approval % for ${month} (or press Enter to skip): `,
+      `  → Enter approval % for ${monthWithHint} (or press Enter to skip): `,
       answer => {
         rl.close();
         const val = parseFloat(answer.trim());
@@ -164,21 +169,37 @@ for (const month of months) {
   const daysAgo     = Math.ceil((Date.now() - monthDate.getTime()) / 86_400_000);
   const lookback    = Math.min(daysAgo + 45, 400); // 45d buffer after month end
 
-  const point = (await fetchApprovalViaExa(lookback, month)) ?? (await fetchApprovalViaTavily(month));
+  let rawPoint = (await fetchApprovalViaExa(lookback, month)) ?? (await fetchApprovalViaTavily(month));
 
-  if (point && point.confidence >= MIN_CONF) {
+  // Block known noisy domains (same article returned for many different month queries)
+  if (rawPoint && BLOCKED_DOMAINS.some(d => rawPoint!.source.includes(d))) {
+    console.log(` ✗ blocked domain (${rawPoint.source.slice(0, 60)}) — treating as gap`);
+    rawPoint = null;
+  }
+
+  const point = rawPoint;
+  const isLowConf = point !== null && point.confidence < INTERACTIVE_PROMPT_THRESHOLD;
+  const shouldPrompt = INTERACTIVE && (point === null || isLowConf);
+
+  if (point && !isLowConf && point.confidence >= MIN_CONF) {
     console.log(` ✓ ${point.approvalPct}% (conf=${point.confidence}% pollsters=${point.pollsters.join('+') || 'none'})`);
     if (!DRY_RUN) await storeApprovalPoint(point);
     results.push({ month, status: 'found', value: point.approvalPct, confidence: point.confidence, source: point.source });
-  } else if (point) {
+  } else if (point && !isLowConf) {
     console.log(` ⚠ ${point.approvalPct}% LOW CONF ${point.confidence}% (below --min-confidence=${MIN_CONF}, skipped)`);
     results.push({ month, status: 'skipped', value: point.approvalPct, confidence: point.confidence, source: point.source });
   } else {
-    console.log(` ✗ not found`);
-    results.push({ month, status: 'gap', value: null, confidence: 0, source: '' });
+    if (point && isLowConf) {
+      console.log(` ⚠ ${point.approvalPct}% LOW CONF ${point.confidence}% (pollsters=${point.pollsters.join('+') || 'none'} — below prompt threshold ${INTERACTIVE_PROMPT_THRESHOLD}%)`);
+      results.push({ month, status: 'skipped', value: point.approvalPct, confidence: point.confidence, source: point.source });
+    } else {
+      console.log(` ✗ not found`);
+      results.push({ month, status: 'gap', value: null, confidence: 0, source: '' });
+    }
 
-    if (INTERACTIVE) {
-      const manual = await promptManual(month);
+    if (shouldPrompt) {
+      const hint = point ? ` [Exa found ${point.approvalPct}% conf=${point.confidence}% — override or Enter to skip]` : '';
+      const manual = await promptManual(month + hint);
       if (manual !== null) {
         if (!DRY_RUN) {
           await upsertPoints([{
