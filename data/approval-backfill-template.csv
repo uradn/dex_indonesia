@@ -1,0 +1,20 @@
+# Prabowo approval rating backfill — fill in value column then run:
+# bun scripts/backfill-approval-history.ts --csv=data/approval-backfill-template.csv
+#
+# Sources to check:
+#   Poltracking: poltracking.com (siaran pers / press release page)
+#   LSI: lsi.or.id (berita)
+#   Indikator: indikator.co.id
+#   Media coverage: search "Prabowo kepuasan YYYY-MM Poltracking" on Kompas/Tempo/Bisnis
+#
+# date format: YYYY-MM
+# value: approval % (e.g. 72.5)
+# source: pollster name or "manual"
+date,value,source
+2026-02,,poltracking
+2026-03,,poltracking
+2026-04,,lsi
+2026-05,,lsi
+2026-06,,poltracking
+2026-07,,poltracking
+2026-08,,poltracking
