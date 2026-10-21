@@ -136,6 +136,7 @@ interface ForeignFlowOutput {
   suddenStop: SuddenStopVulnerability | null;
   herdingCascade: HerdingCascade;
   msciClassificationRisk: 'confirmed' | 'under_review' | 'downgrade_risk';
+  msciReversalProbability: number | null; // P(MSCI reverses Standalone → EM maintained); prior 0.12–0.15
   narrative: string;
 }
 
@@ -459,6 +460,14 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
     const bumpNote = msciScoreBump > 0 ? ` (+${msciScoreBump} score, <60d window)` : '';
     flags.push(`MSCI review window: ${daysToNextMsciReview}d to decision — reforms tracked: free-float compliance, shareholding transparency, anti-coordinated trading${bumpNote}`);
   }
+  // MSCI reversal probability warning — low P(reversal) = cheap talk insufficient to move this metric
+  if (msciStatus === 'downgrade_risk' && pReversal < 0.20) {
+    flags.push(
+      `MSCI COMMITMENT CREDIBLE: P(reversal)=${(pReversal * 100).toFixed(0)}% — announcement-only reforms will not move this metric. ` +
+      `Only verifiable structural implementation (enforceable free-float, anti-coordinated-trading actions) separates types. ` +
+      `Treat KS#3/KS#4 improvement with caution — may be temporary positioning, not structural return. [Thread 23]`
+    );
+  }
   if (msciRebalancingOutflowUsd !== null) {
     flags.push(`MSCI May 29 rebalancing: ~$${msciRebalancingOutflowUsd}bn passive outflow (19 companies removed) — explains part of EIDO weakness. Standalone consultation Oct 15 dwarfs this: $3-15B forced-sell if confirmed.`);
   }
@@ -528,6 +537,7 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
     suddenStop,
     herdingCascade,
     msciClassificationRisk: msciStatus,
+    msciReversalProbability: msciStatus === 'downgrade_risk' ? parseFloat(pReversal.toFixed(3)) : null,
     narrative,
   };
 }

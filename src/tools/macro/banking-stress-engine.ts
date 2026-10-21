@@ -109,6 +109,7 @@ function computeDiamondDybvig(
   fintechGrowthYoyPct: number | null,
   impliedCarHitPp: number | null,
   apbnDeficitPctGdp: number | null,
+  lpsAdequacyPct: number | null,
 ): DiamondDybvig {
   const c = {
     nplStress:        (nplPct ?? 0) > 3.5,
@@ -116,9 +117,11 @@ function computeDiamondDybvig(
     indoniaSpike:     (indoniaSpreadBps ?? 0) > 40,
     fintechContagion: (fintechNplPct ?? 0) > 5 && (fintechGrowthYoyPct ?? 0) > 10,
     sbnCarErosion:    (impliedCarHitPp ?? 0) > 0.8,
-    // Sovereign backstop condition (weight 0.5): fiscal stress impairs LPS/BI LOLR credibility.
-    // Threshold 4.5% GDP: above 3% ceiling AND S&P watchlist territory — sovereign rescue less credible.
-    backstopStrained: apbnDeficitPctGdp !== null && apbnDeficitPctGdp > 4.5,
+    // Sovereign backstop condition (weight 0.5): fires if EITHER fiscal OR LPS fund inadequate.
+    // Short-term: APBN deficit >4.5% GDP (M10 fiscal stress proxy, always available).
+    // Long-term: LPS_FUND_ADEQUACY_PCT <2% (from LPS Laporan Tahunan, annual ~Apr; Gap D long-term).
+    backstopStrained: (apbnDeficitPctGdp !== null && apbnDeficitPctGdp > 4.5)
+                   || (lpsAdequacyPct !== null && lpsAdequacyPct < 2.0),
   };
   // Effective conditions: 5 full + 1 half-weight = max 5.5
   const conditionsMet = [c.nplStress, c.ldrOverextended, c.indoniaSpike, c.fintechContagion, c.sbnCarErosion].filter(Boolean).length
@@ -144,7 +147,10 @@ function computeDiamondDybvig(
     flags.push(`Diamond-Dybvig watch: ${conditionsMet}/5.5 run condition(s) — insufficient for coordination failure now. Monitor.`);
   }
   if (c.backstopStrained) {
-    flags.push(`Sovereign backstop STRAINED: APBN deficit ${apbnDeficitPctGdp!.toFixed(2)}% GDP >4.5% threshold — LPS/BI LOLR credibility impaired; D-D panic equilibrium easier to reach. [Chatib Basri 2026]`);
+    const lpsNote = lpsAdequacyPct !== null && lpsAdequacyPct < 2.0
+      ? ` | LPS adequacy ${lpsAdequacyPct.toFixed(2)}% <2% threshold`
+      : apbnDeficitPctGdp !== null ? ` | APBN deficit ${apbnDeficitPctGdp.toFixed(2)}% GDP >4.5%` : '';
+    flags.push(`Sovereign backstop STRAINED${lpsNote} — LPS/BI LOLR credibility impaired; D-D panic equilibrium easier to reach. [Chatib Basri 2026 + Gap D long-term]`);
   }
 
   return { runRisk, runCoordinationScore, conditionsMet, conditions: c, scoreBump, flags };
@@ -350,6 +356,9 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   const ldrPct = dbLdr?.value ?? null;
   const carPct = dbCar?.value ?? null;
   const apbnDeficitPctGdp = dbDeficitPct?.value ?? null;
+  // Gap D long-term: LPS fund adequacy from env override (annual, LPS Laporan Tahunan ~Apr each year)
+  const lpsEnv = process.env.LPS_FUND_ADEQUACY_PCT;
+  const lpsAdequacyPct = lpsEnv ? (parseFloat(lpsEnv) || null) : null;
   const indoniaPct = dbIndonia?.value ?? null;
   const biRatePct = dbBiRate?.value ?? null;
   const externalDebtBn = dbExtDebt?.value ?? null;
@@ -436,6 +445,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     fintechNplPct, fintechGrowthYoyPct,
     impliedCarHitPp,
     apbnDeficitPctGdp,
+    lpsAdequacyPct,
   );
   stressScore = Math.min(100, stressScore + diamondDybvig.scoreBump);
 

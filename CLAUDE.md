@@ -185,6 +185,13 @@ SOLAR_PRICE_IDR            # default 6800
 PERTAMAX_PRICE_IDR         # default 16250 (non-subsidi, +Rp3,950 Jun 10 2026)
 PERTAMAX_GREEN_PRICE_IDR   # default 17000 (RON 95, +Rp4,100 Jun 10 2026)
 
+# Solar biodiesel blend + Russia crude discount — update when ESDM/APROBI announces realisasi
+# B50 mandate Jul 1 2026 (Permen ESDM). FAME from CPO ($1,117/MT) costlier than MOPS Gasoil → B50 gap > B40.
+SOLAR_BLEND_RATIO          # 0.40=B40, 0.45=B45 (de-facto), 0.50=B50 full mandate; used in M11 solar cost recovery
+# Russia crude discount: Pertamina confirmed bulk ESPO/Urals delivery; update when Lemigas/ESDM confirms volume.
+# Conservative est. $3.1/bbl (uncertain 20% share), full est. $6.25/bbl (50% confirmed). Default: 0 (no discount).
+RUSSIA_CRUDE_DISCOUNT_USD  # USD/bbl effective discount on Pertamina crude input cost; used in domestic-pressure-engine
+
 # BI DNDF outstanding — annual manual update (no automated scrape path exists)
 # DNDF NOT in SULNI (SULNI = external debt stats only). DNDF is on BI's OWN balance sheet.
 # Source: BI Laporan Keuangan Tahunan (LKT) — neraca BI + catatan instrumen derivatif.
@@ -206,6 +213,11 @@ ULN_SHORTTERM_PCT          # short-term debt as % of total ULN; current 15.47 (S
 # Values: 'confirmed' | 'under_review' | 'downgrade_risk'
 # Standalone timeline: consultation→Apr 30 2027, decision→Jun 30 2027, impl→Sep-Dec 2027
 MSCI_CLASSIFICATION_STATUS # current: downgrade_risk (Oct 15 2026 Standalone consultation)
+# MSCI milestone countdown — update as milestones pass (msci-countdown.ts reads this)
+# Nov 12 2026: MSCI November Index Review (confirm Standalone parameters)
+# Apr 30 2027: consultation closes → MSCI_REVIEW_DATE=2027-04-30
+# Jun 30 2027: final decision → MSCI_REVIEW_DATE=2027-06-30
+MSCI_REVIEW_DATE           # ISO date for msci-countdown.ts milestone tracking; default 2026-11-12 then operator updates
 
 # M5 SBN foreign ownership — DJPPR TCP-blocks non-Indonesian IPs intermittently (geo-IP / govt firewall).
 # Source: DJPPR daily page https://djppr.kemenkeu.go.id/kepemilikansbndomestikyangdapatdiperdagangkan
@@ -221,6 +233,10 @@ FINTECH_NPL_PCT            # P2P lending NPL gross %; OJK WAF blocks auto-scrape
 USDIDR_NDF_1M_RATE         # offshore IDR NDF 1-month rate (IDR/USD, e.g. 18200); update when Exa parse fails
 # M8 Banking
 HIMBARA_AT1_SECONDARY_PCT  # HIMBARA AT1 secondary price (% of par, e.g. 87.5); <80=stress, <90=watch
+# M8 D-D backstop precision (Gap D long-term) — from LPS Laporan Tahunan (lps.go.id), published ~Apr each year
+# Historical: 2022=2.87%, 2023=2.94%, 2024=est.3.1% (trend rising). Threshold <2%=LOW backstop.
+# OR backstop triggered by M10 fiscal stress (APBN deficit >4.5%) — whichever fires first.
+LPS_FUND_ADEQUACY_PCT      # LPS "Tingkat Kecukupan Dana" %; updates M8 D-D condition 6 precision
 # M9 Market Stress
 IDX_LAST_CIRCUIT_BREAKER_DATE  # YYYY-MM-DD; update when circuit breaker fires (−8% intraday halt); flag active 30d
 IDX_SHORT_SELL_VOLUME_IDR_BN   # IDR billions; manual pin when you see figure in media/terminal (IDX Oct 2026 feature, media coverage thin)

@@ -129,6 +129,7 @@ interface UlnEngineOutput {
   ulnGdpRatioPct: number | null;
   ulnShorttermPct: number | null;
   ulnDsrPct: number | null;
+  dsrSlopePpPerYear: number | null; // annualized pp/year change; SOUL.md: slope is the risk, not level
   ulnYoyGrowthPct: number | null;
   greenspanGuidotti: number | null;
   hedgingCompliancePct: number | null;
@@ -225,6 +226,16 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
   const ulnPoint = freshUln.point;
   const dsrPoint = freshDsr.point;
   const stPoint = freshSt.point;
+
+  // DSR slope: annualized pp/year change from last 2 stored data points (getLastN DESC order: [0]=newest)
+  const dsrHistory = await getLastN('uln_dsr_pct', 2);
+  let dsrSlopePpPerYear: number | null = null;
+  if (dsrHistory.length === 2) {
+    const days = (Date.parse(dsrHistory[0]!.date) - Date.parse(dsrHistory[1]!.date)) / 86_400_000;
+    if (days > 0) {
+      dsrSlopePpPerYear = parseFloat(((dsrHistory[0]!.value - dsrHistory[1]!.value) / days * 365).toFixed(2));
+    }
+  }
 
   // ULN time series for YoY growth (quarterly, ~2 years)
   const ulnHistory = await getLastN('indonesia_external_debt_bn', 8);
@@ -336,6 +347,11 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
     flags.push(`GG RATIO WATCH: ${greenspanGuidotti.toFixed(2)} — buffer thinning toward Greenspan-Guidotti threshold (1.0)`);
   }
 
+  if (dsrSlopePpPerYear !== null && dsrSlopePpPerYear > 5) {
+    flags.push(`DSR SLOPE CRITICAL: +${dsrSlopePpPerYear.toFixed(1)}pp/yr — trajectory breaches IMF 25% threshold before next annual publication. Level may look safe; slope is the risk. [SOUL.md Persona V]`);
+  } else if (dsrSlopePpPerYear !== null && dsrSlopePpPerYear > 3) {
+    flags.push(`DSR SLOPE ELEVATED: +${dsrSlopePpPerYear.toFixed(1)}pp/yr — at this pace, threshold breach within 12–18 months. SULNI Q3 2026 data will confirm.`);
+  }
   if (ulnDsr !== null && ulnDsr > 30) {
     flags.push(`DSR ELEVATED: ${ulnDsr}% — above IMF stress threshold (25%), export earnings under debt service pressure`);
   }
@@ -369,7 +385,7 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
   return {
     alert, stressScore, ulnTotalBn: ulnTotal,
     ulnGdpRatioPct: ulnGdpRatio, ulnShorttermPct: ulnSt,
-    ulnDsrPct: ulnDsr, ulnYoyGrowthPct: yoyGrowth,
+    ulnDsrPct: ulnDsr, dsrSlopePpPerYear, ulnYoyGrowthPct: yoyGrowth,
     greenspanGuidotti, hedgingCompliancePct: hedging,
     rg, rgLabel, sbn10yPct: sbn10y, gdpGrowthPct: gdpGrowth,
     totalDebtGdpPct: totalDebtGdp, primarySurplusRequiredPct: primarySurplusRequired,

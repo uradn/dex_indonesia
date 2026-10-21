@@ -76,6 +76,7 @@ interface AseanRelativeValueOutput {
   sgPe: number | null;              // EWS P/E (Singapore — MSCI DM, capital destination)
   peDiscountScore: number;          // 0-25 additional stress score (based on vs-Thailand discount)
   pePeers: Array<{ country: string; etf: string; pe: number | null; isDm: boolean }>;
+  aseanStressMode: 'regional' | 'idiosyncratic' | 'mixed'; // diagnostic: DXY-driven vs Indonesia-specific [SOUL.md Persona V]
   narrative: string;
   flags: string[];
 }
@@ -139,6 +140,16 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
   // USD strength story: if all ASEAN FX depreciating together → DXY-driven
   const allDepreciating = allChanges1m.length >= 3 && allChanges1m.every((c) => c > 0);
   const usdStrengthStory = allDepreciating && (idiosyncraticComponent ?? 0) < 2;
+
+  // ASEAN stress mode: regional vs idiosyncratic diagnostic [SOUL.md Persona V]
+  // 'regional': DXY/EM risk-off driving whole region — domestic policy less effective, all CBs compete for same defense
+  // 'idiosyncratic': Indonesia-specific shock — domestic policy can address root cause
+  // 'mixed': partial regional overlap + ID-specific component
+  const peersDepreciatingCount = allChanges1m.filter((c) => c > 0.5).length;
+  const aseanStressMode: 'regional' | 'idiosyncratic' | 'mixed' =
+    usdStrengthStory                                        ? 'regional' :
+    (idiosyncraticComponent ?? 0) > 3 && peersDepreciatingCount < 2 ? 'idiosyncratic' :
+    'mixed';
 
   // Indonesia vulnerability rank (1 = most depreciated = most vulnerable)
   const allPeerChanges = [...allChanges1m, idrChange1m ?? 0].sort((a, b) => b - a);
@@ -354,6 +365,13 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
 
   const narrative = buildNarrative({ idrChange1m, aseanMedianFxChange1m, idiosyncraticComponent, usdStrengthStory, indonesiaRank, realCarry, carryLabel });
 
+  // ASEAN stress mode diagnostic flag
+  if (aseanStressMode === 'regional') {
+    flags.push(`REGIONAL EM STRESS: ≥3 ASEAN currencies depreciating together — DXY/EM risk-off driver. BI rate hike less effective; all ASEAN CBs compete for same defense resources simultaneously.`);
+  } else if (aseanStressMode === 'idiosyncratic' && (idiosyncraticComponent ?? 0) > 3) {
+    flags.push(`IDIOSYNCRATIC IDR STRESS: IDR underperforming ASEAN peers by ${(idiosyncraticComponent ?? 0).toFixed(1)}pp — Indonesia-specific shock (political risk / capital account). Domestic policy can address root cause.`);
+  }
+
   return {
     date: new Date().toISOString().slice(0, 10),
     alertLevel,
@@ -381,6 +399,7 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
     sgPe,
     peDiscountScore,
     pePeers,
+    aseanStressMode,
     narrative,
     flags,
   };

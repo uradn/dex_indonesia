@@ -160,7 +160,7 @@ SOLUSI JANGKA PANJANG (6-12 bulan): 3rd-gen + PolEcon + Bayesian butuh data baru
 ---
 
 ### Thread 20/20
-KESIMPULAN: Dexter sekarang **~51% GT coverage** (naik dari 35% Sep 14 → 51% Sep 15) — kuat di currency attack (Krugman + Morris-Shin), time inconsistency fiskal (Barro-Gordon), bank run coordination (Diamond-Dybvig), herding cascade (De Long/Shleifer). Blind spot tersisa: 3rd-gen balance sheet, PolEcon bargaining, Bayesian M6 full calibration. Roadmap: 63% (12 bulan dari Sep 2026). **Milestone Des 2026 (49%) sudah terlampaui.**
+KESIMPULAN: Dexter sekarang **~65% GT coverage** (naik dari 35% Sep 14 → 51% Sep 15 → 63% Oct 19 → 65% Oct 20 dengan PolEcon M12) — kuat di currency attack (Krugman + Morris-Shin), time inconsistency fiskal (Barro-Gordon), bank run coordination (Diamond-Dybvig), herding cascade (De Long/Shleifer), SSS 3-phase (Kreps-Wilson), stop-loss cascade (Eisenberg-Noe), PolEcon payoff matrix (Barro-Gordon BBM hike game). Blind spot tersisa: 3rd-gen balance sheet, PolEcon veto player, Bayesian M6 full calibration. Roadmap: 70% (12 bulan dari Oct 2026). **Milestone Sep 2027 (63%) terlampaui 11 bulan lebih awal.**
 
 ---
 *[ILUSTRASI 20: Before/after bar chart — "Sep 14 2026: 35%" (kuning), "Sep 15 2026: 51% ✅" (hijau), "Sep 2027: 63%" (hijau tua). Sub-bar per konsep GT. Judul: "Dexter Game Theory Roadmap". Caption: "Dari currency attack detector → full strategic behavior engine. Milestone Des 2026 terlampaui 3+ bulan lebih awal."]*
@@ -175,7 +175,8 @@ KESIMPULAN: Dexter sekarang **~51% GT coverage** (naik dari 35% Sep 14 → 51% S
 | **P2 Diamond-Dybvig** | ✅ DONE Sep 15 | `runCoordinationScore` di M8 — 5-condition matrix | Deposit concentration, interbank matrix | — |
 | **P3 Herding cascade** | ✅ DONE Sep 15 | `cascadeSignal` di M5 — EIDO autocorr lag-1 (10d+21d) | Passive AUM split per fund type | — |
 | **3rd-gen balance sheet** | ⏳ Open | — | FX hedging ratio korporasi, currency mismatch | SULNI quarterly + 6 bulan dev |
-| **Political economy** | ⏳ Open | — | Veto player mapping, Poltracking time series | 8 bulan |
+| **PolEcon payoff matrix (BBM hike)** | ✅ DONE Oct 20 | `polEconState` di M12 — Kemenkeu×Masyarakat EV game; TRAPPED/FORCED_HOLD/RISKY_HIKE/STABLE; +0–8pts score adj | P(resist) from unrest score; Brent-adjusted holdEV | — |
+| **Political economy veto player** | ⏳ Open | — | Tsebelis 2002: Prabowo × DPR × cabinet. Butuh Poltracking time series | 8 bulan |
 | **Bayesian M6** | ⏳ Open | Partial: Sobel cheap-talk posterior | Full likelihood calibration dari 6 krisis | 6 bulan dev |
 | **Gap A — M10 Rhetoric** | ✅ DONE Oct 1 | `fetchFiscalRhetoricExa` + Tavily fallback — 14d Exa scan, keyword scoring commitment/discretion, CI adjusted ±6pts max via `rhetoricalNetSignal` | Exa existing key; Tavily fallback | — |
 | **Gap B — Multiplier Regime** | ✅ DONE Oct 1 | `multiplierRegime` di M10 — rate_gap vs neutral 4.5% + growth_gap vs potential 5.4%; LOW_MULTIPLIER aktif Oct 2026 | SBN 2Y yield (WGB hanya 6wk data — tidak viable; pakai sbn10y−bi_rate slope proxy) | — |
@@ -691,9 +692,10 @@ policy_response_tracker (new M3/SCD component):
 | Post-Bryant execution dynamics | ⏳ Open | M9/M5 | Bryant 1980 extension |
 | Coordinated policy response timing | ⏳ Open | M3/SCD (KS#2) | Coordination game |
 | 3rd-gen balance sheet amplifier | ⏳ Open | M3+M8+M13 | Chang-Velasco 1998 |
-| Political economy veto player | ⏳ Open | M12 | Tsebelis 2002 |
+| **Barro-Gordon PolEcon payoff matrix** | **✅ Oct 20** | **M12 Political Risk** | **BBM hike EV game: Kemenkeu×Masyarakat; TRAPPED/FORCED_HOLD/RISKY_HIKE/STABLE; polEconAdj 0–8pts** |
+| Political economy veto player | ⏳ Open | M12 | Tsebelis 2002 — veto player (Prabowo × DPR × cabinet); requires Poltracking time series |
 
-**Coverage estimate Oct 19:** ~**63%** (naik dari 51% pre-Oct-19). Target Sep 2027 original (63%) tercapai lebih awal — 11 bulan lebih awal dari roadmap.
+**Coverage estimate Oct 21 (incl. PolEcon M12 Oct 20):** ~**65%** (naik dari 51% pre-Oct-19 → 63% Oct 19 → 65% Oct 20). Target Sep 2027 original (63%) tercapai lebih awal — 11 bulan lebih awal dari roadmap.
 
 ---
 

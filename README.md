@@ -42,7 +42,7 @@ Cross-confirmed modules: 1/13
 | M2 | Sovereign Risk | CDS 5Y + velocity (bps/week), SBN yield, foreign SBN %, term premium (ORANGE ≥2%), **BI yield policy flag** (Perry Jun 10 2026; review di era Destry), **S&P interest/revenue proximity risk** (>15% = negative watch; current: 20.4%) |
 | M3 | FX Defense | USDIDR z-score, pseudo-stability, BI intervention, **SRBI auction bid-cover** (weekly capital flow proxy — 1wk lead vs DJPPR), 1st/2nd-gen crisis gates |
 | M4 | Commodity | Ekspor basket (coal/CPO/nickel/LNG), oil import vulnerability, ICP threshold watch, **B50 biodiesel mandate** (Jul 1 2026 CPO diversion → BoP), **PLN coal DMO compliance** (HBA gap, TDL hike risk) |
-| M5 | Foreign Flow | EIDO ETF, silent exit detection, SSVI (Sudden Stop Vulnerability Index), **MSCI EM status** (confirmed Jun 23 2026; Nov 2026 re-review overhang with +3 score-bump at <60d), May 2026 rebalancing outflow |
+| M5 | Foreign Flow | EIDO ETF, silent exit detection, SSVI (Sudden Stop Vulnerability Index), **MSCI EM status** (Standalone consultation Oct 15 2026; `downgrade_risk` P(downgrade)=85%; `msciReversalProbability` field; Bryant phase tracker), May 2026 rebalancing outflow |
 | M6 | Narrative Divergence | Official guidance vs market — APBN assumptions vs aktual, BBM narrative vs cost recovery |
 | M7 | ASEAN Relative Value | IDR idiosyncratic component vs ASEAN peers (supplementary — not in SCD weight) |
 | M8 | Banking Stress | NPL (OJK/World Bank API), LDR, CAR, IndONIA corridor (DFR = BI Rate −100bps / LF = BI Rate +75bps), FSAP nexus (implied CAR hit), KLR signals, M2/FX reserves ratio, **BNPL sub-indicator** (OJK IKNB fintech NPL), **Himbara AT1 issuance** (env pin: BNI $700M Apr + Mandiri $750M Sep 2026 = $1.45B — FX mismatch on capital base, domestic market insufficient) |
@@ -419,7 +419,7 @@ PERTAMAX_GREEN_PRICE_IDR=19150  # RON 95 — naik 2 Sep 2026 dari Rp16.600 (+Rp2
 
 # .env — policy/classification signals (operator-updated qualitative flags)
 BI_BUYS_LONG_SBN=false        # Perry Warjiyo statement 10 Jun 2026 — review ulang di era Destry
-MSCI_CLASSIFICATION_STATUS=under_review   # Nov 2026 re-review overhang
+MSCI_CLASSIFICATION_STATUS=downgrade_risk # Oct 15 2026 Standalone consultation launched; decision Jun 30 2027
 MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN=1.8  # passive outflow rebalancing Mei 2026
 BI_GOVERNOR_VACANT=false      # Destry Damayanti dilantik 2 Sep 2026 (Keppres 92/P/2026)
 ```
@@ -491,13 +491,13 @@ Sistem akan otomatis rekalkulasi subsidy gap, ICP alert, dan foreign flow risk s
 
 > Ref lengkap: [`docs/GAME_THEORY_KAJIAN.md`](docs/GAME_THEORY_KAJIAN.md) — serial 20-tweet + data gap table + roadmap.
 
-SCD bukan hanya agregasi statistik — beberapa modul mengimplementasikan **logika strategic behavior** di mana output satu aktor berinteraksi dengan belief/aksi aktor lain. Sep 2026: **GT coverage ~51%** (naik dari 35% pre-P1/P2/P3 commit).
+SCD bukan hanya agregasi statistik — beberapa modul mengimplementasikan **logika strategic behavior** di mana output satu aktor berinteraksi dengan belief/aksi aktor lain. Oct 2026: **GT coverage ~65%** (naik dari 35% Sep 14 → 51% Sep 15 → 63% Oct 19 → 65% Oct 20 dengan PolEcon M12).
 
 #### Peta implementasi (6 konsep, 5 status)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│            GAME THEORY COVERAGE — Dexter Sep 2026 (~51%)           │
+│            GAME THEORY COVERAGE — Dexter Oct 2026 (~65%)           │
 ├────────────────────┬──────────┬──────────┬──────────────────────────┤
 │ Konsep             │ Modul    │ Status   │ Output Signal            │
 ├────────────────────┼──────────┼──────────┼──────────────────────────┤
@@ -632,15 +632,15 @@ Artinya: modul ke-6 RED lebih "berat" dari modul ke-3 RED — mencerminkan bahwa
 
 ```
 Sep 2026  ██████████░░░░░░░░░░  ~51%  (selesai: MS + KFG + BG + DD + DLS + SCC + Bayesian)
-Des 2026  ████████████░░░░░░░░  ~54%  (target: 3rd-gen balance sheet — SULNI FX-hedging)
-Jun 2027  ██████████████░░░░░░  ~59%  (target: PolEcon M12 — Poltracking series)
-Sep 2027  ████████████████░░░░  ~63%  (target: Bayesian M6 full calibration dari 6 krisis)
+Oct 2026  █████████████░░░░░░░  ~65%  (selesai: + SSS 3-phase + stop-loss cascade + MSCI commitment + PolEcon M12) ← SEKARANG
+Jun 2027  ██████████████░░░░░░  ~67%  (target: 3rd-gen balance sheet — SULNI FX-hedging ratio korporasi)
+Sep 2027  ████████████████░░░░  ~70%  (target: PolEcon veto player Tsebelis + Bayesian M6 full calibration)
 ```
 
-**Yang tersisa untuk ~63%:**
-- **3rd-gen balance sheet** (`M8+M13+M3 unified`) — butuh SULNI quarterly FX-hedging ratio per korporasi. Data ada tapi baru per Q-release, ~6wk lag.
-- **Political economy payoff matrix** (`M12`) — veto player mapping + Poltracking time series. Butuh political science input atau API Poltracking Indonesia.
-- **Bayesian M6 full calibration** — likelihood functions P(data|credible) vs P(data|not_credible) dikalibrasi dari 6 krisis historis (data backtest sudah ada di `backtest/crisis-calendar.ts`). Currently pakai heuristic prior, bukan proper posterior dari empirical base rate.
+**Yang tersisa (~70% target):**
+- **3rd-gen balance sheet** (`M8+M13+M3 unified`) — butuh SULNI quarterly FX-hedging ratio per korporasi. Data ada tapi baru per Q-release, ~6wk lag. Est. Jun 2027.
+- **Political economy veto player** (`M12`) — Tsebelis 2002: Prabowo × DPR factions × cabinet. PolEcon payoff matrix (Barro-Gordon BBM hike game) ✅ implemented Oct 20. Veto player mapping butuh Poltracking time series. Est. Sep 2027.
+- **Bayesian M6 full calibration** — likelihood P(data|credible) vs P(data|not_credible) dari 6 krisis historis (backtest data sudah ada di `backtest/crisis-calendar.ts`). Currently heuristic prior. Est. Sep 2027.
 
 ### Scripts Tambahan
 
@@ -937,7 +937,7 @@ SOLAR_BLEND_RATIO=0.50   # 0.40=B40, 0.45=B45 (de-facto), 0.50=B50 full mandate
 **Policy/Classification Flags (operator-updated):**
 ```bash
 BI_BUYS_LONG_SBN=false                       # Perry Warjiyo statement 10 Jun 2026; review di era Destry
-MSCI_CLASSIFICATION_STATUS=confirmed         # Jun 23 2026 EM CONFIRMED; next review Nov 12 2026 — 'confirmed' | 'under_review' | 'downgrade_risk'
+MSCI_CLASSIFICATION_STATUS=downgrade_risk    # Oct 15 2026 Standalone consultation; decision Jun 30 2027 — 'confirmed' | 'under_review' | 'downgrade_risk'
 MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN=1.8  # passive outflow rebalancing Mei 2026
 BI_GOVERNOR_VACANT=false                     # Destry dilantik 2 Sep 2026 (Keppres 92/P/2026)
 BI_DNDF_OUTSTANDING_BN=8                     # update tahunan dari BI LKT (Mar/Apr setiap tahun)
