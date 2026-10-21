@@ -400,4 +400,40 @@ Bryant ETF mechanics active Oct 20–Nov 18. MSCI consultation running. Fed Dec 
 
 ---
 
+---
+
+## 8. Update: Items Resolved Oct 21 2026
+
+All P1/P2/DOC items (except KS#2 auto and China PMI — explicitly deferred P3) closed in commit `092919f`.
+
+| Item | Status | Notes |
+|---|---|---|
+| README GT coverage `~51%`→`~65%` | ✅ DONE | Updated lines 494, 500, 634, roadmap bar |
+| README MSCI env `under_review`→`downgrade_risk` | ✅ DONE | Lines 422 + 940 corrected |
+| GT Kajian PolEcon coverage split | ✅ DONE | BBM payoff matrix ✅ Oct 20; veto player ⏳ P3 |
+| `msci-countdown.ts` multi-milestone | ✅ DONE | 4 milestones Nov 12→Apr 30→Jun 30→Sep 1; state resets on MSCI_REVIEW_DATE change |
+| MSCI reversal probability flag (M5) | ✅ DONE | `msciReversalProbability` field; flag when P(reversal)<0.20 |
+| `LPS_FUND_ADEQUACY_PCT` env + M8 condition 6 | ✅ DONE | CLAUDE.md + banking-stress-engine.ts `backstopStrained` |
+| `RUSSIA_CRUDE_DISCOUNT_USD` → CLAUDE.md | ✅ DONE | Added with comment |
+| `SOLAR_BLEND_RATIO` → CLAUDE.md | ✅ DONE | Added with comment |
+| `MSCI_REVIEW_DATE` → CLAUDE.md | ✅ DONE | Added with operator update procedure |
+| DSR slope/velocity in M13 | ✅ DONE | `dsrSlopePpPerYear` field; flags >3pp/yr ELEVATED, >5pp/yr CRITICAL |
+| ASEAN simultaneous stress diagnostic (M7) | ✅ DONE | `aseanStressMode` field in M7 engine; badge in dashboard ASEAN panel |
+| MACRO.md MSCI stale text (lines 13, 55) | ✅ DONE | Updated to Standalone consultation Oct 15 2026 |
+| MACRO.md M12 missing PolEcon | ✅ DONE | `polEconState` description added to M12 line |
+| Dashboard: MSCI P(reversal) in Flow panel | ✅ DONE | `renderFlow()` shows P(reversal)% when `msci_classification_numeric=2` |
+| Dashboard: `aseanStressMode` badge in ASEAN panel | ✅ DONE | `renderAsean()` shows REGIONAL EM / IDIOSYNCRATIC IDR / MIXED tag |
+| Dashboard: P(reversal) in MSCI badge | ✅ DONE | `renderMsciBadge()` appends `P(reversal)=X%` when Standalone |
+
+**Still open / deferred:**
+- **KS#2 auto (policy response tracker)**: P3 deferred — 3-day effort, Bryant ETF mechanics window already past peak
+- **China PMI weekly (M4)**: P3 deferred — no Yahoo Finance ticker for NBS/Caixin PMI; needs Exa-based source
+- **Post-Bryant selling-period classifier**: P3 deferred — complex two-sided market model
+- **Deposit concentration M8**: P3 deferred — OJK LSPI access unclear
+- **3rd-gen balance sheet amplifier**: P3 deferred — needs SULNI Q3 2026 FX-hedging data (Nov 2026)
+- **Veto player (Tsebelis)**: P3 deferred — needs Poltracking time series
+- **Bayesian M6 calibration**: P3 deferred — 6-month statistical work
+- **SRBI Oct 23 backfill**: OPS — run after Oct 23 auction (14:00–17:00 WIB)
+- **Health-check.ts README reorder (section 1.5)**: DOC — minor, not blocking
+
 *Generated: Oct 21 2026 | Victor @ Sadasa Intelligence | docs/AUDIT_OCT21_2026.md*

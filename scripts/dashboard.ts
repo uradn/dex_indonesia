@@ -871,6 +871,15 @@ function renderFlow(d) {
   const sbnOwn = ind['sbn_foreign_ownership_pct']?.value;
   const srbiCover = ind['srbi_bid_cover_ratio']?.value;
   const srbiOuts = ind['srbi_outstanding_trn_idr']?.value;
+  const msciClass = ind['msci_classification_numeric']?.value;
+
+  let msciRow = '';
+  if (msciClass === 2) {
+    const cStart = new Date('2026-10-15').getTime();
+    const cEnd = new Date('2027-04-30').getTime();
+    const pRev = Math.round(100 - Math.min(95, 85 + 10 * Math.min(1, Math.max(0, (Date.now() - cStart) / (cEnd - cStart)))));
+    msciRow = kv('MSCI P(reversal)', pRev + '%', pRev < 10 ? 'red' : pRev < 20 ? 'orange' : 'yellow');
+  }
 
   return [
     kv('EIDO ETF', eido ? '$' + fmtNum(eido, 2) : '—', eido < 10 ? 'red' : eido < 12 ? 'orange' : ''),
@@ -878,6 +887,7 @@ function renderFlow(d) {
     kv('SBN Foreign Own', sbnOwn ? fmtNum(sbnOwn, 2) + '%' : '—', sbnOwn < 10 ? 'red' : sbnOwn < 12 ? 'orange' : sbnOwn < 14 ? 'yellow' : 'green'),
     kv('SRBI Bid-Cover', srbiCover ? fmtNum(srbiCover, 2) + 'x' : '—', srbiCover < 1.0 ? 'red' : srbiCover < 1.5 ? 'orange' : srbiCover < 2.5 ? 'yellow' : 'green'),
     kv('SRBI Outstanding', srbiOuts ? fmtNum(srbiOuts, 0) + 'T IDR' : '—'),
+    msciRow,
   ].join('');
 }
 
@@ -1180,7 +1190,10 @@ function renderMsciBadge(snap) {
   let txt;
   if (ind.value === 2) {
     const phase = daysSinceBryant <= 4 ? 'fast money' : daysSinceBryant <= 30 ? 'ETF mechanics' : daysSinceBryant <= 90 ? 'mandate rebalancing' : 'structured exit';
-    txt = '🔴 MSCI STANDALONE — Bryant T+' + daysSinceBryant + 'd (' + phase + ')';
+    const cStart = new Date('2026-10-15').getTime();
+    const cEnd = new Date('2027-04-30').getTime();
+    const pRev = Math.round(100 - Math.min(95, 85 + 10 * Math.min(1, Math.max(0, (Date.now() - cStart) / (cEnd - cStart)))));
+    txt = '🔴 MSCI STANDALONE — Bryant T+' + daysSinceBryant + 'd (' + phase + ') | P(reversal)=' + pRev + '%';
   } else if (ind.value === 1) {
     txt = '🟠 MSCI UNDER REVIEW';
   } else {
@@ -1413,6 +1426,13 @@ function renderAsean(d) {
   const idrEntry = entries.find(e => e.label === 'IDR');
   const idrRank = idrEntry ? entries.filter(e => e.changePct !== null).findIndex(e => e.label === 'IDR') + 1 : null;
 
+  // ASEAN stress mode [SOUL.md Persona V]
+  const aseanStressMode = allDepreciating ? 'regional' :
+    (idiosync !== null && idiosync > 3 && depreciating < 2) ? 'idiosyncratic' : 'mixed';
+  const stressModeCls = aseanStressMode === 'regional' ? 'yellow' : aseanStressMode === 'idiosyncratic' ? 'red' : '';
+  const stressModeLabel = aseanStressMode === 'regional' ? 'REGIONAL EM' : aseanStressMode === 'idiosyncratic' ? 'IDIOSYNCRATIC IDR' : 'MIXED';
+  const stressModeHtml = \`<div style="margin-bottom:6px"><span class="tag \${stressModeCls}" style="font-size:9px;padding:2px 6px">\${stressModeLabel}</span></div>\`;
+
   // Summary header bar
   const idiosCls = idiosync === null ? '' : Math.abs(idiosync) >= 3 ? 'red' : Math.abs(idiosync) >= 1 ? 'orange' : 'green';
   const summaryHtml = \`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:8px">
@@ -1492,7 +1512,7 @@ function renderAsean(d) {
 
   const coverageNote = \`<div style="margin-top:6px;font-size:9px;color:var(--muted);padding:2px 4px">Coverage: 6 dari 10 ASEAN — 4 lainnya: BND=SGD peg, MMK/KHR/LAK non-float</div>\`;
 
-  return summaryHtml + bars + narrativeHtml + fxDrivers + coverageNote;
+  return stressModeHtml + summaryHtml + bars + narrativeHtml + fxDrivers + coverageNote;
 }
 
 // ── Markdown → HTML (minimal, SCD-tuned) ─────────────────────────────────────
