@@ -427,7 +427,7 @@ All P1/P2/DOC items (except KS#2 auto and China PMI — explicitly deferred P3) 
 
 **Still open / deferred:**
 - **KS#2 auto (policy response tracker)**: ✅ **DONE** Oct 21 — `silent-crisis-detector.ts` reads cached `policy_response_level` from DB; partial_coordination = −4pp SCD, full_package = −8pp SCD + KS#2 CANDIDATE key flag; `policy_response_level` added to freshness spec (1d/2d/5d); morning-check header shows `[−Npp policy response]` when active
-- **China PMI weekly (M4)**: **P2** — no Yahoo Finance ticker for NBS/Caixin; needs Exa-based source design
+- **China PMI weekly (M4)**: ✅ **DONE** — `sources/china-pmi.ts` (env override + DB 35d cache + Exa/Tavily), wired in M4 engine (`scoreChinaPmi()`), dashboard SNAPSHOT_INDICATORS + doom loop item (PMI<50 active, 6-8w lead tag)
 - **Post-Bryant selling-period classifier**: **P2** — complex two-sided market model; target before Thesis #14 T+3 milestone Dec 21
 - **Deposit concentration M8**: P3 — OJK LSPI access unclear; blocked pending investigation
 - **3rd-gen balance sheet amplifier**: P3 — needs SULNI Q3 2026 FX-hedging data (~Nov 2026)

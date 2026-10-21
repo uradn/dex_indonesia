@@ -199,6 +199,8 @@ const SNAPSHOT_INDICATORS = [
   'prabowo_approval_pct',
   // ks#2 policy response level (0=none,1=isolated,2=partial,3=full_package)
   'policy_response_level',
+  // m4 china pmi — 6-8w lead signal for coal/nickel/CPO export demand
+  'china_pmi_manufacturing',
 ];
 
 const CHART_INDICATORS = [
@@ -996,6 +998,11 @@ function computeDoomLoop(d) {
   const nplStale = nplDate ? (Date.now() - new Date(nplDate).getTime()) > 365*86400_000 : false;
   const nplDetail = npl != null ? npl.toFixed(2)+'%' + (nplStale ? ' ⚠ stale ('+nplDate+')' : '') : null;
   items.push({ label: 'Credit stress building', active: npl != null && npl > 3.0, detail: nplDetail });
+
+  const chinaPmi = ind['china_pmi_manufacturing']?.value;
+  const chinaPmiDate = ind['china_pmi_manufacturing']?.date ?? null;
+  const chinaPmiDetail = chinaPmi != null ? chinaPmi.toFixed(1) + (chinaPmi < 48 ? ' DEMAND DESTRUCTION' : chinaPmi < 50 ? ' contracting' : ' neutral') + (chinaPmiDate ? ' ['+chinaPmiDate.slice(0,7)+']' : '') + ' · 6-8w lead' : null;
+  items.push({ label: 'China PMI demand signal', active: chinaPmi != null && chinaPmi < 50, detail: chinaPmiDetail });
 
   const score = items.filter(i => i.active).length;
   return { items, score };
