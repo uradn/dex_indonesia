@@ -250,6 +250,8 @@ function buildSnapshot() {
       hasX: !!process.env.X_BEARER_TOKEN,
       hasTavily: !!process.env.TAVILY_API_KEY,
       hasExa: !!process.env.EXASEARCH_API_KEY,
+      circuitBreakerDate: process.env.IDX_LAST_CIRCUIT_BREAKER_DATE ?? null,
+      shortSellVol: process.env.IDX_SHORT_SELL_VOLUME_IDR_BN ? parseFloat(process.env.IDX_SHORT_SELL_VOLUME_IDR_BN) : null,
     };
     // Read latest module scores from DB (written by SCD / morning-check)
     const moduleScores: Record<string, { score: number; alertLevel: string; computedAt: string; flags: string[] }> = {};
@@ -818,6 +820,31 @@ const HTML = `<!DOCTYPE html>
       <div class="card-title">Food Stress (PIHPS)</div>
       <div class="food-grid" id="panel-food"></div>
     </div>
+
+    <div class="card">
+      <div class="card-title">BoP — Balance of Payments (M1)</div>
+      <div id="panel-bop"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Commodity — Export Cushion (M4)</div>
+      <div id="panel-commodity"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Narrative Divergence (M6)</div>
+      <div id="panel-narrative"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Market Stress (M9)</div>
+      <div id="panel-market"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">External Debt — ULN (M13)</div>
+      <div id="panel-uln"></div>
+    </div>
   </div>
 
   <div class="main">
@@ -1318,14 +1345,27 @@ async function refresh() {
     document.getElementById('panel-food').innerHTML = renderFood(snapshot);
     document.getElementById('panel-polrisk').innerHTML = renderPolRisk(snapshot);
     document.getElementById('panel-asean').innerHTML = renderAsean(snapshot);
+    document.getElementById('panel-bop').innerHTML = renderBoP(snapshot);
+    document.getElementById('panel-commodity').innerHTML = renderCommodity(snapshot);
+    document.getElementById('panel-narrative').innerHTML = renderNarrative(snapshot);
+    document.getElementById('panel-market').innerHTML = renderMarket(snapshot);
+    document.getElementById('panel-uln').innerHTML = renderUln(snapshot);
     renderCharts(charts);
 
     // Inject module score badges into sidebar card titles
     const MODULE_TITLES = {
-      sovereign_risk: 'Monetary & FX',
-      foreign_flow:   'Capital Flow',
-      fiscal:         'Fiscal & External',
-      banking:        'Banking',
+      sovereign_risk:    'Monetary & FX',
+      foreign_flow:      'Capital Flow',
+      fiscal:            'Fiscal & External',
+      banking:           'Banking',
+      bop:               'BoP — Balance of Payments (M1)',
+      commodity:         'Commodity — Export Cushion (M4)',
+      narrative:         'Narrative Divergence (M6)',
+      market:            'Market Stress (M9)',
+      uln:               'External Debt — ULN (M13)',
+      domestic_pressure: 'Doom Loop Tracker',
+      political_risk:    'Political Risk — Unrest Monitor (M12)',
+      asean_rv:          'ASEAN FX Peers — IDR Idiosyncratic Check (M7)',
     };
     document.querySelectorAll('.card-title').forEach(el => {
       el.querySelectorAll('.mod-badge').forEach(b => b.remove());
@@ -1613,6 +1653,126 @@ function renderAsean(d) {
   const coverageNote = \`<div style="margin-top:6px;font-size:9px;color:var(--muted);padding:2px 4px">Coverage: 6 dari 10 ASEAN — 4 lainnya: BND=SGD peg, MMK/KHR/LAK non-float</div>\`;
 
   return stressModeHtml + summaryHtml + bars + narrativeHtml + fxDrivers + coverageNote;
+}
+
+// ── BoP Panel (M1) ───────────────────────────────────────────────────────────
+function renderBoP(d) {
+  const ind = d.indicators;
+  const trade    = ind['trade_balance_bn']?.value ?? null;
+  const tradeDate= ind['trade_balance_bn']?.date ?? null;
+  const reserves = ind['bi_fx_reserves_bn']?.value ?? null;
+  const resDate  = ind['bi_fx_reserves_bn']?.date ?? null;
+  const gg       = ind['greenspan_guidotti']?.value ?? null;
+  const dndf     = ind['bi_dndf_outstanding_bn']?.value ?? null;
+  const effRes   = reserves !== null && dndf !== null ? +(reserves - dndf).toFixed(1) : reserves;
+  const ms = d.moduleScores?.['bop'];
+  const scoreLine = ms ? kv('M1 BoP Score', ms.score + '/100', ms.alertLevel === 'RED' ? 'red' : ms.alertLevel === 'ORANGE' ? 'orange' : ms.alertLevel === 'YELLOW' ? 'yellow' : 'green') : '';
+  return [
+    scoreLine,
+    kv('Trade Balance', trade !== null ? (trade >= 0 ? '+' : '') + fmtNum(trade,1) + 'bn' + stale(tradeDate,60) : '—', trade !== null && trade < -2 ? 'red' : trade !== null && trade < 0 ? 'orange' : 'green'),
+    kv('FX Reserves', reserves !== null ? '$' + fmtNum(reserves,1) + 'bn' + stale(resDate,90) : '—', reserves !== null && reserves < 100 ? 'red' : reserves !== null && reserves < 120 ? 'orange' : reserves !== null && reserves < 130 ? 'yellow' : 'green'),
+    dndf !== null ? kv('DNDF Contingent', '$' + fmtNum(dndf,1) + 'bn', dndf > 12 ? 'orange' : 'yellow') : '',
+    effRes !== null && dndf !== null ? kv('Effective Reserves', '$' + fmtNum(effRes,1) + 'bn', effRes < 90 ? 'red' : effRes < 110 ? 'orange' : effRes < 125 ? 'yellow' : 'green') : '',
+    kv('G-G Ratio', gg !== null ? fmtNum(gg,2) + 'x' : '—', gg !== null && gg < 1.0 ? 'red' : gg !== null && gg < 1.5 ? 'orange' : gg !== null && gg < 2.0 ? 'yellow' : 'green'),
+  ].join('');
+}
+
+// ── Commodity Panel (M4) ──────────────────────────────────────────────────────
+function renderCommodity(d) {
+  const ind = d.indicators;
+  const brent     = ind['brent_price_usd']?.value ?? null;
+  const dubai     = ind['dubai_crude_spot_usd']?.value ?? null;
+  const nickel    = ind['nickel_price_usd']?.value ?? null;
+  const hba       = ind['hba_price_usd_ton']?.value ?? null;
+  const hbaDate   = ind['hba_price_usd_ton']?.date ?? null;
+  const cpo       = ind['cpo_price_myr']?.value ?? null;
+  const cpoDate   = ind['cpo_price_myr']?.date ?? null;
+  const hormuz    = ind['hormuz_visible_traffic_pct_prewar']?.value ?? null;
+  const chinaPmi  = ind['china_pmi_manufacturing']?.value ?? null;
+  const pmiDate   = ind['china_pmi_manufacturing']?.date ?? null;
+  const ms = d.moduleScores?.['commodity'];
+  const scoreLine = ms ? kv('M4 Commodity Score', ms.score + '/100', ms.alertLevel === 'RED' ? 'red' : ms.alertLevel === 'ORANGE' ? 'orange' : ms.alertLevel === 'YELLOW' ? 'yellow' : 'green') : '';
+  return [
+    scoreLine,
+    brent !== null ? kv('Brent', '$' + fmtNum(brent,1) + '/bbl', brent > 100 ? 'red' : brent > 90 ? 'orange' : brent > 80 ? 'yellow' : 'green') : '',
+    dubai !== null ? kv('Dubai Crude', '$' + fmtNum(dubai,1) + '/bbl') : '',
+    nickel !== null ? kv('Nickel', '$' + fmtNum(nickel,0) + '/t', nickel < 14000 ? 'red' : nickel < 16000 ? 'orange' : nickel < 18000 ? 'yellow' : 'green') : '',
+    hba !== null ? kv('HBA Coal', '$' + fmtNum(hba,1) + '/t' + stale(hbaDate,60), hba < 80 ? 'red' : hba < 100 ? 'orange' : 'green') : '',
+    cpo !== null ? kv('CPO (MYR/t)', 'MYR ' + fmtNum(cpo,0) + stale(cpoDate,30)) : '',
+    hormuz !== null ? kv('Hormuz Traffic', fmtNum(hormuz,0) + '% pre-war', hormuz < 10 ? 'red' : hormuz < 30 ? 'orange' : hormuz < 60 ? 'yellow' : 'green') : '',
+    chinaPmi !== null ? kv('China PMI', fmtNum(chinaPmi,1) + (chinaPmi < 50 ? ' ▼' : ' ▲') + stale(pmiDate,45), chinaPmi < 48 ? 'red' : chinaPmi < 50 ? 'orange' : 'green') : '',
+  ].join('');
+}
+
+// ── Narrative Divergence Panel (M6) ──────────────────────────────────────────
+function renderNarrative(d) {
+  const ind = d.indicators;
+  const cv     = ind['narrative_ms_cv_pct']?.value ?? null;
+  const cvDate = ind['narrative_ms_cv_pct']?.date ?? null;
+  const ms = d.moduleScores?.['narrative'];
+  const scoreLine = ms ? kv('M6 Narrative Score', ms.score + '/100', ms.alertLevel === 'RED' ? 'red' : ms.alertLevel === 'ORANGE' ? 'orange' : ms.alertLevel === 'YELLOW' ? 'yellow' : 'green') : '';
+  const flags = ms?.flags ?? [];
+  const flagHtml = flags.length
+    ? flags.slice(0,3).map(f => \`<div style="font-size:9px;color:var(--orange);margin-top:3px">⚑ \${f}</div>\`).join('')
+    : '';
+  const cvHtml = cv !== null
+    ? kv('Morris-Shin CV%', fmtNum(cv,1) + '%' + stale(cvDate,30), cv > 40 ? 'red' : cv > 25 ? 'orange' : cv > 15 ? 'yellow' : 'green')
+    : kv('Morris-Shin CV%', '— not computed');
+  const cvNote = \`<div style="font-size:9px;color:var(--muted);margin-top:4px">CV = disagreement spread. High CV → narrative divergence → panic amplification risk (Morris-Shin 2000).</div>\`;
+  return scoreLine + cvHtml + flagHtml + cvNote;
+}
+
+// ── Market Stress Panel (M9) ──────────────────────────────────────────────────
+function renderMarket(d) {
+  const ind = d.indicators;
+  const ihsg   = ind['ihsg_level']?.value ?? null;
+  const ihsgDate = ind['ihsg_level']?.date ?? null;
+  const pe     = ind['ihsg_pe_ratio']?.value ?? null;
+  const ad     = ind['idx_advance_decline_ratio']?.value ?? null;
+  const vix    = ind['vix_level']?.value ?? null;
+  const vixDate= ind['vix_level']?.date ?? null;
+  const env    = d.envFlags ?? {};
+  const cbDate = env.circuitBreakerDate ?? null;
+  const ssVol  = env.shortSellVol ?? null;
+  const cbAge  = cbDate ? Math.round((Date.now() - new Date(cbDate).getTime()) / 86400000) : null;
+  const cbActive = cbAge !== null && cbAge <= 30;
+  const ms = d.moduleScores?.['market'];
+  const scoreLine = ms ? kv('M9 Market Score', ms.score + '/100', ms.alertLevel === 'RED' ? 'red' : ms.alertLevel === 'ORANGE' ? 'orange' : ms.alertLevel === 'YELLOW' ? 'yellow' : 'green') : '';
+  return [
+    scoreLine,
+    ihsg !== null ? kv('IHSG', ihsg.toLocaleString('id') + stale(ihsgDate,3)) : '',
+    pe !== null ? kv('IHSG P/E', fmtNum(pe,1) + 'x', pe > 12 ? 'orange' : pe > 10 ? 'yellow' : 'green') : '',
+    ad !== null ? kv('A/D Ratio', fmtNum(ad,2), ad < 0.5 ? 'red' : ad < 0.67 ? 'orange' : ad < 0.8 ? 'yellow' : 'green') : '',
+    vix !== null ? kv('VIX', fmtNum(vix,1) + stale(vixDate,3), vix > 35 ? 'red' : vix > 25 ? 'orange' : vix > 20 ? 'yellow' : 'green') : '',
+    cbDate ? kv('Circuit Breaker', cbDate + (cbActive ? \` (\${cbAge}d ago)\` : ' >30d'), cbActive ? 'red' : 'yellow') : '',
+    ssVol !== null ? kv('Short-Sell Vol', fmtNum(ssVol,0) + 'B IDR', ssVol > 500 ? 'red' : ssVol > 200 ? 'orange' : 'yellow') : '',
+  ].join('');
+}
+
+// ── ULN Panel (M13) ───────────────────────────────────────────────────────────
+function renderUln(d) {
+  const ind = d.indicators;
+  const dsr       = ind['uln_dsr_pct']?.value ?? null;
+  const dsrDate   = ind['uln_dsr_pct']?.date ?? null;
+  const stPct     = ind['uln_shortterm_pct']?.value ?? null;
+  const stDate    = ind['uln_shortterm_pct']?.date ?? null;
+  const extDebt   = ind['indonesia_external_debt_bn']?.value ?? null;
+  const extDate   = ind['indonesia_external_debt_bn']?.date ?? null;
+  const gdpRatio  = ind['uln_gdp_ratio_pct']?.value ?? null;
+  const yoy       = ind['uln_yoy_growth_pct']?.value ?? null;
+  const ms = d.moduleScores?.['uln'];
+  const scoreLine = ms ? kv('M13 ULN Score', ms.score + '/100', ms.alertLevel === 'RED' ? 'red' : ms.alertLevel === 'ORANGE' ? 'orange' : ms.alertLevel === 'YELLOW' ? 'yellow' : 'green') : '';
+  const flags = ms?.flags ?? [];
+  const flagHtml = flags.filter(f => f.startsWith('LOW CONFIDENCE')).length
+    ? \`<div class="tag red" style="display:block;padding:4px 6px;font-size:9px;margin-bottom:4px">⚠ \${flags.find(f => f.startsWith('LOW CONFIDENCE'))}</div>\`
+    : '';
+  return flagHtml + scoreLine + [
+    dsr !== null ? kv('DSR', fmtNum(dsr,1) + '%' + stale(dsrDate,365), dsr > 30 ? 'red' : dsr > 25 ? 'orange' : dsr > 20 ? 'yellow' : 'green') : '',
+    stPct !== null ? kv('Short-Term %', fmtNum(stPct,1) + '%' + stale(stDate,365), stPct > 25 ? 'red' : stPct > 20 ? 'orange' : stPct > 15 ? 'yellow' : 'green') : '',
+    extDebt !== null ? kv('External Debt', '$' + fmtNum(extDebt,0) + 'bn' + stale(extDate,180)) : '',
+    gdpRatio !== null ? kv('ULN/GDP', fmtNum(gdpRatio,1) + '%', gdpRatio > 40 ? 'red' : gdpRatio > 35 ? 'orange' : gdpRatio > 30 ? 'yellow' : 'green') : '',
+    yoy !== null ? kv('ULN YoY', (yoy >= 0 ? '+' : '') + fmtNum(yoy,1) + '%', yoy > 8 ? 'orange' : yoy > 5 ? 'yellow' : 'green') : '',
+  ].join('');
 }
 
 // ── Markdown → HTML (minimal, SCD-tuned) ─────────────────────────────────────
