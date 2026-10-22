@@ -1355,6 +1355,7 @@ async function refresh() {
     // Inject module score badges into sidebar card titles
     const MODULE_TITLES = {
       sovereign_risk:    'Monetary & FX',
+      fx_defense:        'Monetary & FX',
       foreign_flow:      'Capital Flow',
       fiscal:            'Fiscal & External',
       banking:           'Banking',
