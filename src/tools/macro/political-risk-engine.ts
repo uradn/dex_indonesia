@@ -173,11 +173,21 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     tavilyUnrest?.stressScore ?? 0,
     breakingUnrest?.stressScore ?? 0,
   );
-  const blendedFoodScore = Math.max(
+  const liveFoodScore = Math.max(
     foodSentiment?.stressScore ?? 0,
     tavilyFood?.stressScore ?? 0,
     breakingFood?.stressScore ?? 0,
   );
+
+  // Sticky floor: decay prior DB value 15%/day so score can't collapse overnight from news-cycle churn.
+  // Structural events (BBM langka, beras naik) persist >1 day even if Exa stops surfacing them.
+  const storedFood = await getLatestPoint('political_food_stress_score');
+  let stickyFoodFloor = 0;
+  if (storedFood && storedFood.date !== today) {
+    const daysSince = Math.max(1, Math.round((Date.now() - new Date(storedFood.date).getTime()) / 86400000));
+    stickyFoodFloor = Math.round(storedFood.value * Math.pow(0.85, daysSince));
+  }
+  const blendedFoodScore = Math.max(liveFoodScore, stickyFoodFloor);
 
   // Store sentiment scores in DB for trend tracking
   const sentimentPoints = [
