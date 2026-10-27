@@ -344,7 +344,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   // 3. Read from DB (use cached if live fetch failed)
   // Critical banking KPIs (NPL/LDR/CAR) gated by freshness — RED-stale data treated as
   // missing so engine doesn't report a false GREEN score from a different macro era.
-  const [freshNpl, freshLdr, freshCar, dbIndonia, dbBiRate, dbExtDebt, dbIhpr, dbSbn10y, dbCpi, dbSrbi, dbM2Idr, dbFxReserves, dbUsdidr, dbFintechNpl, dbFintechOutstanding, dbFintechGrowth, dbDeficitPct, dbDepositoShare] = await Promise.all([
+  const [freshNpl, freshLdr, freshCar, dbIndonia, dbBiRate, dbExtDebt, dbIhpr, dbSbn10y, dbCpi, dbSrbi, dbM2Idr, dbFxReserves, dbUsdidr, dbFintechNpl, dbFintechOutstanding, dbFintechGrowth, dbDeficitPct, dbDepositoShare, dbM1m2Ratio] = await Promise.all([
     getFreshPoint('bank_npl_gross_pct', { treatStaleAsMissing: true }),
     getFreshPoint('bank_ldr_pct', { treatStaleAsMissing: true }),
     getFreshPoint('bank_car_pct', { treatStaleAsMissing: true }),
@@ -361,8 +361,9 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     getLatestPoint('fintech_npl_pct'),
     getLatestPoint('fintech_lending_outstanding_idr_t'),
     getLatestPoint('fintech_lending_growth_yoy_pct'),
-    getLatestPoint('apbn_deficit_pct_gdp'),   // Gap D: sovereign backstop proxy for D-D condition_6
-    getLatestPoint('bank_savings_deposito_ratio_pct'), // deposito/(deposito+tabungan): savings hot-money proxy
+    getLatestPoint('apbn_deficit_pct_gdp'),
+    getLatestPoint('bank_savings_deposito_ratio_pct'),
+    getLatestPoint('m1_m2_ratio_pct'),  // D-D liquidity preference signal
   ]);
   const dbNpl = freshNpl.point;
   const dbLdr = freshLdr.point;
@@ -387,6 +388,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   const fxReservesBn = dbFxReserves?.value ?? null;
   const usdidrSpot = dbUsdidr?.value ?? null;
   const depositoSharePct = (dbDepositoShare as typeof dbDepositoShare)?.value ?? null;
+  const m1m2RatioPct = dbM1m2Ratio?.value ?? null;
 
   // FINTECH_NPL_PCT env override — pin from OJK SPI monthly release when Playwright blocked (WAF).
   const fintechNplEnv = process.env.FINTECH_NPL_PCT;
@@ -508,6 +510,16 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     else if (depositoSharePct > 57) depositoBump = 4;
   }
   stressScore = Math.min(100, stressScore + depositoBump);
+
+  // M1/M2 ratio — Diamond-Dybvig liquidity preference precursor (BI SEKI TABEL1_1).
+  // Rising ratio = depositors fleeing quasi-money (tabungan/deposito) to cash/giro.
+  // Normal: 45–52% | Watch >55% (+4) | Alert >60% (+8)
+  let m1m2Bump = 0;
+  if (m1m2RatioPct !== null) {
+    if (m1m2RatioPct > 60) m1m2Bump = 8;
+    else if (m1m2RatioPct > 55) m1m2Bump = 4;
+  }
+  stressScore = Math.min(100, stressScore + m1m2Bump);
 
   // OJK PDN — bank net open FX position (monthly proxy for corporate hedging stress)
   let pdnBump = 0;
