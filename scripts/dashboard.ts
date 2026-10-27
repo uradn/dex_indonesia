@@ -1181,12 +1181,16 @@ function moduleScoreBadge(d, moduleKey) {
 
 function renderScd(d) {
   const ms = d.moduleScores ?? {};
-  // Use real SCD score if available (from last morning-check/SCD run)
-  const scdMs = Object.keys(ms).length;
   let score, label, cls;
-  if (scdMs > 0) {
-    // Replicate SCD weighted sum — political_risk uses dynamic weight (leading indicator)
-    // Mirrors silent-crisis-detector.ts logic: <75=0.05, ≥75=0.09, ≥90=0.12
+  // Prefer engine-computed composite stored as scd_composite (exact value, no proxy drift)
+  if (ms['scd_composite']) {
+    score = ms['scd_composite'].score;
+    const latest = ms['scd_composite'];
+    const age = Math.round((Date.now() - new Date(latest.computedAt).getTime()) / 3600000);
+    const ageTxt = age < 1 ? ' · <1h ago' : ' · ' + age + 'h ago';
+    label = (score >= 70 ? '🔴 RED — CRISIS RISK' : score >= 50 ? '🟠 ORANGE — ELEVATED' : score >= 33 ? '🟡 YELLOW — WATCH' : '🟢 GREEN — NORMAL') + ageTxt;
+  } else if (Object.keys(ms).length > 0) {
+    // Fallback: replicate SCD weighted sum when scd_composite not yet stored
     const W_BASE = { fx_defense:0.16, uln:0.09, bop:0.10, sovereign_risk:0.09, foreign_flow:0.09,
                 banking:0.08, commodity:0.07, fiscal:0.09, market:0.05, domestic_pressure:0.06,
                 political_risk:0.05, regime:0.05, narrative:0.02 };
@@ -1197,11 +1201,9 @@ function renderScd(d) {
       const w = mod === 'political_risk' ? (s >= 90 ? 0.12 : s >= 75 ? 0.09 : 0.05) : baseW;
       wsum += s * w; wtotal += w;
     }
-    // Orange/red stressed count for cross-confirmation amplifier
     const stressed = Object.values(ms).filter(m => m.score >= 50).length;
     const amp = stressed >= 5 ? 1.4 : stressed >= 3 ? 1.2 : stressed >= 2 ? 1.05 : 1.0;
     score = Math.min(95, Math.round((wtotal > 0 ? wsum / wtotal : 0) * amp));
-    // Apply KS#2 policy response reduction (mirrors silent-crisis-detector.ts)
     const policyRespLevel = d.indicators?.['policy_response_level']?.value ?? 0;
     const policyReduction = policyRespLevel >= 3 ? 8 : policyRespLevel >= 2 ? 4 : 0;
     score = Math.max(0, score - policyReduction);
@@ -1209,7 +1211,7 @@ function renderScd(d) {
     const age = latest ? Math.round((Date.now() - new Date(latest.computedAt).getTime()) / 3600000) : null;
     const ageTxt = age !== null ? (age < 1 ? ' · <1h ago' : ' · '+age+'h ago') : '';
     const reductionTag = policyReduction > 0 ? ' · −' + policyReduction + 'pp coordinated response' : '';
-    label = (score >= 70 ? '🔴 RED — CRISIS RISK' : score >= 50 ? '🟠 ORANGE — ELEVATED' : score >= 33 ? '🟡 YELLOW — WATCH' : '🟢 GREEN — NORMAL') + ageTxt + reductionTag;
+    label = (score >= 70 ? '🔴 RED — CRISIS RISK' : score >= 50 ? '🟠 ORANGE — ELEVATED' : score >= 33 ? '🟡 YELLOW — WATCH' : '🟢 GREEN — NORMAL') + ageTxt + reductionTag + ' (est)';
   } else {
     score = computeScdProxy(d);
     label = score == null ? '—' : (score >= 70 ? '🔴 RED — CRISIS RISK' : score >= 50 ? '🟠 ORANGE — ELEVATED' : score >= 33 ? '🟡 YELLOW — WATCH' : '🟢 GREEN — NORMAL') + ' (proxy)';

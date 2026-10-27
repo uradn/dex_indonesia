@@ -230,6 +230,9 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
   const policyResponseReduction = policyRespNumeric >= 3 ? 8 : policyRespNumeric >= 2 ? 4 : 0;
   const silentCrisisProbability = Math.max(0, silentCrisisProbabilityPostChain - policyResponseReduction);
 
+  // Persist composite SCD so dashboard can read it directly (avoids proxy divergence)
+  saveModuleScore('scd_composite', silentCrisisProbability, alertFromScore(silentCrisisProbability), {}).catch(() => {});
+
   // Synthetic Stability Score: measures the gap between political/structural stress and
   // financial market pricing. Three phases with distinct formulas:
   //
