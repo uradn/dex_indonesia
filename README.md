@@ -205,7 +205,17 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - **⚠️ TRANSMISSION UNDERWAY (SSS=100/100)**: political stress **96/100 🔴** transmitting to financial markets (avg 50/100). Gap CLOSING — forced-sell and mandate-exit mechanics EXECUTION PHASE, not forecast. Silent phase over.
 - **⚠️ MSCI SAIR Nov 12 T-16d** — Semi-Annual Index Review: free-float exclusions + Standalone confirmation. Bryant ETF mechanics PEAK FORCED-SELL PERIOD.
 - **⚠️ PHK**: 1.100 pekerja at risk 30d window (trend signal); 2 tahun Prabowo-Gibran berlangsung — public discontent spills to streets (ABC News)
-- **⚠️ Hashim Djojohadikusumo (Oct 29, Kontan)**: Soroti penggorengan saham + ingatkan risiko pelemahan Rupiah — **inner circle sinyal M6 credibility breakdown**: elite rhetoric acknowledge IDR risk tanpa policy action konkret; classic pre-crisis narrative divergence. M12 signal: jika Hashim (adik Presiden) publicly warn, artinya situasi lebih parah dari yang diumumkan.
+- **⚠️ Hashim Djojohadikusumo (Oct 29, Rapimnas Kadin 2026)** — inner circle IDR warning:
+
+  > ![Hashim IDR Warning](docs/screenshots/hashim-idr-warning-oct29-2026.webp)
+  >
+  > *"Rupiah bisa semakin lemah. Saya sudah hitung, bisa di Rp 20.000–Rp 21.000. Ada yang bilang Rp 22.000."*
+  > *"Ini bisa menjadi bencana dan malapetaka bagi ekonomi Indonesia."*
+  > *"Mohon dengan sangat praktik goreng-gorengan dihentikan."*
+  >
+  > Sumber: [Kompas](https://money.kompas.com/read/2026/10/29/163527826/hashim-peringatkan-rupiah-bisa-tembus-rp-22000-per-dollar-as-jika-masalah-msci-tidak-diselesaikan) · [CNBC Indonesia](https://www.cnbcindonesia.com/market/20261029150348-17-780613/hashim-warning-rupiah-bisa-tembus-rp21000-per-dolar-as) · [Kontan](https://nasional.kontan.co.id/news/minta-kadin-tak-ikut-praktik-saham-gorengan-hashim-rupiah-bisa-anjlok-ke-rp-22000)
+
+  **M6 read:** Adik Presiden / Ketua Dewan Pertimbangan Kadin publicly acknowledge IDR crash risk → **narrative credibility breakdown**: elite rhetoric jauh di depan policy action konkret. Classic pre-crisis divergence signal. **M12 read:** Rp22.000 projection dari inner circle = market posterior shift; jika insiders warn publicly, situasi lebih parah dari yang diumumkan. Ticker saat artikel naik: **USDIDR 18,166 | IHSG 5,098 (−3.49%)**.
 - **⚠️ IHSG Oct 16 CLOSE: 5,204 (−11.25%, −659pts)** — circuit breaker 08:58 WIB; **IDX circuit breaker flag active 11d** (fired Oct 16; flag active 30d)
 - **⚠️ Demo 20 Oktober** (Oct 20): tuntutan lapangan kerja + karhutla; BBM langka Bali; 2th Prabowo: harga beras/cabai/minyak belum jinak (Oct 23)
 - SCD: **89% 🔴 RED** (morning check Oct 29) | **8/13 modules** cross-confirmed | M12 Political Risk **95/100 🔴** | M10 Fiscal **72/100 🔴** | M11 Domestic Pressure **68/100 🟠** | M2 Sovereign **65/100 🟠** | M5 Foreign Flow **60/100 🟠** | M4 Commodity **62/100 🟠** | M6 Narrative **53/100 🟠** | M9 Market **50/100 🟠** (A/D 0.04 near collapse) | M7 ASEAN RV **44/100 🟡** | M8 Banking **38/100 🟡** | M3 FX Defense **47/100 🟡** | M1 BoP **25/100 🟢** | M13 ULN **12/100 🟢** | **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-37) — CDS 119.3bps, USDIDR 18,100, targets: CDS 164bps / USDIDR 20,020 / SBN 8.62% | all kill switches inactive
