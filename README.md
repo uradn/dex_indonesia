@@ -206,7 +206,7 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - **⚠️ MSCI SAIR Nov 12 T-16d** — Semi-Annual Index Review: free-float exclusions + Standalone confirmation. Bryant ETF mechanics PEAK FORCED-SELL PERIOD.
 - **⚠️ PHK**: 1.100 pekerja at risk 30d window (trend signal); 2 tahun Prabowo-Gibran berlangsung — public discontent spills to streets (ABC News)
 - **⚠️ IHSG Oct 16 CLOSE: 5,204 (−11.25%, −659pts)** — circuit breaker 08:58 WIB; **IDX circuit breaker flag active 11d** (fired Oct 16; flag active 30d)
-- **⚠️ Demo 20 Oktober** (Oct 20): tuntutan lapangan kerja + karhutla; BBM langka Bali; 2th Prabowo: harga beras/cabai/minyak belum jinak (Oct 23)
+- **⚠️ Gelombang Demo Jakarta Oct 20–29**: (1) **Oct 20** — tuntutan lapangan kerja + karhutla; BBM langka Bali; 2th Prabowo (2) **Oct 28 (Hari Sumpah Pemuda)** — 53 elemen di Bundaran HI, Monas, DPR/MPR, Tugu Tani; BEM UI + Komite Sadar tema *"Tepati atau Pergi"*; three-finger salute; spanduk "Prabowo-Gibran Gagal Total" + "All Eyes on Karhutla" (3) **Oct 29** — 61 titik aksi (Polda Metro Jaya); BEM SI se-Jabodetabek, BEM UNJ, Trisakti, Federasi Serikat Pekerja Global, Gerakan Ojol Bersatu, UMKM; kawasan Monas, DPR/MPR, Istana Negara, kementerian
 - **⚠️ HASHIM DJOJOHADIKUSUMO — INNER CIRCLE IDR WARNING (Oct 29, Rapimnas Kadin 2026)**
 
 > ### 🚨 Elite Inner Circle Acknowledges IDR Crash Risk — Narrative Control Breakdown
@@ -234,6 +234,27 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 > **M9 — Market Stress:** "Penggorengan saham" = Hashim mengakui thin volume + manipulation yang memperburuk volatilitas. Konsisten dengan A/D ratio 0.04 (Oct 29 morning check) — near total breadth collapse. Market structure rusak, bukan hanya sentimen.
 >
 > **Ironi / Timing:** Engine sudah signal SCD 89% RED, CDS 119.3bps, Morris-Shin alert sejak 2-3 minggu lalu. Pernyataan Hashim = catching up ke apa yang engine sudah deteksi. Bukan wawasan baru — ini konfirmasi publik dari dalam. **Morris-Shin revelation event terjadi**: informasi privat (elite assessment) menjadi common knowledge → belief dispersion turun → koordinasi attack window menyempit tapi probability naik.
+
+- **⚠️ PANDU SJAHRIR (DANANTARA CIO) — GCG CONFLICT OF INTEREST (Oct 29, Bloomberg Investigasi)**
+
+> ### 💣 MSCI Reform Champion Owns Stake in OJK-Sanctioned Broker — Governance Credibility Bomb
+>
+> **Bloomberg News, 29 Oktober 2026:** Pandu Sjahrir — Danantara CIO, muka utama Indonesia di MSCI, advocate utama GCG reform — **secara tidak langsung memiliki 27.5% saham di PT Supra Sekuritas Indonesia**, broker yang OJK sanksi Oktober 2026 atas pelanggaran terkait manipulasi pasar.
+>
+> **Struktur kepemilikan:** Pandu → 99.99% PT Asha Artha Sehati → 27.5% Supra Sekuritas. Supra Sekuritas = "SS" dalam pengumuman sanksi OJK (OJK hanya sebut inisial). Supra Sekuritas trader saham PT Dian Swastatika Sentosa — salah satu perusahaan di jantung kasus sanksi OJK.
+>
+> **Timeline konflik:** Pandu bertemu CEO MSCI Henry Fernandez Sep 2026 di New York untuk tanya *"apa yang bisa dilakukan Indonesia?"*. Oct 13: Pandu di event Danantara sela-sela IMF Bangkok — MSCI juga hadir. Publik: Pandu bilang MSCI adalah *"wake-up call"* dan Indonesia perlu pasar *"transparan, adil, dan dipercaya"*.
+>
+> **Respons juru bicara Pandu:** Investasi pasif, tidak pernah di board/komisaris/manajemen, tidak ada peran operasional. *"Kepemilikannya tidak boleh dikaitkan dengan tanggung jawab atas tindakan perusahaan."*
+>
+> **M6 — Narrative Credibility:** Orang yang paling keras bicara GCG = co-owner broker yang disanksi karena governance failure. Gap antara retorika dan realita tidak bisa lebih lebar dari ini. Narrative credibility Indonesia di mata MSCI: **COLLAPSE**. Pandu adalah wajah reformasi — jika wajah itu cacat, siapa yang tersisa untuk meyakinkan MSCI?
+>
+> **M5 — Foreign Flow / MSCI Path:** MSCI SAIR Nov 12 T-14d. Defense Indonesia selama ini bergantung pada kredibilitas Pandu sebagai liaison. Bloomberg exposé ini = defense posture Indonesia di konsultasi MSCI melemah dramatically. P(reversal MSCI) turun lebih jauh dari <15%.
+>
+> **M12 — Political / Institutional Capture:** Danantara (sovereign wealth fund Rp 9.000T AUM) dipimpin oleh orang yang co-owns broker di tengah manipulasi probe. Institutional integrity questioned at sovereign level.
+>
+> Sumber: [Bloomberg](https://www.bloomberg.com/news/articles/2026-10-29/indonesia-s-wealth-fund-cio-owns-stake-in-sanctioned-brokerage) · [Free Malaysia Today](https://www.freemalaysiatoday.com/category/business/2026/10/29/indonesia-s-wealth-fund-cio-owns-stake-in-sanctioned-brokerage) · [The Star](https://www.thestar.com.my/aseanplus/aseanplus-news/2026/10/29/indonesias-wealth-fund-cio-owns-stake-in-sanctioned-brokerage)
+
 - SCD: **89% 🔴 RED** (morning check Oct 29) | **8/13 modules** cross-confirmed | M12 Political Risk **95/100 🔴** | M10 Fiscal **72/100 🔴** | M11 Domestic Pressure **68/100 🟠** | M2 Sovereign **65/100 🟠** | M5 Foreign Flow **60/100 🟠** | M4 Commodity **62/100 🟠** | M6 Narrative **53/100 🟠** | M9 Market **50/100 🟠** (A/D 0.04 near collapse) | M7 ASEAN RV **44/100 🟡** | M8 Banking **38/100 🟡** | M3 FX Defense **47/100 🟡** | M1 BoP **25/100 🟢** | M13 ULN **12/100 🟢** | **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-37) — CDS 119.3bps, USDIDR 18,100, targets: CDS 164bps / USDIDR 20,020 / SBN 8.62% | all kill switches inactive
 - **📅 Milestone watch**: T+90=Dec 21 (CDS 164bps / USDIDR 20,020 / SBN 8.62%) — CDS velocity +9.2bps/wk → 200bps ~62d = aligns Dec 21. MSCI SAIR Nov 12 T-14d 🔴 CRITICAL.
 
@@ -387,8 +408,8 @@ Bahlil bilang $77 (April) → ICP $107 live (Sep 15). APBN pasang $70. Empat ang
 | **Oct 19 2026** | Brent **$107.40** (−2.24%); **IRGC klaim kapal tanker kena ranjau dan terbakar** Hormuz (ANTARA/Kompas); tanker transits **2/hari** (Oct 11 data); Hormuz deal unresolved; US renews warning warganya; **IHSG 4,918** sub-5,000 intraday; IDR 18,040–18,049; SCD 73% 🔴 RED (7/13 cross-confirmed) |
 | **Oct 20 2026** | **Demo 20 Oktober** berlangsung (tuntutan lapangan kerja + karhutla); IHSG recovery **5,205** (+5.5% dari intraday Oct 19); USDIDR 17,995; Brent **$110.7** ($10.7 di atas threshold); CDS 99.5bps; **SCD 57% 🟠 ORANGE** (5/13) — IHSG recovery tidak ubah forced-sell dynamic; Bryant ETF mechanics ACTIVE (T+5d) |
 | **Oct 27 2026** | **SCD 93% 🔴 RED** (8/13 cross-confirmed) — LOMPATAN DARI 57%; SSS **100/100 TRANSMISSION UNDERWAY**; CDS **107.7bps** (velocity +4.2bps/wk); SBN 10Y **7.454%**; USDIDR **18,145**; **🚨 DNDF 1M ZERO BIDS** di 18,199 — forward anchor BI gagal, NDF offshore 18,210; Morris-Shin ALERT aktif; MSCI SAIR Nov 12 T-16d; **Thesis #14 hari ke-35** |
-| **Oct 28 2026** | **FOMC ✅ HOLD 10-2** — Fed funds tetap 3.75–4.00%; dissenter Cook + Hammack mau hike; Dec hike odds naik **82.6%**; hawkish hold — Desember hike priced in; tekanan eksternal ke SBN-UST spread berlanjut |
-| **Oct 29 2026** | **SCD 89% 🔴 RED** | CDS **119.3bps** (+11.6 dari Oct 27) — velocity **+9.2bps/wk 🔴** (doubled); SBN **7.706%** (SBN auction bids ↓52%, yield 4-year high); **200bps watch ~62d** (dari 154d); IHSG **5,098** (−3.49%) A/D **0.04** near collapse; **🚨 HASHIM DJOJOHADIKUSUMO** (adik Presiden, Rapimnas Kadin): *"Rupiah bisa Rp20.000–Rp22.000, ini bisa menjadi bencana"* — inner circle IDR crash acknowledgement; M6/M12 revelation event; Thesis #14 hari ke-37 |
+| **Oct 28 2026** | **FOMC ✅ HOLD 10-2** — Fed funds tetap 3.75–4.00%; dissenter Cook + Hammack mau hike; Dec hike odds naik **82.6%**; hawkish hold; **Demo Sumpah Pemuda** — 53 elemen Bundaran HI/Monas/DPR; BEM UI + Komite Sadar tema *"Tepati atau Pergi"*; three-finger salute; spanduk "Prabowo-Gibran Gagal Total" |
+| **Oct 29 2026** | **SCD 89% 🔴 RED** | CDS **119.3bps** (+11.6 dari Oct 27) — velocity **+9.2bps/wk 🔴** (doubled); SBN **7.706%** (SBN auction bids ↓52%, yield 4-year high); **200bps watch ~62d** (dari 154d); IHSG **5,098** (−3.49%) A/D **0.04** near collapse; **61 titik demo** Jakarta (BEM SI, Trisakti, Ojol, UMKM, Serikat Buruh); **🚨 HASHIM DJOJOHADIKUSUMO** (adik Presiden): *"Rupiah bisa Rp22.000, bencana"* — M6/M12 revelation event; **💣 PANDU SJAHRIR (Danantara CIO)** co-owns PT Supra Sekuritas (broker OJK-sanksi manipulasi, "SS") — Bloomberg investigasi; MSCI reform defense credibility COLLAPSE; Thesis #14 hari ke-37 |
 
 **Dampak global:**
 
