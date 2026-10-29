@@ -205,6 +205,8 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - **⚠️ TRANSMISSION UNDERWAY (SSS=100/100)**: political stress **96/100 🔴** transmitting to financial markets (avg 50/100). Gap CLOSING — forced-sell and mandate-exit mechanics EXECUTION PHASE, not forecast. Silent phase over.
 - **⚠️ MSCI SAIR Nov 12 T-16d** — Semi-Annual Index Review: free-float exclusions + Standalone confirmation. Bryant ETF mechanics PEAK FORCED-SELL PERIOD.
 - **⚠️ PHK**: 1.100 pekerja at risk 30d window (trend signal); 2 tahun Prabowo-Gibran berlangsung — public discontent spills to streets (ABC News)
+- **⚠️ IHSG Oct 16 CLOSE: 5,204 (−11.25%, −659pts)** — circuit breaker 08:58 WIB; **IDX circuit breaker flag active 11d** (fired Oct 16; flag active 30d)
+- **⚠️ Demo 20 Oktober** (Oct 20): tuntutan lapangan kerja + karhutla; BBM langka Bali; 2th Prabowo: harga beras/cabai/minyak belum jinak (Oct 23)
 - **⚠️ HASHIM DJOJOHADIKUSUMO — INNER CIRCLE IDR WARNING (Oct 29, Rapimnas Kadin 2026)**
 
 > ### 🚨 Elite Inner Circle Acknowledges IDR Crash Risk — Narrative Control Breakdown
@@ -232,8 +234,6 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 > **M9 — Market Stress:** "Penggorengan saham" = Hashim mengakui thin volume + manipulation yang memperburuk volatilitas. Konsisten dengan A/D ratio 0.04 (Oct 29 morning check) — near total breadth collapse. Market structure rusak, bukan hanya sentimen.
 >
 > **Ironi / Timing:** Engine sudah signal SCD 89% RED, CDS 119.3bps, Morris-Shin alert sejak 2-3 minggu lalu. Pernyataan Hashim = catching up ke apa yang engine sudah deteksi. Bukan wawasan baru — ini konfirmasi publik dari dalam. **Morris-Shin revelation event terjadi**: informasi privat (elite assessment) menjadi common knowledge → belief dispersion turun → koordinasi attack window menyempit tapi probability naik.
-- **⚠️ IHSG Oct 16 CLOSE: 5,204 (−11.25%, −659pts)** — circuit breaker 08:58 WIB; **IDX circuit breaker flag active 11d** (fired Oct 16; flag active 30d)
-- **⚠️ Demo 20 Oktober** (Oct 20): tuntutan lapangan kerja + karhutla; BBM langka Bali; 2th Prabowo: harga beras/cabai/minyak belum jinak (Oct 23)
 - SCD: **89% 🔴 RED** (morning check Oct 29) | **8/13 modules** cross-confirmed | M12 Political Risk **95/100 🔴** | M10 Fiscal **72/100 🔴** | M11 Domestic Pressure **68/100 🟠** | M2 Sovereign **65/100 🟠** | M5 Foreign Flow **60/100 🟠** | M4 Commodity **62/100 🟠** | M6 Narrative **53/100 🟠** | M9 Market **50/100 🟠** (A/D 0.04 near collapse) | M7 ASEAN RV **44/100 🟡** | M8 Banking **38/100 🟡** | M3 FX Defense **47/100 🟡** | M1 BoP **25/100 🟢** | M13 ULN **12/100 🟢** | **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-37) — CDS 119.3bps, USDIDR 18,100, targets: CDS 164bps / USDIDR 20,020 / SBN 8.62% | all kill switches inactive
 - **📅 Milestone watch**: T+90=Dec 21 (CDS 164bps / USDIDR 20,020 / SBN 8.62%) — CDS velocity +9.2bps/wk → 200bps ~62d = aligns Dec 21. MSCI SAIR Nov 12 T-14d 🔴 CRITICAL.
 
