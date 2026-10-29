@@ -205,17 +205,33 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - **⚠️ TRANSMISSION UNDERWAY (SSS=100/100)**: political stress **96/100 🔴** transmitting to financial markets (avg 50/100). Gap CLOSING — forced-sell and mandate-exit mechanics EXECUTION PHASE, not forecast. Silent phase over.
 - **⚠️ MSCI SAIR Nov 12 T-16d** — Semi-Annual Index Review: free-float exclusions + Standalone confirmation. Bryant ETF mechanics PEAK FORCED-SELL PERIOD.
 - **⚠️ PHK**: 1.100 pekerja at risk 30d window (trend signal); 2 tahun Prabowo-Gibran berlangsung — public discontent spills to streets (ABC News)
-- **⚠️ Hashim Djojohadikusumo (Oct 29, Rapimnas Kadin 2026)** — inner circle IDR warning:
+- **⚠️ HASHIM DJOJOHADIKUSUMO — INNER CIRCLE IDR WARNING (Oct 29, Rapimnas Kadin 2026)**
 
-  > ![Hashim IDR Warning](docs/screenshots/hashim-idr-warning-oct29-2026.webp)
-  >
-  > *"Rupiah bisa semakin lemah. Saya sudah hitung, bisa di Rp 20.000–Rp 21.000. Ada yang bilang Rp 22.000."*
-  > *"Ini bisa menjadi bencana dan malapetaka bagi ekonomi Indonesia."*
-  > *"Mohon dengan sangat praktik goreng-gorengan dihentikan."*
-  >
-  > Sumber: [Kompas](https://money.kompas.com/read/2026/10/29/163527826/hashim-peringatkan-rupiah-bisa-tembus-rp-22000-per-dollar-as-jika-masalah-msci-tidak-diselesaikan) · [CNBC Indonesia](https://www.cnbcindonesia.com/market/20261029150348-17-780613/hashim-warning-rupiah-bisa-tembus-rp21000-per-dolar-as) · [Kontan](https://nasional.kontan.co.id/news/minta-kadin-tak-ikut-praktik-saham-gorengan-hashim-rupiah-bisa-anjlok-ke-rp-22000)
-
-  **M6 read:** Adik Presiden / Ketua Dewan Pertimbangan Kadin publicly acknowledge IDR crash risk → **narrative credibility breakdown**: elite rhetoric jauh di depan policy action konkret. Classic pre-crisis divergence signal. **M12 read:** Rp22.000 projection dari inner circle = market posterior shift; jika insiders warn publicly, situasi lebih parah dari yang diumumkan. Ticker saat artikel naik: **USDIDR 18,166 | IHSG 5,098 (−3.49%)**.
+> ### 🚨 Elite Inner Circle Acknowledges IDR Crash Risk — Narrative Control Breakdown
+>
+> ![Hashim IDR Warning](docs/screenshots/hashim-idr-warning-oct29-2026.webp)
+>
+> **Venue:** Rapimnas Kadin 2026, Hotel Borobudur Jakarta — Ketua Dewan Pertimbangan Kadin + adik kandung Presiden Prabowo + Presidential Special Envoy for Climate & Energy.
+>
+> **Exact quotes:**
+> - *"Rupiah bisa semakin lemah. Saya sudah hitung, bisa di Rp 20.000–Rp 21.000. Ada yang bilang Rp 22.000."*
+> - *"Ini bisa menjadi bencana dan malapetaka bagi ekonomi Indonesia."*
+> - *"Ada indikasi memang ada praktik-praktik yang tidak sehat yang terjadi di pasar saham kita."*
+> - *"Mohon dengan sangat praktik goreng-gorengan segera dihentikan."*
+>
+> **Market conditions saat pernyataan:** USDIDR **18,166** | IHSG **5,098 (−3.49%)** | semua sektor merah | 32.7 juta investor ritel Indonesia at risk.
+>
+> **Referensi Turkey:** Hashim sebut otoritas pasar Turki menangkap 94 pelaku manipulasi pasar sebagai preseden.
+>
+> Sumber: [Kompas](https://money.kompas.com/read/2026/10/29/163527826/hashim-peringatkan-rupiah-bisa-tembus-rp-22000-per-dollar-as-jika-masalah-msci-tidak-diselesaikan) · [CNBC Indonesia](https://www.cnbcindonesia.com/market/20261029150348-17-780613/hashim-warning-rupiah-bisa-tembus-rp21000-per-dolar-as) · [Kontan](https://nasional.kontan.co.id/news/minta-kadin-tak-ikut-praktik-saham-gorengan-hashim-rupiah-bisa-anjlok-ke-rp-22000)
+>
+> **M6 — Narrative Credibility:** Elite inner circle publicly acknowledge IDR crash risk ke Rp22.000 = **narrative credibility breakdown**. Elite rhetoric jauh di depan aksi kebijakan konkret — *gap* itu yang mahal harganya. Classic pre-crisis divergence: pejabat bicara risiko tapi belum ada paket stabilisasi konkret.
+>
+> **M12 — Political Risk:** Insider (adik Presiden) warn publik = posterior shift market. Kalau orang dalam sudah bilang "bencana", situasi aktual lebih parah dari yang diumumkan resmi. Ini bukan analis luar; ini pengetahuan dari dalam istana yang bocor lewat Kadin.
+>
+> **M9 — Market Stress:** "Penggorengan saham" = Hashim mengakui thin volume + manipulation yang memperburuk volatilitas. Konsisten dengan A/D ratio 0.04 (Oct 29 morning check) — near total breadth collapse. Market structure rusak, bukan hanya sentimen.
+>
+> **Ironi / Timing:** Engine sudah signal SCD 89% RED, CDS 119.3bps, Morris-Shin alert sejak 2-3 minggu lalu. Pernyataan Hashim = catching up ke apa yang engine sudah deteksi. Bukan wawasan baru — ini konfirmasi publik dari dalam. **Morris-Shin revelation event terjadi**: informasi privat (elite assessment) menjadi common knowledge → belief dispersion turun → koordinasi attack window menyempit tapi probability naik.
 - **⚠️ IHSG Oct 16 CLOSE: 5,204 (−11.25%, −659pts)** — circuit breaker 08:58 WIB; **IDX circuit breaker flag active 11d** (fired Oct 16; flag active 30d)
 - **⚠️ Demo 20 Oktober** (Oct 20): tuntutan lapangan kerja + karhutla; BBM langka Bali; 2th Prabowo: harga beras/cabai/minyak belum jinak (Oct 23)
 - SCD: **89% 🔴 RED** (morning check Oct 29) | **8/13 modules** cross-confirmed | M12 Political Risk **95/100 🔴** | M10 Fiscal **72/100 🔴** | M11 Domestic Pressure **68/100 🟠** | M2 Sovereign **65/100 🟠** | M5 Foreign Flow **60/100 🟠** | M4 Commodity **62/100 🟠** | M6 Narrative **53/100 🟠** | M9 Market **50/100 🟠** (A/D 0.04 near collapse) | M7 ASEAN RV **44/100 🟡** | M8 Banking **38/100 🟡** | M3 FX Defense **47/100 🟡** | M1 BoP **25/100 🟢** | M13 ULN **12/100 🟢** | **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-37) — CDS 119.3bps, USDIDR 18,100, targets: CDS 164bps / USDIDR 20,020 / SBN 8.62% | all kill switches inactive
@@ -372,7 +388,7 @@ Bahlil bilang $77 (April) → ICP $107 live (Sep 15). APBN pasang $70. Empat ang
 | **Oct 20 2026** | **Demo 20 Oktober** berlangsung (tuntutan lapangan kerja + karhutla); IHSG recovery **5,205** (+5.5% dari intraday Oct 19); USDIDR 17,995; Brent **$110.7** ($10.7 di atas threshold); CDS 99.5bps; **SCD 57% 🟠 ORANGE** (5/13) — IHSG recovery tidak ubah forced-sell dynamic; Bryant ETF mechanics ACTIVE (T+5d) |
 | **Oct 27 2026** | **SCD 93% 🔴 RED** (8/13 cross-confirmed) — LOMPATAN DARI 57%; SSS **100/100 TRANSMISSION UNDERWAY**; CDS **107.7bps** (velocity +4.2bps/wk); SBN 10Y **7.454%**; USDIDR **18,145**; **🚨 DNDF 1M ZERO BIDS** di 18,199 — forward anchor BI gagal, NDF offshore 18,210; Morris-Shin ALERT aktif; MSCI SAIR Nov 12 T-16d; **Thesis #14 hari ke-35** |
 | **Oct 28 2026** | **FOMC ✅ HOLD 10-2** — Fed funds tetap 3.75–4.00%; dissenter Cook + Hammack mau hike; Dec hike odds naik **82.6%**; hawkish hold — Desember hike priced in; tekanan eksternal ke SBN-UST spread berlanjut |
-| **Oct 29 2026** | **SCD 89% 🔴 RED** | CDS **119.3bps** (+11.6 dari Oct 27) — velocity **+9.2bps/wk 🔴** (doubled); SBN **7.706%** (engine pick up SBN auction Oct 27: bids ↓52%, terserap 68% target, yield 4-year high); **200bps watch ~62d** (dari 154d); IHSG **5,150** A/D **0.04** near total breadth collapse; term premium **1.96%** (4bps dari ORANGE 2.0%); Thesis #14 hari ke-37, CDS sisa +45bps ke target |
+| **Oct 29 2026** | **SCD 89% 🔴 RED** | CDS **119.3bps** (+11.6 dari Oct 27) — velocity **+9.2bps/wk 🔴** (doubled); SBN **7.706%** (SBN auction bids ↓52%, yield 4-year high); **200bps watch ~62d** (dari 154d); IHSG **5,098** (−3.49%) A/D **0.04** near collapse; **🚨 HASHIM DJOJOHADIKUSUMO** (adik Presiden, Rapimnas Kadin): *"Rupiah bisa Rp20.000–Rp22.000, ini bisa menjadi bencana"* — inner circle IDR crash acknowledgement; M6/M12 revelation event; Thesis #14 hari ke-37 |
 
 **Dampak global:**
 
@@ -685,7 +701,7 @@ bash env-check.sh                        # live ping semua API key di .env
 | M9 Market | `ihsg_pe_ratio`, `idx_advance_decline_ratio` | >30d / >14d |
 | M13 ULN | `indonesia_external_debt_bn`, `uln_dsr_pct`, `uln_shortterm_pct` | >180d / >730d / >730d |
 
-Threshold lengkap di `src/tools/macro/freshness.ts`. Health-check baseline Oct 29 2026: SCD **89% RED** · SSS **100/100 TRANSMISSION UNDERWAY** · 8/13 cross-confirmed · M12 Political Risk 95/100 🔴 · M10 Fiscal 72/100 🔴 · M11 Domestic 68/100 🟠 · M4 Commodity 62/100 🟠 · M5 Foreign Flow 60/100 🟠 · M2 Sovereign 65/100 🟠 · M6 Narrative 53/100 🟠 · M9 Market 50/100 🟠 · M7 ASEAN RV 44/100 🟡 · M8 Banking 38/100 🟡 · M3 FX Defense 47/100 🟡 · M1 BoP 25/100 🟢 · M13 ULN 12/100 🟢 · **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-37) · Brent $110.2/bbl · USDIDR 18,100 · IHSG 5,150 (A/D 0.04 near collapse) · CDS 119.3bps (**+9.2bps/wk velocity 🔴**) · SBN 10Y 7.706% (SBN auction Oct 27 hampir gagal) · 200bps watch ~62d · Term premium 1.96% · MSCI SAIR Nov 12 T-14d 🔴 · FOMC Oct 28 HOLD (Dec hike 82.6%) · APBN defisit outlook 4.23% GDP · SRBI stale 20d (LOW CONFIDENCE M3).
+Threshold lengkap di `src/tools/macro/freshness.ts`. Health-check baseline Oct 29 2026: SCD **89% RED** · SSS **100/100 TRANSMISSION UNDERWAY** · 8/13 cross-confirmed · M12 Political Risk 95/100 🔴 · M10 Fiscal 72/100 🔴 · M11 Domestic 68/100 🟠 · M4 Commodity 62/100 🟠 · M5 Foreign Flow 60/100 🟠 · M2 Sovereign 65/100 🟠 · M6 Narrative 53/100 🟠 · M9 Market 50/100 🟠 · M7 ASEAN RV 44/100 🟡 · M8 Banking 38/100 🟡 · M3 FX Defense 47/100 🟡 · M1 BoP 25/100 🟢 · M13 ULN 12/100 🟢 · **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-37) · Brent $110.2/bbl · USDIDR 18,166 · IHSG 5,098 (A/D 0.04 near collapse) · CDS 119.3bps (**+9.2bps/wk velocity 🔴**) · SBN 10Y 7.706% (SBN auction Oct 27 hampir gagal) · 200bps watch ~62d · Term premium 1.96% · **🚨 Hashim: "Rupiah bisa Rp22.000, bencana"** (Oct 29 Rapimnas Kadin) — Morris-Shin revelation event · MSCI SAIR Nov 12 T-14d 🔴 · FOMC Oct 28 HOLD (Dec hike 82.6%) · SRBI stale 20d (LOW CONFIDENCE M3).
 
 ---
 
