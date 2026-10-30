@@ -134,7 +134,7 @@ async function getModuleScores(): Promise<ModuleScore[]> {
     { module: 'political_risk',     run: async () => { const r = await runPoliticalRiskEngine();   return { score: r.stressScore, alertLevel: r.alert, flags: r.flags }; } },
     { module: 'uln',                run: async () => { const r = await runUlnEngine(); return { score: r.stressScore, alertLevel: r.alert, flags: r.flags }; } },
     // M7 supplementary — weight=0, not in SCD score; runs to persist idiosyncratic FX data to DB
-    { module: 'asean_rv',           run: async () => { const r = await runAseanRelativeValueEngine(); return { score: Math.min(100, Math.abs(r.idiosyncraticComponent ?? 0) * 10), alertLevel: r.alertLevel, flags: r.flags }; } },
+    { module: 'asean_rv',           run: async () => { const r = await runAseanRelativeValueEngine(); return { score: Math.min(100, Math.round(Math.abs(r.idiosyncraticComponent ?? 0) * 10) + r.peDiscountScore), alertLevel: r.alertLevel, flags: r.flags }; } },
   ];
 
   await Promise.allSettled(
