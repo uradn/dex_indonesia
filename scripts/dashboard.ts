@@ -24,7 +24,7 @@ type NewsCache = { updatedAt: string; headlines: Record<NewsCategory, NewsHeadli
 const NEWS_CACHE_PATH = join(import.meta.dir, '../.dexter/macro/news-cache.json');
 const NEWS_QUERIES: Record<NewsCategory, string> = {
   political: 'Indonesia demo protest Prabowo mahasiswa jurnalis unrest',
-  fiscal: 'Indonesia APBN defisit fiskal Kemenkeu Purbaya',
+  fiscal: 'Indonesia APBN defisit fiskal Kemenkeu Suahasil',
   market: 'Indonesia IHSG JCI rupiah IDR foreign flow',
   fx: 'Indonesia rupiah Bank Indonesia cadev intervensi',
   banking: 'Indonesia bank NPL CAR SBN yield perbankan',

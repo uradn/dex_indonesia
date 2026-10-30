@@ -19,47 +19,47 @@ const MODULES: Array<{ id: string; name: string; queries: string[] }> = [
     'Indonesia sovereign credit rating Fitch Moody S&P outlook 2026',
   ]},
   { id: 'M3', name: 'FX Defense (IDR, cadev, DNDF, BI intervention)', queries: [
-    'Rupiah kurs USDIDR intervensi BI cadangan devisa Juli Agustus 2026',
-    'Bank Indonesia FX intervention triple defense DNDF July August 2026',
+    'Rupiah kurs USDIDR intervensi BI cadangan devisa September Oktober 2026',
+    'Bank Indonesia FX intervention triple defense DNDF September October 2026',
   ]},
   { id: 'M4', name: 'Commodity (batubara, CPO, nikel, Brent)', queries: [
-    'Indonesia ekspor batubara CPO nikel harga terbaru Agustus 2026',
-    'Brent oil price Indonesia ICP August 2026 commodity export',
+    'Indonesia ekspor batubara CPO nikel harga terbaru Oktober 2026',
+    'Brent oil price Indonesia ICP October 2026 commodity export',
   ]},
   { id: 'M5', name: 'Foreign Flow (SBN, IHSG, offshore)', queries: [
-    'foreign outflow SBN IHSG asing jual saham obligasi Juli Agustus 2026',
+    'foreign outflow SBN IHSG asing jual saham obligasi September Oktober 2026',
     'Indonesia foreign portfolio flow bonds equities net inflow outflow 2026',
   ]},
   { id: 'M6', name: 'Narrative Divergence (official vs market)', queries: [
-    'Sri Mulyani Purbaya Airlangga menteri keuangan pernyataan ekonomi Agustus 2026',
-    'Bank Indonesia Perry Warjiyo statement rupiah stabil outlook August 2026',
+    'Suahasil Nazara Airlangga menteri keuangan pernyataan ekonomi Oktober 2026',
+    'Bank Indonesia Destry Damayanti statement rupiah stabil outlook Oktober 2026',
   ]},
   { id: 'M7', name: 'ASEAN Relative Value', queries: [
-    'ASEAN currency baht ringgit peso rupiah performance August 2026',
+    'ASEAN currency baht ringgit peso rupiah performance October 2026',
     'ASEAN sovereign spread Thailand Malaysia Philippines Indonesia CDS 2026',
   ]},
   { id: 'M8', name: 'Banking Stress (NPL, CAR, LDR)', queries: [
-    'OJK NPL CAR LDR perbankan Indonesia Juni Juli 2026',
-    'Indonesia bank stress kredit macet likuiditas July August 2026',
+    'OJK NPL CAR LDR perbankan Indonesia Juni Oktober 2026',
+    'Indonesia bank stress kredit macet likuiditas September October 2026',
   ]},
   { id: 'M9', name: 'Market Stress (VIX, DXY, EMFX)', queries: [
-    'VIX DXY dollar index emerging market currency selloff August 2026',
-    'global risk-off emerging market Asia August 2026 flight to quality',
+    'VIX DXY dollar index emerging market currency selloff October 2026',
+    'global risk-off emerging market Asia October 2026 flight to quality',
   ]},
   { id: 'M10', name: 'Fiscal (APBN, defisit, tax, subsidi)', queries: [
-    'APBN 2026 realisasi defisit pajak subsidi Kemenkeu Juli Agustus',
-    'Indonesia fiscal deficit tax revenue subsidy realization July August 2026',
+    'APBN 2026 realisasi defisit pajak subsidi Kemenkeu September Oktober',
+    'Indonesia fiscal deficit tax revenue subsidy realization September October 2026',
   ]},
   { id: 'M11', name: 'Domestic Pressure (inflasi, BBM, sembako, konsumsi)', queries: [
-    'inflasi BPS Juli 2026 sembako BBM Pertalite Pertamax harga',
-    'Indonesia inflation food fuel price CPI July August 2026',
+    'inflasi BPS Oktober 2026 sembako BBM Pertalite Pertamax harga',
+    'Indonesia inflation food fuel price CPI September October 2026',
   ]},
   { id: 'M12', name: 'Political Risk (demo, unrest, koalisi, Prabowo)', queries: [
-    'demo protes Prabowo koalisi kabinet DPR Agustus 2026',
-    'Indonesia political unrest protest cabinet reshuffle August 2026',
+    'demo protes Prabowo koalisi kabinet DPR Oktober 2026',
+    'Indonesia political unrest protest cabinet reshuffle October 2026',
   ]},
   { id: 'M13', name: 'External Debt / ULN', queries: [
-    'ULN Indonesia utang luar negeri swasta pemerintah Juni Juli 2026',
+    'ULN Indonesia utang luar negeri swasta pemerintah Juni Oktober 2026',
     'Indonesia external debt private public SULNI Q2 2026',
   ]},
 ];
