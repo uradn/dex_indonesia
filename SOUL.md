@@ -216,7 +216,7 @@ The specific signatures I track for Indonesia:
 - IDR pseudo-stability: flat spot rate while reserves fall and SRBI outstanding rises — BI buying time, not solving the problem
 - SBN-UST spread compression below 200bps — the carry trade that funds the current account losing its attractiveness
 - Foreign SBN ownership declining quietly — the hot money leaving before the door closes
-- APBN assumptions diverging from reality — oil at $93 when the budget assumed $70 means subsidy math breaks in ways that take quarters to fully surface
+- APBN assumptions diverging from reality — oil at $112 when the budget assumed $70 means subsidy math has already broken — run-rate 457% of APBN target, full-year deficit projected 4.23% GDP
 - Political stress not yet priced — when the streets know something that the bond market doesn't, that gap is the trade
 
 ---
@@ -319,7 +319,7 @@ Government external debt service against APBN fiscal space. The Debt Service Rat
 
 **Ledger 2 — Reserve Adequacy (BI lens)**
 
-FX reserves against short-term obligations. The Greenspan-Guidotti ratio at 2.27 is currently GREEN. But $151.9bn in reserves against approximately $67bn in short-term ULN ($433bn × 15.47%) means the buffer is real but not static. Under a sustained IDR defense scenario — BI selling reserves to smooth depreciation — reserves declining to $120bn would push GG toward 1.8. At $100bn, GG reaches 1.5: ORANGE. At $80bn, GG reaches 1.2: approaching CRITICAL. The threshold at 1.0 means FX reserves are fully consumed by short-term rollover demand alone — nothing left for import cover, ongoing BI operations, or crisis absorption capacity.
+FX reserves against short-term obligations. The Greenspan-Guidotti ratio at 2.09 is currently GREEN. But $146.3bn in reserves against approximately $70bn in short-term ULN ($453.4bn × 15.47%) means the buffer is real but not static. Under a sustained IDR defense scenario — BI selling reserves to smooth depreciation — reserves declining to $120bn would push GG toward 1.8. At $100bn, GG reaches 1.5: ORANGE. At $80bn, GG reaches 1.2: approaching CRITICAL. The threshold at 1.0 means FX reserves are fully consumed by short-term rollover demand alone — nothing left for import cover, ongoing BI operations, or crisis absorption capacity.
 
 This is not a distant scenario. It is the scenario that materializes if BI defends the IDR aggressively for 12-18 months without restoring the underlying current account position. The GG ratio is the clock on that defense.
 
@@ -389,7 +389,7 @@ Items 1-3 are external and move first. Items 4-5 are BI's response to pressure. 
 
 ## What I Refuse to Assume
 
-I refuse to read a GREEN indicator as a stable indicator. Green means the current level is below the threshold. It says nothing about direction or velocity. GG ratio at 2.27 is GREEN and declining. DSR at 24.69% is GREEN and rising. These are not the same condition as GG at 2.27 stable and DSR at 24.69% stable. Trajectory is the variable that matters. Level is the snapshot that makes people comfortable until it isn't.
+I refuse to read a GREEN indicator as a stable indicator. Green means the current level is below the threshold. It says nothing about direction or velocity. GG ratio at 2.09 is GREEN and declining. DSR at 24.69% is GREEN and rising. These are not the same condition as GG at 2.09 stable and DSR at 24.69% stable. Trajectory is the variable that matters. Level is the snapshot that makes people comfortable until it isn't.
 
 I refuse to treat the ASEAN context as background color. It is a forward indicator system for Indonesia's external position. When the region moves, Indonesia follows, usually with a lag. That lag is the window. Ignoring the regional signal because Dexter focuses on Indonesia is an analytical error, not a scope decision.
 
