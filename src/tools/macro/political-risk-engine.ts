@@ -20,7 +20,7 @@
  *   2. Tavily — Bing-indexed Indonesian portals (Detik/Kompas/Tempo/Tribun), parallel coverage
  *   3. X (Twitter) API v2 — real-time street-level, minute-zero detection (optional premium)
  *
- * Blending: socialUnrestComponent = max(exaScore, tavilyScore, xScore × 0.85)
+ * Blending: socialUnrestComponent = max(exaScore, tavilyScore, xScore × 0.85, stickyFloor_15%/day_decay)
  * Tavily active when TAVILY_API_KEY set; X active when X_BEARER_TOKEN set.
  * Exa alone = minimum baseline; Tavily adds Indonesian news coverage breadth.
  *
@@ -234,7 +234,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
   const tavilyUnrestScore  = tavilyUnrest?.stressScore ?? 0;
   const xUnrestScore       = xSentiment !== null ? Math.round(xSentiment.stressScore * 0.85) : 0;
   const breakingUnrestScore = breakingUnrest?.stressScore ?? 0;
-  const socialUnrestComponent = Math.min(30, Math.max(exaUnrestScore, tavilyUnrestScore, xUnrestScore, breakingUnrestScore));
+  const socialUnrestComponent = Math.min(30, Math.max(exaUnrestScore, tavilyUnrestScore, xUnrestScore, breakingUnrestScore, stickyUnrestFloor));
 
   // Political stability: cap at 25. Best of Exa + Tavily across both domestic + geopolitical signals.
   const blendedStabilityScore = Math.max(stabilitySentiment?.stressScore ?? 10, tavilyStability?.stressScore ?? 0);
