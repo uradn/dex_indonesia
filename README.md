@@ -153,7 +153,7 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - USDIDR: 16,500 | ICP oil: $70/bbl | GDP growth: 5.4% | CPI: 2.5%
 - Revenue: 3,154T | Spending: 3,843T | Deficit: 2.68% GDP
 
-**Live deviations (Oct 29, 2026):**
+**Live deviations (Oct 30, 2026):**
 
 - BI Rate: **5.75%** — tahan Sep 23 RDG (Destry perdana, 4 bulan beruntun Jun–Sep); DFR 4.75%, LF 6.50%
 - BI Gov: **Destry Damayanti** (dilantik 2 Sep 2026, Keppres 92/P/2026) — pro-stability + pro-growth; GWM rupiah 9%
@@ -188,25 +188,25 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 > **Bryant (1980) common knowledge — EVENT TERJADI:** Oct 15 announcement = threshold common knowledge yang kita monitor sejak T-45d. Setiap EM fund manager sekarang tahu, dan tahu bahwa yang lain tahu. Rational equilibrium = sell now. Ini bukan panik; ini koordinasi rasional.
 
 - **APBN Semester I 2026**: Defisit Rp196.5T (0.76% PDB). **Subsidi energi YTD: Rp331.4T** (Kemenkeu, Oct 9) vs APBN target Rp87T — run-rate **457%** 🔴; **Outlook full-year: defisit 4.23% GDP** (melampaui 3% constitutional limit)
-- Term premium: **~1.96%** (SBN 10Y 7.706% − BI Rate 5.75%) — 4bps dari ORANGE threshold 2.0%
+- Term premium: **~1.89%** (SBN 10Y 7.643% − BI Rate 5.75%) — 11bps dari ORANGE threshold 2.0%
 - S&P interest/revenue ratio: **~20.5%** — 5.5pp above S&P 15% negative-watch threshold 🔴
-- USDIDR spot: **18,100** (engine Oct 29); cadev **$146.3B**; DNDF contingent $8B → effective **$138.3B**; G-G ratio **2.09x**
+- USDIDR spot: **18,130** (engine Oct 30); cadev **$146.3B**; DNDF contingent $8B → effective **$138.3B**; G-G ratio **2.09x**
 - **CAD Q2 2026: −$12.5B = −3.3% PDB** — melampaui R&R 3% danger zone
-- CDS 5Y: **119.3bps** (engine Oct 29, **+9.2bps/wk velocity 🔴 RED** — 200bps watch ~**62 hari**); SBN 10Y: **7.706%** (SBN auction Oct 27 terserap 68% target, yield 4-year high); **SBN-UST spread 2.72pp 🔴**; UIP unattractive; BI abstain 10Y+ SBN purchases; FSAP CAR erosion **1.4pp**
+- CDS 5Y: **103.0bps** (engine Oct 30, **+4.4bps/wk velocity 🟠 ORANGE** — 200bps watch ~**155 hari**; relief -16.3bps dari Oct 29 119.3bps, kemungkinan technical bounce); SBN 10Y: **7.643%** (turun dari auction high 7.706% Oct 27); **SBN-UST spread 2.60pp 🟠**; UIP unattractive; BI abstain 10Y+ SBN purchases; FSAP CAR erosion **1.4pp**
 - **US CPI Sep 2026: 3.7% YoY** (+0.6% MoM, core 2.6%) — beat konsensus 3.6%; gasoline +9.1% (Hormuz effect); **FOMC Oct 28 ✅ HOLD 10-2** — Fed funds tetap 3.75–4.00%; dissenter Cook + Hammack mau hike; Dec 2026 hike odds **82.6%**; Fed funds rate **4.00%** (naik 25bps Sep 16); double-whammy aktif: MSCI domestic + Fed hawkish Des
-- Brent: **$110.7/bbl** 🔴 ($10.7 di atas Bahlil $100 threshold, +58.1% vs APBN); ICP Sep 2026 **$112.81/bbl** (+61.2% vs APBN, ESDM resmi Oct 12); Pertalite gap **Rp7,686/L** 🔴; Solar B50 gap **Rp15,394/L** 🔴; Coal DMO compliance 50% (HBA gap 44%); Hormuz traffic 6% pre-war level 🔴; **🚨 KRISIS BBM** — BBM langka BEM-SI Lampung desak Bahlil (Oct 26); harga beras naik 134 daerah (Oct 21); ketahanan pangan+energi diuji (Oct 25)
+- Brent: **$112.1/bbl** 🔴 ($12.1 di atas Bahlil $100 threshold, +60.1% vs APBN); ICP Sep 2026 **$112.81/bbl** (+61.2% vs APBN, ESDM resmi Oct 12); Pertalite gap **Rp7,890/L** 🔴; Solar B50 gap **Rp15,465/L** 🔴; Coal DMO compliance 50% (HBA gap 44%); Hormuz traffic 6% pre-war level 🔴; **🚨 KRISIS BBM** — BBM langka BEM-SI Lampung desak Bahlil (Oct 26); harga beras naik 134 daerah (Oct 21); ketahanan pangan+energi diuji (Oct 25)
 - BBM: Pertamax Rp15.950 | Pertamax Green Rp19.150 | **Pertalite Rp10,000 + Solar Rp6,800 TIDAK NAIK** (komitmen Bahlil — tapi fiskal sudah menanggung)
 - **LNG**: JKM spot $28+/MMBtu; Hormuz effectively closed; vessel transits single digit/hari
 - **Russia-Indonesia Energy Deal**: Framework MoU ~**150 juta barel** G2G crude oil via **Lemigas** + LPG (Apr–Sep 2026); ESPO API 34–36° = Minas-compatible; "jangan tanya harga" (Bahlil); ESPO discount vs Brent est. ~$10–15/bbl → engine override: `RUSSIA_CRUDE_DISCOUNT_USD` (default 0). Lihat [Russia-Indonesia Energy Deal](#russia-indonesia-energy-deal-2026)
 - **Rezim: Q1 Goldilocks** (Growth↑ Inflation↓) — PMI 52.4; Growth ROC +9.93%; Inflation ROC −21.38%
-- **IHSG**: **5,150 pts** 🟠 (Oct 29) | P/E **7.8x** | **A/D ratio 0.04** 🔴 (near total breadth collapse) | Stop-Loss CASCADE node 1 FIRED (5,000) — node **4,800 = next threshold** | P/E discount **46.3%** vs Thailand; IHSG floor estimate 4,223 (−18% dari current, GGM model)
+- **IHSG**: **5,023 pts** 🟡 (Oct 30) | P/E **7.6x** | **A/D ratio 0.69** 🟠 (breadth recovery dari 0.04 — short-covering?) | Stop-Loss CASCADE node 1 FIRED (5,000) — node **4,800 = next threshold** | P/E discount **45.7%** vs Thailand; IHSG floor estimate 4,270 (−15% dari current, GGM model)
 - **⚠️ DNDF 1M ZERO BIDS Oct 27**: BI tawarkan forward Rp18,199/USD 1 bulan — **tidak ada pembeli**. NDF offshore 18,210. Artinya: pasar ekspektasi IDR >18,199 dalam 1 bulan. Forward anchor BI gagal. `USDIDR_NDF_1M_RATE=18210` diset.
-- **⚠️ Morris-Shin ALERT ACTIVE**: oil belief dispersion (CV>12%) + CDS velocity +4.2bps/wk + **DNDF 1M failure** → self-fulfilling attack window MELEBAR; confidence gate VULNERABILITY ZONE (net DC-AC +15); SRBI sterilization burden 38.7% cadev; catalyst watch: Pertamina loss disclosure, APBN Kita quarterly
-- **⚠️ SRBI DATA STALE 18d** — LOW CONFIDENCE on M3 score; sterilization stress signal degraded
-- **⚠️ TRANSMISSION UNDERWAY (SSS=100/100)**: political stress **96/100 🔴** transmitting to financial markets (avg 50/100). Gap CLOSING — forced-sell and mandate-exit mechanics EXECUTION PHASE, not forecast. Silent phase over.
-- **⚠️ MSCI SAIR Nov 12 T-16d** — Semi-Annual Index Review: free-float exclusions + Standalone confirmation. Bryant ETF mechanics PEAK FORCED-SELL PERIOD.
+- **⚠️ Morris-Shin ALERT ACTIVE**: oil belief dispersion (CV>12%) + CDS velocity +4.4bps/wk + **DNDF 1M failure** → self-fulfilling attack window MELEBAR; confidence gate VULNERABILITY ZONE (net DC-AC +15); SRBI sterilization burden 38.7% cadev; catalyst watch: Pertamina loss disclosure, APBN Kita quarterly
+- **⚠️ SRBI DATA STALE 21d** — LOW CONFIDENCE on M3 score; sterilization stress signal degraded
+- **⚠️ TRANSMISSION UNDERWAY (SSS=100/100)**: political stress **99/100 🔴** transmitting to financial markets (avg 50/100). Gap CLOSING — forced-sell and mandate-exit mechanics EXECUTION PHASE, not forecast. Silent phase over.
+- **⚠️ MSCI SAIR Nov 12 T-13d** — Semi-Annual Index Review: free-float exclusions + Standalone confirmation. Bryant ETF mechanics PEAK FORCED-SELL PERIOD.
 - **⚠️ PHK**: 1.100 pekerja at risk 30d window (trend signal); 2 tahun Prabowo-Gibran berlangsung — public discontent spills to streets (ABC News)
-- **⚠️ IHSG Oct 16 CLOSE: 5,204 (−11.25%, −659pts)** — circuit breaker 08:58 WIB; **IDX circuit breaker flag active 11d** (fired Oct 16; flag active 30d)
+- **⚠️ IHSG Oct 16 CLOSE: 5,204 (−11.25%, −659pts)** — circuit breaker 08:58 WIB; **IDX circuit breaker flag active 14d** (fired Oct 16; flag active 30d)
 - **⚠️ Gelombang Demo Jakarta Oct 20–29**: (1) **Oct 20** — tuntutan lapangan kerja + karhutla; BBM langka Bali; 2th Prabowo (2) **Oct 28 (Hari Sumpah Pemuda)** — 53 elemen di Bundaran HI, Monas, DPR/MPR, Tugu Tani; BEM UI + Komite Sadar tema *"Tepati atau Pergi"*; three-finger salute; spanduk "Prabowo-Gibran Gagal Total" + "All Eyes on Karhutla" (3) **Oct 29** — 61 titik aksi (Polda Metro Jaya); BEM SI se-Jabodetabek, BEM UNJ, Trisakti, Federasi Serikat Pekerja Global, Gerakan Ojol Bersatu, UMKM; kawasan Monas, DPR/MPR, Istana Negara, kementerian
 - **⚠️ HASHIM DJOJOHADIKUSUMO — INNER CIRCLE IDR WARNING (Oct 29, Rapimnas Kadin 2026)**
 
@@ -250,14 +250,14 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 >
 > **M6 — Narrative Credibility:** Orang yang paling keras bicara GCG = co-owner broker yang disanksi karena governance failure. Gap antara retorika dan realita tidak bisa lebih lebar dari ini. Narrative credibility Indonesia di mata MSCI: **COLLAPSE**. Pandu adalah wajah reformasi — jika wajah itu cacat, siapa yang tersisa untuk meyakinkan MSCI?
 >
-> **M5 — Foreign Flow / MSCI Path:** MSCI SAIR Nov 12 T-14d. Defense Indonesia selama ini bergantung pada kredibilitas Pandu sebagai liaison. Bloomberg exposé ini = defense posture Indonesia di konsultasi MSCI melemah dramatically. P(reversal MSCI) turun lebih jauh dari <15%.
+> **M5 — Foreign Flow / MSCI Path:** MSCI SAIR Nov 12 T-13d. Defense Indonesia selama ini bergantung pada kredibilitas Pandu sebagai liaison. Bloomberg exposé ini = defense posture Indonesia di konsultasi MSCI melemah dramatically. P(reversal MSCI) turun lebih jauh dari <15%.
 >
 > **M12 — Political / Institutional Capture:** Danantara (sovereign wealth fund Rp 9.000T AUM) dipimpin oleh orang yang co-owns broker di tengah manipulasi probe. Institutional integrity questioned at sovereign level.
 >
 > Sumber: [Bloomberg](https://www.bloomberg.com/news/articles/2026-10-29/indonesia-s-wealth-fund-cio-owns-stake-in-sanctioned-brokerage) · [Free Malaysia Today](https://www.freemalaysiatoday.com/category/business/2026/10/29/indonesia-s-wealth-fund-cio-owns-stake-in-sanctioned-brokerage) · [The Star](https://www.thestar.com.my/aseanplus/aseanplus-news/2026/10/29/indonesias-wealth-fund-cio-owns-stake-in-sanctioned-brokerage)
 
-- SCD: **89% 🔴 RED** (morning check Oct 29) | **8/13 modules** cross-confirmed | M12 Political Risk **95/100 🔴** | M10 Fiscal **72/100 🔴** | M11 Domestic Pressure **68/100 🟠** | M2 Sovereign **65/100 🟠** | M5 Foreign Flow **60/100 🟠** | M4 Commodity **62/100 🟠** | M6 Narrative **53/100 🟠** | M9 Market **50/100 🟠** (A/D 0.04 near collapse) | M7 ASEAN RV **44/100 🟡** | M8 Banking **38/100 🟡** | M3 FX Defense **47/100 🟡** | M1 BoP **25/100 🟢** | M13 ULN **12/100 🟢** | **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-37) — CDS 119.3bps, USDIDR 18,100, targets: CDS 164bps / USDIDR 20,020 / SBN 8.62% | all kill switches inactive
-- **📅 Milestone watch**: T+90=Dec 21 (CDS 164bps / USDIDR 20,020 / SBN 8.62%) — CDS velocity +9.2bps/wk → 200bps ~62d = aligns Dec 21. MSCI SAIR Nov 12 T-14d 🔴 CRITICAL.
+- SCD: **87% 🔴 RED** (morning check Oct 30) | **8/13 modules** cross-confirmed | M12 Political Risk **99/100 🔴** | M10 Fiscal **72/100 🔴** | M5 Foreign Flow **64/100 🟠** | M4 Commodity **65/100 🟠** | M11 Domestic Pressure **60/100 🟠** | M6 Narrative **53/100 🟠** | M2 Sovereign **54/100 🟠** | M3 FX Defense **51/100 🟠** | M7 ASEAN RV **26/100 🟡** | M8 Banking **36/100 🟡** | M9 Market **24/100 🟢** (A/D 0.69 breadth recovery) | M1 BoP **25/100 🟢** | M13 ULN **12/100 🟢** | **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-38) — CDS 103.0bps (technical relief -16.3bps), USDIDR 18,130, targets: CDS 164bps / USDIDR 20,020 / SBN 8.62% | all kill switches inactive
+- **📅 Milestone watch**: T+90=Dec 21 (CDS 164bps / USDIDR 20,020 / SBN 8.62%) — CDS velocity +4.4bps/wk → 200bps ~155d (extended dari 62d akibat relief). MSCI SAIR Nov 12 T-13d 🔴 CRITICAL.
 
 ### BBM Subsidy Monitoring (Module 11)
 
@@ -431,7 +431,7 @@ Sebelum krisis: **25% seaborne oil** + **20% LNG dunia** melewati Hormuz. Kapasi
 | Skenario | Brent | ICP Proxy | Subsidy Gap/Liter | ICP Alert | Action |
 |----------|-------|-----------|-------------------|-----------|--------|
 | Baseline APBN | $70 | $70 | ~IDR 0 | 🟢 GREEN | Tidak ada |
-| Saat ini (Oct 27) | **$110.7** | **$112.81** (Sep avg) | **IDR 7.686** | 🔴 RED | ICP Sep resmi $112.81 (ESDM Oct 12); Brent $110.7 spot; Pertalite gap Rp7,686/L; Solar B50 gap Rp15,394/L; BBM langka BEM-SI Lampung (Oct 26); SCD 93% RED; FOMC ACTIVE today |
+| Saat ini (Oct 30) | **$112.1** | **$112.81** (Sep avg) | **IDR 7.890** | 🔴 RED | ICP Sep resmi $112.81 (ESDM Oct 12); Brent $112.1 spot; Pertalite gap Rp7,890/L; Solar B50 gap Rp15,465/L; SCD 87% RED; FOMC Oct 28 HOLD |
 | Threshold Bahlil | $100 | $100 | ~IDR 7.200 | 🔴 RED | Komitmen gugur |
 | Peak Mar 2026 | $126 | $126 | ~IDR 12.800 | 🔴 RED | Hike wajib fiskal |
 | Eskalasi baru | $110+ | $110+ | ~IDR 9.000+ | 🔴 RED | Hike + social unrest |
@@ -723,7 +723,7 @@ bash env-check.sh                        # live ping semua API key di .env
 | M9 Market | `ihsg_pe_ratio`, `idx_advance_decline_ratio` | >30d / >14d |
 | M13 ULN | `indonesia_external_debt_bn`, `uln_dsr_pct`, `uln_shortterm_pct` | >180d / >730d / >730d |
 
-Threshold lengkap di `src/tools/macro/freshness.ts`. Health-check baseline Oct 29 2026: SCD **89% RED** · SSS **100/100 TRANSMISSION UNDERWAY** · 8/13 cross-confirmed · M12 Political Risk 95/100 🔴 · M10 Fiscal 72/100 🔴 · M11 Domestic 68/100 🟠 · M4 Commodity 62/100 🟠 · M5 Foreign Flow 60/100 🟠 · M2 Sovereign 65/100 🟠 · M6 Narrative 53/100 🟠 · M9 Market 50/100 🟠 · M7 ASEAN RV 44/100 🟡 · M8 Banking 38/100 🟡 · M3 FX Defense 47/100 🟡 · M1 BoP 25/100 🟢 · M13 ULN 12/100 🟢 · **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-37) · Brent $110.2/bbl · USDIDR 18,166 · IHSG 5,098 (A/D 0.04 near collapse) · CDS 119.3bps (**+9.2bps/wk velocity 🔴**) · SBN 10Y 7.706% (SBN auction Oct 27 hampir gagal) · 200bps watch ~62d · Term premium 1.96% · **🚨 Hashim: "Rupiah bisa Rp22.000, bencana"** (Oct 29 Rapimnas Kadin) — Morris-Shin revelation event · MSCI SAIR Nov 12 T-14d 🔴 · FOMC Oct 28 HOLD (Dec hike 82.6%) · SRBI stale 20d (LOW CONFIDENCE M3).
+Threshold lengkap di `src/tools/macro/freshness.ts`. Health-check baseline Oct 30 2026: SCD **87% RED** · SSS **100/100 TRANSMISSION UNDERWAY** · 8/13 cross-confirmed · M12 Political Risk 99/100 🔴 · M10 Fiscal 72/100 🔴 · M5 Foreign Flow 64/100 🟠 · M4 Commodity 65/100 🟠 · M11 Domestic 60/100 🟠 · M6 Narrative 53/100 🟠 · M2 Sovereign 54/100 🟠 · M3 FX Defense 51/100 🟠 · M7 ASEAN RV 26/100 🟡 · M8 Banking 36/100 🟡 · M9 Market 24/100 🟢 · M1 BoP 25/100 🟢 · M13 ULN 12/100 🟢 · **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-38) · Brent $112.1/bbl · USDIDR 18,130 · IHSG 5,023 (A/D 0.69 breadth recovery) · CDS 103.0bps (**+4.4bps/wk velocity 🟠**; relief -16.3bps dari Oct 29 119.3bps) · SBN 10Y 7.643% · 200bps watch ~155d (extended dari 62d) · Term premium 1.89% · **🚨 Hashim: "Rupiah bisa Rp22.000, bencana"** (Oct 29 Rapimnas Kadin) — Morris-Shin revelation event · MSCI SAIR Nov 12 T-13d 🔴 · FOMC Oct 28 HOLD (Dec hike 82.6%) · SRBI stale 21d (LOW CONFIDENCE M3).
 
 ---
 
