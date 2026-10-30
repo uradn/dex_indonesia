@@ -8,7 +8,7 @@
  *   Source: https://jdih.esdm.go.id/dokumen/view?id=2307
  *
  * GOVERNMENT COMMITMENT (2026):
- *   Menteri ESDM Bahlil Lahadalia, State Palace, Apr 16 2026:
+ *   Bahlil Lahadalia (Menko Hilirisasi merangkap ESDM sejak Oct 1 2026; saat itu Menteri ESDM), State Palace, Apr 16 2026:
  *   "harga BBM untuk subsidi tidak akan dinaikkan sampai dengan akhir tahun"
  *   Conditional on ICP staying below $100/bbl (APBN safety threshold).
  *   Source: https://www.esdm.go.id/id/media-center/arsip-berita/menteri-bahlil-harga-bbm-subsidi-tak-naik-hingga-akhir-tahun
