@@ -168,7 +168,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
   const vetoData             = vetoResult.status              === 'fulfilled' ? vetoResult.value               : null;
 
   // Blended unrest score: best of Exa + Tavily + 48h breaking scan
-  const blendedUnrestScore = Math.max(
+  const liveUnrestScore = Math.max(
     unrestSentiment?.stressScore ?? 0,
     tavilyUnrest?.stressScore ?? 0,
     breakingUnrest?.stressScore ?? 0,
@@ -180,7 +180,15 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
   );
 
   // Sticky floor: decay prior DB value 15%/day so score can't collapse overnight from news-cycle churn.
-  // Structural events (BBM langka, beras naik) persist >1 day even if Exa stops surfacing them.
+  // Structural events (demo, BBM langka, beras naik) persist >1 day even if Exa stops surfacing them.
+  const storedUnrest = await getLatestPoint('political_social_unrest_score');
+  let stickyUnrestFloor = 0;
+  if (storedUnrest && storedUnrest.date !== today) {
+    const daysSince = Math.max(1, Math.round((Date.now() - new Date(storedUnrest.date).getTime()) / 86400000));
+    stickyUnrestFloor = Math.round(storedUnrest.value * Math.pow(0.85, daysSince));
+  }
+  const blendedUnrestScore = Math.max(liveUnrestScore, stickyUnrestFloor);
+
   const storedFood = await getLatestPoint('political_food_stress_score');
   let stickyFoodFloor = 0;
   if (storedFood && storedFood.date !== today) {

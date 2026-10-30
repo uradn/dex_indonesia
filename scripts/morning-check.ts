@@ -340,7 +340,7 @@ try {
     console.log(`  Armed: ${armedDate}  |  Divergence: ${thesis.primaryDivergence.replace(/_/g, ' ')}`);
 
     // ── Thesis statement (word-wrapped at 80 cols) ────────────────────────
-    console.log(`\n  THESIS:`);
+    console.log(`\n  THESIS (armed ${armedDate}):`);
     const words = thesis.thesisStatement.split(' ');
     let ln = '  '; let col = 2;
     for (const w of words) {
@@ -348,6 +348,16 @@ try {
       else { ln += w + ' '; col += w.length + 1; }
     }
     if (ln.trim()) console.log(ln.trimEnd());
+
+    // ── Live trigger signal from today's M12 run ──────────────────────────
+    if (political.status === 'fulfilled') {
+      const pol = political.value;
+      const currentSignal = pol.unrestHeadlines[0] ?? pol.topHeadlines[0] ?? null;
+      if (currentSignal) {
+        console.log(`\n  LIVE SIGNAL (${DATE}):`);
+        console.log(`    "${currentSignal}"`);
+      }
+    }
 
     // ── Predicted targets vs current ──────────────────────────────────────
     console.log(`\n  PREDICTED TARGETS  (P=${thesis.crisisProbability ?? '—'}%  EV ${ev})`);
