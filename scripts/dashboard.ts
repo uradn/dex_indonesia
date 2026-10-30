@@ -2068,7 +2068,7 @@ function renderGG(d) {
       </div>
       <div style="font-size:8px;color:var(--muted)">← required \${fmtNum(sPrimary,2)}% surplus | current \${fmtNum(APBN_PRIMARY_PROJECTED,2)}% deficit → fiscal adjustment needed: \${fmtNum(primaryGapProjected,2)}pp GDP</div>
     </div>\` : ''}
-    <div class="hist-note">1997 analog: GG ratio Indonesia ~0.4x saat krisis — reserves depleted vs ST debt. Saat ini 2.09x (Agu 2026: cadev $146.5bn / ST debt $70.1bn) = buffer signifikan, tapi DSR 24.69% naik (2022→2023→2024: 23.3%→20.3%→24.7%). r−g adverse = debt/GDP expands mechanically tanpa primary surplus ≥s* [Chatib Basri 2026; R&amp;R Ch.14-16].</div>
+    <div class="hist-note">1997 analog: GG ratio Indonesia ~0.4x saat krisis — reserves depleted vs ST debt. Saat ini 2.09x (Oct 2026: cadev $146.3bn / ST debt ~$70.1bn) = buffer signifikan, tapi DSR 24.69% naik (2022→2023→2024: 23.3%→20.3%→24.7%). r−g adverse = debt/GDP expands mechanically tanpa primary surplus ≥s* [Chatib Basri 2026; R&amp;R Ch.14-16].</div>
   \`;
 }
 
@@ -2660,19 +2660,19 @@ const CHAIN_META = {
   },
   domestic_pressure: {
     tracks: 'PIHPS food basket (10 commodities), BBM subsidy gap, ICP threshold',
-    readings: 'Food Stress 57/100 | BBM gap Rp3,973/L | 4 komoditas spiked',
+    readings: 'Food Stress 60/100 | BBM gap Rp7,899/L | 4 komoditas spiked',
     fires: 'Food+energy spike → CPI overshoot → BI terpaksa hike → SBN yield naik',
     lag: 'Contemporaneous signal; feeds Narrative & Regime engines',
   },
   fiscal: {
     tracks: 'APBN deficit trajectory, revenue absorption, S&P interest/revenue ratio',
-    readings: 'Deficit 4.23% GDP | S&P ratio 20.4% (threshold 15%) | Overrun 179%',
+    readings: 'Deficit 4.23% GDP | S&P ratio 20.5% (threshold 15%) | Overrun 179%',
     fires: 'Deficit >3% GDP (constitutional limit) → S&P negative watch → CDS repricing',
     lag: '~1-2 quarters to S&P action; deficit realization is monthly',
   },
   sovereign_risk: {
     tracks: 'CDS 5Y velocity, SBN 10Y yield, EMBI spread, foreign SBN ownership cliff',
-    readings: 'CDS 97.4bps (+vel. positive) | SBN 7.29% | Term premium 1.9%',
+    readings: 'CDS 103bps (+vel. +4.4bps/wk) | SBN 7.643% | Term premium 1.89%',
     fires: 'CDS >150bps → S&P watch zone → panic exit → yield spiral → rollover stress',
     lag: 'CDS reprices within days; S&P action ~1 quarter after fiscal deterioration',
   },
@@ -2684,7 +2684,7 @@ const CHAIN_META = {
   },
   fx_defense: {
     tracks: 'USDIDR spot+vol, FX reserves burn, SRBI sterilization burden, confidence gate',
-    readings: 'USDIDR 17,900 | Vol 7.25% (z=3.61) | SRBI 36% of FX reserves | GG 2.27',
+    readings: 'USDIDR 18,150 | Vol 7.25% (z=3.61) | SRBI 36% of FX reserves | GG 2.09',
     fires: 'Reserves depleted by SRBI cost → Morris-Shin confidence gate tips → IDR attack',
     lag: 'Self-fulfilling once confidence breaks; no advance warning by design (2nd-gen model)',
   },

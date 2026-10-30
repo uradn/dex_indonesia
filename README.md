@@ -39,7 +39,7 @@ Cross-confirmed modules: 1/13
 | # | Modul | Signal |
 |---|-------|--------|
 | M1 | BoP | Trade balance, FX reserves, synthetic CAD risk, Greenspan-Guidotti cross-feed |
-| M2 | Sovereign Risk | CDS 5Y + velocity (bps/week), SBN yield, foreign SBN %, term premium (ORANGE ≥2%), **BI yield policy flag** (Perry Jun 10 2026; review di era Destry), **S&P interest/revenue proximity risk** (>15% = negative watch; current: 20.4%) |
+| M2 | Sovereign Risk | CDS 5Y + velocity (bps/week), SBN yield, foreign SBN %, term premium (ORANGE ≥2%), **BI yield policy flag** (Perry Jun 10 2026; review di era Destry), **S&P interest/revenue proximity risk** (>15% = negative watch; current: 20.5%) |
 | M3 | FX Defense | USDIDR z-score, pseudo-stability, BI intervention, **SRBI auction bid-cover** (weekly capital flow proxy — 1wk lead vs DJPPR), 1st/2nd-gen crisis gates |
 | M4 | Commodity | Ekspor basket (coal/CPO/nickel/LNG), oil import vulnerability, ICP threshold watch, **B50 biodiesel mandate** (Jul 1 2026 CPO diversion → BoP), **PLN coal DMO compliance** (HBA gap, TDL hike risk) |
 | M5 | Foreign Flow | EIDO ETF, silent exit detection, SSVI (Sudden Stop Vulnerability Index), **MSCI EM status** (Standalone consultation Oct 15 2026; `downgrade_risk` P(downgrade)=85%; `msciReversalProbability` field; Bryant phase tracker), May 2026 rebalancing outflow |
@@ -281,14 +281,14 @@ Solar bersubsidi lebih kompleks karena blending mandatori biodiesel CPO. B50 man
 | Permen ESDM | B50 2026 | Mandatori biodiesel 50% FAME mulai Jul 1 2026 |
 | BPDPKS | Peraturan BPDPKS | Insentif biodiesel = selisih harga FAME vs MOPS, dibiayai levy ekspor CPO |
 
-**Subsidy gap per Sep 15, 2026** (Brent $106.93 + USDIDR 17,595 + CPO $1,117/MT):
+**Subsidy gap per Oct 30, 2026** (Brent $112.0 + USDIDR 18,150 + CPO $1,117/MT):
 
 | Indikator | Nilai | Alert |
 |-----------|-------|-------|
-| Pertalite cost recovery | Rp16.567/L | — |
-| **Pertalite subsidy gap** | **Rp6.567/L** | 🔴 RED |
-| Solar B50 cost recovery (MOPS+FAME blended) | Rp20.413/L | — |
-| **Solar B50 subsidy gap (total: direct + BPDPKS)** | **Rp13.613/L** | 🔴 RED |
+| Pertalite cost recovery | Rp17.899/L | — |
+| **Pertalite subsidy gap** | **Rp7.899/L** | 🔴 RED |
+| Solar B50 cost recovery (MOPS+FAME blended) | Rp22.285/L | — |
+| **Solar B50 subsidy gap (total: direct + BPDPKS)** | **Rp15.485/L** | 🔴 RED |
 
 Solar gap **2.7× lebih besar** dari Pertalite — tapi selama ini tidak tertrack karena BPDPKS diperlakukan sebagai subsidi terpisah.
 
@@ -431,7 +431,7 @@ Sebelum krisis: **25% seaborne oil** + **20% LNG dunia** melewati Hormuz. Kapasi
 | Skenario | Brent | ICP Proxy | Subsidy Gap/Liter | ICP Alert | Action |
 |----------|-------|-----------|-------------------|-----------|--------|
 | Baseline APBN | $70 | $70 | ~IDR 0 | 🟢 GREEN | Tidak ada |
-| Saat ini (Oct 30) | **$112.1** | **$112.81** (Sep avg) | **IDR 7.890** | 🔴 RED | ICP Sep resmi $112.81 (ESDM Oct 12); Brent $112.1 spot; Pertalite gap Rp7,890/L; Solar B50 gap Rp15,465/L; SCD 87% RED; FOMC Oct 28 HOLD |
+| Saat ini (Oct 30) | **$112.0** | **$112.81** (Sep avg) | **IDR 7.899** | 🔴 RED | ICP Sep resmi $112.81 (ESDM Oct 12); Brent $112.0 spot; Pertalite gap Rp7,899/L; Solar B50 gap Rp15,485/L; SCD 87% RED; FOMC Oct 28 HOLD |
 | Threshold Bahlil | $100 | $100 | ~IDR 7.200 | 🔴 RED | Komitmen gugur |
 | Peak Mar 2026 | $126 | $126 | ~IDR 12.800 | 🔴 RED | Hike wajib fiskal |
 | Eskalasi baru | $110+ | $110+ | ~IDR 9.000+ | 🔴 RED | Hike + social unrest |
