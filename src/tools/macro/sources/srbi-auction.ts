@@ -128,33 +128,38 @@ async function fetchViaExa(daysBack: number): Promise<SrbiAuctionData | null> {
     const exa = new Exa(process.env.EXASEARCH_API_KEY);
     const startDate = new Date(Date.now() - daysBack * 86_400_000).toISOString().slice(0, 10);
 
-    const response = await exa.search(SRBI_QUERY, {
+    const tryParse = (results: Array<{ text?: string; title?: string | null; publishedDate?: string | null; url?: string | null }>): SrbiAuctionData | null => {
+      for (const r of results) {
+        const text = (r as { text?: string }).text ?? r.title ?? '';
+        if (!text || !/SRBI|Sekuritas Rupiah Bank Indonesia/i.test(text)) continue;
+        const parsed = parseSrbiText(text);
+        const hasSignal = parsed.demandIdrT !== null || (parsed.allotmentIdrT !== null && parsed.bidCoverRatio !== null);
+        if (!hasSignal) continue;
+        const date = (r.publishedDate ?? new Date().toISOString()).slice(0, 10);
+        return { ...parsed, date, bidCoverAlert: scoreBidCover(parsed.bidCoverRatio), sourceUrl: r.url ?? null, fetchedAt: new Date().toISOString() };
+      }
+      return null;
+    };
+
+    // First: targeted financial domains (high precision)
+    const r1 = await exa.search(SRBI_QUERY, {
       numResults: 3,
       type: 'auto',
       startPublishedDate: startDate,
       includeDomains: SRBI_DOMAINS,
       contents: { text: { maxCharacters: 2500 } },
     } as Parameters<typeof exa.search>[1]);
+    const hit1 = tryParse(r1.results ?? []);
+    if (hit1) return hit1;
 
-    const results = response.results ?? [];
-    for (const r of results) {
-      const text = (r as { text?: string }).text ?? r.title ?? '';
-      // Require SRBI keyword — prevents false-positive matches from SBN/sukuk articles
-      if (!text || !/SRBI|Sekuritas Rupiah Bank Indonesia/i.test(text)) continue;
-      const parsed = parseSrbiText(text);
-      // Require at least demand OR (allotment AND bid-cover) — not bare allotment only
-      const hasSignal = parsed.demandIdrT !== null || (parsed.allotmentIdrT !== null && parsed.bidCoverRatio !== null);
-      if (!hasSignal) continue;
-      const date = (r.publishedDate ?? new Date().toISOString()).slice(0, 10);
-      return {
-        ...parsed,
-        date,
-        bidCoverAlert: scoreBidCover(parsed.bidCoverRatio),
-        sourceUrl: r.url ?? null,
-        fetchedAt: new Date().toISOString(),
-      };
-    }
-    return null;
+    // Fallback: no domain restriction — broader coverage
+    const r2 = await exa.search(SRBI_QUERY, {
+      numResults: 5,
+      type: 'auto',
+      startPublishedDate: startDate,
+      contents: { text: { maxCharacters: 2500 } },
+    } as Parameters<typeof exa.search>[1]);
+    return tryParse(r2.results ?? []);
   } catch {
     return null;
   }
@@ -200,6 +205,17 @@ async function fetchViaTavily(daysBack: number): Promise<SrbiAuctionData | null>
  * 3-day freshness gate — skips search if DB has recent data.
  */
 export async function fetchSrbiAuction(): Promise<SrbiAuctionData | null> {
+  // Env override always wins (emergency manual pin)
+  if (process.env.SRBI_BID_COVER_RATIO) {
+    const v = parseFloat(process.env.SRBI_BID_COVER_RATIO);
+    if (!isNaN(v) && v > 0 && v < 20) {
+      const fetchedAt = new Date().toISOString();
+      const today = new Date().toISOString().slice(0, 10);
+      await upsertPoints([{ indicator: 'srbi_bid_cover_ratio', category: 'fx' as const, date: today, value: v, unit: 'ratio', source: 'env:SRBI_BID_COVER_RATIO', fetchedAt }]);
+      return { date: today, outstandingIdrT: null, demandIdrT: null, allotmentIdrT: null, bidCoverRatio: v, cutoffRatePct: null, foreignParticipationPct: null, bidCoverAlert: scoreBidCover(v), sourceUrl: null, fetchedAt };
+    }
+  }
+
   // Freshness gate: skip if recent data in DB
   const cached = await getLatestPoint('srbi_bid_cover_ratio');
   if (cached) {

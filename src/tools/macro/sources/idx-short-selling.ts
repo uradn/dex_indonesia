@@ -34,7 +34,7 @@ import { getLatestPoint, upsertPoints } from '../time-series-db.js';
 import { injectCookies } from './playwright-browser.js';
 import type { MacroDataPoint } from '../types.js';
 
-const FRESHNESS_DAYS = 2;
+const FRESHNESS_DAYS = 5;
 const NOW = () => new Date().toISOString();
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
@@ -156,13 +156,26 @@ async function fetchViaExa(): Promise<IdxShortSellData | null> {
     const exa = new Exa(process.env.EXASEARCH_API_KEY);
     const startDate = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
 
-    const response = await exa.search(IDX_SS_QUERY, {
+    // First: targeted media domains; fallback to open search (new IDX feature — thin coverage)
+    let results: typeof r1.results = [];
+    const r1 = await exa.search(IDX_SS_QUERY, {
       numResults: 5,
       type: 'auto',
       startPublishedDate: startDate,
       includeDomains: IDX_SS_DOMAINS,
       contents: { text: { maxCharacters: 3000 } },
     } as Parameters<typeof exa.search>[1]);
+    results = r1.results ?? [];
+    if (results.every(r => parseShortSellText((r as { text?: string }).text ?? r.title ?? '').volumeIdrBn === null)) {
+      const r2 = await exa.search(IDX_SS_QUERY, {
+        numResults: 5,
+        type: 'auto',
+        startPublishedDate: startDate,
+        contents: { text: { maxCharacters: 3000 } },
+      } as Parameters<typeof exa.search>[1]);
+      results = [...results, ...(r2.results ?? [])];
+    }
+    const response = { results };
 
     for (const r of (response.results ?? [])) {
       const text = (r as { text?: string }).text ?? r.title ?? '';

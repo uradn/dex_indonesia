@@ -160,19 +160,23 @@ function median(values: number[]): number {
 // ── Exa fetch ────────────────────────────────────────────────────────────────
 
 export async function fetchApprovalViaExa(
-  lookbackDays = 45,
+  lookbackDays = 60,
   targetMonth: string | null = null, // YYYY-MM, null = current month
 ): Promise<ApprovalPoint | null> {
   if (!process.env.EXASEARCH_API_KEY) return null;
   const monthStr = targetMonth ?? new Date().toISOString().slice(0, 7);
   const [year, mon] = monthStr.split('-');
   const monthName = new Date(`${monthStr}-01`).toLocaleString('id-ID', { month: 'long' });
+  const prevMonthDate = new Date(parseInt(year!), parseInt(mon!) - 2, 1);
+  const prevMonthName = prevMonthDate.toLocaleString('id-ID', { month: 'long' });
+  const prevYear = prevMonthDate.getFullYear().toString();
 
   const startDate = new Date(Date.now() - lookbackDays * 86_400_000).toISOString().slice(0, 10);
   const queries = [
     `Prabowo kepuasan approval ${monthName} ${year} Poltracking LSI Indikator survei`,
     `survei elektabilitas Prabowo ${year} ${mon} Poltracking tingkat kepuasan`,
     `Prabowo approval rating ${monthStr} survey Indonesia political risk`,
+    `Prabowo kepuasan approval ${prevMonthName} ${prevYear} Poltracking LSI Indikator survei`,
   ];
 
   try {
@@ -186,7 +190,7 @@ export async function fetchApprovalViaExa(
         numResults: 5,
         type: 'neural',
         startPublishedDate: startDate,
-        contents: { text: { maxCharacters: 800 } },
+        contents: { text: { maxCharacters: 2000 } },
       } as Parameters<typeof exa.search>[1]);
       for (const r of resp.results ?? []) {
         const text = ((r as { text?: string }).text ?? '') + ' ' + (r.title ?? '');

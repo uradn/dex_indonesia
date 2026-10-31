@@ -243,6 +243,8 @@ PRABOWO_APPROVAL_PCT       # EMERGENCY override only — VPI now auto-fetches 3m
                            # Source hierarchy: env > DB cache (30d) > Exa media scrape > Tavily > null.
 # M8 Banking — D-D depositor concentration
 LPS_DEPOSIT_COVERAGE_PCT   # % of total deposit VALUE insured by LPS (e.g. 16.5); from LPS quarterly siaran pers; fires D-D condition when <15% (uninsured >85%); structural baseline ~16% → condition normally off
+# M3 FX Defense — SRBI auction
+SRBI_BID_COVER_RATIO       # bid-cover ratio (e.g. 2.1); emergency pin when Exa/Tavily parse fails; daily SRBI freshness gate 1d
 # M5 Foreign Flow
 USDIDR_NDF_1M_RATE         # offshore IDR NDF 1-month rate (IDR/USD, e.g. 18200); update when Exa parse fails
 # M8 Banking

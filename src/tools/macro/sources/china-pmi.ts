@@ -67,10 +67,14 @@ async function fetchViaExa(): Promise<ChinaPmiData | null> {
   try {
     const { default: Exa } = await import('exa-js');
     const exa = new Exa(process.env.EXASEARCH_API_KEY);
+    const now = new Date();
+    const cur = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
     const queries = [
-      'Caixin China manufacturing PMI October 2026 reading',
-      'China NBS manufacturing PMI October 2026',
-      'China factory PMI 2026 latest monthly',
+      `Caixin China manufacturing PMI ${cur} reading`,
+      `China NBS manufacturing PMI ${cur}`,
+      `Caixin China manufacturing PMI ${prev} reading`,
+      'China factory PMI latest monthly reading index',
     ];
     for (const query of queries) {
       const resp = await exa.search(query, {
@@ -101,8 +105,10 @@ async function fetchViaTavily(): Promise<ChinaPmiData | null> {
   try {
     const { TavilySearchAPIWrapper } = await import('@langchain/tavily');
     const tavily = new TavilySearchAPIWrapper({ tavilyApiKey: process.env.TAVILY_API_KEY });
+    const now = new Date();
+    const cur = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
     const resp = await tavily.rawResults({
-      query: 'Caixin China manufacturing PMI October 2026 latest reading',
+      query: `Caixin China manufacturing PMI ${cur} latest reading`,
       max_results: 5,
       include_raw_content: false,
       time_range: 'month',
