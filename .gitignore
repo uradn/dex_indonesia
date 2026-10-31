@@ -70,3 +70,9 @@ scratchpads/*test-srbi-*.ts
 
 # Caveman compress backups (auto-generated; pre-compression human-readable copy)
 *.original.md
+
+# Security scan results (nmap output dirs — network topology data, not for repo)
+nmap_*/
+
+# Word/Office temp lock files
+docs/~$*

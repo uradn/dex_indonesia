@@ -1,0 +1,18 @@
+FROM oven/bun:1.2-alpine
+WORKDIR /app
+
+# better-sqlite3 needs python3 + make + g++ to compile native module
+RUN apk add --no-cache python3 make g++
+
+# Install deps — skip Playwright (not needed for dashboard)
+COPY package.json bun.lock ./
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+RUN bun install --frozen-lockfile
+
+# Copy source (node_modules built inside container — correct arch)
+COPY src/ src/
+COPY scripts/ scripts/
+COPY tsconfig.json ./
+
+EXPOSE 6080
+CMD ["bun", "scripts/dashboard.ts"]
