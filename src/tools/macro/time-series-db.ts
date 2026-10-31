@@ -308,7 +308,7 @@ export async function updateThesisStatus(
   const now = new Date().toISOString();
   const triggeredAt = status === 'triggered' ? now : null;
   const killedAt = status === 'killed' ? now : null;
-  const closedAt = (status === 'closed' || status === 'confirmed') ? now : null;
+  const closedAt = (status === 'closed' || status === 'confirmed' || status === 'killed') ? now : null;
   db.query(
     `UPDATE macro_theses SET status=?, triggered_at=COALESCE(triggered_at,?),
      killed_at=COALESCE(killed_at,?), closed_at=COALESCE(closed_at,?),
