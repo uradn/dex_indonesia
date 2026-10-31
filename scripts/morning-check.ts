@@ -16,8 +16,9 @@ import { runFiscalEngine } from '../src/tools/macro/fiscal-engine.js';
 import { runDomesticPressureEngine } from '../src/tools/macro/domestic-pressure-engine.js';
 import { runPoliticalRiskEngine } from '../src/tools/macro/political-risk-engine.js';
 import { runUlnEngine } from '../src/tools/macro/uln-engine.js';
-import { runSilentCrisisDetector } from '../src/tools/macro/silent-crisis-detector.js';
-import { getLatestThesis, getLatestPoint, updateThesisStatus } from '../src/tools/macro/time-series-db.js';
+import { computeSilentCrisis, type ModuleScore } from '../src/tools/macro/silent-crisis-detector.js';
+import { getLatestThesis, getLatestPoint, updateThesisStatus, saveModuleScore } from '../src/tools/macro/time-series-db.js';
+import type { AlertLevel } from '../src/tools/macro/types.js';
 
 const DATE = new Date().toISOString().slice(0, 10);
 const BAR = '━'.repeat(50);
@@ -47,7 +48,43 @@ const [fx, bop, sov, flow, commodity, regime, aseanRv, narrative, banking, marke
     runUlnEngine(),
   ]);
 
-const crisis = await runSilentCrisisDetector();
+// Build ModuleScore[] from this run's engine outputs — single source of truth.
+// Mirrors the scoring logic in silent-crisis-detector.ts getModuleScores() runners.
+// Saves each module to DB here so computeSilentCrisis receives pre-verified scores.
+const moduleScores: ModuleScore[] = [];
+function addScore(mod: string, score: number, alertLevel: AlertLevel, flags?: string[]) {
+  const s = Math.round(score);
+  moduleScores.push({ module: mod, score: s, alertLevel, available: true });
+  saveModuleScore(mod, s, alertLevel, flags?.length ? { flags } : {}).catch(() => {});
+}
+function addFailed(mod: string) {
+  moduleScores.push({ module: mod, score: 0, alertLevel: 'green', available: false });
+}
+if (fx.status        === 'fulfilled') addScore('fx_defense',       fx.value.scoreCard.score,                    fx.value.scoreCard.alertLevel,   fx.value.scoreCard.flags);       else addFailed('fx_defense');
+if (bop.status       === 'fulfilled') addScore('bop',              bop.value.scoreCard.score,                   bop.value.scoreCard.alertLevel,  bop.value.scoreCard.flags);      else addFailed('bop');
+if (sov.status       === 'fulfilled') addScore('sovereign_risk',   sov.value.sovereignRiskScore,                sov.value.scoreCard.alertLevel,  sov.value.scoreCard.flags);      else addFailed('sovereign_risk');
+if (flow.status      === 'fulfilled') addScore('foreign_flow',     flow.value.scoreCard.score,                  flow.value.scoreCard.alertLevel, flow.value.scoreCard.flags);     else addFailed('foreign_flow');
+if (commodity.status === 'fulfilled') addScore('commodity',        commodity.value.scoreCard.score,             commodity.value.scoreCard.alertLevel, commodity.value.scoreCard.flags); else addFailed('commodity');
+if (regime.status    === 'fulfilled') {
+  const s = regime.value.currentRegime === 'Q3' ? 80 : regime.value.currentRegime === 'Q4' ? 55 : regime.value.currentRegime === 'Q2' ? 30 : 10;
+  addScore('regime', s, regime.value.alertLevel);
+} else addFailed('regime');
+if (narrative.status === 'fulfilled') addScore('narrative',        100 - narrative.value.narrativeCredibilityScore, narrative.value.alertLevel, narrative.value.flags);           else addFailed('narrative');
+if (banking.status   === 'fulfilled') addScore('banking',          banking.value.stressScore,                   banking.value.alert,             banking.value.flags);            else addFailed('banking');
+if (market.status    === 'fulfilled') addScore('market',           market.value.stressScore,                    market.value.alert,              market.value.flags);             else addFailed('market');
+if (fiscal.status    === 'fulfilled') addScore('fiscal',           fiscal.value.stressScore,                    fiscal.value.alert,              fiscal.value.flags);             else addFailed('fiscal');
+if (domestic.status  === 'fulfilled') addScore('domestic_pressure',domestic.value.stressScore,                  domestic.value.alert,            domestic.value.flags);           else addFailed('domestic_pressure');
+if (political.status === 'fulfilled') addScore('political_risk',   political.value.stressScore,                 political.value.alert,           political.value.flags);          else addFailed('political_risk');
+if (uln.status       === 'fulfilled') addScore('uln',              uln.value.stressScore,                       uln.value.alert,                 uln.value.flags);                else addFailed('uln');
+if (aseanRv.status   === 'fulfilled') {
+  const s = Math.min(100, Math.round(Math.abs(aseanRv.value.idiosyncraticComponent ?? 0) * 10) + aseanRv.value.peDiscountScore);
+  addScore('asean_rv', s, aseanRv.value.alertLevel, aseanRv.value.flags);
+} else addFailed('asean_rv');
+// Sort consistent with SCD order
+const SCD_ORDER = ['fx_defense', 'uln', 'bop', 'sovereign_risk', 'foreign_flow', 'banking', 'commodity', 'fiscal', 'market', 'domestic_pressure', 'political_risk', 'regime', 'narrative'];
+moduleScores.sort((a, b) => SCD_ORDER.indexOf(a.module) - SCD_ORDER.indexOf(b.module));
+
+const crisis = await computeSilentCrisis(moduleScores);
 
 // ─── HEADER ────────────────────────────────────────────────────────────────
 console.log(BAR);

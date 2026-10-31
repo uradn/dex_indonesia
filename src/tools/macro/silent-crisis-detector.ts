@@ -58,7 +58,7 @@ Key principle: signals that confirm each other across unrelated markets are the 
 - "Full sovereign stress report"
 `.trim();
 
-interface ModuleScore {
+export interface ModuleScore {
   module: string;
   score: number;
   alertLevel: AlertLevel;
@@ -158,8 +158,7 @@ async function getModuleScores(): Promise<ModuleScore[]> {
   return scores;
 }
 
-export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
-  const moduleScores = await getModuleScores();
+export async function computeSilentCrisis(moduleScores: ModuleScore[]): Promise<SilentCrisisOutput> {
 
   // Weighted composite score
   // political_risk uses dynamic weight: Indonesia polrisk is a LEADING indicator.
@@ -330,6 +329,11 @@ export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
     stressVectors,
     narrative,
   };
+}
+
+export async function runSilentCrisisDetector(): Promise<SilentCrisisOutput> {
+  const moduleScores = await getModuleScores();
+  return computeSilentCrisis(moduleScores);
 }
 
 function buildNarrative(ctx: {
