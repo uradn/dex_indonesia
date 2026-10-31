@@ -69,7 +69,8 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   { name: 'eido_shares_outstanding',     module: 'M5',  freshDays: 4,  yellowDays: 7,   redDays: 14 },
   { name: 'usdidr_ndf_1m_rate',          module: 'M3',  freshDays: 3,  yellowDays: 7,   redDays: 14 },
   { name: 'himbara_at1_secondary_pct',   module: 'M8',  freshDays: 7,  yellowDays: 14,  redDays: 30 },
-  { name: 'idx_short_sell_volume_idr_bn',module: 'M9',  freshDays: 2,  yellowDays: 5,   redDays: 10 },
+  // IDX short sell: intraday feature Oct 2026; idx.co.id Cloudflare-blocked; media coverage thin — weekly cadence realistic
+  { name: 'idx_short_sell_volume_idr_bn',module: 'M9',  freshDays: 7,  yellowDays: 14,  redDays: 21 },
   { name: 'bank_pdnl_pct',              module: 'M8',  freshDays: 35, yellowDays: 55,  redDays: 90 },
   // DNDF — env_manual annual update from BI LKT
   { name: 'bi_dndf_outstanding_bn',      module: 'M3',  freshDays: 100,yellowDays: 200, redDays: 400 },
