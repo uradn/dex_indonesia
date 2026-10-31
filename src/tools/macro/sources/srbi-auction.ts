@@ -40,7 +40,8 @@ export interface SrbiAuctionData {
   fetchedAt: string;
 }
 
-const FRESHNESS_DAYS = 1;
+// BI reduced SRBI from weekly → bi-weekly Oct 24 2026 — update freshness accordingly
+const FRESHNESS_DAYS = 14;
 
 /** Parse Indonesian number format: "1.500,75" → 1500.75 */
 function parseIdNumber(s: string): number | null {
@@ -70,14 +71,18 @@ function parseSrbiText(text: string): Omit<SrbiAuctionData, 'date' | 'bidCoverAl
   const demandIdrT = matchNum(text,
     /total penawaran yang masuk[\s\S]{0,80}?Rp\s*([\d.,]+)\s*triliun/i,
     /penawaran yang masuk[\s\S]{0,80}?Rp\s*([\d.,]+)\s*triliun/i,
+    /total penawaran[\s\S]{0,60}?Rp\s*([\d.,]+)\s*triliun/i,
+    /penawaran[\s\S]{0,40}?Rp\s*([\d.,]+)\s*triliun[^.]{0,30}SRBI/i,
     /incoming bids?[\s\S]{0,60}?IDR\s*([\d.,]+)\s*(?:T|trillion)/i,
   );
 
-  // Total allotment (what BI accepted)
+  // Total allotment (what BI accepted). Note: "hanya" guard removed — BI sometimes accepts all bids.
   const allotmentIdrT = matchNum(text,
-    /BI\s+hanya\s+(?:mengantongi|memenangkan)[\s\S]{0,30}?Rp\s*([\d.,]+)\s*triliun/i,
+    /BI\s+(?:hanya\s+)?(?:mengantongi|memenangkan)[\s\S]{0,30}?Rp\s*([\d.,]+)\s*triliun/i,
     /yang\s+dimenangkan[\s\S]{0,60}?Rp\s*([\d.,]+)\s*triliun/i,
+    /penyerapan[\s\S]{0,40}?(?:menjadi|sebesar)\s+Rp\s*([\d.,]+)\s*triliun/i,
     /dialokasikan[\s\S]{0,60}?Rp\s*([\d.,]+)\s*triliun/i,
+    /SRBI[\s\S]{0,50}?memenangkan[\s\S]{0,30}?Rp\s*([\d.,]+)\s*triliun/i,
     /allotment[\s\S]{0,60}?IDR\s*([\d.,]+)\s*(?:T|trillion)/i,
   );
 
@@ -240,7 +245,7 @@ export async function fetchSrbiAuction(): Promise<SrbiAuctionData | null> {
     }
   }
 
-  const daysBack = 14;
+  const daysBack = 21; // cover 3 potential bi-weekly windows
   const data = (await fetchViaExa(daysBack)) ?? (await fetchViaTavily(daysBack));
   if (!data) return null;
 

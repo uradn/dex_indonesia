@@ -37,8 +37,8 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   { name: 'bi_fx_reserves_bn',           module: 'M1',  freshDays: 35, yellowDays: 50,  redDays: 75 },
   { name: 'bi_rate_pct',                 module: 'M2',  freshDays: 30, yellowDays: 45,  redDays: 60 },
   { name: 'srbi_outstanding_trn_idr',    module: 'M3',  freshDays: 45, yellowDays: 60,  redDays: 90 },
-  // SRBI auction weekly
-  { name: 'srbi_bid_cover_ratio',        module: 'M3',  freshDays: 3,  yellowDays: 7,   redDays: 14 },
+  // SRBI auction bi-weekly since Oct 24 2026 (BI reduced frequency from weekly)
+  { name: 'srbi_bid_cover_ratio',        module: 'M3',  freshDays: 14, yellowDays: 21,  redDays: 28 },
   // Kemenkeu monthly
   { name: 'apbn_revenue_monthly_trn',    module: 'M10', freshDays: 35, yellowDays: 50,  redDays: 75 },
   { name: 'subsidi_energi_ytd_idr_t',    module: 'M10', freshDays: 35, yellowDays: 50,  redDays: 75 },

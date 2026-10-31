@@ -128,10 +128,11 @@ export async function fetchLpsDepositCoverage(): Promise<LpsDepositCoverageData>
   const today = new Date().toISOString().slice(0, 10);
   const fetchedAt = new Date().toISOString();
 
-  // Env override always wins
+  // Env override always wins — also stores to DB so health-check tracks freshness
   if (process.env.LPS_DEPOSIT_COVERAGE_PCT) {
     const val = parseFloat(process.env.LPS_DEPOSIT_COVERAGE_PCT);
     if (!isNaN(val) && val >= 5 && val <= 50) {
+      await upsertPoints([{ indicator: 'lps_deposit_coverage_value_pct', category: 'banking' as const, date: today, value: val, unit: 'pct', source: 'env:LPS_DEPOSIT_COVERAGE_PCT', fetchedAt }]);
       return { coveragePct: val, uninsuredSharePct: parseFloat((100 - val).toFixed(1)), source: 'env:LPS_DEPOSIT_COVERAGE_PCT', date: today, fetchedAt };
     }
   }
