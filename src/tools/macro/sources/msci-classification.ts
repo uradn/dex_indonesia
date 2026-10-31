@@ -205,13 +205,18 @@ export async function fetchMsciClassification(): Promise<MsciClassificationResul
   // Env always wins when explicitly set — mirrors BI_DNDF_OUTSTANDING_BN pattern
   if (process.env.MSCI_CLASSIFICATION_STATUS) {
     const envStatus = process.env.MSCI_CLASSIFICATION_STATUS as MsciStatus;
-    return {
-      status: envStatus,
-      resultDate: null,
-      sourceUrl: null,
-      fetchedAt: new Date().toISOString(),
-      raw: 'env override',
-    };
+    const today = new Date().toISOString().slice(0, 10);
+    const fetchedAt = new Date().toISOString();
+    await upsertPoints([{
+      indicator: 'msci_classification_numeric',
+      category: 'flow' as const,
+      date: today,
+      value: STATUS_NUMERIC[envStatus] ?? 2,
+      unit: 'categorical_0_1_2',
+      source: 'env:MSCI_CLASSIFICATION_STATUS',
+      fetchedAt,
+    }]);
+    return { status: envStatus, resultDate: null, sourceUrl: null, fetchedAt, raw: 'env override' };
   }
 
   // Default: downgrade_risk (Standalone consultation Oct 15 2026 = known fact)

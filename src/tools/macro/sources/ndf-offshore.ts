@@ -154,11 +154,22 @@ async function fetchViaTavily(): Promise<NdfData | null> {
  * Env override: USDIDR_NDF_1M_RATE (always wins when set).
  */
 export async function fetchNdfOffshore(): Promise<NdfData | null> {
-  // Env always wins
+  // Env always wins — stores to DB so health-check tracks freshness
   if (process.env.USDIDR_NDF_1M_RATE) {
     const rate = parseFloat(process.env.USDIDR_NDF_1M_RATE);
     if (rate >= 13_000 && rate <= 25_000) {
-      return { rate, premium: null, sourceUrl: null, fetchedAt: NOW() };
+      const fetchedAt = NOW();
+      const today = TODAY();
+      await upsertPoints([{
+        indicator: 'usdidr_ndf_1m_rate',
+        category: 'fx' as const,
+        date: today,
+        value: rate,
+        unit: 'IDR/USD',
+        source: 'env:USDIDR_NDF_1M_RATE',
+        fetchedAt,
+      }]);
+      return { rate, premium: null, sourceUrl: null, fetchedAt };
     }
   }
 

@@ -31,8 +31,13 @@ const TODAY = () => new Date().toISOString().slice(0, 10);
 
 // OJK SPI blocked — Indonesian financial media reliably report the monthly PDN figure
 const PDN_DOMAINS = ['bloombergtechnoz.com', 'bisnis.com', 'kontan.co.id', 'cnbcindonesia.com'];
-const EXA_QUERY   = 'OJK PDN posisi devisa neto perbankan persen modal 2026';
-const TAVILY_QUERY = 'OJK PDN posisi devisa neto bank persen modal statistik perbankan 2026';
+function pdnQueries(): { exa: string; tavily: string } {
+  const yr = new Date().getFullYear();
+  return {
+    exa:    `OJK PDN posisi devisa neto perbankan persen modal ${yr}`,
+    tavily: `OJK PDN posisi devisa neto bank persen modal statistik perbankan ${yr}`,
+  };
+}
 
 export interface OjkPdnData {
   date: string;
@@ -69,29 +74,32 @@ async function fetchViaExa(): Promise<OjkPdnData | null> {
     const { default: Exa } = await import('exa-js');
     const exa = new Exa(process.env.EXASEARCH_API_KEY);
     const startDate = new Date(Date.now() - 50 * 86_400_000).toISOString().slice(0, 10);
+    const { exa: EXA_QUERY } = pdnQueries();
 
-    const response = await exa.search(EXA_QUERY, {
-      numResults: 4,
-      type: 'auto',
-      startPublishedDate: startDate,
-      includeDomains: PDN_DOMAINS,
+    const tryResults = (results: Array<{ text?: string; title?: string | null; publishedDate?: string | null; url?: string | null }>): OjkPdnData | null => {
+      for (const r of results) {
+        const text = (r as { text?: string }).text ?? r.title ?? '';
+        if (!text) continue;
+        const pdnPct = parsePdnText(text);
+        if (pdnPct !== null) return { date: (r.publishedDate ?? NOW()).slice(0, 10), pdnPct, sourceUrl: r.url ?? null, fetchedAt: NOW() };
+      }
+      return null;
+    };
+
+    // Pass 1: target financial domains (high precision)
+    const r1 = await exa.search(EXA_QUERY, {
+      numResults: 4, type: 'auto', startPublishedDate: startDate,
+      includeDomains: PDN_DOMAINS, contents: { text: { maxCharacters: 2000 } },
+    } as Parameters<typeof exa.search>[1]);
+    const hit1 = tryResults(r1.results ?? []);
+    if (hit1) return hit1;
+
+    // Pass 2: no domain restriction — broader coverage
+    const r2 = await exa.search(EXA_QUERY, {
+      numResults: 5, type: 'auto', startPublishedDate: startDate,
       contents: { text: { maxCharacters: 2000 } },
     } as Parameters<typeof exa.search>[1]);
-
-    for (const r of (response.results ?? [])) {
-      const text = (r as { text?: string }).text ?? r.title ?? '';
-      if (!text) continue;
-      const pdnPct = parsePdnText(text);
-      if (pdnPct !== null) {
-        return {
-          date: (r.publishedDate ?? NOW()).slice(0, 10),
-          pdnPct,
-          sourceUrl: r.url ?? null,
-          fetchedAt: NOW(),
-        };
-      }
-    }
-    return null;
+    return tryResults(r2.results ?? []);
   } catch {
     return null;
   }
@@ -104,7 +112,7 @@ async function fetchViaTavily(): Promise<OjkPdnData | null> {
     const tavily = new TavilySearchAPIWrapper({ tavilyApiKey: process.env.TAVILY_API_KEY });
 
     const response = await tavily.rawResults({
-      query: TAVILY_QUERY,
+      query: pdnQueries().tavily,
       max_results: 4,
       include_domains: PDN_DOMAINS,
       time_range: 'month',

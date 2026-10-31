@@ -50,54 +50,68 @@ export interface PolicyResponseData {
   fetchedAt: string;
 }
 
-// Per-instrument search configuration
-const INSTRUMENT_CONFIG: Record<PolicyInstrument, {
+// Dynamic month/year for search queries — avoids hardcoded-month staleness bug
+function currentMonthId(): string {
+  const now = new Date();
+  const id = now.toLocaleString('id-ID', { month: 'long' }); // "Oktober", "November", etc.
+  return `${id} ${now.getFullYear()}`;
+}
+function currentYear(): string {
+  return new Date().getFullYear().toString();
+}
+
+// Per-instrument search configuration (uses dynamic month to stay evergreen)
+function buildInstrumentConfig(): Record<PolicyInstrument, {
   exaQueries: string[];
   tavilyQuery: string;
   keywords: string[];
-}> = {
-  dndf: {
-    exaQueries: [
-      'Bank Indonesia DNDF baru tambah intervensi forward Oktober 2026',
-      'Bank Indonesia new DNDF tranche intervention forward dollar 2026',
-      'BI tambah posisi DNDF miliar dolar stabilisasi rupiah 2026',
-    ],
-    tavilyQuery: 'Bank Indonesia DNDF baru intervensi forward rupiah Oktober 2026',
-    keywords: ['dndf baru', 'tambah dndf', 'new dndf', 'dndf tranche', 'forward baru', 'tambah posisi forward',
-               'menambah dndf', 'menambah intervensi forward', 'increase dndf', 'dndf tambah'],
-  },
-  bei_buyback: {
-    exaQueries: [
-      'BEI buyback saham stabilisasi pasar IDX 2026 BUMN beli kembali',
-      'IDX stock buyback market stabilization Indonesia 2026 government',
-      'BUMN buyback saham pasar modal Oktober 2026 stabilisasi',
-    ],
-    tavilyQuery: 'BEI buyback saham stabilisasi pasar modal Oktober 2026',
-    keywords: ['buyback', 'beli kembali', 'stock buyback', 'market stabilization buyback',
-               'stabilisasi pasar modal', 'pasar saham buyback', 'aksi beli bumn'],
-  },
-  alco: {
-    exaQueries: [
-      'ALCo Bank Indonesia Kemenkeu koordinasi darurat kurs rupiah 2026',
-      'Bank Indonesia Ministry Finance joint coordination statement rupiah stabilization 2026',
-      'BI Kemenkeu pertemuan darurat stabilisasi nilai tukar Oktober 2026',
-    ],
-    tavilyQuery: 'ALCo BI Kemenkeu koordinasi darurat rupiah Oktober 2026',
-    keywords: ['alco', 'koordinasi darurat', 'joint statement', 'joint coordination', 'pertemuan darurat',
-               'emergency meeting bi kemenkeu', 'koordinasi bi kemenkeu', 'paket kebijakan bersama',
-               'stabilisasi bersama', 'integrated policy package'],
-  },
-  danantara: {
-    exaQueries: [
-      'Danantara stabilisasi pasar saham rupiah intervensi dana 2026',
-      'Danantara sovereign wealth fund market stabilization Indonesia 2026',
-      'Danantara deploy fund stabilization IHSG IDR Oktober 2026',
-    ],
-    tavilyQuery: 'Danantara stabilisasi pasar rupiah Oktober 2026',
-    keywords: ['danantara stabilisasi', 'danantara intervensi', 'danantara pasar saham',
-               'danantara rupiah', 'danantara deploy', 'danantara fund market', 'danantara swf stabiliz'],
-  },
-};
+}> {
+  const mo = currentMonthId();
+  const yr = currentYear();
+  return {
+    dndf: {
+      exaQueries: [
+        `Bank Indonesia DNDF baru tambah intervensi forward ${mo}`,
+        `Bank Indonesia new DNDF tranche intervention forward dollar ${yr}`,
+        `BI tambah posisi DNDF miliar dolar stabilisasi rupiah ${yr}`,
+      ],
+      tavilyQuery: `Bank Indonesia DNDF baru intervensi forward rupiah ${mo}`,
+      keywords: ['dndf baru', 'tambah dndf', 'new dndf', 'dndf tranche', 'forward baru', 'tambah posisi forward',
+                 'menambah dndf', 'menambah intervensi forward', 'increase dndf', 'dndf tambah'],
+    },
+    bei_buyback: {
+      exaQueries: [
+        `BEI buyback saham stabilisasi pasar IDX ${yr} BUMN beli kembali`,
+        `IDX stock buyback market stabilization Indonesia ${yr} government`,
+        `BUMN buyback saham pasar modal ${mo} stabilisasi`,
+      ],
+      tavilyQuery: `BEI buyback saham stabilisasi pasar modal ${mo}`,
+      keywords: ['buyback', 'beli kembali', 'stock buyback', 'market stabilization buyback',
+                 'stabilisasi pasar modal', 'pasar saham buyback', 'aksi beli bumn'],
+    },
+    alco: {
+      exaQueries: [
+        `ALCo Bank Indonesia Kemenkeu koordinasi darurat kurs rupiah ${yr}`,
+        `Bank Indonesia Ministry Finance joint coordination statement rupiah stabilization ${yr}`,
+        `BI Kemenkeu pertemuan darurat stabilisasi nilai tukar ${mo}`,
+      ],
+      tavilyQuery: `ALCo BI Kemenkeu koordinasi darurat rupiah ${mo}`,
+      keywords: ['alco', 'koordinasi darurat', 'joint statement', 'joint coordination', 'pertemuan darurat',
+                 'emergency meeting bi kemenkeu', 'koordinasi bi kemenkeu', 'paket kebijakan bersama',
+                 'stabilisasi bersama', 'integrated policy package'],
+    },
+    danantara: {
+      exaQueries: [
+        `Danantara stabilisasi pasar saham rupiah intervensi dana ${yr}`,
+        `Danantara sovereign wealth fund market stabilization Indonesia ${yr}`,
+        `Danantara deploy fund stabilization IHSG IDR ${mo}`,
+      ],
+      tavilyQuery: `Danantara stabilisasi pasar rupiah ${mo}`,
+      keywords: ['danantara stabilisasi', 'danantara intervensi', 'danantara pasar saham',
+                 'danantara rupiah', 'danantara deploy', 'danantara fund market', 'danantara swf stabiliz'],
+    },
+  };
+}
 
 function isCoordinationKeyword(text: string, keywords: string[]): boolean {
   const lower = text.toLowerCase();
@@ -108,7 +122,7 @@ async function scanInstrumentViaExa(
   instrument: PolicyInstrument,
 ): Promise<PolicyResponseSignal | null> {
   if (!process.env.EXASEARCH_API_KEY) return null;
-  const cfg = INSTRUMENT_CONFIG[instrument];
+  const cfg = buildInstrumentConfig()[instrument];
   const startDate = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000).toISOString().slice(0, 10);
 
   try {
@@ -143,7 +157,7 @@ async function scanInstrumentViaTavily(
   instrument: PolicyInstrument,
 ): Promise<PolicyResponseSignal | null> {
   if (!process.env.TAVILY_API_KEY) return null;
-  const cfg = INSTRUMENT_CONFIG[instrument];
+  const cfg = buildInstrumentConfig()[instrument];
 
   try {
     const { TavilySearchAPIWrapper } = await import('@langchain/tavily');
