@@ -221,10 +221,10 @@ export async function fetchSrbiAuction(): Promise<SrbiAuctionData | null> {
     }
   }
 
-  // Freshness gate: skip if recent data in DB
+  // Freshness gate: gate on data DATE so bi-weekly auction triggers re-fetch when date is stale
   const cached = await getLatestPoint('srbi_bid_cover_ratio');
   if (cached) {
-    const ageDays = (Date.now() - new Date(cached.fetchedAt).getTime()) / 86_400_000;
+    const ageDays = (Date.now() - new Date(cached.date).getTime()) / 86_400_000;
     if (ageDays < FRESHNESS_DAYS) {
       const demandPt  = await getLatestPoint('srbi_demand_idr_t');
       const allotPt   = await getLatestPoint('srbi_allotment_idr_t');

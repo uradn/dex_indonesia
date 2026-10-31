@@ -142,9 +142,10 @@ async function fetchViaTavily(): Promise<OjkPdnData | null> {
  * Returns null if no data found (graceful — engine handles absence).
  */
 export async function fetchOjkPdn(): Promise<OjkPdnData | null> {
+  // Gate on data DATE so monthly OJK releases trigger re-fetch even if we searched recently
   const cached = await getLatestPoint('bank_pdnl_pct');
   if (cached) {
-    const ageDays = (Date.now() - new Date(cached.fetchedAt).getTime()) / 86_400_000;
+    const ageDays = (Date.now() - new Date(cached.date).getTime()) / 86_400_000;
     if (ageDays < FRESHNESS_DAYS) {
       return { date: cached.date, pdnPct: cached.value, sourceUrl: null, fetchedAt: cached.fetchedAt };
     }

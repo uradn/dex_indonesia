@@ -32,27 +32,44 @@ export interface ChinaPmiData {
   fetchedAt: string;
 }
 
-function parsePmiFromText(text: string): number | null {
+function parsePmiFromText(text: string, url?: string | null): number | null {
   const lower = text.toLowerCase();
-  // Must contain manufacturing + PMI context
-  if (!lower.includes('pmi') && !lower.includes('caixin') && !lower.includes('nbs')) return null;
+  // Must mention China/Caixin/NBS — also accept Chinese-language PMI titles or known trusted domains
+  const trustedDomain = url && /caixin\.com|stats\.gov\.cn|xinhuanet|xinhua\.net|english\.news\.cn/.test(url);
+  const hasChina = trustedDomain
+    || lower.includes('china')
+    || lower.includes('caixin')
+    || lower.includes('nbs china')
+    || lower.includes('tiongkok')
+    || lower.includes('统计局') // NBS Chinese
+    || lower.includes('制造业pmi'); // "manufacturing PMI" in Chinese
+  if (!hasChina) return null;
+  if (!lower.includes('pmi') && !lower.includes('caixin') && !lower.includes('制造业pmi')) return null;
+  // Reject other-country PMIs
+  if (/\bindia\b.*pmi|\bpmi\b.*\bindia\b|\beuropean?\b.*pmi|\bus\s+pmi|\bunited states.*pmi/i.test(text)) return null;
+  // Reject forward-looking forecasts (calendar events, previews, expectations)
+  if (/forecast|preview|expecte[d]|calendar|upcoming|konsensus|prediksi/i.test(lower) && !lower.includes('actual')) return null;
 
-  // Priority: number right after "pmi" (e.g. "PMI: 49.5", "PMI at 50.3", "PMI 49.8")
-  const afterPmi = text.match(/pmi[:\s]+(\d{2}\.?\d?)/i);
+  // Number near "pmi" with any intervening words (e.g. "PMI falls to 49.3", "PMI降至49.3")
+  const afterPmi = text.match(/pmi[降至:\s至到]+(\d{2}\.?\d?)/i)
+    ?? text.match(/pmi[^0-9]{0,40}?(\d{2}\.\d)/i);
   if (afterPmi) {
     const val = parseFloat(afterPmi[1]!);
     if (val >= 40 && val <= 65) return val;
   }
 
-  // Number right before or after "caixin" or "manufacturing"
+  // Number right before or after "caixin" (e.g. "Caixin PMI Slows to 50.9")
   const caixin = text.match(/caixin[^0-9]*(\d{2}\.?\d)/i) ?? text.match(/(\d{2}\.?\d)[^%\d]{0,20}caixin/i);
   if (caixin) {
     const val = parseFloat(caixin[1]!);
     if (val >= 40 && val <= 65) return val;
   }
 
-  // Generic: any number in PMI range near "manufacturing"
-  const generic = text.match(/manufacturing[^0-9]*(\d{2}\.?\d)/i);
+  // Generic: number near "china manufacturing" or "制造业PMI"
+  const generic = text.match(/china[^0-9]{0,50}manufacturing[^0-9]*(\d{2}\.?\d)/i)
+    ?? text.match(/manufacturing[^0-9]{0,50}china[^0-9]*(\d{2}\.?\d)/i)
+    ?? text.match(/制造业pmi[^0-9]*(\d{2}\.?\d)/i)
+    ?? text.match(/(\d{2}\.\d)[^0-9]{0,20}制造业/i);
   if (generic) {
     const val = parseFloat(generic[1]!);
     if (val >= 40 && val <= 65) return val;
@@ -63,29 +80,33 @@ function parsePmiFromText(text: string): number | null {
 
 async function fetchViaExa(): Promise<ChinaPmiData | null> {
   if (!process.env.EXASEARCH_API_KEY) return null;
-  const startDate = new Date(Date.now() - 45 * 86_400_000).toISOString().slice(0, 10);
   try {
     const { default: Exa } = await import('exa-js');
     const exa = new Exa(process.env.EXASEARCH_API_KEY);
     const now = new Date();
     const cur = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
     const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
-    const queries = [
-      `Caixin China manufacturing PMI ${cur} reading`,
-      `China NBS manufacturing PMI ${cur}`,
-      `Caixin China manufacturing PMI ${prev} reading`,
-      'China factory PMI latest monthly reading index',
+    // Tier 1: tight 7d window for current month official release
+    const tight7d = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
+    // Tier 2: wider 45d window for prev month / fallback
+    const wide45d = new Date(Date.now() - 45 * 86_400_000).toISOString().slice(0, 10);
+    const queries: [string, string][] = [
+      [`Caixin China manufacturing PMI ${cur} reading`, tight7d],
+      [`China NBS manufacturing PMI ${cur}`, tight7d],
+      [`China manufacturing PMI falls ${cur}`, tight7d],
+      [`Caixin China manufacturing PMI ${prev} reading`, wide45d],
+      ['China factory PMI latest monthly reading index', wide45d],
     ];
-    for (const query of queries) {
+    for (const [query, startDate] of queries) {
       const resp = await exa.search(query, {
         numResults: 5,
-        type: 'neural',
+        type: 'auto',
         startPublishedDate: startDate,
         contents: { text: { maxCharacters: 600 } },
       } as Parameters<typeof exa.search>[1]);
       for (const r of resp.results ?? []) {
         const text = ((r as { text?: string }).text ?? '') + ' ' + (r.title ?? '');
-        const val = parsePmiFromText(text);
+        const val = parsePmiFromText(text, r.url);
         if (val !== null) {
           return {
             value: val,
@@ -115,7 +136,7 @@ async function fetchViaTavily(): Promise<ChinaPmiData | null> {
     } as Parameters<typeof tavily.rawResults>[0]);
     for (const r of resp.results ?? []) {
       const text = (r.content ?? '') + ' ' + (r.title ?? '');
-      const val = parsePmiFromText(text);
+      const val = parsePmiFromText(text, r.url);
       if (val !== null) {
         return {
           value: val,
@@ -146,10 +167,10 @@ export async function fetchChinaPmi(): Promise<ChinaPmiData | null> {
   const fetchedAt = new Date().toISOString();
   const today = new Date().toISOString().slice(0, 10);
 
-  // DB freshness check
+  // DB freshness check — gate on data DATE (not fetchedAt) so monthly releases trigger re-fetch
   const cached = await getLatestPoint('china_pmi_manufacturing');
   if (cached) {
-    const ageDays = (Date.now() - new Date(cached.fetchedAt ?? cached.date).getTime()) / 86_400_000;
+    const ageDays = (Date.now() - new Date(cached.date).getTime()) / 86_400_000;
     if (ageDays < FRESHNESS_DAYS) {
       return { value: cached.value, date: cached.date, source: cached.source, fetchedAt: cached.fetchedAt ?? cached.date };
     }

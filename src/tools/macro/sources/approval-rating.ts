@@ -305,10 +305,10 @@ export async function fetchLatestApprovalPoint(): Promise<ApprovalPoint | null> 
     }
   }
 
-  // DB freshness check
+  // DB freshness check — gate on data DATE so monthly surveys trigger re-fetch when month rolls
   const cached = await getLatestPoint('prabowo_approval_pct');
   if (cached) {
-    const ageDays = (Date.now() - new Date(cached.fetchedAt ?? cached.date).getTime()) / 86_400_000;
+    const ageDays = (Date.now() - new Date(cached.date).getTime()) / 86_400_000;
     if (ageDays < FRESHNESS_DAYS) {
       return {
         approvalPct: cached.value,
