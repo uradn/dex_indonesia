@@ -203,6 +203,8 @@ const SNAPSHOT_INDICATORS = [
   'china_pmi_manufacturing',
   // m10 fiscal deficit — used on /rr page r-g section
   'apbn_deficit_pct_gdp',
+  // m8 b-p spiral: AT1 secondary price; m7 written: asean pe discount
+  'himbara_at1_secondary_pct', 'asean_pe_discount_pct',
 ];
 
 const CHART_INDICATORS = [
@@ -3079,7 +3081,154 @@ function renderGameTheory(thesis, snap) {
     </div>
     <div style="font-size:9px;color:var(--muted);margin-bottom:10px">Exit pressure \${exitPressPct}% → expected roll \${expectedRoll}% vs k*=\${kStarPct}%. \${repoDesc} Self-fulfilling crisis if exit fraction &gt;\${exitK30Pct}%.</div>
 
-    <div class="hist-note">GT Coverage ~65% · Bryant · Kreps · Morris-Shin · Barro-Gordon · PolEcon · Bayesian M6 · Spence/Cho-Kreps · Diamond-Dybvig. Refresh every 120s.</div>
+    <div class="section-title" style="margin-top:14px">BAGIAN 5 — Funding Spiral · Debt Trap · Escape Clause · Trilemma</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+
+      \${(() => {
+        // Brunnermeier-Pedersen (2009) — Funding-Market Liquidity Spiral
+        const bkFlags = (ms['banking']?.flags ?? []);
+        const bpFull  = bkFlags.find(f => f.startsWith('BRUNNERMEIER-PEDERSEN'));
+        const bpWatch = bkFlags.find(f => f.startsWith('B-P spiral'));
+        const bpCls   = bpFull ? 'red' : bpWatch ? 'orange' : 'green';
+        const bpLbl   = bpFull ? 'SPIRAL ACTIVE' : bpWatch ? 'WATCH (2/3)' : 'INACTIVE';
+        const at1Val  = ind['himbara_at1_secondary_pct']?.value ?? null;
+        const at1Cls  = at1Val !== null && at1Val < 85 ? 'red' : at1Val !== null && at1Val < 90 ? 'orange' : 'green';
+        const peD     = peDisc !== null ? parseFloat(peDisc) : null;
+        const peCls   = peD !== null && peD > 35 ? 'red' : peD !== null && peD > 20 ? 'orange' : 'green';
+        const aseanPeDisc = ind['asean_pe_discount_pct']?.value ?? null;
+        const aseanPeCls  = aseanPeDisc !== null && aseanPeDisc > 35 ? 'red' : aseanPeDisc !== null && aseanPeDisc > 20 ? 'orange' : 'green';
+        const bdr = bpFull ? 'var(--red)' : bpWatch ? 'var(--orange)' : 'var(--border)';
+        return \`<div style="border:1px solid \${bdr};border-radius:4px;padding:8px">
+          <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">B-P Spiral [M8]</div>
+          <div class="\${bpCls}" style="font-size:11px;font-weight:700;margin:3px 0">\${bpLbl}</div>
+          <div style="display:flex;flex-direction:column;gap:2px;margin-top:4px">
+            <div style="display:flex;justify-content:space-between;font-size:8px">
+              <span style="color:var(--muted)">AT1 secondary</span>
+              <span class="\${at1Cls}">\${at1Val !== null ? at1Val.toFixed(1) + '% par' : '—'}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:8px">
+              <span style="color:var(--muted)">IHSG P/E disc (M7)</span>
+              <span class="\${aseanPeCls}">\${aseanPeDisc !== null ? aseanPeDisc.toFixed(1) + '%' : peD !== null ? peD.toFixed(1) + '% (proxy)' : '—'}</span>
+            </div>
+          </div>
+          <div style="font-size:8px;color:var(--muted);margin-top:3px">AT1&lt;85% + SBN z&gt;2 + disc&gt;35% → forced-sell spiral [B-P 2009]</div>
+        </div>\`;
+      })()}
+
+      \${(() => {
+        // Calvo (1988) — Self-fulfilling sovereign debt trap
+        const fkFlags = (ms['fiscal']?.flags ?? []);
+        const calvoSev    = fkFlags.find(f => f.startsWith('CALVO DEBT TRAP SEVERE'));
+        const calvoActive = fkFlags.find(f => f.startsWith('CALVO DEBT TRAP ACTIVE'));
+        const calvoWatch  = fkFlags.find(f => f.toLowerCase().startsWith('calvo debt trap watch'));
+        const calvoFlag   = calvoSev ?? calvoActive ?? calvoWatch;
+        const calvoCls    = calvoSev ? 'red' : calvoActive ? 'orange' : calvoWatch ? 'yellow' : 'green';
+        const calvoLbl    = calvoSev ? 'TRAP SEVERE' : calvoActive ? 'TRAP ACTIVE' : calvoWatch ? 'WATCH' : 'SUSTAINABLE';
+        const r   = sbnYield;
+        const g   = ind['gdp_growth_pct']?.value ?? null;
+        const def = ind['apbn_deficit_pct_gdp']?.value ?? null;
+        const INT_PCT_GDP = 2.53;
+        const pb  = def !== null ? +(INT_PCT_GDP - def).toFixed(2) : null;
+        const trap = r !== null && g !== null && pb !== null ? +(r - g - pb).toFixed(2) : null;
+        const trapCls = trap !== null && trap > 4 ? 'red' : trap !== null && trap > 2 ? 'orange' : trap !== null && trap > 0 ? 'yellow' : 'green';
+        const bdr = calvoSev ? 'var(--red)' : calvoActive ? 'var(--orange)' : calvoWatch ? 'var(--yellow)' : 'var(--border)';
+        return \`<div style="border:1px solid \${bdr};border-radius:4px;padding:8px">
+          <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Calvo Trap [M10]</div>
+          <div class="\${calvoCls}" style="font-size:11px;font-weight:700;margin:3px 0">\${calvoLbl}</div>
+          <div style="display:flex;flex-direction:column;gap:2px;margin-top:4px">
+            <div style="display:flex;justify-content:space-between;font-size:8px">
+              <span style="color:var(--muted)">r−g−pb (trap metric)</span>
+              <span class="\${trapCls}">\${trap !== null ? (trap > 0 ? '+' : '') + trap + 'pp' : '—'}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:8px">
+              <span style="color:var(--muted)">r (SBN 10Y)</span>
+              <span>\${r !== null ? r.toFixed(2) + '%' : '—'}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:8px">
+              <span style="color:var(--muted)">g (GDP) / deficit</span>
+              <span>\${g !== null ? g.toFixed(1) + '%' : '—'} / \${def !== null ? def.toFixed(2) + '%' : '—'}</span>
+            </div>
+          </div>
+          <div style="font-size:8px;color:var(--muted);margin-top:3px">r−g−pb&gt;0 → debt/GDP self-accelerating [Calvo 1988]</div>
+        </div>\`;
+      })()}
+
+      \${(() => {
+        // Obstfeld (1994/1996) — Escape Clause Pressure
+        const fxFlags = (ms['fx_defense']?.flags ?? []);
+        const obCrit  = fxFlags.find(f => f.startsWith('OBSTFELD ESCAPE CLAUSE CRITICAL'));
+        const obElev  = fxFlags.find(f => f.startsWith('OBSTFELD ESCAPE CLAUSE ELEVATED'));
+        const obWatch = fxFlags.find(f => f.toLowerCase().startsWith('obstfeld escape clause watch'));
+        const obCls   = obCrit ? 'red' : obElev ? 'orange' : obWatch ? 'yellow' : 'green';
+        const obLbl   = obCrit ? 'CRITICAL' : obElev ? 'ELEVATED' : obWatch ? 'WATCH' : 'STABLE';
+        const idrDev  = usdidr > 0 ? +(((usdidr - 16500) / 16500) * 100).toFixed(1) : 0;
+        const idrDevCls = idrDev > 15 ? 'red' : idrDev > 10 ? 'orange' : idrDev > 6 ? 'yellow' : 'green';
+        const def   = ind['apbn_deficit_pct_gdp']?.value ?? null;
+        const defCls = def !== null && def > 4.5 ? 'red' : def !== null && def > 4.0 ? 'orange' : 'green';
+        const srbiTrn = ind['srbi_outstanding_trn_idr']?.value ?? null;
+        const biR     = ind['bi_rate_pct']?.value ?? 5.75;
+        const srbiCostPct = srbiTrn !== null ? +(srbiTrn * (biR / 100) / 689 * 100).toFixed(1) : null;
+        const srbiCostCls = srbiCostPct !== null && srbiCostPct > 15 ? 'red' : srbiCostPct !== null && srbiCostPct > 10 ? 'orange' : 'green';
+        const bdr = obCrit ? 'var(--red)' : obElev ? 'var(--orange)' : obWatch ? 'var(--yellow)' : 'var(--border)';
+        return \`<div style="border:1px solid \${bdr};border-radius:4px;padding:8px">
+          <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Obstfeld Escape [M3]</div>
+          <div class="\${obCls}" style="font-size:11px;font-weight:700;margin:3px 0">\${obLbl}</div>
+          <div style="display:flex;flex-direction:column;gap:2px;margin-top:4px">
+            <div style="display:flex;justify-content:space-between;font-size:8px">
+              <span style="color:var(--muted)">IDR dev vs APBN</span>
+              <span class="\${idrDevCls}">\${usdidr > 0 ? '+' + idrDev + '%' : '—'}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:8px">
+              <span style="color:var(--muted)">APBN deficit</span>
+              <span class="\${defCls}">\${def !== null ? def.toFixed(2) + '% GDP' : '—'}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:8px">
+              <span style="color:var(--muted)">SRBI cost/APBN</span>
+              <span class="\${srbiCostCls}">\${srbiCostPct !== null ? srbiCostPct.toFixed(1) + '%' : '—'}</span>
+            </div>
+          </div>
+          <div style="font-size:8px;color:var(--muted);margin-top:3px">L=(y*−y)²+λ(e−ē)²: defense cost vs credibility [Obstfeld 1994]</div>
+        </div>\`;
+      })()}
+
+      \${(() => {
+        // Mundell-Fleming (1963) — Impossible Trinity
+        const m3s  = ms['fx_defense']?.score    ?? 0;
+        const m10s = ms['fiscal']?.score         ?? 0;
+        const m5s  = ms['foreign_flow']?.score   ?? 0;
+        const t1   = m3s  > 45;
+        const t2   = m10s > 65;
+        const t3   = m5s  > 60;
+        const itActive = t1 && t2 && t3;
+        const metCount = [t1, t2, t3].filter(Boolean).length;
+        const itCls = itActive ? 'red' : metCount >= 2 ? 'orange' : 'green';
+        const itLbl = itActive ? 'TRILEMMA ACTIVE' : metCount >= 2 ? 'WATCH (2/3)' : 'CLEAR';
+        const bdr   = itActive ? 'var(--red)' : metCount >= 2 ? 'var(--orange)' : 'var(--border)';
+        return \`<div style="border:1px solid \${bdr};border-radius:4px;padding:8px">
+          <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Impossible Trinity</div>
+          <div class="\${itCls}" style="font-size:11px;font-weight:700;margin:3px 0">\${itLbl}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;margin-top:4px">
+            <div style="text-align:center;border:1px solid var(--\${t1 ? 'red' : 'border'});border-radius:3px;padding:3px">
+              <div style="font-size:7px;color:var(--muted)">FX def M3</div>
+              <div style="font-size:9px;font-weight:700" class="\${t1 ? 'red' : 'green'}">\${m3s}</div>
+            </div>
+            <div style="text-align:center;border:1px solid var(--\${t2 ? 'orange' : 'border'});border-radius:3px;padding:3px">
+              <div style="font-size:7px;color:var(--muted)">Fiscal M10</div>
+              <div style="font-size:9px;font-weight:700" class="\${t2 ? 'orange' : 'green'}">\${m10s}</div>
+            </div>
+            <div style="text-align:center;border:1px solid var(--\${t3 ? 'orange' : 'border'});border-radius:3px;padding:3px">
+              <div style="font-size:7px;color:var(--muted)">Flow M5</div>
+              <div style="font-size:9px;font-weight:700" class="\${t3 ? 'orange' : 'green'}">\${m5s}</div>
+            </div>
+          </div>
+          <div style="font-size:8px;color:var(--muted);margin-top:3px">M3&gt;45+M10&gt;65+M5&gt;60 → one leg must give [Mundell 1963]</div>
+        </div>\`;
+      })()}
+
+    </div>
+
+    <div class="hist-note">GT Coverage ~100% · Bryant · Kreps · Morris-Shin · Barro-Gordon · PolEcon · Bayesian M6 · Spence/Cho-Kreps · Diamond-Dybvig · B-P Spiral · Calvo Trap · Obstfeld Escape · Impossible Trinity. Refresh every 120s.</div>
   \`;
 }
 
