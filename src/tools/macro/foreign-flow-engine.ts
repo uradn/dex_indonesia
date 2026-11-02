@@ -488,7 +488,7 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
       `P(downgrade) = ${(pDowngrade * 100).toFixed(0)}% | P(reversal) = ${(pReversal * 100).toFixed(0)}% ` +
       `[Thread 23: Kreps 1982 credible commitment — P(reversal) decreases as consultation progresses; consultation ${progressPct}% complete]. ` +
       `"expects to proceed" language = pre-decided; MSCI correction mechanism eliminates reversal incentive. ` +
-      `Passive forced-sell: $3-15B outflow estimates (Mirae $3B / Goldman $7.8-13B). ` +
+      `Passive forced-sell: $5.6B passive (Goldman Oct 19 note) + >$8B active discretionary; net foreign equity sell $4.9B YTD. ` +
       `Decision: Jun 30 2027 (T-${daysToNextMsciReview}d). Do NOT use MSCI reversal as a thesis kill switch. (+${msciScoreBump} score)`
     );
   } else if (msciStatus === 'confirmed' && daysToNextMsciReview > 0) {
