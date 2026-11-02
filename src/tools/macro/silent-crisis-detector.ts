@@ -200,11 +200,12 @@ export async function computeSilentCrisis(moduleScores: ModuleScore[]): Promise<
   //   corr(M10,M6)=0.65, corr(M6,M3)=0.55, corr(M3,M8)=0.50 → product=0.179
   // Max amplification: +8pp cap (conservative — live data may revise upward).
   // Module lookups used by both chain amplifier and synthetic stability score
-  const narrativeModule = moduleScores.find((m) => m.module === 'narrative');
-  const fxModule        = moduleScores.find((m) => m.module === 'fx_defense');
-  const politicalModule = moduleScores.find((m) => m.module === 'political_risk');
-  const fiscalModule    = moduleScores.find((m) => m.module === 'fiscal');
-  const bankingModule   = moduleScores.find((m) => m.module === 'banking');
+  const narrativeModule    = moduleScores.find((m) => m.module === 'narrative');
+  const fxModule           = moduleScores.find((m) => m.module === 'fx_defense');
+  const politicalModule    = moduleScores.find((m) => m.module === 'political_risk');
+  const fiscalModule       = moduleScores.find((m) => m.module === 'fiscal');
+  const bankingModule      = moduleScores.find((m) => m.module === 'banking');
+  const foreignFlowModule  = moduleScores.find((m) => m.module === 'foreign_flow');
 
   const chainActive =
     (fiscalModule?.score  ?? 0) >= 55 &&   // M10 STRAINED threshold
@@ -312,6 +313,19 @@ export async function computeSilentCrisis(moduleScores: ModuleScore[]): Promise<
   }
 
   if (silentCrisisProbability > 70) keyFlags.push('SYSTEMIC FRAGILITY: silent crisis probability critical — institutional positioning review warranted');
+
+  // Impossible Trinity conflict (Mundell 1963 / Fleming 1962)
+  // Cannot simultaneously maintain: free capital flows (M5) + IDR peg defense (M3) + independent monetary policy (M10).
+  // When all three legs are simultaneously stressed, one must give — typically IDR defense abandoned or capital controls imposed.
+  const impossibleTrinityActive =
+    (fxModule?.score        ?? 0) > 45 &&
+    (fiscalModule?.score    ?? 0) > 65 &&
+    (foreignFlowModule?.score ?? 0) > 60;
+  if (impossibleTrinityActive) {
+    keyFlags.push(
+      `IMPOSSIBLE TRINITY CONFLICT: M3 FX-defense ${fxModule?.score ?? 0}/100 + M10 fiscal ${fiscalModule?.score ?? 0}/100 + M5 foreign-flow ${foreignFlowModule?.score ?? 0}/100 all stressed simultaneously — cannot sustain free capital flows + IDR peg defense + independent monetary policy. One leg must give. [Mundell 1963, Fleming 1962]`,
+    );
+  }
 
   const narrative = buildNarrative({ silentCrisisProbability, syntheticStabilityScore, syntheticPhase, stressedCount, stressVectors, alertLevel });
 
