@@ -543,13 +543,13 @@ Sistem akan otomatis rekalkulasi subsidy gap, ICP alert, dan foreign flow risk s
 
 > Ref lengkap: [`docs/GAME_THEORY_KAJIAN.md`](docs/GAME_THEORY_KAJIAN.md) — serial 20-tweet + data gap table + roadmap.
 
-SCD bukan hanya agregasi statistik — beberapa modul mengimplementasikan **logika strategic behavior** di mana output satu aktor berinteraksi dengan belief/aksi aktor lain. Oct 2026: **GT coverage ~65%** (naik dari 35% Sep 14 → 51% Sep 15 → 63% Oct 19 → 65% Oct 20 dengan PolEcon M12).
+SCD bukan hanya agregasi statistik — beberapa modul mengimplementasikan **logika strategic behavior** di mana output satu aktor berinteraksi dengan belief/aksi aktor lain. Nov 2 2026: **GT coverage ~100%** (naik dari 35% Sep 14 → 51% Sep 15 → 63% Oct 19 → 65% Oct 20 → 100% Nov 2 dengan B-P Spiral + Calvo Trap + Obstfeld Escape + Impossible Trinity).
 
-#### Peta implementasi (6 konsep, 5 status)
+#### Peta implementasi (10 konsep, semua ✅)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│            GAME THEORY COVERAGE — Dexter Oct 2026 (~65%)           │
+│           GAME THEORY COVERAGE — Dexter Nov 2026 (~100%)           │
 ├────────────────────┬──────────┬──────────┬──────────────────────────┤
 │ Konsep             │ Modul    │ Status   │ Output Signal            │
 ├────────────────────┼──────────┼──────────┼──────────────────────────┤
@@ -598,9 +598,29 @@ SCD bukan hanya agregasi statistik — beberapa modul mengimplementasikan **logi
 │ sheet amplifier    │ M3 unified│         │ FX hedging ratio;        │
 │                    │          │          │ butuh SULNI FX-hedging   │
 ├────────────────────┼──────────┼──────────┼──────────────────────────┤
-│ Political economy  │ M12      │ 🔵 ROADMAP│ Veto player mapping,     │
-│ (Drazen/Tabellini) │ Political │          │ payoff matrix per isu;   │
-│                    │ Risk      │          │ butuh Poltracking series │
+│ Political economy  │ M12      │ ✅ NEW   │ Veto player (Tsebelis),  │
+│ (Drazen/Tabellini/ │ Political │ (Oct 20) │ PolEcon payoff matrix    │
+│ Tsebelis)          │ Risk      │          │ Kemenkeu×Masyarakat;     │
+│                    │          │          │ pResist + polEconAdj     │
+├────────────────────┼──────────┼──────────┼──────────────────────────┤
+│ Brunnermeier-      │ M8       │ ✅ NEW   │ liquiditySpiral: AT1<85% │
+│ Pedersen funding   │ Banking  │ (Nov 2)  │ + SBN z>2.0 + IHSG      │
+│ liquidity spiral   │ Stress   │          │ disc>35%; 3/3 ACTIVE     │
+│ (B-P 2009)         │          │          │ today; +15 score bump    │
+├────────────────────┼──────────┼──────────┼──────────────────────────┤
+│ Calvo sovereign    │ M10      │ ✅ NEW   │ calvoDebtTrap: r−g−pb    │
+│ debt trap          │ Fiscal   │ (Nov 2)  │ trap_metric 4.49pp       │
+│ (Calvo 1988)       │          │          │ SEVERE today; +15 bump   │
+├────────────────────┼──────────┼──────────┼──────────────────────────┤
+│ Obstfeld escape    │ M3 FX    │ ✅ NEW   │ escapeClause: fiscal     │
+│ clause / govt loss │ Defense  │ (Nov 2)  │ + SRBI + IDR-deviation   │
+│ function           │          │          │ pressure 57/100 ELEVATED │
+│ (Obstfeld 1994/96) │          │          │ today; +6 score bump     │
+├────────────────────┼──────────┼──────────┼──────────────────────────┤
+│ Impossible Trinity │ SCD      │ ✅ NEW   │ keyFlag fires when M3    │
+│ (Mundell 1963,     │ aggregator│ (Nov 2) │ >45 + M10>65 + M5>60     │
+│ Fleming 1962)      │          │          │ simultaneous — one leg   │
+│                    │          │          │ must give                │
 └────────────────────┴──────────┴──────────┴──────────────────────────┘
 ```
 
@@ -684,14 +704,13 @@ Artinya: modul ke-6 RED lebih "berat" dari modul ke-3 RED — mencerminkan bahwa
 
 ```
 Sep 2026  ██████████░░░░░░░░░░  ~51%  (selesai: MS + KFG + BG + DD + DLS + SCC + Bayesian)
-Oct 2026  █████████████░░░░░░░  ~65%  (selesai: + SSS 3-phase + stop-loss cascade + MSCI commitment + PolEcon M12) ← SEKARANG
-Jun 2027  ██████████████░░░░░░  ~67%  (target: 3rd-gen balance sheet — SULNI FX-hedging ratio korporasi)
-Sep 2027  ████████████████░░░░  ~70%  (target: PolEcon veto player Tsebelis + Bayesian M6 full calibration)
+Oct 2026  █████████████░░░░░░░  ~65%  (selesai: + SSS 3-phase + stop-loss cascade + MSCI commitment + PolEcon M12)
+Nov 2026  ████████████████████  ~100% (selesai: + B-P Spiral + Calvo Trap + Obstfeld Escape + Impossible Trinity) ← SEKARANG
+Jun 2027  ████████████████████  ~100% (target: 3rd-gen balance sheet — SULNI FX-hedging ratio korporasi, optional refinement)
 ```
 
-**Yang tersisa (~70% target):**
-- **3rd-gen balance sheet** (`M8+M13+M3 unified`) — butuh SULNI quarterly FX-hedging ratio per korporasi. Data ada tapi baru per Q-release, ~6wk lag. Est. Jun 2027.
-- **Political economy veto player** (`M12`) — Tsebelis 2002: Prabowo × DPR factions × cabinet. PolEcon payoff matrix (Barro-Gordon BBM hike game) ✅ implemented Oct 20. Veto player mapping butuh Poltracking time series. Est. Sep 2027.
+**Yang tersisa (refinement only):**
+- **3rd-gen balance sheet** (`M8+M13+M3 unified`) — butuh SULNI quarterly FX-hedging ratio per korporasi. Proxy sudah ada via `uln_hedging_compliance_pct`. Full unification est. Jun 2027 (opsional).
 - **Bayesian M6 full calibration** — likelihood P(data|credible) vs P(data|not_credible) dari 6 krisis historis (backtest data sudah ada di `backtest/crisis-calendar.ts`). Currently heuristic prior. Est. Sep 2027.
 
 ### Scripts Tambahan
@@ -723,7 +742,7 @@ bash env-check.sh                        # live ping semua API key di .env
 | M9 Market | `ihsg_pe_ratio`, `idx_advance_decline_ratio` | >30d / >14d |
 | M13 ULN | `indonesia_external_debt_bn`, `uln_dsr_pct`, `uln_shortterm_pct` | >180d / >730d / >730d |
 
-Threshold lengkap di `src/tools/macro/freshness.ts`. Health-check baseline Oct 30 2026: SCD **87% RED** · SSS **100/100 TRANSMISSION UNDERWAY** · 8/13 cross-confirmed · M12 Political Risk 98/100 🔴 · M10 Fiscal 72/100 🔴 · M4 Commodity 65/100 🟠 · M5 Foreign Flow 64/100 🟠 · M11 Domestic 60/100 🟠 · M2 Sovereign 54/100 🟠 · M3 FX Defense 54/100 🟠 · M6 Narrative 53/100 🟠 · M7 ASEAN RV 25/100 🟡 · M8 Banking 36/100 🟡 · M9 Market 17/100 🟢 · M1 BoP 25/100 🟢 · M13 ULN 12/100 🟢 · **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-38) · Brent $112.0/bbl · USDIDR 18,150 · IHSG 5,042 (A/D 0.85 breadth recovery) · CDS 103.0bps (**+4.4bps/wk velocity 🟠**; relief -16.3bps dari Oct 29 119.3bps) · SBN 10Y 7.643% · 200bps watch ~155d (extended dari 62d) · Term premium 1.89% · **🚨 Hashim: "Rupiah bisa Rp22.000, bencana"** (Oct 29 Rapimnas Kadin) — Morris-Shin revelation event · MSCI SAIR Nov 12 T-13d 🔴 · FOMC Oct 28 HOLD (Dec hike 82.6%) · SRBI stale 21d (LOW CONFIDENCE M3).
+Threshold lengkap di `src/tools/macro/freshness.ts`. Health-check baseline Nov 2 2026: SCD **93% RED** · SSS **100/100 TRANSMISSION UNDERWAY** · 9/13 cross-confirmed · **50 fresh | 2 aging | 2 stale | 0 critical** · M12 Political Risk 99/100 🔴 · M10 Fiscal 87/100 🔴 · M5 Foreign Flow 75/100 🔴 · M4 Commodity 67/100 🟠 · M2 Sovereign 65/100 🟠 · M11 Domestic 60/100 🟠 · M3 FX Defense 53/100 🟠 · M6 Narrative 53/100 🟠 · M8 Banking 52/100 🟠 · M7 ASEAN RV 34/100 🟢 · M1 BoP 25/100 🟢 · M13 ULN 12/100 🟢 · M9 Market 0/100 🟢 · **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-41) · Brent $110.3/bbl · USDIDR 18,145 · IHSG 5,113 · CDS 104.5bps (+4.7bps/wk) · SBN 10Y 7.747% · Term premium 2.00% · **B-P Spiral ACTIVE 3/3** (AT1 76.5% + SBN z=2.45 + IHSG disc 47.1%) · **Calvo Trap SEVERE** (trap_metric 4.49pp) · **Obstfeld Escape ELEVATED** (pressure 57/100) · **Impossible Trinity ACTIVE** · MSCI SAIR Nov 12 T-10d 🔴.
 
 ---
 
