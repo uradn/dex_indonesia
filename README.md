@@ -173,13 +173,25 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 >
 > **Issues MSCI:** (1) Opaque shareholding structures, (2) Suspected coordinated trading behavior, (3) Lack of enforcement — despite announced reforms (1% disclosure, HSC reporting, 15% free float roadmap), market participants see no evidence of sustained impact.
 >
-> **Capital outflow at risk:** Mirae $3B (konservatif) | Goldman Sachs **$7.8–13B** | analis upper bound **~$15B** — vs May 2026 rebalancing $1.8B = **4–7× lebih besar.**
+> **Capital outflow at risk:** Mirae $3B (konservatif) | Goldman Sachs **$5.6B passive + >$8B active discretionary** (Oct 19 note) | Samuel Sekuritas **$5.8–7.3B** (Rp105–132T) — vs May 2026 rebalancing $1.8B = **3–4× lebih besar.** Net foreign equity sell YTD Nov 2: **Rp97.92T (~$5.4B)** per OJK/PiQ.
 >
 > **Bangkok Context (Oct 13, 2 hari sebelum):** Danantara menggelar roundtable di Bangkok mempertemukan Kemenkeu + BI + OJK + BEI + MSCI + Moody's + Fitch + S&P + JPM + investor global. MSCI hadir, ajukan pertanyaan seputar policy enforcement — tapi **tidak ada sinyal reclassification**. BEI: *"tidak ada pembahasan downgrade di Bangkok"*. Direktur BEI Iding Pardi menyatakan **kaget** (no advance signal). Implikasi: keputusan MSCI sudah bulat **sebelum Bangkok** — pertemuan itu irrelevant terhadap outcome. Indonesia gagal meyakinkan.
 >
 > **Timing anomaly:** MSCI majukan pengumuman ke luar jadwal (out-of-cycle, sebelum November Index Review). Ini sinyal severity — MSCI tidak mau tunggu November; situasi dianggap cukup buruk untuk act now.
 >
 > **Precedents:** Russia 2022 (EM→Standalone, geopolitik/sanksi), Argentina 2021 (EM→Standalone, capital controls). Indonesia = **satu-satunya** yang EM→Standalone karena market integrity/governance — tanpa geopolitik, tanpa capital controls.
+>
+> **Eskalasi MSCI 2026:**
+>
+> | Tanggal | Event |
+> |---|---|
+> | **Jan 2026** | MSCI freeze semua saham Indonesia; Frontier downgrade warning; "fundamental investability concerns" |
+> | **Jun 23 2026** | MSCI extend review ke November; *"profound investability concern"* — opaque ownership + coordinated trading |
+> | **Oct 13 2026** | Danantara Bangkok roundtable (Kemenkeu+BI+OJK+IDX+MSCI) — MSCI hadir, **tidak ada sinyal** reclassification; BEI *"kaget"* |
+> | **Oct 15 2026** | **Standalone consultation launched (out-of-cycle)** — bypass Frontier, langsung 2 level turun; severity signal |
+> | **Oct 16–19** | Deepest-ever 2-day selloff; circuit breaker Oct 16 (−11.25%); IHSG 4,918 intraday Oct 19 |
+> | **Oct 26** | IDX reforms: 80 saham high-concentration dikeluarkan dari indeks efektif Nov 2; buyback tanpa RUPS diperpanjang Jun 2027 |
+> | **Nov 1–2** | Bloomberg **"Wash Trades and 5,000% Gains"** + Nikkei **"Political Maneuvers Hinder Market Reforms"** — media global konfirmasi wash trade scandal: PT Abadi +5,000% (Samuel Sekuritas >50% volume); total OJK fines **Rp2.1T** (>12 entitas); IHSG **−41.52% YTD** (worst major index globally) |
 >
 > **Timeline:** Consultation open until Apr 30 2027 → final decision Jun 30 2027 → implementation ~Sep-Dec 2027. MSCI language: *"expects to proceed unless consultation identifies clear evidence of material improvements"* = essentially pre-decided.
 >
@@ -411,6 +423,8 @@ Bahlil bilang $77 (April) → ICP $107 live (Sep 15). APBN pasang $70. Empat ang
 | **Oct 27 2026** | **SCD 93% 🔴 RED** (8/13 cross-confirmed) — LOMPATAN DARI 57%; SSS **100/100 TRANSMISSION UNDERWAY**; CDS **107.7bps** (velocity +4.2bps/wk); SBN 10Y **7.454%**; USDIDR **18,145**; **🚨 DNDF 1M ZERO BIDS** di 18,199 — forward anchor BI gagal, NDF offshore 18,210; Morris-Shin ALERT aktif; MSCI SAIR Nov 12 T-16d; **Thesis #14 hari ke-35** |
 | **Oct 28 2026** | **FOMC ✅ HOLD 10-2** — Fed funds tetap 3.75–4.00%; dissenter Cook + Hammack mau hike; Dec hike odds naik **82.6%**; hawkish hold; **Demo Sumpah Pemuda** — 53 elemen Bundaran HI/Monas/DPR; BEM UI + Komite Sadar tema *"Tepati atau Pergi"*; three-finger salute; spanduk "Prabowo-Gibran Gagal Total" |
 | **Oct 29 2026** | **SCD 89% 🔴 RED** | CDS **119.3bps** (+11.6 dari Oct 27) — velocity **+9.2bps/wk 🔴** (doubled); SBN **7.706%** (SBN auction bids ↓52%, yield 4-year high); **200bps watch ~62d** (dari 154d); IHSG **5,098** (−3.49%) A/D **0.04** near collapse; **61 titik demo** Jakarta (BEM SI, Trisakti, Ojol, UMKM, Serikat Buruh); **🚨 HASHIM DJOJOHADIKUSUMO** (adik Presiden): *"Rupiah bisa Rp22.000, bencana"* — M6/M12 revelation event; **💣 PANDU SJAHRIR (Danantara CIO)** co-owns PT Supra Sekuritas (broker OJK-sanksi manipulasi, "SS") — Bloomberg investigasi; MSCI reform defense credibility COLLAPSE; Thesis #14 hari ke-37 |
+| **Oct 30–31 2026** | **SCD 87–90% 🔴 RED**; M12 **100/100** (single-pass fix); CDS **103–104.5bps** (technical relief −16bps dari 119.3bps); SBN **7.643–7.747%**; A/D **0.85** (breadth recovery); IHSG **5,042–5,113**; Brent **$112.0–112.3**; **Thesis #14 hari ke-38–41** (CDS velocity +4.4bps/wk, USDIDR 18,145) |
+| **Nov 1–2 2026** | **Bloomberg** *"Wash Trades and 5,000% Gains"* (Suhartono/Wirayani) + **Nikkei** *"Political Maneuvers Hinder Market Reforms"* (Kawasaki) terbit bersamaan — konfirmasi global wash trade scandal: PT **Abadi** +**5,000%** ~7 minggu; **Samuel Sekuritas** handle >50% volume; research note prediksi 50,000% terbit 2 hari sebelum MSCI "investability concerns" Jan 2026; OJK fines total **Rp2.1T** (>12 entitas); IHSG Oct 30 close **5,057** (−7.03% weekly, **−41.52% YTD** — worst major index globally); Market cap IDX **Rp8,862T** (−7.52%); Foreign net sell YTD **Rp97.92T** (~$5.4B); Hashim (forum bisnis, Destry Damayanti hadir): *"hentikan gorengan segera"* di depan Bakrie + Widjaja; **Prabowo sebelumnya (Oct)**: *"MSCI coba intimidasi Indonesia — kita tidak takut"* — sinyal kontradiktif dari satu pemerintah; **SCD 93% RED** (Nov 2 morning check, 9/13 cross-confirmed, hari ke-41 Thesis #14) |
 
 **Dampak global:**
 
