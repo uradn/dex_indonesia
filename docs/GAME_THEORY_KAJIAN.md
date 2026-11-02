@@ -712,4 +712,422 @@ policy_response_tracker (new M3/SCD component):
 
 ---
 
-*Dokumen: docs/GAME_THEORY_KAJIAN.md | Generated: Sep 14 2026 | Updated: Sep 16 2026 (P1+P2+P3 implemented, 35%→51%) | Updated: Oct 1 2026 (Gap A-D dirancang dari Chatib Basri; semua A-D implemented same day) | **Updated: Oct 19 2026 (SSS 3-phase fix + stop-loss cascade + MSCI commitment game; coverage 51%→~63%; milestone Sep 2027 tercapai 11 bulan lebih awal)** | Victor @ Sadasa Intelligence*
+*Dokumen: docs/GAME_THEORY_KAJIAN.md | Generated: Sep 14 2026 | Updated: Sep 16 2026 (P1+P2+P3 implemented, 35%→51%) | Updated: Oct 1 2026 (Gap A-D dirancang dari Chatib Basri; semua A-D implemented same day) | Updated: Oct 19 2026 (SSS 3-phase fix + stop-loss cascade + MSCI commitment game; coverage 51%→~63%; milestone Sep 2027 tercapai 11 bulan lebih awal) | **Updated: Nov 2 2026 (Brunnermeier-Pedersen spiral + Obstfeld escape clause + Calvo debt trap; tiga gap baru teridentifikasi; references section added; semua paper citations diverifikasi)** | Victor @ Sadasa Intelligence*
+
+---
+
+---
+
+## BAGIAN 5: Nov 2 2026 — Tiga Gap Baru: Spiral, Escape Clause, Debt Trap
+
+> **Context Nov 2 2026:** SCD 78% RED | Synthetic 100/100 TRANSMISSION UNDERWAY | 7/13 cross-confirmed.
+> HIMBARA AT1 secondary 76.5% par. SBN 10Y z-score 2.59. IHSG P/E discount vs Thailand 47.1%.
+> r−g = +2.35pp. Primary deficit ~−1.7% GDP. CDS 5Y 104.5bps. USDIDR 18,145. MSCI SAIR Nov 12 T-10d.
+>
+> **Tiga gap baru teridentifikasi:**
+> 1. Brunnermeier-Pedersen (2009) Liquidity Spiral — M8+M9 INTERACTION (semua 3 kondisi fired hari ini)
+> 2. Obstfeld (1996) Escape Clause (government side) — M3 (government loss function belum ada; Morris-Shin hanya model sisi spekulan)
+> 3. Calvo (1988) Sovereign Debt Trap — M10/M13 (r-g flag sudah ada; trap mechanism self-fulfilling belum eksplisit)
+
+---
+
+### Thread 29/31 — Brunnermeier-Pedersen (2009): Liquidity Spiral
+
+**Paper:** Brunnermeier, M. K., and Pedersen, L. H. (2009). "Market Liquidity and Funding Liquidity." *Review of Financial Studies*, 22(6), 2201–2238.
+
+**Core mechanism:**
+
+Market liquidity (kemampuan trade aset tanpa price impact besar) dan funding liquidity (kemampuan fund positions) saling berinteraksi dalam dua feedback loop:
+
+**Loss spiral:** asset price ↓ → mark-to-market loss → equity capital berkurang → forced reduce positions → lebih banyak selling → asset price ↓ further.
+
+**Margin spiral:** asset price ↓ → haircut/margin requirement naik → equity yang sama support fewer positions → forced deleveraging → more selling → asset price ↓ more.
+
+Kedua spiral bisa berjalan bersamaan dan saling memperkuat.
+
+**Tiga kondisi trigger (semua fired Nov 2 2026):**
+
+| Kondisi | Threshold | Status Nov 2 | Nilai |
+|---|---|---|---|
+| Funding liquidity stress (AT1 secondary) | < 85% par | 🔴 FIRED | 76.5% par |
+| Mark-to-market loss signal (SBN 10Y z-score) | z > 2.0 | 🔴 FIRED | z = 2.59 |
+| Market liquidity thinning (IHSG P/E discount vs peers) | discount > 35% | 🔴 FIRED | −47.1% vs Thailand |
+
+**Kenapa tiga kondisi ini maps ke spiral mechanism:**
+
+1. **AT1 76.5% par** — HIMBARA AT1 bond di secondary market diprice 23.5pp di bawah par. Bond desks mengantisipasi loss-absorption event. Ini adalah *funding liquidity stress*: investor tidak mau fund bank capital instrument at par → bank cost of capital naik → bank mulai reduce loan growth → credit contraction. Analogous ke Brunnermeier-Pedersen "haircut rises" condition.
+
+2. **SBN 10Y z=2.59** — Bank Indonesia hold ~20% assets di SBN domestik. Yield rise dari baseline → mark-to-market loss. Estimasi kasar: 6yr duration × 20% SBN/assets × 0.75pp yield rise dari neutral = ~0.9pp CAR erosion. Melampaui 0.8pp threshold yang sudah ada di M8. *Loss spiral precondition* terpenuhi.
+
+3. **IHSG P/E 47.1% discount vs Thailand (7.5x vs 14.1x)** — Bid-ask spreads elevated: foreign mandate exiting (MSCI consultation), domestic buying power terbatas. *Market liquidity thinning* — Brunnermeier-Pedersen: ketika market liquidity menipis, funded traders tidak bisa offload positions tanpa large price impact → mereka reduce exposures pre-emptively → liquidity thins further → feedback loop.
+
+**Gap di Dexter sekarang:**
+
+M8 dan M9 score komponen ini secara terpisah. AT1 = M8 banking signal. SBN z-score = M2 sovereign. IHSG discount = M7 ASEAN RV / M9 market. Tidak ada fungsi yang mendeteksi **simultaneous firing** = spiral activation.
+
+**Implementasi yang dibutuhkan:**
+
+```typescript
+// Kandidat lokasi: banking-stress-engine.ts atau scd-aggregator
+function detectLiquiditySpiral(
+  at1SecondaryPct: number,              // % of par; source: HIMBARA_AT1_SECONDARY_PCT env
+  sbnYieldZScore: number,               // z-score SBN 10Y; source: M2 sovereign engine
+  ihsgPeDiscountVsPeersPct: number,     // absolute % discount (positif = IHSG lebih murah)
+): { active: boolean; score: number; detail: string } {
+  const cond1 = at1SecondaryPct < 85;           // funding liquidity stress
+  const cond2 = sbnYieldZScore > 2.0;           // mark-to-market loss signal
+  const cond3 = ihsgPeDiscountVsPeersPct > 35;  // market liquidity thinning
+  const active = cond1 && cond2 && cond3;
+  const score = active ? 15 : 0;                // +15 to M8 when spiral fires
+  const detail = `Brunnermeier-Pedersen spiral: AT1=${at1SecondaryPct}% par / SBN z=${sbnYieldZScore.toFixed(2)} / IHSG discount=${ihsgPeDiscountVsPeersPct.toFixed(1)}%`;
+  return { active, score, detail };
+}
+// Nov 2 2026 result: active=true, score=+15
+```
+
+**Flag morning check:** `⚠ LIQUIDITY SPIRAL ACTIVE (Brunnermeier-Pedersen 2009): semua 3 kondisi fired — AT1 76.5%/SBN z=2.59/IHSG disc 47.1%.`
+
+**Data sources (semua sudah tersedia):**
+- AT1: `HIMBARA_AT1_SECONDARY_PCT` env var (sudah ada di .env)
+- SBN z-score: dihitung di M2 sovereign engine dari `sbn_10y_yield_pct` DB
+- IHSG discount: dihitung di M7 ASEAN RV dari Yahoo Finance P/E comparison
+
+**Status:** ⏳ **GAP TERBUKA.** Effort: 1–2 hari. Semua input sudah tersedia.
+
+---
+
+*[ILUSTRASI 29: Diagram dua loop paralel — "Loss Spiral" kiri (SBN yield↑ → bank MTM loss → CAR erosion → reduce lending → SBN demand turun → yield↑). "Margin Spiral" kanan (AT1 ↓ → bank cost of capital↑ → reduce assets → more selling → AT1 ↓). Di tengah: "Market Liquidity" (IHSG discount) sebagai amplifier kedua spiral. Tiga kondisi Nov 2 2026 semua ditandai merah.]*
+
+---
+
+### Thread 30/31 — Obstfeld (1994, 1996): Escape Clause dan Government Loss Function
+
+**Papers:**
+- Obstfeld, M. (1994). "The Logic of Currency Crises." *Cahiers Économiques et Monétaires* (Banque de France), 43, 189–213.
+- Obstfeld, M. (1996). "Models of Currency Crises with Self-Fulfilling Features." *European Economic Review*, 40(3–5), 1037–1047.
+
+**Relasi ke yang sudah ada:**
+
+Morris & Shin (1998) yang sudah diimplementasikan di M3 models **sisi spekulan** — kapan attack jadi profitable (DC > AC threshold, signal precision, Confidence Gate). Obstfeld (1994, 1996) models **sisi pemerintah** — kapan pemerintah/BI *memilih* menyerah vs defend. Keduanya complementary, tapi M3 sekarang hanya punya sisi Morris-Shin. Ini adalah *half the picture*.
+
+**Government loss function (Obstfeld):**
+
+```
+L = (y* − y)² + λ · (e − ē)²
+```
+
+- `y* − y` = output gap = cost of defending (tight monetary policy / rate hike → growth loss)
+- `e − ē` = exchange rate deviation dari implicit target = cost of abandoning peg
+- `λ` = policymaker weight pada exchange rate stability vs employment/output
+
+Pemerintah defend jika: `L(defend) < L(abandon)`
+
+**Multiple equilibria zone:** ketika fiscal stress memaksa BI maintain SRBI cost tinggi dan rate elevated → `y* − y` naik → `L(defend)` naik → pada titik tertentu, abandon menjadi lebih murah dari defend — bahkan *sebelum* cadangan habis. Ini adalah escape clause: pemerintah rasional pilih deviate dari managed float.
+
+**Self-reinforcing mechanism:** Market expektasikan BI akan abandon (karena L(defend) tinggi) → attack expected return naik → DC-AC gap menipis (Morris-Shin signal precision turun) → BI menghadapi lebih banyak tekanan → abandon makin mahal untuk ditolak → ekspektasi terkonfirmasi. Circular logic = multiple equilibria.
+
+**Current parameter estimates (Nov 2 2026):**
+
+| Parameter | Nilai | Sumber |
+|---|---|---|
+| BI Rate | 5.75% | BI RDG Jul 2026 |
+| Neutral rate (proxy) | 4.5% | CLAUDE.md constant |
+| SRBI sterilization cost | Rp52T/yr (~0.20% GDP) | M10 morning check |
+| USDIDR aktual | 18,145 | M3 morning check |
+| USDIDR APBN baseline | 16,500 | APBN 2026 |
+| IDR deviation dari baseline | +9.97% | derived: (18145−16500)/16500 |
+| M10 fiscal stress | 72/100 | morning check Nov 2 |
+
+**Gap teridentifikasi:**
+
+M3 sekarang model *vulnerability* (Morris-Shin: DC−AC gap, Confidence Gate, net score +15 = VULNERABILITY ZONE). Tapi tidak model:
+
+1. BI's kalkulasi biaya defend vs abandon secara eksplisit — L(defend) vs L(abandon)
+2. Bagaimana kenaikan M10 fiscal stress **menaikkan** L(defend) secara real-time → abandon relatif lebih murah dari sebelumnya
+3. **Escape clause probability** sebagai fungsi dari fiscal stress + sterilization cost + IDR deviation
+
+**Escape clause pressure score (proxy):**
+
+```typescript
+function escapeClausePressure(
+  fiscalStressScore: number,       // M10 0–100
+  srbiCostTrn: number,             // Rp triliun/tahun
+  idrDeviationPct: number,         // % di atas APBN 16,500 target
+): number {  // output: 0–15 tambahan ke M3 score
+  // Pressure rises when fiscal cost of defending increases
+  const fiscalP = Math.max(0, (fiscalStressScore - 55) / 45);  // 0 at M10=55, 1 at M10=100
+  const srbiP   = Math.max(0, (srbiCostTrn - 30) / 40);       // 0 at 30T, 1 at 70T
+  const idrP    = Math.max(0, (idrDeviationPct - 5) / 15);    // 0 at +5%, 1 at +20%
+  const combined = (fiscalP + srbiP + idrP) / 3;
+  return Math.round(combined * 15);
+}
+// Nov 2 2026:
+//   fiscalP = (72−55)/45 = 0.378
+//   srbiP   = (52−30)/40 = 0.550
+//   idrP    = (9.97−5)/15 = 0.331
+//   combined = 0.420 → escapeClausePressure = +6 pts to M3
+```
+
+**Perbedaan mendasar Morris-Shin vs Obstfeld:**
+- Morris-Shin: *given* BI akan defend, kapan spekulan koordinasi serangan? → attack threshold, signal precision
+- Obstfeld escape clause: apakah BI *akan* defend sama sekali, atau pilih menyerah demi menghindari growth cost? → government decision node
+
+Keduanya harus dimodel bersama untuk full early warning. Sekarang M3 hanya punya *attacker's decision*, tidak punya *defender's decision*.
+
+**Status:** ⏳ **GAP TERBUKA.** Effort: 2–3 hari. Cross-feeds dari M10 fiscal stress score (tersedia di `macro_scores` DB setelah setiap run).
+
+---
+
+*[ILUSTRASI 30: Decision tree dua level — Level 1 (Morris-Shin, sudah ada): "Spekulan: apakah attack profitable?" — DC vs AC comparison, Confidence Gate. Level 2 (BARU, Obstfeld): "BI: apakah defend worth it?" — L(defend) vs L(abandon), escape clause threshold. Current state: Level 1 = VULNERABILITY ZONE (net DC-AC +15) + Level 2 = escape clause pressure +6 (M10=72, SRBI=52T). Caption: "Morris-Shin models attacker; Obstfeld models defender — Dexter sekarang hanya punya setengah."]*
+
+---
+
+### Thread 31/31 — Calvo (1988): Sovereign Debt Trap
+
+**Paper:** Calvo, G. A. (1988). "Servicing the Public Debt: The Role of Expectations." *American Economic Review*, 78(4), 647–661.
+
+**Core mechanism:**
+
+Multiple perfect-foresight equilibria di sovereign debt market. Model menunjukkan bahwa *ekspektasi investor saja* dapat menjadi self-fulfilling:
+
+- **Good equilibrium:** investor ekspektasikan pemerintah solvent → yields rendah → debt service rendah → primary surplus cukup → tidak default → yields tetap rendah → ekspektasi terkonfirmasi.
+- **Bad equilibrium:** investor ekspektasikan default risk → demand high yield → yields tinggi → debt service tinggi → fiscal space habis → default risk naik → yields naik lagi → ekspektasi terkonfirmasi.
+
+Kedua equilibria bisa eksis secara simultan ketika fundamentals berada di *zona kritis* — investor beliefs menentukan equilibrium mana yang terealisasi.
+
+**Trap condition (formal):**
+
+```
+Δ(debt/GDP) = (r − g) × (debt/GDP) − primary_surplus/GDP
+
+Trap aktif ketika: (r − g) > primary_surplus / (debt/GDP)
+
+Simplifikasi untuk monitoring:
+trap_metric = (r − g) − (primary_balance / GDP)
+  > 0 → debt ratio expanding secara mekanis
+```
+
+**Calvo trap berbeda dari r-g flag yang sudah ada di M13:**
+
+| Aspek | r-g adverse flag (existing M13) | Calvo debt trap (gap) |
+|---|---|---|
+| Yang dimodel | Debt trend mechanic | Self-fulfilling expectations |
+| Mekanisme | r > g → debt/GDP naik | Beliefs → yields → solvency → beliefs |
+| Multiple equilibria | Tidak | Ya — dua equilibria bisa eksis |
+| Trigger | Fundamental (interest vs growth) | Expectations shift (sunspot event) |
+| Policy implication | Structural fiscal reform | Credible commitment + anchor |
+
+**Current Indonesia calculation (Nov 2 2026):**
+
+| Parameter | Nilai | Sumber |
+|---|---|---|
+| SBN 10Y yield (r) | 7.64% | M2 morning check (SBN 10Y = 7.747%; r dibulatkan ke 7.64% per M13) |
+| GDP growth (g) | 5.3% | M0, BPS Q3 2026 est. |
+| r − g | **+2.35pp** | Adverse — sudah diflag di M13 |
+| Primary balance / GDP | **−1.70%** (estimasi) | M10: deficit 4.23% GDP − interest payments ~2.5% GDP |
+| Debt / GDP | ~40% | World Bank, konsisten dengan APBN 2026 data |
+
+**Trap metric:**
+```
+trap_metric = (r − g) − (primary_balance / GDP)
+            = 2.35% − (−1.70%)
+            = +4.05pp   →  TRAP CONDITION ACTIVE
+
+Annual mechanical debt/GDP expansion:
+  = trap_metric × debt_ratio / 100
+  = 4.05% × 40% = 1.62% GDP per tahun
+
+Tanpa perubahan fiskal, Indonesia debt/GDP naik ~1.6% GDP/tahun secara mekanis.
+```
+
+**Catatan penting:**
+Primary balance −1.70% adalah *estimasi proxy*: APBN deficit 4.23% GDP dikurangi estimated interest payments. Angka ini perlu verifikasi dari APBN Kita terbaru (Kemenkeu quarterly release). Implementasi harus pakai proxy dulu sampai ada sumber resmi per-quarter.
+
+**Implementasi:**
+
+```typescript
+function calvoDebtTrap(
+  sbn10yYield: number,           // % annual; source: sbn_10y_yield_pct DB
+  gdpGrowth: number,             // % annual; source: gdp_growth_pct DB
+  primaryBalanceGdpPct: number,  // negatif = deficit (e.g. −1.7 untuk deficit 1.7% GDP)
+  debtGdpRatioPct: number = 40,  // Indonesia est. ~40%; update saat data baru
+): { active: boolean; metric: number; annualExpansionGdpPct: number } {
+  const rMinusG = sbn10yYield - gdpGrowth;
+  const metric = rMinusG - primaryBalanceGdpPct;       // positif = trap active
+  const active = metric > 1.0;  // threshold: 1pp margin above zero
+  const annualExpansionGdpPct = active ? (metric * debtGdpRatioPct / 100) : 0;
+  return { active, metric, annualExpansionGdpPct };
+}
+// Nov 2 2026: metric=4.05, active=true, annualExpansion=1.62% GDP/yr
+```
+
+**Flag di morning check M10 dan M13:**
+```
+⚠ CALVO DEBT TRAP ACTIVE (Calvo 1988): r−g = +2.35pp, primary deficit ≈ 1.70% GDP
+   → trap metric = +4.05pp
+   → mechanical debt/GDP expansion: ~1.62% GDP/yr without additional spending
+   [Distinct from r-g flag: Calvo adds self-fulfilling expectations dimension —
+    investor belief shift alone can trigger yield spiral even before fundamentals deteriorate further]
+```
+
+**Effort:** Low — 1 hari. SBN 10Y dan GDP growth sudah ada di DB. Primary balance perlu proxy dari M10 engine output (deficit percentage − estimated interest ratio). Tidak butuh data source baru.
+
+**Status:** ⏳ **GAP TERBUKA.** r-g adverse sudah ada di M13; Calvo trap = satu fungsi baru + cross-integration M10 primary balance estimate.
+
+---
+
+*[ILUSTRASI 31: Dua-equilibria diagram — "Good equilibrium" lingkaran kiri (yield rendah → debt service ok → no default → yield rendah). "Bad equilibrium" lingkaran kanan (yield tinggi → debt service jebol → default risk → yield lebih tinggi). Di tengah: "Nov 2 2026 Indonesia — trap metric 4.05pp" dengan arrow condong ke bad equilibrium zone. Sub-diagram: formula Δ(debt/GDP) dengan nilai aktual dimasukkan. Caption: "Berbeda dari r-g flag: Calvo memodelkan bagaimana ekspektasi saja bisa trigger spiral."]*
+
+---
+
+## Gap Deferred — Dua Model Belum Waktunya
+
+### Abreu-Brunnermeier (2003): Synchronization Cascade — M5
+
+**Papers:**
+- Abreu, D., and Brunnermeier, M. K. (2002). "Synchronization Risk and Delayed Arbitrage." *Journal of Financial Economics*, 66(2–3), 341–360.
+- Abreu, D., and Brunnermeier, M. K. (2003). "Bubbles and Crashes." *Econometrica*, 71(1), 173–204.
+
+**Core mechanism:** Rational arbitrageurs tahu pasar akan crash — tapi tidak bisa observe kapan orang lain mulai sell. Masing-masing memiliki insentif untuk delay sell (ride trend terakhir). Cascade fires ketika cumulative sellers ≥ κ (critical mass). Timing: crash terjadi dalam window [t₀, t₀+η] bukan di satu titik. Semakin sempit η (window uncertainty), semakin predictable cascade timing.
+
+**Aplikasi M5/MSCI:** Setiap EM fund manager tahu Standalone downgrade akan happen (P=86% per model). Mereka mau sell SETELAH riding rally terakhir, tapi SEBELUM yang lain sell. Cascade window = T-45d ke T-0 dari MSCI final decision. MSCI Nov 12 SAIR akan mempersempit η jika Standalone parameters dikonfirmasi.
+
+**Kenapa defer sekarang:** T = T-240d dari Jun 30 2027 (final decision). Cascade risk tidak acute sampai T-90d (~Mar 2027). Tapi: setelah Nov 12 SAIR, perlu update η berdasarkan confirmation level.
+
+**Action item post-Nov 12:** Jika SAIR Nov 12 konfirmasi Standalone parameters → update `MSCI_REVIEW_DATE` ke Jun 30 2027 → set reminder implement A-B logic di T-90d (~Apr 2027). Cascade window = T-45d = mid-May 2027.
+
+---
+
+### Mundell-Fleming Impossible Trinity Flag — Cross-Module Warning
+
+**Framework:** Mundell (1963) / Fleming (1962) trilemma — tidak bisa ada tiga sekaligus:
+1. Capital account openness (dibutuhkan untuk SBN foreign funding)
+2. Managed exchange rate (dibutuhkan untuk import cost + subsidi predictability)
+3. Independent monetary policy (dibutuhkan untuk inflation targeting)
+
+BI sekarang mempertahankan (2) partial + (3) → sacrificing (1) increasingly (NDF cost naik, cadev tergerus). Setiap kenaikan M10 fiscal stress → more SBN yang harus dijual ke asing → butuh (1) terbuka → tapi IDR stabilization → butuh (2) → tapi BI Rate elevated → (3) active → trilemma binding.
+
+**Implementasi:** Bukan scoring model — cukup cross-module warning flag di morning check:
+```
+if (M10 > 65 AND M3 > 45 AND M5 > 60):
+  flag: "⚠ MUNDELL-FLEMING TRILEMMA BINDING: fiscal stress (M10=X) + FX defense (M3=Y) + capital flow (M5=Z) — impossible trinity constraint active. Non-linear risk elevated."
+```
+
+Nov 2 2026: kondisi MET (M10=72, M3=47, M5=75). **Effort: 2 jam. Quick win.**
+
+---
+
+## Coverage Update — Nov 2 2026
+
+| Implementasi | Status | Modul | GT Basis | Paper |
+|---|---|---|---|---|
+| Morris-Shin 2nd-gen (attack side) | ✅ Sep 14 | M3 FX Defense | Currency attack coordination | Morris & Shin (1998) *AER* 88(3):587 |
+| Krugman/Flood-Garber 1st-gen | ✅ Sep 14 | M3 FX Defense | Shadow exchange rate, BOP crisis | Krugman (1979) *JMCB* 11(3):311; Flood & Garber (1984) *JIE* 17:1 |
+| Barro-Gordon time inconsistency | ✅ Sep 15 | M10 Fiscal | Commitment vs discretion | Barro & Gordon (1983) *JME* 12(1):101 |
+| Diamond-Dybvig bank run | ✅ Sep 15 | M8 Banking | Bank run coordination failure | Diamond & Dybvig (1983) *JPE* 91(3):401 |
+| Herding cascade (De Long-Shleifer) | ✅ Sep 15 | M5 Foreign Flow | Positive feedback, destabilizing speculation | De Long et al. (1990) *JF* 45(2):379 |
+| SCD strategic complementarity | ✅ Sep 15 | SCD | Coordination failure | Schelling (1960); Cooper & John (1988) *QJE* 103(3):441 |
+| Crawford-Sobel cheap-talk | ✅ Sep 15 | M6 Narrative | Strategic information transmission | Crawford & Sobel (1982) *Econometrica* 50(6):1431 |
+| Gap A Rhetoric (Barro-Gordon ext.) | ✅ Oct 1 | M10 Fiscal | Announcement credibility, CI signal | Barro & Gordon (1983) ext. |
+| Gap B Multiplier Regime | ✅ Oct 1 | M10 Fiscal | Fiscal effectiveness, regime-dependent | Chatib Basri (2026) + Blanchard framework |
+| Gap C Cross-Module Chain | ✅ Oct 1 | SCD | Chain amplification, cross-corr | Theoretical prior, backtest calibration |
+| Gap D D-D Backstop | ✅ Oct 1 | M8 Banking | Sovereign backstop credibility | Diamond & Dybvig (1983) ext. |
+| SSS 3-Phase Sequential Eq. | ✅ Oct 19 | SCD | Phase transition, sequential equilibrium | Kreps & Wilson (1982) *Econometrica* 50(4):863 |
+| Stop-Loss Cascade (Eisenberg-Noe) | ✅ Oct 19 | M9 Market | Multi-node threshold / clearing network | Eisenberg & Noe (2001) *MS* 47(2):236 |
+| Bryant coordination game (MSCI) | ✅ Oct 19 | M5/SCD | Common knowledge coordination | Bryant (1980) *JBF* 4(4):335 |
+| PolEcon BBM hike payoff matrix | ✅ Oct 20 | M12 Political Risk | Payoff matrix, EV game | Barro-Gordon extension; Nash (1950) |
+| **Brunnermeier-Pedersen spiral** | **⏳ Gap terbuka** | **M8+M9** | **Funding–market liquidity spiral** | **Brunnermeier & Pedersen (2009) *RFS* 22(6):2201** |
+| **Obstfeld escape clause (gov. side)** | **⏳ Gap terbuka** | **M3** | **Government loss function, escape clause** | **Obstfeld (1994, 1996) *EER* 40(3-5):1037** |
+| **Calvo sovereign debt trap** | **⏳ Gap terbuka** | **M10/M13** | **Self-fulfilling debt spiral, multiple eq.** | **Calvo (1988) *AER* 78(4):647** |
+| MSCI reversal probability flag | ⏳ Open | M5 | Credible commitment, separating equilibrium | Kreps (1982); Crawford-Sobel ext. |
+| Post-Bryant selling-period classifier | ⏳ Open | M5/M9 | Temporal coordination dynamics | Bryant (1980) ext.; A-B (2003) |
+| Coordinated policy response (KS#2) | ⏳ Open | M3/SCD | Coordination game among instruments | Nash (1950); Cooper & John (1988) |
+| A-B synchronization cascade | ⏳ Deferred T-90d | M5 | Delayed arbitrage, synchronization risk | Abreu & Brunnermeier (2003) *Econometrica* 71(1):173 |
+| Impossible Trinity flag | ⏳ Quick win 2 jam | Cross-module | Trilemma constraint | Mundell (1963) *CJEPS* 29(4):475; Fleming (1962) *IMF Staff Papers* |
+| 3rd-gen balance sheet | ⏳ 6+ bulan | M3+M8+M13 | Balance sheet amplifier, currency mismatch | Chang & Velasco (2001) *QJE* 116(2):489 |
+| Political economy veto player | ⏳ 8 bulan | M12 | Veto player model | Tsebelis (2002) *Veto Players*, Princeton UP |
+
+**Coverage Nov 2 2026: ~65%** (tidak berubah — tiga gap baru teridentifikasi, belum implemented).
+**Projected setelah tiga implementasi (Brunnermeier + Obstfeld escape clause + Calvo): ~70%.**
+
+---
+
+## Prioritas Implementasi — Updated Nov 2 2026
+
+| # | Model | Modul | Effort | Kondisi Sekarang | Priority |
+|---|---|---|---|---|---|
+| 1 | **Brunnermeier-Pedersen spiral** | M8+M9 | 1–2 hari | SEMUA 3 KONDISI FIRED (AT1 76.5%, SBN z=2.59, IHSG disc 47.1%) | **P1 URGENT** |
+| 2 | **Calvo debt trap flag** | M10/M13 | 1 hari | trap_metric = 4.05pp ACTIVE; r-g sudah ada, tinggal integrate primary balance proxy | **P1** |
+| 3 | **Obstfeld escape clause** | M3 | 2–3 hari | M10=72, SRBI=Rp52T, IDR +9.97% → escapeClausePressure = +6 pts | **P1** |
+| 4 | Impossible Trinity flag | morning-check | 2 jam | M10=72, M3=47, M5=75 → kondisi MET sekarang | P2 quick-win |
+| 5 | MSCI reversal probability flag | M5 | 2 hari | Post-Nov 12 SAIR — update P(reversal) sesuai confirmation level | P2 post-Nov-12 |
+| 6 | Gap D long-term LPS env var | M8 | 1 hari | `LPS_FUND_ADEQUACY_PCT` env var; manual seed dari LPS Laporan 2025 | P2 |
+| 7 | Post-Bryant selling-period classifier | M5/M9 | 1 minggu | T+18d dari Oct 15 → approaching T+30 ETF mechanics window | P3 |
+| 8 | A-B synchronization cascade | M5 | Low-effort | Defer ke T-90d dari MSCI decision (~Apr 2027) | Deferred |
+
+---
+
+---
+
+## DAFTAR REFERENSI AKADEMIS LENGKAP
+
+> Semua citations diverifikasi Nov 2 2026. Format: Author(s) (Year). "Title." *Journal*, Vol(Issue):Pages.
+
+### Model Implementasi Core (✅ Sudah Live)
+
+**Morris, S., and Shin, H. S.** (1998). "Unique Equilibrium in a Model of Self-Fulfilling Currency Attacks." *American Economic Review*, 88(3), 587–597.
+
+**Krugman, P.** (1979). "A Model of Balance-of-Payments Crises." *Journal of Money, Credit and Banking*, 11(3), 311–325.
+
+**Flood, R. P., and Garber, P. M.** (1984). "Collapsing Exchange-Rate Regimes: Some Linear Examples." *Journal of International Economics*, 17(1–2), 1–13.
+
+**Barro, R. J., and Gordon, D. B.** (1983). "Rules, Discretion and Reputation in a Model of Monetary Policy." *Journal of Monetary Economics*, 12(1), 101–121.
+
+**Diamond, D. W., and Dybvig, P. H.** (1983). "Bank Runs, Deposit Insurance, and Liquidity." *Journal of Political Economy*, 91(3), 401–419.
+
+**De Long, J. B., Shleifer, A., Summers, L. H., and Waldmann, R. J.** (1990). "Positive Feedback Investment Strategies and Destabilizing Rational Speculation." *Journal of Finance*, 45(2), 379–395.
+
+**Schelling, T. C.** (1960). *The Strategy of Conflict*. Harvard University Press, Cambridge, MA.
+
+**Cooper, R., and John, A.** (1988). "Coordinating Coordination Failures in Keynesian Models." *Quarterly Journal of Economics*, 103(3), 441–463.
+
+**Crawford, V. P., and Sobel, J.** (1982). "Strategic Information Transmission." *Econometrica*, 50(6), 1431–1451.
+> *Catatan koreksi: dokumen versi sebelumnya menyebut "Sobel 1985." Paper seminal cheap-talk adalah Crawford & Sobel (1982). Sobel (1985) "A Theory of Credibility," Review of Economic Studies, 52(4):557 adalah paper berbeda tentang repeated games/credibility — juga relevan untuk BI credibility-building tapi tidak sama dengan cheap-talk model M6.*
+
+**Kreps, D. M., and Wilson, R.** (1982). "Sequential Equilibria." *Econometrica*, 50(4), 863–894.
+
+**Bryant, J.** (1980). "A Model of Reserves, Bank Runs, and Deposit Insurance." *Journal of Banking and Finance*, 4(4), 335–344.
+
+**Eisenberg, L., and Noe, T. H.** (2001). "Systemic Risk in Financial Systems." *Management Science*, 47(2), 236–249.
+
+### Model Gap Baru (⏳ Nov 2 2026 — Belum Implemented)
+
+**Obstfeld, M.** (1994). "The Logic of Currency Crises." *Cahiers Économiques et Monétaires* (Banque de France), 43, 189–213.
+
+**Obstfeld, M.** (1996). "Models of Currency Crises with Self-Fulfilling Features." *European Economic Review*, 40(3–5), 1037–1047.
+
+**Brunnermeier, M. K., and Pedersen, L. H.** (2009). "Market Liquidity and Funding Liquidity." *Review of Financial Studies*, 22(6), 2201–2238.
+
+**Calvo, G. A.** (1988). "Servicing the Public Debt: The Role of Expectations." *American Economic Review*, 78(4), 647–661.
+
+### Model Deferred / Pipeline
+
+**Abreu, D., and Brunnermeier, M. K.** (2002). "Synchronization Risk and Delayed Arbitrage." *Journal of Financial Economics*, 66(2–3), 341–360.
+
+**Abreu, D., and Brunnermeier, M. K.** (2003). "Bubbles and Crashes." *Econometrica*, 71(1), 173–204.
+
+**Mundell, R. A.** (1963). "Capital Mobility and Stabilization Policy under Fixed and Flexible Exchange Rates." *Canadian Journal of Economics and Political Science*, 29(4), 475–485.
+
+**Fleming, J. M.** (1962). "Domestic Financial Policies under Fixed and under Flexible Exchange Rates." *IMF Staff Papers*, 9(3), 369–379.
+
+### Model 3rd-Gen dan Jangka Panjang
+
+**Chang, R., and Velasco, A.** (2001). "A Model of Financial Crises in Emerging Markets." *Quarterly Journal of Economics*, 116(2), 489–517. *(NBER Working Paper No. 6606, 1998)*
+
+**Burnside, C., Eichenbaum, M., and Rebelo, S.** (2001). "Prospective Deficits and the Asian Currency Crisis." *Journal of Political Economy*, 109(6), 1155–1197.
+
+**Tsebelis, G.** (2002). *Veto Players: How Political Institutions Work*. Princeton University Press, Princeton, NJ.
+
+---
+
+*Dokumen: docs/GAME_THEORY_KAJIAN.md | Generated: Sep 14 2026 | Updated: Sep 16 2026 (P1+P2+P3 implemented, 35%→51%) | Updated: Oct 1 2026 (Gap A-D dirancang dari Chatib Basri; semua A-D implemented same day) | Updated: Oct 19 2026 (SSS 3-phase fix + stop-loss cascade + MSCI commitment game; coverage 51%→~63%; milestone Sep 2027 tercapai 11 bulan lebih awal) | **Updated: Nov 2 2026 (Brunnermeier-Pedersen spiral + Obstfeld escape clause + Calvo debt trap; tiga gap baru teridentifikasi; references section added; semua paper citations diverifikasi)** | Victor @ Sadasa Intelligence*
