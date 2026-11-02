@@ -53,6 +53,27 @@ export interface BoPEngineOutput {
   syntheticCadRisk: boolean;
 }
 
+// ─── Obstfeld (1994, 1996) Escape Clause ──────────────────────────────────────────
+// Government loss function: L = (y*−y)² + λ(e−ē)²
+// Defends peg while defense cost < escape clause threshold (political/credibility cost).
+// Escape pressure = composite of 3 observable fiscal+monetary+FX signals.
+// Sources: Obstfeld (1994) Cahiers 43:189 | Obstfeld (1996) EER 40(3-5):1037
+
+export interface ObstfeldEscapeClause {
+  regime: 'stable' | 'watch' | 'elevated' | 'critical';
+  escapePressure: number;           // 0–100 composite escape pressure
+  components: {
+    fiscalSignal: number;           // 0–40: APBN deficit constrains rate-hike defense capacity
+    srbiSignal: number;             // 0–30: BI quasi-fiscal sterilization drain
+    idrDeviationSignal: number;     // 0–30: IDR deviation from APBN anchor (λ(e−ē)² proxy)
+  };
+  deficitPctGdp: number | null;
+  srbiCostTrn: number | null;
+  idrDevPct: number;
+  scoreBump: number;                // 0–15 pts added to M3 score
+  flags: string[];
+}
+
 export interface ConfidenceGateData {
   zone: 'safe' | 'vulnerable' | 'attack';
   defenseCostIndex: number;       // 0-100: cost to BI of defending peg
@@ -86,6 +107,7 @@ export interface FxDefenseEngineOutput {
   interventionSustainability: AlertLevel;
   shadowRate: ShadowRateData | null;
   confidenceGate: ConfidenceGateData | null;
+  escapeClause: ObstfeldEscapeClause | null;
   policyResponseLevel: import('./sources/policy-response.js').PolicyResponseLevel | null;
   policyResponseSignals: import('./sources/policy-response.js').PolicyResponseSignal[];
 }

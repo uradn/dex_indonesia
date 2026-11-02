@@ -12,7 +12,7 @@ import { fetchDndf } from './sources/dndf.js';
 import { fetchNdfOffshore } from './sources/ndf-offshore.js';
 import { fetchPolicyResponse } from './sources/policy-response.js';
 import type { PolicyResponseLevel, PolicyResponseSignal } from './sources/policy-response.js';
-import type { FxDefenseEngineOutput, ShadowRateData, ConfidenceGateData, IndicatorSnapshot, AlertLevel } from './types.js';
+import type { FxDefenseEngineOutput, ShadowRateData, ConfidenceGateData, ObstfeldEscapeClause, IndicatorSnapshot, AlertLevel } from './types.js';
 import type { SrbiAuctionData } from './sources/srbi-auction.js';
 import { getFreshPoint, stalenessFlag } from './freshness.js';
 
@@ -52,6 +52,88 @@ Institutional hedge-fund style FX memo with:
 - SRBI outstanding: BI website (monthly, proxy for sterilization pressure)
 - Premium data: Bloomberg (BLOOMBERG_API_URL) or Refinitiv (REFINITIV_APP_KEY) if configured
 `.trim();
+
+// ─── Obstfeld (1994, 1996) Escape Clause Pressure ──────────────────────────────
+// Three observable signals proxy the government's loss function L=(y*-y)²+λ(e-ē)²:
+//   1. Fiscal: high deficit → rate-hike defense costs the budget more (crowding/debt service)
+//   2. SRBI quasi-fiscal: sterilization drain reduces BI's balance sheet margin
+//   3. IDR deviation: λ(e-ē)² grows with distance from APBN anchor
+// Calibrated to Nov 2 2026: deficit 4.23%→32, srbiCost 8.3%→10, idrDev 6.9%→15 = 57 → +6pts
+
+const APBN_BASELINE_IDR = 16_500;
+const APBN_DEFICIT_TRN = 689;
+
+function computeEscapeClause(
+  deficitPctGdp: number | null,
+  srbiCostTrn: number | null,
+  idrSpot: number | null,
+): ObstfeldEscapeClause {
+  const idrDevPct = idrSpot !== null
+    ? Math.abs((idrSpot - APBN_BASELINE_IDR) / APBN_BASELINE_IDR * 100)
+    : 0;
+
+  // Signal 1: fiscal constraint (0–40)
+  const fiscalSignal = deficitPctGdp === null ? 15 :
+    deficitPctGdp > 4.5 ? 40 :
+    deficitPctGdp > 4.0 ? 32 :
+    deficitPctGdp > 3.5 ? 22 :
+    deficitPctGdp > 3.0 ? 12 : 0;
+
+  // Signal 2: SRBI quasi-fiscal drain as % of APBN deficit (0–30)
+  const srbiCostPct = srbiCostTrn !== null ? (srbiCostTrn / APBN_DEFICIT_TRN) * 100 : 0;
+  const srbiSignal = srbiCostPct > 15 ? 30 : srbiCostPct > 10 ? 20 : srbiCostPct > 5 ? 10 : 0;
+
+  // Signal 3: IDR deviation from APBN anchor λ(e-ē)² proxy (0–30)
+  const idrDeviationSignal = idrDevPct > 15 ? 30 : idrDevPct > 10 ? 22 : idrDevPct > 6 ? 15 : idrDevPct > 3 ? 8 : 0;
+
+  const escapePressure = fiscalSignal + srbiSignal + idrDeviationSignal;
+
+  const scoreBump =
+    escapePressure >= 75 ? 15 :
+    escapePressure >= 60 ? 10 :
+    escapePressure >= 40 ? 6 :
+    escapePressure >= 25 ? 3 : 0;
+
+  const regime: ObstfeldEscapeClause['regime'] =
+    escapePressure >= 75 ? 'critical' :
+    escapePressure >= 55 ? 'elevated' :
+    escapePressure >= 35 ? 'watch' : 'stable';
+
+  const flags: string[] = [];
+  if (regime === 'critical') {
+    flags.push(
+      `OBSTFELD ESCAPE CLAUSE CRITICAL (pressure ${escapePressure}/100): ` +
+      `fiscal ${fiscalSignal}/40 + SRBI ${srbiSignal}/30 + IDR-dev ${idrDeviationSignal}/30 — ` +
+      `government loss function L=(y*−y)²+λ(e−ē)² heavily biased toward abandonment. ` +
+      `BI rate-hike defense costs exceed credibility value; escape clause threshold likely breached. ` +
+      `(+${scoreBump} score) [Obstfeld 1994 Cahiers 43:189 | 1996 EER 40(3-5):1037]`,
+    );
+  } else if (regime === 'elevated') {
+    flags.push(
+      `OBSTFELD ESCAPE CLAUSE ELEVATED (pressure ${escapePressure}/100): ` +
+      `deficit ${deficitPctGdp?.toFixed(2) ?? 'n/a'}% GDP + SRBI cost ${srbiCostTrn?.toFixed(0) ?? 'n/a'}T/yr + IDR ${idrDevPct.toFixed(1)}% off APBN anchor. ` +
+      `Defense cost approaching voluntary abandonment threshold. ` +
+      `(+${scoreBump} score) [Obstfeld 1996]`,
+    );
+  } else if (regime === 'watch') {
+    flags.push(
+      `Obstfeld escape clause WATCH (pressure ${escapePressure}/100): ` +
+      `fiscal constraint + SRBI burden building. Monitor deficit trajectory. ` +
+      `(+${scoreBump} score) [Obstfeld 1994/1996]`,
+    );
+  }
+
+  return {
+    regime,
+    escapePressure,
+    components: { fiscalSignal, srbiSignal, idrDeviationSignal },
+    deficitPctGdp,
+    srbiCostTrn,
+    idrDevPct,
+    scoreBump,
+    flags,
+  };
+}
 
 export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefenseEngineOutput> {
   // 1. Fetch USDIDR history and persist
@@ -318,7 +400,7 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   }
 
   // Cross-feed from ULN Engine (Module 13) + macro context for confidence gate
-  const [hedgingPoint, ggPoint, biRatePoint, gdpGrowthPoint, foodInflPoint, cdsPoint, peDiscountPoint] = await Promise.all([
+  const [hedgingPoint, ggPoint, biRatePoint, gdpGrowthPoint, foodInflPoint, cdsPoint, peDiscountPoint, deficitPoint] = await Promise.all([
     getLatestPoint('uln_hedging_compliance_pct'),
     getLatestPoint('greenspan_guidotti'),
     getLatestPoint('bi_rate_pct'),
@@ -326,6 +408,7 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     getLatestPoint('food_inflation_yoy_pct'),
     getLatestPoint('indonesia_cds_5y_bps'),
     getLatestPoint('asean_pe_discount_pct'),  // written by M7; one-run lag acceptable
+    getLatestPoint('apbn_deficit_pct_gdp'),   // written by M10; escape clause fiscal signal
   ]);
   const hedgingCompliance = hedgingPoint?.value ?? null;
   const ggRatio = ggPoint?.value ?? null;
@@ -419,6 +502,20 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     alertLevel = ALERT_ORDER[Math.max(ALERT_ORDER.indexOf(alertLevel), ALERT_ORDER.indexOf('orange'))]!;
   }
 
+  // ── Obstfeld (1994, 1996) Escape Clause ───────────────────────────────────────
+  // Compute SRBI annual cost from already-fetched data: currentSrbi + biRatePoint
+  const biRatePctM3 = biRatePoint?.value ?? 5.75;
+  const srbiCostTrnM3 = currentSrbi !== null
+    ? parseFloat((currentSrbi.value * (biRatePctM3 / 100)).toFixed(1))
+    : null;
+  const deficitPctGdpM3 = deficitPoint?.value ?? null;
+  const escapeClause = computeEscapeClause(deficitPctGdpM3, srbiCostTrnM3, currentSpot?.value ?? null);
+  if (escapeClause.scoreBump > 0) {
+    score = Math.min(100, score + escapeClause.scoreBump);
+    alertLevel = alertFromScore(score);
+  }
+  flags.push(...escapeClause.flags);
+
   // Policy response coordination adjustment — KS#2 feed.
   // Coordinated multi-instrument response reduces FX defense stress (genuine stabilization).
   // MSCI Standalone caveat: mandate-driven outflow is compliance execution — BI cannot sterilize it.
@@ -490,6 +587,7 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     interventionSustainability,
     shadowRate,
     confidenceGate,
+    escapeClause,
     policyResponseLevel: policyLevel,
     policyResponseSignals: policySignals,
   };
@@ -577,6 +675,17 @@ function formatOutput(output: FxDefenseEngineOutput): string {
     ``,
     scoreCard.flags.length > 0 ? `## Flags\n${scoreCard.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '',
     ``,
+    output.escapeClause !== null ? [
+      `## Obstfeld Escape Clause (P1 Game Theory)`,
+      `**Regime: ${output.escapeClause.regime.toUpperCase()}** | Pressure: ${output.escapeClause.escapePressure}/100 | Score bump: +${output.escapeClause.scoreBump}`,
+      `| Signal | Value | Score |`,
+      `|--------|-------|-------|`,
+      `| Fiscal constraint (APBN deficit) | ${output.escapeClause.deficitPctGdp?.toFixed(2) ?? 'n/a'}% GDP | ${output.escapeClause.components.fiscalSignal}/40 |`,
+      `| SRBI quasi-fiscal drain | ${output.escapeClause.srbiCostTrn?.toFixed(0) ?? 'n/a'}T IDR/yr | ${output.escapeClause.components.srbiSignal}/30 |`,
+      `| IDR deviation from APBN anchor | ${output.escapeClause.idrDevPct.toFixed(1)}% (anchor: 16,500) | ${output.escapeClause.components.idrDeviationSignal}/30 |`,
+      `_L=(y*−y)²+λ(e−ē)²: government defends peg while defense cost < escape clause threshold. [Obstfeld 1994/1996]_`,
+      ``,
+    ].join('\n') : '',
     output.confidenceGate !== null ? [
       `## Confidence Gate (R&R Ch.13 — Obstfeld / Morris-Shin)`,
       `**Zone: ${output.confidenceGate.zone.toUpperCase()}** | DC: ${output.confidenceGate.defenseCostIndex}/100 | AC: ${output.confidenceGate.abandonmentCostIndex}/100 | Net (DC−AC): ${output.confidenceGate.netScore > 0 ? '+' : ''}${output.confidenceGate.netScore}`,
