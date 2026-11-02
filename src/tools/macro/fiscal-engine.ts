@@ -79,6 +79,100 @@ const APBN_2026 = {
   subsidiPupukTrn: 46.8,      // Subsidi pupuk annual target
 };
 
+// ─── Calvo (1988) Self-Fulfilling Sovereign Debt Trap ──────────────────────────────
+// Multiple equilibria: "good" equilibrium (low r → manageable debt) vs
+// "bad" equilibrium (high r → spiral → debt unsustainable → validates high r).
+// Trap fires when r > g + pb, i.e., nominal borrowing cost exceeds real growth + primary surplus.
+// Indonesia calibration Nov 2026: r=7.10% (SBN 10Y) − g=4.75% (real) = 2.35pp excess,
+// vs primary balance -1.70% (deficit) → trap_metric = 4.05pp, expanding ~1.62% GDP/yr.
+// Note: uses nominal r vs real g (common EM policy practice per IMF DSA framework).
+// Source: Calvo (1988), AER 78(4):647.
+
+const GOVT_DEBT_GDP_PCT = 40;  // Indonesia govt debt ~39-40% GDP (2026 est., Kemenkeu)
+
+interface CalvoDebtTrap {
+  active: boolean;
+  trapMetric: number | null;    // r − g − pb; positive = debt trajectory unsustainable
+  regime: 'sustainable' | 'watch' | 'active' | 'severe';
+  components: {
+    sbn10yYield: number | null;        // r: nominal SBN 10Y (% p.a.)
+    gdpGrowth: number | null;          // g: real GDP growth (%)
+    primaryBalance: number | null;     // pb: primary surplus % GDP (negative = deficit)
+    interestPctGdp: number | null;     // interest payments / GDP (%)
+    overallDeficit: number | null;     // projected total deficit % GDP
+  };
+  mechanicalExpansionPctGdp: number | null;  // trap_metric × debt/GDP ÷ 100 ≈ annual d/GDP expansion
+  scoreBump: number;
+  flags: string[];
+}
+
+function computeCalvoDebtTrap(
+  sbn10yYield: number | null,
+  gdpGrowth: number | null,
+  primaryBalance: number | null,   // positive = surplus, negative = deficit
+  interestPctGdp: number | null,
+  overallDeficitPct: number | null,
+): CalvoDebtTrap {
+  let trapMetric: number | null = null;
+  if (sbn10yYield !== null && gdpGrowth !== null && primaryBalance !== null) {
+    trapMetric = parseFloat(((sbn10yYield - gdpGrowth) - primaryBalance).toFixed(2));
+  }
+
+  const active = trapMetric !== null && trapMetric > 0;
+  const regime: CalvoDebtTrap['regime'] =
+    trapMetric === null ? 'watch' :
+    trapMetric > 4.0   ? 'severe' :
+    trapMetric > 2.0   ? 'active' :
+    trapMetric > 0     ? 'watch' : 'sustainable';
+
+  let scoreBump = 0;
+  if (trapMetric !== null) {
+    if (trapMetric > 4.0) scoreBump = 15;
+    else if (trapMetric > 2.0) scoreBump = 10;
+    else if (trapMetric > 0) scoreBump = 5;
+  }
+
+  const mechanicalExpansionPctGdp = trapMetric !== null && trapMetric > 0
+    ? parseFloat((trapMetric * GOVT_DEBT_GDP_PCT / 100).toFixed(2))
+    : null;
+
+  const flags: string[] = [];
+  if (regime === 'severe') {
+    const rg = sbn10yYield !== null && gdpGrowth !== null
+      ? `r=${sbn10yYield.toFixed(2)}%−g=${gdpGrowth.toFixed(2)}%=${(sbn10yYield - gdpGrowth).toFixed(2)}pp`
+      : 'r−g=?';
+    flags.push(
+      `CALVO DEBT TRAP SEVERE (trap_metric ${trapMetric?.toFixed(2)}pp): ` +
+      `${rg} vs primary balance ${primaryBalance?.toFixed(2)}% GDP → ` +
+      `debt expanding ~${mechanicalExpansionPctGdp?.toFixed(2)}% GDP/yr mechanically. ` +
+      `Self-fulfilling: higher expected deficit → higher risk premium → harder to service → deficit grows. ` +
+      `(+${scoreBump} score) [Calvo 1988, AER 78(4):647]`,
+    );
+  } else if (regime === 'active') {
+    flags.push(
+      `CALVO DEBT TRAP ACTIVE (trap_metric ${trapMetric?.toFixed(2)}pp): ` +
+      `borrowing cost ${sbn10yYield?.toFixed(2)}% > growth ${gdpGrowth?.toFixed(2)}% + primary balance ${primaryBalance?.toFixed(2)}%. ` +
+      `Debt ratio expanding ~${mechanicalExpansionPctGdp?.toFixed(2)}% GDP/yr. ` +
+      `(+${scoreBump} score) [Calvo 1988, AER 78(4):647]`,
+    );
+  } else if (regime === 'watch' && trapMetric !== null && trapMetric > 0) {
+    flags.push(
+      `Calvo debt trap WATCH (trap_metric ${trapMetric.toFixed(2)}pp): r−g marginally above primary balance. ` +
+      `Monitor deficit trajectory. (+${scoreBump} score) [Calvo 1988]`,
+    );
+  }
+
+  return {
+    active,
+    trapMetric,
+    regime,
+    components: { sbn10yYield, gdpGrowth, primaryBalance, interestPctGdp, overallDeficit: overallDeficitPct },
+    mechanicalExpansionPctGdp,
+    scoreBump,
+    flags,
+  };
+}
+
 // ─── Barro-Gordon Time Inconsistency (P1 Game Theory — Barro & Gordon 1983) ─────
 // New minister must build credibility from scratch. Classic commitment vs discretion.
 // Proxied via 4 observable signals available in existing M10 data:
@@ -222,6 +316,8 @@ interface FiscalOutput {
   b50StatusNumeric: number | null;        // 40 (B40), 45, 50
   // Barro-Gordon time inconsistency (P1 game theory)
   barroGordon: BarroGordon;
+  // Calvo (1988) self-fulfilling debt trap (P1 game theory)
+  calvoDebtTrap: CalvoDebtTrap;
   // Fiscal multiplier regime (Gap B — Chatib Basri 2026)
   multiplierRegime: 'low_multiplier' | 'high_multiplier' | 'neutral' | 'unknown';
   rateGap: number;           // biRatePct - neutral 4.5%
@@ -289,13 +385,14 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   if (pointsToSave.length > 0) await upsertPoints(pointsToSave as NonNullable<typeof revenue>[]);
 
   // 2. Read latest from DB
-  const [dbRevenue, dbSpending, dbBudgetBalance, dbSrbi, dbBiRate, dbGdpGrowth] = await Promise.all([
+  const [dbRevenue, dbSpending, dbBudgetBalance, dbSrbi, dbBiRate, dbGdpGrowth, dbSbn10y] = await Promise.all([
     getLatestPoint('apbn_revenue_monthly_trn'),
     getLatestPoint('apbn_spending_monthly_trn'),
     getLatestPoint('apbn_budget_balance_monthly_trn'),
     getLatestPoint('srbi_outstanding_trn_idr'),
     getLatestPoint('bi_rate_pct'),
     getLatestPoint('gdp_growth_pct'),   // Gap B: multiplier regime flag
+    getLatestPoint('sbn_10y_yield_pct'), // Calvo: nominal borrowing cost r
   ]);
 
   const latestRevenueTrn = dbRevenue?.value ?? null;
@@ -362,6 +459,7 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   const srbiOutstandingTrn = dbSrbi?.value ?? null;
   const biRatePct = dbBiRate?.value ?? 5.75; // fallback: BI Rate ~Jul 2026 (+25bps hike) // fallback: BI Rate as of Jun 9 2026 (+25bps)
   const gdpGrowthPct = dbGdpGrowth?.value ?? null;
+  const sbn10yYield = dbSbn10y?.value ?? null;
   const srbiAnnualCostTrn = srbiOutstandingTrn !== null
     ? parseFloat((srbiOutstandingTrn * (biRatePct / 100)).toFixed(1))
     : null;
@@ -478,6 +576,21 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   );
   stressScore = Math.min(100, stressScore + barroGordon.scoreBump);
 
+  // ── Calvo (1988) Debt Trap ────────────────────────────────────────────────────
+  // primary_balance = interest_pct_GDP − overall_deficit_pct (positive = surplus)
+  const interestPctGdp = parseFloat((adjustedInterestTrn / APBN_2026.gdpTrn * 100).toFixed(2));
+  const primaryBalance = projectedDeficitPctGdp !== null
+    ? parseFloat((interestPctGdp - projectedDeficitPctGdp).toFixed(2))
+    : null;
+  const calvoDebtTrap = computeCalvoDebtTrap(
+    sbn10yYield,
+    gdpGrowthPct,
+    primaryBalance,
+    interestPctGdp,
+    projectedDeficitPctGdp,
+  );
+  stressScore = Math.min(100, stressScore + calvoDebtTrap.scoreBump);
+
   const alert = alertFromScore(stressScore) as AlertLevel;
 
   // Persist projected deficit % GDP so dashboard can chart trajectory over time
@@ -591,6 +704,9 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   // Barro-Gordon flags injected after all structural flags
   flags.push(...barroGordon.flags);
 
+  // Calvo debt trap flags
+  flags.push(...calvoDebtTrap.flags);
+
   // 7. Narrative
   const isAnnualRevenueFlag = latestRevenueTrn !== null && latestRevenueTrn > ANNUAL_DATA_THRESHOLD_TRN;
   const isAnnualSpendingFlag = latestSpendingTrn !== null && latestSpendingTrn > ANNUAL_DATA_THRESHOLD_TRN;
@@ -631,6 +747,7 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     mbgRealisasiYtdTrn, mbgBurnRatePct, mbgDataDate,
     biodieselSubsidyYtdTrn, b50StatusNumeric,
     barroGordon,
+    calvoDebtTrap,
     multiplierRegime, rateGap, growthGap,
     revenueShortfall, spendingOverrun, deficitRisk,
     flags, narrative,
@@ -677,6 +794,7 @@ function formatFiscalOutput(output: FiscalOutput): string {
     `| Spending overrun | ${output.spendingOverrun ? '⚠️ ACTIVE' : 'No'} |`,
     `| Deficit > 3% GDP | ${output.deficitRisk ? '⚠️ ACTIVE' : 'No'} |`,
     `| S&P interest/revenue >15% | ${output.spThresholdBreached ? `🔴 ${output.spInterestRevenuePct?.toFixed(1)}% — BREACHED` : output.spInterestRevenuePct !== null ? `✅ ${output.spInterestRevenuePct.toFixed(1)}%` : 'n/a'} |`,
+    `| Calvo debt trap | ${output.calvoDebtTrap.active ? `⚠️ ${output.calvoDebtTrap.regime.toUpperCase()} trap_metric=${output.calvoDebtTrap.trapMetric?.toFixed(2)}pp r=${output.calvoDebtTrap.components.sbn10yYield?.toFixed(2)}% g=${output.calvoDebtTrap.components.gdpGrowth?.toFixed(2)}% pb=${output.calvoDebtTrap.components.primaryBalance?.toFixed(2)}%` : output.calvoDebtTrap.regime === 'sustainable' ? `✅ SUSTAINABLE (trap_metric=${output.calvoDebtTrap.trapMetric?.toFixed(2)}pp)` : `WATCH trap_metric=${output.calvoDebtTrap.trapMetric?.toFixed(2) ?? 'n/a'}pp`} |`,
     ``,
     output.flags.length > 0 ? `**Flags:**\n${output.flags.map(f => `- ${f}`).join('\n')}` : '**No active fiscal flags.**',
     ``,
