@@ -688,9 +688,9 @@ policy_response_tracker (new M3/SCD component):
 | **SSS 3-Phase Sequential Eq.** | **✅ Oct 19** | **SCD aggregator** | **Kreps-Wilson 1982** |
 | **Stop-Loss Cascade Threshold Game** | **✅ Oct 19** | **M9 Market** | **Eisenberg-Noe 2001** |
 | **MSCI Credible Commitment (dokumentasi)** | **✅ Oct 19** | **M5/SCD** | **Sobel 1985 extended** |
-| MSCI commitment flag (implementation) | ⏳ Open | M5 Foreign Flow | Sobel extension |
-| Post-Bryant execution dynamics | ⏳ Open | M9/M5 | Bryant 1980 extension |
-| Coordinated policy response timing | ⏳ Open | M3/SCD (KS#2) | Coordination game |
+| MSCI commitment flag (implementation) | ✅ DONE Oct 19+ | M5 Foreign Flow | Sobel extension |
+| Post-Bryant execution dynamics | ✅ DONE Oct 19+ | M9/M5 | Bryant 1980 extension |
+| Coordinated policy response timing | ✅ DONE (policy-response.ts `ba7f3f6`) | M3/SCD (KS#2) | Coordination game |
 | 3rd-gen balance sheet amplifier | ⏳ Open | M3+M8+M13 | Chang-Velasco 1998 |
 | **Barro-Gordon PolEcon payoff matrix** | **✅ Oct 20** | **M12 Political Risk** | **BBM hike EV game: Kemenkeu×Masyarakat; TRAPPED/FORCED_HOLD/RISKY_HIKE/STABLE; polEconAdj 0–8pts** |
 | Political economy veto player | ⏳ Open | M12 | Tsebelis 2002 — veto player (Prabowo × DPR × cabinet); requires Poltracking time series |
@@ -703,10 +703,10 @@ policy_response_tracker (new M3/SCD component):
 
 | Gap | Effort | Data | Impact | Priority |
 |---|---|---|---|---|
-| MSCI reversal probability flag (M5) | 2 hari | Manual prior 0.10-0.15 | Prevents KS#3/KS#4 over-optimism | **P1** |
-| Cascade node 2 policy response watch | 3 hari | BEI buyback + Danantara signals | KS#2 partial automation | **P1** |
-| Post-Bryant selling-period classifier | 1 minggu | EIDO flow data + mandate period tracking | M5/M9 temporal dynamics | P2 |
-| Gap D long-term LPS env var | 1 hari | Manual seed dari LPS Laporan 2025 | M8 backstop precision | P2 |
+| MSCI reversal probability flag (M5) | — | — | Prevents KS#3/KS#4 over-optimism | ✅ DONE — auto-formula + `MSCI_REVERSAL_PROBABILITY_OVERRIDE` env (`45d3e03`) |
+| Cascade node 2 policy response watch | — | — | KS#2 partial automation | ✅ DONE — `policy-response.ts` 4 instruments, 72h window (`ba7f3f6`) |
+| Post-Bryant selling-period classifier | — | — | M5/M9 temporal dynamics | ✅ DONE — 5-phase classifier, two-sided market, IHSG floor (`7aab25d`+`85fd402`) |
+| Gap D long-term LPS env var | — | — | M8 backstop precision | ✅ DONE — code wired Oct 1; `.env` seeded `LPS_FUND_ADEQUACY_PCT=3.1` (`45d3e03`) |
 | 3rd-gen balance sheet (M3+M8+M13) | 6+ bulan | SULNI FX-hedging ratio | Unified loop model | P3 |
 | Political economy veto mapping | 8 bulan | Poltracking time series | M12 structural | P3 |
 
@@ -1041,9 +1041,9 @@ Nov 2 2026: kondisi MET (M10=72, M3=47, M5=75). **✅ DONE Nov 2** — commit `c
 | **Obstfeld escape clause (gov. side)** | **✅ DONE Nov 2** | **M3** | **Government loss function, escape clause** | **Obstfeld (1994, 1996) *EER* 40(3-5):1037** |
 | **Calvo sovereign debt trap** | **✅ DONE Nov 2** | **M10/M13** | **Self-fulfilling debt spiral, multiple eq.** | **Calvo (1988) *AER* 78(4):647** |
 | **Impossible Trinity flag** | **✅ DONE Nov 2** | **Cross-module (SCD)** | **Trilemma constraint** | **Mundell (1963) *CJEPS* 29(4):475; Fleming (1962) *IMF Staff Papers*** |
-| MSCI reversal probability flag | ⏳ Open | M5 | Credible commitment, separating equilibrium | Kreps (1982); Crawford-Sobel ext. |
-| Post-Bryant selling-period classifier | ⏳ Open | M5/M9 | Temporal coordination dynamics | Bryant (1980) ext.; A-B (2003) |
-| Coordinated policy response (KS#2) | ⏳ Open | M3/SCD | Coordination game among instruments | Nash (1950); Cooper & John (1988) |
+| MSCI reversal probability flag | ✅ DONE Nov 2 | M5 | Credible commitment, separating equilibrium | Kreps (1982); Crawford-Sobel ext. |
+| Post-Bryant selling-period classifier | ✅ DONE Oct 19+ | M5/M9 | Temporal coordination dynamics | Bryant (1980) ext.; A-B (2003) |
+| Coordinated policy response (KS#2) | ✅ DONE (`ba7f3f6`) | M3/SCD | Coordination game among instruments | Nash (1950); Cooper & John (1988) |
 | A-B synchronization cascade | ⏳ Deferred T-90d | M5 | Delayed arbitrage, synchronization risk | Abreu & Brunnermeier (2003) *Econometrica* 71(1):173 |
 | 3rd-gen balance sheet | ⏳ 6+ bulan | M3+M8+M13 | Balance sheet amplifier, currency mismatch | Chang & Velasco (2001) *QJE* 116(2):489 |
 | Political economy veto player | ⏳ 8 bulan | M12 | Veto player model | Tsebelis (2002) *Veto Players*, Princeton UP |
@@ -1060,9 +1060,9 @@ Nov 2 2026: kondisi MET (M10=72, M3=47, M5=75). **✅ DONE Nov 2** — commit `c
 | 2 | **Calvo debt trap flag** | M10/M13 | 1 hari | ✅ DONE Nov 2 — `a2340d3` | ~~P1~~ |
 | 3 | **Obstfeld escape clause** | M3 | 2–3 hari | ✅ DONE Nov 2 — `32d820f` | ~~P1~~ |
 | 4 | **Impossible Trinity flag** | SCD | 2 jam | ✅ DONE Nov 2 — `c0856a2` | ~~P2 quick-win~~ |
-| 5 | MSCI reversal probability flag | M5 | 2 hari | ⏳ Post-Nov 12 SAIR — update P(reversal) sesuai confirmation level | P2 post-Nov-12 |
-| 6 | Gap D long-term LPS env var | M8 | 1 hari | ⏳ `LPS_FUND_ADEQUACY_PCT` env var; manual seed dari LPS Laporan 2025 | P2 |
-| 7 | Post-Bryant selling-period classifier | M5/M9 | 1 minggu | ⏳ T+18d dari Oct 15 → approaching T+30 ETF mechanics window | P3 |
+| 5 | MSCI reversal probability flag | M5 | 3h | ✅ DONE Nov 2 — auto-formula + `MSCI_REVERSAL_PROBABILITY_OVERRIDE` env-always-wins (`45d3e03`) | ~~P2~~ |
+| 6 | Gap D long-term LPS env var | M8 | 2h | ✅ DONE Nov 2 — code Oct 1; `.env` seeded `LPS_FUND_ADEQUACY_PCT=3.1`; update Apr 2027 LKT | ~~P2~~ |
+| 7 | Post-Bryant selling-period classifier | M5/M9 | — | ✅ DONE Oct 19+ — 5-phase, two-sided market, IHSG floor, reformSpeculationProbability (`7aab25d`+`85fd402`) | ~~P3~~ |
 | 8 | A-B synchronization cascade | M5 | — | ⏳ Defer ke T-90d dari MSCI decision (~Apr 2027) | Deferred |
 
 ---
