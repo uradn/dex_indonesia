@@ -74,9 +74,79 @@ interface BankingStressOutput {
   bnplSignal: 'distress' | 'inclusion' | 'credit_cycle_turn' | 'watch' | 'unknown';
   depositoSharePct: number | null;
   diamondDybvig: DiamondDybvig;
+  liquiditySpiral: LiquiditySpiral;
   dataDate: string;
   flags: string[];
   summary: string;
+}
+
+// ─── Brunnermeier-Pedersen (2009) Funding-Market Liquidity Spiral ─────────────────────
+// Margin spiral: asset price drop → higher margin requirement → forced deleveraging →
+// further asset price drop (self-reinforcing). Fires when capital + collateral + market
+// liquidity constraints bind simultaneously.
+// Three conditions calibrated to Indonesia Nov 2026 stress levels.
+// Source: Brunnermeier & Pedersen (2009), RFS 22(6):2201.
+
+interface LiquiditySpiral {
+  active: boolean;
+  conditionsMet: number;
+  conditions: {
+    at1FundingConstrained: boolean;   // AT1 secondary < 85% par — capital market funding shut
+    sbnMarginSpiral: boolean;         // SBN 10Y yield z-score > 2.0 — collateral value falling
+    ihsgLiquiditySpiral: boolean;     // IHSG P/E discount vs ASEAN > 35% — market liquidity impaired
+  };
+  at1Pct: number | null;
+  sbnZScore: number | null;
+  ihsgDiscountPct: number | null;
+  scoreBump: number;
+  flags: string[];
+}
+
+function computeLiquiditySpiral(
+  at1Pct: number | null,
+  sbnZScore: number | null,
+  ihsgDiscountPct: number | null,
+): LiquiditySpiral {
+  const c = {
+    at1FundingConstrained: (at1Pct ?? 100) < 85,
+    sbnMarginSpiral:       (sbnZScore ?? 0) > 2.0,
+    ihsgLiquiditySpiral:   (ihsgDiscountPct ?? 0) > 35,
+  };
+
+  const conditionsMet = [c.at1FundingConstrained, c.sbnMarginSpiral, c.ihsgLiquiditySpiral].filter(Boolean).length;
+  const active = conditionsMet >= 3;
+
+  let scoreBump = 0;
+  if (conditionsMet >= 3) scoreBump = 15;
+  else if (conditionsMet >= 2) scoreBump = 8;
+  else if (conditionsMet >= 1) scoreBump = 4;
+
+  const condStr = [
+    c.at1FundingConstrained ? `AT1 ${at1Pct?.toFixed(1) ?? '?'}% par <85%` : null,
+    c.sbnMarginSpiral       ? `SBN z=${sbnZScore?.toFixed(2) ?? '?'} >2.0` : null,
+    c.ihsgLiquiditySpiral   ? `IHSG discount ${ihsgDiscountPct?.toFixed(1) ?? '?'}% >35%` : null,
+  ].filter(Boolean).join(' + ');
+
+  const flags: string[] = [];
+  if (active) {
+    flags.push(
+      `BRUNNERMEIER-PEDERSEN SPIRAL ACTIVE (3/3): ${condStr} — ` +
+      `capital constraint (AT1 shut) + collateral constraint (SBN margin calls) + ` +
+      `market liquidity (IHSG forced selling) all binding simultaneously. ` +
+      `Margin spiral self-reinforcing: deleveraging → price drop → higher margin → repeat. ` +
+      `(+${scoreBump} score) [Brunnermeier-Pedersen 2009, RFS 22(6):2201]`,
+    );
+  } else if (conditionsMet === 2) {
+    flags.push(
+      `B-P spiral WATCH (2/3): ${condStr} — ` +
+      `one condition from full funding-market spiral activation. ` +
+      `(+${scoreBump} score) [Brunnermeier-Pedersen 2009]`,
+    );
+  } else if (conditionsMet === 1) {
+    flags.push(`B-P spiral monitor (1/3): ${condStr}. (+${scoreBump} score) [Brunnermeier-Pedersen 2009]`);
+  }
+
+  return { active, conditionsMet, conditions: c, at1Pct, sbnZScore, ihsgDiscountPct, scoreBump, flags };
 }
 
 // ─── Diamond-Dybvig Bank Run Coordination (P2 Game Theory — Diamond & Dybvig 1983) ──
@@ -482,7 +552,12 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
 
   // Secondary market price signal (Exa-fetched): AT1 < 80% par = market pricing loss risk.
   // More timely than issuance signal — bond desks reprice before regulators act.
-  const [at1Secondary, ojkPdn] = await Promise.all([fetchAt1Secondary(), fetchOjkPdn()]);
+  const [at1Secondary, ojkPdn, sbnYieldHistory, dbAseanPeDiscount] = await Promise.all([
+    fetchAt1Secondary(),
+    fetchOjkPdn(),
+    getHistory('sbn_10y_yield_pct', 365),       // B-P spiral: z-score baseline
+    getLatestPoint('asean_pe_discount_pct'),    // B-P spiral: M7-written, one-run lag OK
+  ]);
   if (at1Secondary) await upsertPoints([{
     indicator: 'himbara_at1_secondary_pct',
     category: 'banking' as const,
@@ -499,6 +574,22 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
       stressScore = Math.min(100, stressScore + 8);
     }
   }
+
+  // ── Brunnermeier-Pedersen (2009) Funding-Market Liquidity Spiral ─────────────
+  // SBN z-score: (current_yield - 1yr_mean) / 1yr_std. Positive = yield elevated vs history = collateral stress.
+  const sbnZScore = (() => {
+    if (sbnYieldHistory.length < 30 || sbn10yPct === null) return null;
+    const vals = sbnYieldHistory.map(p => p.value);
+    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const std = Math.sqrt(vals.reduce((s, v) => s + (v - mean) ** 2, 0) / vals.length);
+    return std > 0 ? parseFloat(((sbn10yPct - mean) / std).toFixed(2)) : null;
+  })();
+  // AT1 effective price: env override > live Exa fetch (env wins for emergency pinning)
+  const himbaraAt1Env = process.env.HIMBARA_AT1_SECONDARY_PCT;
+  const at1PctEffective = himbaraAt1Env ? parseFloat(himbaraAt1Env) : (at1Secondary?.pricePct ?? null);
+  const aseanPeDiscountPct = dbAseanPeDiscount?.value ?? null;
+  const liquiditySpiral = computeLiquiditySpiral(at1PctEffective, sbnZScore, aseanPeDiscountPct);
+  stressScore = Math.min(100, stressScore + liquiditySpiral.scoreBump);
 
   // Deposito savings ratio: deposito/(deposito+tabungan) — hot-money concentration in savings DPK.
   // Source: BI SEKI TABEL1_1 (monthly, 1985-present). Excludes transactional giro.
@@ -700,6 +791,9 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   // Diamond-Dybvig flags
   flags.push(...diamondDybvig.flags);
 
+  // Brunnermeier-Pedersen spiral flags
+  flags.push(...liquiditySpiral.flags);
+
   // 7. Data date (most recent of all fetched points)
   const dates = [dbNpl, dbLdr, dbCar, dbIndonia, dbExtDebt]
     .filter(Boolean)
@@ -734,6 +828,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     fintechNplPct, fintechOutstandingIdrT, fintechGrowthYoyPct, bnplSignal,
     depositoSharePct,
     diamondDybvig,
+    liquiditySpiral,
     dataDate, flags, summary,
   };
 }
@@ -770,6 +865,7 @@ export const bankingStressEngine = new DynamicStructuredTool({
         `| Fintech Outstanding | ${output.fintechOutstandingIdrT !== null ? 'Rp' + output.fintechOutstandingIdrT.toFixed(1) + 'T' : 'n/a'} | P2P + paylater combined (OJK IKNB) |`,
         `| Fintech Growth YoY | ${output.fintechGrowthYoyPct !== null ? output.fintechGrowthYoyPct.toFixed(1) + '%' : 'n/a'} | BNPL signal: ${output.bnplSignal.toUpperCase()} |`,
         `| Deposito Savings Ratio | ${output.depositoSharePct !== null ? output.depositoSharePct.toFixed(1) + '%' : 'n/a'} | deposito/(dep+tab): norm 52-55%, >57% watch, >60% elevated (BI SEKI hist) |`,
+        `| B-P Spiral | ${output.liquiditySpiral.conditionsMet}/3 conditions${output.liquiditySpiral.active ? ' — ACTIVE' : ''} | AT1<85% + SBN z>2.0 + IHSG disc>35%; AT1=${output.liquiditySpiral.at1Pct?.toFixed(1) ?? 'n/a'}% SBN z=${output.liquiditySpiral.sbnZScore?.toFixed(2) ?? 'n/a'} disc=${output.liquiditySpiral.ihsgDiscountPct?.toFixed(1) ?? 'n/a'}% [B-P 2009] |`,
         ``,
         Object.keys(output.sectorNpl).length > 0
           ? `**Sector NPL:**\n${Object.entries(output.sectorNpl).map(([s, v]) => `- ${s}: ${v.toFixed(1)}%`).join('\n')}`
