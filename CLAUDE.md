@@ -224,6 +224,10 @@ MSCI_CLASSIFICATION_STATUS # current: downgrade_risk (Oct 15 2026 Standalone con
 # Jun 30 2027: final decision → MSCI_REVIEW_DATE=2027-06-30
 MSCI_REVIEW_DATE           # ISO date for msci-countdown.ts milestone tracking; default 2026-11-12 then operator updates
 MSCI_SAIR_DATE             # ISO date of current SAIR target; default 2026-11-12. After Nov 12 passes → set 2027-05-XX (May SAIR). Used by M5 sairBonus (+5/+10), M7 countdown chip, dashboard Kreps chip.
+MSCI_REVERSAL_PROBABILITY_OVERRIDE  # decimal 0.00–1.00; env-always-wins over auto-formula (pReversal = 1 − (0.85 + 0.10 × consultationProgress))
+                                    # Leave UNSET for auto. Set post-SAIR if language diverges from formula trajectory:
+                                    #   SAIR confirms definitive timeline → 0.06–0.08 (faster decline)
+                                    #   SAIR softens unexpectedly → 0.18–0.25 + set MSCI_CLASSIFICATION_STATUS=under_review
 
 # M5 SBN foreign ownership — DJPPR TCP-blocks non-Indonesian IPs intermittently (geo-IP / govt firewall).
 # Source: DJPPR daily page https://djppr.kemenkeu.go.id/kepemilikansbndomestikyangdapatdiperdagangkan

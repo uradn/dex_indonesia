@@ -385,12 +385,17 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   // At response deadline (Apr 30 2027): P(reversal) → 5% (language = "expects to proceed").
   // Formula: P_downgrade = 0.85 + 0.10 × progress_through_consultation
   // Score bump = P_downgrade × 24 (severity weight: $3-15B forced-sell / reserves).
+  // MSCI_REVERSAL_PROBABILITY_OVERRIDE — env-always-wins for post-SAIR manual correction.
+  // Set when SAIR language diverges materially from formula trajectory (see .env comments).
   const CONSULTATION_START = new Date('2026-10-15');
   const CONSULTATION_END   = new Date('2027-04-30');
   const consultationWindow = CONSULTATION_END.getTime() - CONSULTATION_START.getTime();
   const consultationElapsed = Math.max(0, Date.now() - CONSULTATION_START.getTime());
   const consultationProgress = Math.min(1, consultationElapsed / consultationWindow);
-  const pDowngrade = 0.85 + 0.10 * consultationProgress;
+  const pReversalOverride = process.env.MSCI_REVERSAL_PROBABILITY_OVERRIDE
+    ? Math.min(1, Math.max(0, parseFloat(process.env.MSCI_REVERSAL_PROBABILITY_OVERRIDE)))
+    : null;
+  const pDowngrade = pReversalOverride !== null ? 1 - pReversalOverride : 0.85 + 0.10 * consultationProgress;
   const pReversal  = 1 - pDowngrade;
 
   // Thread 24 wait-game: P(active reform speculators in market, 0–75)
