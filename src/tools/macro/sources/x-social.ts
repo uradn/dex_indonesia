@@ -44,6 +44,41 @@ interface XSearchResponse {
   errors?: Array<{ title: string; detail?: string }>;
 }
 
+const X_TWEET_LOOKUP = 'https://api.twitter.com/2/tweets';
+
+export interface TweetLookupResult {
+  id: string;
+  text: string;
+  created_at?: string;
+  author_id?: string;
+  public_metrics?: {
+    retweet_count: number;
+    reply_count: number;
+    like_count: number;
+    quote_count: number;
+    impression_count?: number;
+  };
+}
+
+export async function fetchTweetById(tweetId: string): Promise<TweetLookupResult | null> {
+  const token = process.env.X_BEARER_TOKEN;
+  if (!token) return null;
+  try {
+    const url = new URL(`${X_TWEET_LOOKUP}/${tweetId}`);
+    url.searchParams.set('tweet.fields', 'text,created_at,author_id,public_metrics');
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json() as { data?: TweetLookupResult; errors?: unknown[] };
+    if (json.errors?.length || !json.data) return null;
+    return json.data;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchXSocialSentiment(): Promise<XSentimentResult | null> {
   const token = process.env.X_BEARER_TOKEN;
   if (!token) return null;
