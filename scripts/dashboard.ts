@@ -254,6 +254,7 @@ function buildSnapshot() {
       hasExa: !!process.env.EXASEARCH_API_KEY,
       circuitBreakerDate: process.env.IDX_LAST_CIRCUIT_BREAKER_DATE ?? null,
       shortSellVol: process.env.IDX_SHORT_SELL_VOLUME_IDR_BN ? parseFloat(process.env.IDX_SHORT_SELL_VOLUME_IDR_BN) : null,
+      sairDate: process.env.MSCI_SAIR_DATE ?? '2026-11-12',
     };
     // Read latest module scores from DB (written by SCD / morning-check)
     const moduleScores: Record<string, { score: number; alertLevel: string; computedAt: string; flags: string[] }> = {};
@@ -2907,8 +2908,8 @@ function renderGameTheory(thesis, snap) {
       <div style="font-size:9px;color:var(--muted);margin-top:4px">Oct 15 2026 → Apr 30 2027 comment close → Jun 30 2027 decision (T-254d)</div>
       <div style="display:flex;gap:5px;margin-top:6px;align-items:center">
         <div style="background:rgba(220,50,50,.12);border:1px solid var(--red);border-radius:3px;padding:3px 7px;font-size:9px">
-          <span class="red" style="font-weight:700">SAIR Nov 12</span>
-          <span style="color:var(--muted);margin-left:4px">T-\${Math.max(0, Math.round((new Date('2026-11-12').getTime() - Date.now()) / 86400000))}d · stock exclusions + Standalone confirmation</span>
+          <span class="red" style="font-weight:700">SAIR \${snap?.envFlags?.sairDate ?? '2026-11-12'}</span>
+          <span style="color:var(--muted);margin-left:4px">T-\${Math.max(0, Math.round((new Date(snap?.envFlags?.sairDate ?? '2026-11-12').getTime() - Date.now()) / 86400000))}d · stock exclusions + Standalone confirmation</span>
         </div>
       </div>
     </div>

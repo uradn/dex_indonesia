@@ -373,7 +373,7 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   //   T-0 to T-7  → +10 (SAIR week — MSCI announcement imminent, pre-positioning complete)
   //   T-8 to T-30 → +5  (SAIR window — pre-positioning active, forced-sell front-running)
   // Expires after Nov 12 (daysToSair < 0). downgrade_risk only — under_review/confirmed lack sell trigger.
-  const MSCI_SAIR_NOV12 = new Date('2026-11-12');
+  const MSCI_SAIR_NOV12 = new Date(process.env.MSCI_SAIR_DATE ?? '2026-11-12');
   const daysToSair = Math.round((MSCI_SAIR_NOV12.getTime() - Date.now()) / 86_400_000);
   const sairBonus = msciStatus === 'downgrade_risk' && daysToSair >= 0 && daysToSair <= 7  ? 10
     : msciStatus === 'downgrade_risk' && daysToSair >= 0 && daysToSair <= 30 ? 5

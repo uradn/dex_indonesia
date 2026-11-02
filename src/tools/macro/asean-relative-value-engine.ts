@@ -310,7 +310,7 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
   }
 
   // MSCI Nov 12 2026 countdown (same constant as M5)
-  const NEXT_MSCI_REVIEW = new Date('2026-11-12');
+  const NEXT_MSCI_REVIEW = new Date(process.env.MSCI_SAIR_DATE ?? '2026-11-12');
   const daysToMsci = Math.max(0, Math.floor((NEXT_MSCI_REVIEW.getTime() - Date.now()) / 86_400_000));
 
   // P/E flags — Thailand discount (primary) + SG capital flight signal
