@@ -1,5 +1,31 @@
 export type ExtractMode = "markdown" | "text";
 
+const JINA_READER_BASE = 'https://r.jina.ai/';
+const JINA_MIN_CHARS = 100;
+
+/**
+ * Fetch a URL via Jina Reader (r.jina.ai) — returns LLM-friendly markdown.
+ * Handles JS-heavy pages, PDFs, and bot-protected sites that reject plain fetch.
+ * Set JINA_API_KEY for higher rate limits (free tier: 200 RPD unauthed).
+ */
+export async function fetchViaJina(url: string, timeoutMs: number): Promise<string | null> {
+  const jinaUrl = `${JINA_READER_BASE}${url}`;
+  const headers: Record<string, string> = {
+    Accept: 'text/plain',
+    'X-Respond-With': 'markdown',
+  };
+  const apiKey = process.env.JINA_API_KEY;
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+  try {
+    const res = await fetch(jinaUrl, { headers, signal: AbortSignal.timeout(timeoutMs) });
+    if (!res.ok) return null;
+    const text = await res.text();
+    return text.trim().length >= JINA_MIN_CHARS ? text.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 function decodeEntities(value: string): string {
   return value
     .replace(/&nbsp;/gi, " ")

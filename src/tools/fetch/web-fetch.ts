@@ -16,6 +16,7 @@ import { formatToolResult } from '../types.js';
 import { wrapExternalContent, wrapWebContent } from './external-content.js';
 import {
   extractReadableContent,
+  fetchViaJina,
   htmlToMarkdown,
   markdownToText,
   truncateText,
@@ -317,6 +318,29 @@ async function runWebFetch(params: {
   });
 
   if (!res.ok) {
+    // Jina Reader fallback — handles Cloudflare blocks, geo-IP gates, 403/451 walls
+    const jinaText = await fetchViaJina(params.url, params.timeoutSeconds * 1000).catch(() => null);
+    if (jinaText) {
+      const wrapped = wrapWebFetchContent(jinaText, params.maxChars);
+      const payload = {
+        url: params.url,
+        finalUrl: params.url,
+        status: res.status,
+        contentType: 'text/markdown',
+        title: undefined as string | undefined,
+        extractMode: params.extractMode,
+        extractor: 'jina-reader',
+        truncated: wrapped.truncated,
+        length: wrapped.wrappedLength,
+        rawLength: jinaText.length,
+        wrappedLength: wrapped.wrappedLength,
+        fetchedAt: new Date().toISOString(),
+        tookMs: Date.now() - start,
+        text: wrapped.text,
+      };
+      writeCache(FETCH_CACHE, cacheKey, payload, params.cacheTtlMs);
+      return payload;
+    }
     const rawDetail = await readResponseText(res);
     const detail = formatWebFetchErrorDetail({
       detail: rawDetail,
@@ -351,6 +375,14 @@ async function runWebFetch(params: {
       title = rendered.title;
       extractor = "htmlToMarkdown";
     }
+  } else if (contentType.includes("application/pdf") || params.url.toLowerCase().endsWith(".pdf")) {
+    // PDF — route through Jina Reader (renders + parses via PDF.js → markdown)
+    const jinaText = await fetchViaJina(params.url, params.timeoutSeconds * 1000).catch(() => null);
+    if (jinaText) {
+      text = jinaText;
+      extractor = "jina-reader-pdf";
+    }
+    // If Jina fails, text stays as raw binary — truncation will handle it
   } else if (contentType.includes("application/json")) {
     try {
       text = JSON.stringify(JSON.parse(body), null, 2);

@@ -181,6 +181,11 @@ EODHD_API_KEY              # EODHD — USDIDR tertiary fallback + IHSG price (ID
 EXASEARCH_API_KEY
 TAVILY_API_KEY
 
+# Jina Reader — web_fetch fallback for 403/bot-protected pages + PDF parsing (r.jina.ai)
+# Auto-triggered when direct fetch returns non-2xx or URL is a .pdf.
+# Free tier: 200 req/day unauthenticated. Optional API key for higher limits.
+JINA_API_KEY                 # optional — free tier works without it; r.jina.ai/APIKEY dashboard
+
 # Social media (X/Twitter API v2 — Module 12 real-time unrest signal)
 X_BEARER_TOKEN             # X API v2 Bearer Token; requires Basic plan ($100/mo) for recent search
 
