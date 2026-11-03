@@ -15,6 +15,7 @@ import { fetchAt1Secondary } from './sources/at1-bonds.js';
 import { fetchOjkPdn } from './sources/ojk-pdn.js';
 import { fetchLpsDepositCoverage } from './sources/lps-deposit-coverage.js';
 import { fetchKbmiContagion, type KbmiContagionResult } from './sources/kbmi-contagion.js';
+import { fetchIndoniaBiDirect } from './sources/bi.js';
 
 export const BANKING_STRESS_DESCRIPTION = `
 MACRO INTELLIGENCE — Banking Stress Engine (Module 8)
@@ -57,6 +58,7 @@ interface BankingStressOutput {
   ldrPct: number | null;
   carPct: number | null;
   indoniaPct: number | null;
+  indoniaSource: 'bi_direct' | 'te_proxy';
   biRatePct: number | null;
   indoniaSpreadBps: number | null;
   externalDebtBn: number | null;
@@ -371,19 +373,21 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     }
   }
 
-  // 1c. Frequently-updated indicators + KBMI basket (all parallel)
-  const [indoniaPoint, extDebtPoint, ihprPoint, m2Point, kbmiResult] = await Promise.allSettled([
+  // 1c. Frequently-updated indicators + KBMI basket + BI IndONIA direct (all parallel)
+  const [indoniaPoint, extDebtPoint, ihprPoint, m2Point, kbmiResult, indoniaDirectResult] = await Promise.allSettled([
     fetchIndoniaRateTe(),
     fetchExternalDebtTe(),
     fetchIhprTe(),
     fetchM2MoneySupplyTe(),
     fetchKbmiContagion(),
+    fetchIndoniaBiDirect(),
   ]);
   const indonia = indoniaPoint.status === 'fulfilled' ? indoniaPoint.value : null;
   const extDebt = extDebtPoint.status === 'fulfilled' ? extDebtPoint.value : null;
   const ihpr = ihprPoint.status === 'fulfilled' ? ihprPoint.value : null;
   let m2 = m2Point.status === 'fulfilled' ? m2Point.value : null;
   const kbmiContagion = kbmiResult.status === 'fulfilled' ? kbmiResult.value : null;
+  const indoniaDirectFetch = indoniaDirectResult.status === 'fulfilled' ? indoniaDirectResult.value : null;
   if (m2 === null) {
     // Tier 2: World Bank annual M2 (no Playwright, free API, 1-year lag)
     m2 = await fetchM2WorldBank();
@@ -418,11 +422,12 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   // 3. Read from DB (use cached if live fetch failed)
   // Critical banking KPIs (NPL/LDR/CAR) gated by freshness — RED-stale data treated as
   // missing so engine doesn't report a false GREEN score from a different macro era.
-  const [freshNpl, freshLdr, freshCar, dbIndonia, dbBiRate, dbExtDebt, dbIhpr, dbSbn10y, dbCpi, dbSrbi, dbM2Idr, dbFxReserves, dbUsdidr, dbFintechNpl, dbFintechOutstanding, dbFintechGrowth, dbDeficitPct, dbDepositoShare, dbM1m2Ratio, dbSrbiBcr] = await Promise.all([
+  const [freshNpl, freshLdr, freshCar, dbIndoniaTe, dbIndoniaBi, dbBiRate, dbExtDebt, dbIhpr, dbSbn10y, dbCpi, dbSrbi, dbM2Idr, dbFxReserves, dbUsdidr, dbFintechNpl, dbFintechOutstanding, dbFintechGrowth, dbDeficitPct, dbDepositoShare, dbM1m2Ratio, dbSrbiBcr] = await Promise.all([
     getFreshPoint('bank_npl_gross_pct', { treatStaleAsMissing: true }),
     getFreshPoint('bank_ldr_pct', { treatStaleAsMissing: true }),
     getFreshPoint('bank_car_pct', { treatStaleAsMissing: true }),
     getLatestPoint('indonia_3m_pct'),
+    getLatestPoint('indonia_compounded_30d_pct'),
     getLatestPoint('bi_rate_pct'),
     getLatestPoint('indonesia_external_debt_bn'),
     getLatestPoint('indonesia_ihpr_yoy_pct'),
@@ -452,7 +457,18 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   const lpsEnv = process.env.LPS_FUND_ADEQUACY_PCT;
   const lpsAdequacyPct = lpsEnv ? (parseFloat(lpsEnv) || null) : null;
   const uninsuredDepositSharePct = lpsDepositCoverage?.uninsuredSharePct ?? null;
-  const indoniaPct = dbIndonia?.value ?? null;
+  // Prefer BI direct (compounded 30d, < 1d fresh) over TE proxy (3M term, ~4-week lag).
+  // Live fetch result takes priority when DB hasn't caught up yet.
+  const indoniaBiPct = indoniaDirectFetch?.value ?? dbIndoniaBi?.value ?? null;
+  const indoniaTeValue = dbIndoniaTe?.value ?? null;
+  const indoniaBiFreshDays = dbIndoniaBi
+    ? (Date.now() - new Date(dbIndoniaBi.fetchedAt).getTime()) / 86_400_000
+    : Infinity;
+  const indoniaPct = (indoniaBiPct !== null && indoniaBiFreshDays < 5)
+    ? indoniaBiPct
+    : (indoniaTeValue ?? indoniaBiPct);
+  const indoniaSource: 'bi_direct' | 'te_proxy' = (indoniaBiPct !== null && indoniaBiFreshDays < 5)
+    ? 'bi_direct' : 'te_proxy';
   const biRatePct = dbBiRate?.value ?? null;
   const externalDebtBn = dbExtDebt?.value ?? null;
   const ihprYoy = dbIhpr?.value ?? null;
@@ -846,7 +862,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   flags.push(...liquiditySpiral.flags);
 
   // 7. Data date (most recent of all fetched points)
-  const dates = [dbNpl, dbLdr, dbCar, dbIndonia, dbExtDebt]
+  const dates = [dbNpl, dbLdr, dbCar, dbIndoniaTe, dbExtDebt]
     .filter(Boolean)
     .map(p => p!.date)
     .sort()
@@ -871,7 +887,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   return {
     alert, stressScore,
     nplPct, ldrPct, carPct,
-    indoniaPct, biRatePct, indoniaSpreadBps,
+    indoniaPct, indoniaSource, biRatePct, indoniaSpreadBps,
     externalDebtBn, ihprYoy,
     sbn10yPct, cpiPct, realIndoniaPct, impliedCarHitPp, srbiOutstandingT,
     m2ReservesRatio, fxReservesBn,
@@ -903,7 +919,7 @@ export const bankingStressEngine = new DynamicStructuredTool({
         `| NPL Gross % | ${output.nplPct?.toFixed(1) ?? 'n/a'} | KLR EW >3%, Acute >5% |`,
         `| LDR % | ${output.ldrPct?.toFixed(1) ?? 'n/a'} | YELLOW >90%, RED >110% |`,
         `| CAR % | ${output.carPct?.toFixed(1) ?? 'n/a'} | YELLOW <15%, RED <8% |`,
-        `| IndONIA O/N % | ${output.indoniaPct?.toFixed(2) ?? 'n/a'} | — |`,
+        `| IndONIA O/N % | ${output.indoniaPct?.toFixed(5) ?? 'n/a'} (${output.indoniaSource === 'bi_direct' ? 'BI 30d cpd' : 'TE 3M'}) | — |`,
         `| BI Rate % | ${output.biRatePct?.toFixed(2) ?? 'n/a'} | — |`,
         `| IndONIA-BI Spread | ${output.indoniaSpreadBps !== null ? output.indoniaSpreadBps + 'bps' : 'n/a'} | YELLOW >30bps, ORANGE >50bps, RED >75bps (BI corridor) |`,
         `| Real IndONIA Rate | ${output.realIndoniaPct !== null ? output.realIndoniaPct.toFixed(2) + '%' : 'n/a'} | <0% = financial repression (KLR signal) |`,

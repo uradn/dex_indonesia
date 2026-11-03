@@ -17,7 +17,7 @@ import * as XLSX from 'xlsx';
 import { fetchBiFxReservesWorldBank } from './worldbank.js';
 import { fetchHtmlWithBrowser, fetchRenderedTextWithBrowser, withBrowserPage } from './playwright-browser.js';
 import { extractPdfText } from './pdf-parser.js';
-import { upsertPoints } from '../time-series-db.js';
+import { upsertPoints, getLatestPoint } from '../time-series-db.js';
 
 const NOW = () => new Date().toISOString();
 const TODAY = () => new Date().toISOString().slice(0, 10);
@@ -444,4 +444,62 @@ async function parseSrbiZip(zipBuf: Buffer): Promise<MacroDataPoint | null> {
   } finally {
     await Bun.file(tmpZip).exists().then(e => e && Bun.spawn(['rm', tmpZip]));
   }
+}
+
+/**
+ * Fetch BI IndONIA compounded 30d rate directly from BI's IndONIA/JIBOR page.
+ *
+ * Source: bi.go.id/en/fungsi-utama/moneter/indonia-jibor/default.aspx
+ * BI publishes this daily at 19:30 WIB; Playwright renders the JS-loaded table.
+ * Indicator: indonia_compounded_30d_pct — backward 30-day compounded average of daily O/N rates.
+ * Freshness gate: 1d (BI publishes daily; re-fetch on every morning-check run).
+ *
+ * Distinction from indonia_3m_pct (TE source):
+ *   - indonia_compounded_30d_pct: BI official, O/N 30d backward average, < 1d lag
+ *   - indonia_3m_pct: TE proxy, 3M term rate (JIBOR 3M behavior), ~4-week lag
+ */
+export async function fetchIndoniaBiDirect(): Promise<MacroDataPoint | null> {
+  const cached = await getLatestPoint('indonia_compounded_30d_pct');
+  if (cached?.source === 'bi_indonia_direct') {
+    const ageDays = (Date.now() - new Date(cached.fetchedAt).getTime()) / 86_400_000;
+    if (ageDays < 1) return cached;
+  }
+
+  const text = await fetchRenderedTextWithBrowser(
+    'https://www.bi.go.id/en/fungsi-utama/moneter/indonia-jibor/default.aspx',
+  );
+  if (!text) return null;
+
+  // BI renders compounded IndONIA 30d as a table value.
+  // Rendered innerText patterns observed on this page:
+  const RATE_RANGE = { min: 2, max: 12 };
+  const patterns = [
+    // "Compounded INDONIA 30 days\n5.12581"
+    /compounded\s+indonia\s+30\s*(?:days?|hari)?\s*\n+\s*([\d]+\.[\d]{3,6})/i,
+    // "Compounded INDONIA\n...5.12581%"
+    /compounded\s+indonia[^\n]*\n(?:[^\n]{0,80}\n){0,3}[^\n]*?([\d]+\.[\d]{3,6})\s*%?/i,
+    // generic fallback: "INDONIA" near a 5-decimal rate
+    /indonia[^\n]*\n(?:[^\n]{0,80}\n){0,5}[^\n]*?([\d]+\.[\d]{4,6})/i,
+  ];
+
+  for (const pat of patterns) {
+    const m = text.match(pat);
+    if (m) {
+      const val = parseFloat(m[1]!);
+      if (!isNaN(val) && val >= RATE_RANGE.min && val <= RATE_RANGE.max) {
+        const pt: MacroDataPoint = {
+          indicator: 'indonia_compounded_30d_pct',
+          category: 'banking',
+          date: TODAY(),
+          value: parseFloat(val.toFixed(5)),
+          unit: '%',
+          source: 'bi_indonia_direct',
+          fetchedAt: NOW(),
+        };
+        await upsertPoints([pt]);
+        return pt;
+      }
+    }
+  }
+  return null;
 }
