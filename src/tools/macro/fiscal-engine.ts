@@ -25,6 +25,7 @@ import { fetchFiscalRealization } from './sources/kemenkeu.js';
 import { fetchSubsidiRealisasi } from './sources/subsidi.js';
 import { fetchMbgRealisasi, MBG_APBN_2026_TARGET_TRN } from './sources/mbg.js';
 import { fetchBiodieselStatus } from './sources/biodiesel.js';
+import { fetchTkdRealisasi, fetchBpdEquityProxy } from './sources/djpk.js';
 import { fetchFiscalRhetoricExa, fetchFiscalRhetoricTavily } from './sources/fiscal-rhetoric.js';
 import type { FiscalRhetoricResult } from './sources/fiscal-rhetoric.js';
 import type { AlertLevel } from './types.js';
@@ -33,7 +34,7 @@ export const FISCAL_DESCRIPTION = `
 MACRO INTELLIGENCE — Fiscal Stress Engine (Module 10)
 
 Tracks Indonesia APBN (State Budget) realization vs 2026 targets.
-Detects revenue shortfall, spending overrun, and deficit trajectory risk.
+Detects revenue shortfall, spending overrun, deficit trajectory risk, and TKD/BPD cross-flag.
 
 APBN 2026 targets: Revenue IDR 3,154T | Spending IDR 3,843T | Deficit IDR 689T (2.68% GDP)
 Post-efisiensi Prabowo: spending revised ~3,534T. Source: UU No.17/2025 / Perpres No.118/2025
@@ -45,6 +46,10 @@ Detects:
 - Fiscal drag: below-target revenue constrains economic stimulus capacity
 - Subsidi energi overshoot: BBM+LPG run rate >110% of APBN target (Rp87T) — oil shock pass-through
 - Subsidi pupuk overshoot: fertilizer run rate >120% of APBN target (Rp46.8T)
+- TKD shortfall: Transfer ke Daerah realisasi vs seasonal expected pace — BPD cross-flag
+  BPD (Bank Pembangunan Daerah) derive 40-80% of DPK from Pemda deposits.
+  TKD shortfall → Pemda deposit recall from BPD → BPD LDR rises → credit crunch in daerah → NPL lag.
+  BPD equity proxy (BJBR + BJTM) forward-leads TKD data by days-weeks.
 
 ## When to Use
 
@@ -55,6 +60,8 @@ Detects:
 - Monthly budget monitoring
 - "Subsidi BBM berapa realisasinya?"
 - "Is the subsidy budget blowing out?"
+- "TKD realisasi?"
+- "BPD liquidity risk?"
 `.trim();
 
 // APBN 2026 annual targets (IDR trillion) — UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025
@@ -78,6 +85,15 @@ const APBN_2026 = {
   subsidiBbmLpgTrn: 87.0,    // Subsidi BBM + LPG energi annual target
   subsidiPupukTrn: 46.8,      // Subsidi pupuk annual target
 };
+
+// TKD disbursement expected pace (% of annual pagu) by month — historical 2020-2025 avg
+// Jan slow (budget just passed) → Dec ~full disbursement. Source: DJPK SIKD annual pattern.
+const TKD_EXPECTED_PACE: Record<number, number> = {
+  1: 9, 2: 16.5, 3: 24, 4: 32.5, 5: 40, 6: 48,
+  7: 56.5, 8: 63.5, 9: 72, 10: 80, 11: 86.5, 12: 97.5,
+};
+const TKD_SHORTFALL_SIGNIFICANT = 0.85; // actual < expected × 0.85 = significant BPD pressure
+const TKD_SHORTFALL_SEVERE = 0.75;      // actual < expected × 0.75 = severe → deposit recall likely
 
 // ─── Calvo (1988) Self-Fulfilling Sovereign Debt Trap ──────────────────────────────
 // Multiple equilibria: "good" equilibrium (low r → manageable debt) vs
@@ -322,6 +338,18 @@ interface FiscalOutput {
   multiplierRegime: 'low_multiplier' | 'high_multiplier' | 'neutral' | 'unknown';
   rateGap: number;           // biRatePct - neutral 4.5%
   growthGap: number | null;  // potential 5.4% - actual GDP growth
+  // TKD (Transfer ke Daerah) — BPD cross-flag
+  tkdRealisasiPct: number | null;
+  tkdPaguTrn: number | null;
+  tkdRealisasiTrn: number | null;
+  dauRealisasiPct: number | null;
+  danaDesaRealisasiPct: number | null;
+  tkdExpectedPct: number;              // seasonal pace target for current month
+  tkdShortfallSignificant: boolean;
+  tkdShortfallSevere: boolean;
+  bpdEquityStress: boolean;
+  bpdBjbrReturnPct: number | null;
+  bpdBjtmReturnPct: number | null;
   // Alerts
   revenueShortfall: boolean;
   spendingOverrun: boolean;
@@ -373,12 +401,14 @@ async function sumCurrentYearPoints(indicator: string): Promise<{ total: number;
 const ANNUAL_DATA_THRESHOLD_TRN = 1000;
 
 export async function runFiscalEngine(): Promise<FiscalOutput> {
-  // 1. Fetch live data (subsidi + MBG + biodiesel in parallel with fiscal realization)
-  const [{ revenue, spending, budgetBalance }, subsidyData, mbgData, biodieselData] = await Promise.all([
+  // 1. Fetch live data (subsidi + MBG + biodiesel + TKD in parallel with fiscal realization)
+  const [{ revenue, spending, budgetBalance }, subsidyData, mbgData, biodieselData, tkdData, bpdEquityData] = await Promise.all([
     fetchFiscalRealization(),
     fetchSubsidiRealisasi(),
     fetchMbgRealisasi(),
     fetchBiodieselStatus(),
+    fetchTkdRealisasi(),
+    fetchBpdEquityProxy(),
   ]);
 
   const pointsToSave = [revenue, spending, budgetBalance].filter(Boolean);
@@ -503,6 +533,20 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   // 4d.c — Biodiesel BPDPKS subsidy + B50 status (M4 ↔ M10 cross-feed)
   const biodieselSubsidyYtdTrn = biodieselData?.subsidyYtdIdrT ?? (await getLatestPoint('biodiesel_subsidy_ytd_idr_t'))?.value ?? null;
   const b50StatusNumeric = biodieselData?.b50StatusNumeric ?? (await getLatestPoint('b50_status_numeric'))?.value ?? null;
+
+  // 4d.d — TKD/BPD cross-flag (DJPK SIKD)
+  const tkdRealisasiPct = tkdData?.tkddRealisasiPct ?? (await getLatestPoint('tkd_realisasi_pct'))?.value ?? null;
+  const tkdPaguTrn = tkdData?.tkddPaguTrn ?? (await getLatestPoint('tkdd_pagu_idr_t'))?.value ?? null;
+  const tkdRealisasiTrn = tkdData?.tkddRealisasiTrn ?? (await getLatestPoint('tkd_realisasi_idr_t'))?.value ?? null;
+  const dauRealisasiPct = tkdData?.dauRealisasiPct ?? (await getLatestPoint('dau_realisasi_pct'))?.value ?? null;
+  const danaDesaRealisasiPct = tkdData?.danaDesaRealisasiPct ?? (await getLatestPoint('dana_desa_realisasi_pct'))?.value ?? null;
+  const currentMonth = new Date().getMonth() + 1;
+  const tkdExpectedPct = TKD_EXPECTED_PACE[currentMonth] ?? 50;
+  const tkdShortfallSignificant = tkdRealisasiPct !== null && tkdRealisasiPct < tkdExpectedPct * TKD_SHORTFALL_SIGNIFICANT;
+  const tkdShortfallSevere = tkdRealisasiPct !== null && tkdRealisasiPct < tkdExpectedPct * TKD_SHORTFALL_SEVERE;
+  const bpdEquityStress = bpdEquityData.bothDown5;
+  const bpdBjbrReturnPct = bpdEquityData.bjbrReturnPct;
+  const bpdBjtmReturnPct = bpdEquityData.bjtmReturnPct;
 
   // 5. Stress score
   const components: Array<[number, number]> = [];
@@ -676,6 +720,25 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     flags.push(`BPDPKS biodiesel insentif YTD Rp${biodieselSubsidyYtdTrn.toFixed(1)}T — CPO levy + APBN drag; rising with B50 transition`);
   }
 
+  // TKD/BPD cross-flag
+  if (tkdShortfallSevere) {
+    flags.push(
+      `TKD SHORTFALL SEVERE: realisasi ${tkdRealisasiPct!.toFixed(1)}% vs seasonal expected ${tkdExpectedPct}% (threshold ${(tkdExpectedPct * TKD_SHORTFALL_SEVERE).toFixed(1)}%). ` +
+      `Pemda deposit recall from BPD imminent: BPD LDR rises → credit crunch in daerah → NPL lag 1-2 quarters. ` +
+      `DAU ${dauRealisasiPct !== null ? dauRealisasiPct.toFixed(1) + '%' : 'n/a'} / Dana Desa ${danaDesaRealisasiPct !== null ? danaDesaRealisasiPct.toFixed(1) + '%' : 'n/a'}.`,
+    );
+  } else if (tkdShortfallSignificant) {
+    flags.push(
+      `TKD shortfall significant: realisasi ${tkdRealisasiPct!.toFixed(1)}% vs seasonal expected ${tkdExpectedPct}% (threshold ${(tkdExpectedPct * TKD_SHORTFALL_SIGNIFICANT).toFixed(1)}%). ` +
+      `Pemda deposit pressure on BPD elevated. DAU ${dauRealisasiPct !== null ? dauRealisasiPct.toFixed(1) + '%' : 'n/a'} / Dana Desa ${danaDesaRealisasiPct !== null ? danaDesaRealisasiPct.toFixed(1) + '%' : 'n/a'}.`,
+    );
+  }
+  if (bpdEquityStress) {
+    flags.push(
+      `BPD EQUITY STRESS: BJBR ${bpdBjbrReturnPct !== null ? bpdBjbrReturnPct.toFixed(2) + '%' : 'n/a'} + BJTM ${bpdBjtmReturnPct !== null ? bpdBjtmReturnPct.toFixed(2) + '%' : 'n/a'} both down >5% same session — equity market pricing in Pemda deposit recall / BPD LDR stress (forward-leads TKD data by days–weeks).`,
+    );
+  }
+
   if (srbiCostAsPctDeficit !== null && srbiCostAsPctDeficit > 10) {
     flags.push(`SRBI STERILIZATION BURDEN ELEVATED: IDR ${srbiAnnualCostTrn!.toFixed(0)}T/yr (${srbiCostAsPctDeficit.toFixed(1)}% of APBN deficit) — Trilemma cost: FX defense requires sterilization → reduces BI profit remittance to Treasury`);
   } else if (srbiCostAsPctDeficit !== null && srbiCostAsPctDeficit > 5) {
@@ -746,6 +809,9 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     subsidiBbmLpgRunRatePct, subsidiPupukRunRatePct, subsidiDataDate,
     mbgRealisasiYtdTrn, mbgBurnRatePct, mbgDataDate,
     biodieselSubsidyYtdTrn, b50StatusNumeric,
+    tkdRealisasiPct, tkdPaguTrn, tkdRealisasiTrn, dauRealisasiPct, danaDesaRealisasiPct,
+    tkdExpectedPct, tkdShortfallSignificant, tkdShortfallSevere,
+    bpdEquityStress, bpdBjbrReturnPct, bpdBjtmReturnPct,
     barroGordon,
     calvoDebtTrap,
     multiplierRegime, rateGap, growthGap,
@@ -822,6 +888,17 @@ function formatFiscalOutput(output: FiscalOutput): string {
       output.subsidiDataDate ? `_Data date: ${output.subsidiDataDate} (source: APBN Kita / media)_` : '',
       `_Run rate = annualized YTD / APBN target. >110% = elevated; >130% = overshoot alert._`,
     ].filter(Boolean).join('\n') : '',
+    output.tkdRealisasiPct !== null ? [
+      `### TKD (Transfer ke Daerah) — BPD Cross-Flag`,
+      `| Component | Pagu | Realisasi | Seasonal Check |`,
+      `|-----------|------|-----------|----------------|`,
+      `| TOTAL TKDD | IDR ${output.tkdPaguTrn !== null ? output.tkdPaguTrn.toFixed(1) + 'T' : 'n/a'} | IDR ${output.tkdRealisasiTrn !== null ? output.tkdRealisasiTrn.toFixed(1) + 'T' : 'n/a'} (${output.tkdRealisasiPct.toFixed(1)}%) | Expected ${output.tkdExpectedPct}% M${new Date().getMonth() + 1} ${output.tkdShortfallSevere ? '🔴 SEVERE' : output.tkdShortfallSignificant ? '⚠️ SHORTFALL' : '✅ on pace'} |`,
+      `| DAU | — | — | ${output.dauRealisasiPct !== null ? output.dauRealisasiPct.toFixed(1) + '%' : 'n/a'} |`,
+      `| Dana Desa | — | — | ${output.danaDesaRealisasiPct !== null ? output.danaDesaRealisasiPct.toFixed(1) + '%' : 'n/a'} |`,
+      `| BPD equity (BJBR/BJTM) | — | ${output.bpdBjbrReturnPct !== null ? output.bpdBjbrReturnPct.toFixed(2) + '%' : 'n/a'} / ${output.bpdBjtmReturnPct !== null ? output.bpdBjtmReturnPct.toFixed(2) + '%' : 'n/a'} | ${output.bpdEquityStress ? '🔴 STRESS (both <−5%)' : '✅ normal'} |`,
+      `_TKD shortfall: <${(output.tkdExpectedPct * 0.85).toFixed(1)}% = significant; <${(output.tkdExpectedPct * 0.75).toFixed(1)}% = severe. BPD derive 40–80% DPK from Pemda deposits. Inpres No.1/2025 cut TKD ~Rp50.6T. Source: DJPK SIKD (djpk.kemenkeu.go.id/portal/data/tkdd)._`,
+      ``,
+    ].join('\n') : '',
     `_Data: Trading Economics monthly IDR trillion (government-revenues, government-spending)._`,
     `_YTD = sum of all current-year monthly entries in macro DB. Pro-rata = target × (months_elapsed/12)._`,
     `_Targets: APBN 2026 (UU No.17/2025 / Perpres No.118/2025). Post-efisiensi spending ~3,534T. YTD April 2026 deficit realization: 0.64% GDP (Rp164.4T)._`,
