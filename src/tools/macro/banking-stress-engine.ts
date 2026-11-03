@@ -46,7 +46,7 @@ Tracks Indonesia's banking sector health and hidden credit cycle stress. Detects
 
 - CAR / LDR: OJK SJKPublic portal (data.ojk.go.id, Playwright XMLA intercept, monthly, Jul 2025+)
 - NPL: OJK SPI Excel fallback (legacy portal, Jun 2025 max) → news scrape → World Bank
-- IndONIA O/N: Trading Economics scraper (Playwright, monthly) — BI discontinued JIBOR O/N Jan 2019, all tenors Jan 2026
+- IndONIA: Tier 1 = BI direct Playwright (indonia_compounded_30d_pct, daily, < 1d lag); Tier 2 = TE 3M proxy (indonia_3m_pct, monthly, ~4-week lag). JIBOR O/N discontinued Jan 2019, all tenors Jan 2026.
 - BI Rate (for spread): macro DB (from sovereign_risk_engine last run)
 - External Debt: Trading Economics scraper (Playwright, quarterly, source: Bank Indonesia)
 `.trim();

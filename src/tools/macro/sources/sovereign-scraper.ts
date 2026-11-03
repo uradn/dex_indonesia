@@ -383,10 +383,11 @@ export async function fetchIndonesiaCdsHistoricalWgb(): Promise<Array<{ date: st
 }
 
 /**
- * Fetch Indonesia IndONIA (Indonesia Overnight Index Average) compounded rate from TE.
- * BI discontinued JIBOR O/N Jan 2019, all tenors Jan 2026; TE now reports IndONIA O/N on the same interbank-rate URL.
- * Pattern: "Interbank Rate in Indonesia ... X.XX percent"
- * Typical healthy spread vs BI Rate: 0.1–0.5%. Crisis: >1.5%.
+ * Fetch Indonesia interbank rate from Trading Economics (indonia_3m_pct).
+ * TE page title: "Indonesia Three Month Interbank Rate" — a term rate (3M tenor),
+ * NOT IndONIA O/N. JIBOR was discontinued (O/N Jan 2019, all tenors Jan 2026);
+ * TE now shows a 3M proxy (compounded IndONIA or OIS-derived). Monthly, ~4-week lag.
+ * Prefer fetchIndoniaBiDirect() (bi.ts) for fresher O/N compounded 30d data.
  */
 export async function fetchIndoniaRateTe(): Promise<MacroDataPoint | null> {
   const text = await fetchRenderedTextWithBrowser('https://tradingeconomics.com/indonesia/interbank-rate');
