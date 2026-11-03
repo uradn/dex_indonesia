@@ -14,6 +14,7 @@ import type { AlertLevel, MacroDataPoint } from './types.js';
 import { fetchAt1Secondary } from './sources/at1-bonds.js';
 import { fetchOjkPdn } from './sources/ojk-pdn.js';
 import { fetchLpsDepositCoverage } from './sources/lps-deposit-coverage.js';
+import { fetchKbmiContagion, type KbmiContagionResult } from './sources/kbmi-contagion.js';
 
 export const BANKING_STRESS_DESCRIPTION = `
 MACRO INTELLIGENCE — Banking Stress Engine (Module 8)
@@ -44,7 +45,7 @@ Tracks Indonesia's banking sector health and hidden credit cycle stress. Detects
 
 - CAR / LDR: OJK SJKPublic portal (data.ojk.go.id, Playwright XMLA intercept, monthly, Jul 2025+)
 - NPL: OJK SPI Excel fallback (legacy portal, Jun 2025 max) → news scrape → World Bank
-- IndONIA 3M: Trading Economics scraper (Playwright, monthly) — BI discontinued JIBOR Dec 2023
+- IndONIA O/N: Trading Economics scraper (Playwright, monthly) — BI discontinued JIBOR O/N Jan 2019, all tenors Jan 2026
 - BI Rate (for spread): macro DB (from sovereign_risk_engine last run)
 - External Debt: Trading Economics scraper (Playwright, quarterly, source: Bank Indonesia)
 `.trim();
@@ -75,6 +76,7 @@ interface BankingStressOutput {
   depositoSharePct: number | null;
   diamondDybvig: DiamondDybvig;
   liquiditySpiral: LiquiditySpiral;
+  kbmiContagion: KbmiContagionResult | null;
   dataDate: string;
   flags: string[];
   summary: string;
@@ -369,17 +371,19 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     }
   }
 
-  // 1c. Frequently-updated indicators always fetched fresh (IndONIA monthly, ext debt quarterly)
-  const [indoniaPoint, extDebtPoint, ihprPoint, m2Point] = await Promise.allSettled([
+  // 1c. Frequently-updated indicators + KBMI basket (all parallel)
+  const [indoniaPoint, extDebtPoint, ihprPoint, m2Point, kbmiResult] = await Promise.allSettled([
     fetchIndoniaRateTe(),
     fetchExternalDebtTe(),
     fetchIhprTe(),
     fetchM2MoneySupplyTe(),
+    fetchKbmiContagion(),
   ]);
   const indonia = indoniaPoint.status === 'fulfilled' ? indoniaPoint.value : null;
   const extDebt = extDebtPoint.status === 'fulfilled' ? extDebtPoint.value : null;
   const ihpr = ihprPoint.status === 'fulfilled' ? ihprPoint.value : null;
   let m2 = m2Point.status === 'fulfilled' ? m2Point.value : null;
+  const kbmiContagion = kbmiResult.status === 'fulfilled' ? kbmiResult.value : null;
   if (m2 === null) {
     // Tier 2: World Bank annual M2 (no Playwright, free API, 1-year lag)
     m2 = await fetchM2WorldBank();
@@ -414,7 +418,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   // 3. Read from DB (use cached if live fetch failed)
   // Critical banking KPIs (NPL/LDR/CAR) gated by freshness — RED-stale data treated as
   // missing so engine doesn't report a false GREEN score from a different macro era.
-  const [freshNpl, freshLdr, freshCar, dbIndonia, dbBiRate, dbExtDebt, dbIhpr, dbSbn10y, dbCpi, dbSrbi, dbM2Idr, dbFxReserves, dbUsdidr, dbFintechNpl, dbFintechOutstanding, dbFintechGrowth, dbDeficitPct, dbDepositoShare, dbM1m2Ratio] = await Promise.all([
+  const [freshNpl, freshLdr, freshCar, dbIndonia, dbBiRate, dbExtDebt, dbIhpr, dbSbn10y, dbCpi, dbSrbi, dbM2Idr, dbFxReserves, dbUsdidr, dbFintechNpl, dbFintechOutstanding, dbFintechGrowth, dbDeficitPct, dbDepositoShare, dbM1m2Ratio, dbSrbiBcr] = await Promise.all([
     getFreshPoint('bank_npl_gross_pct', { treatStaleAsMissing: true }),
     getFreshPoint('bank_ldr_pct', { treatStaleAsMissing: true }),
     getFreshPoint('bank_car_pct', { treatStaleAsMissing: true }),
@@ -434,6 +438,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     getLatestPoint('apbn_deficit_pct_gdp'),
     getLatestPoint('bank_savings_deposito_ratio_pct'),
     getLatestPoint('m1_m2_ratio_pct'),  // D-D liquidity preference signal
+    getLatestPoint('srbi_bid_cover_ratio'),
   ]);
   const dbNpl = freshNpl.point;
   const dbLdr = freshLdr.point;
@@ -454,6 +459,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   const sbn10yPct = dbSbn10y?.value ?? null;
   const cpiPct = dbCpi?.value ?? null;
   const srbiOutstandingT = dbSrbi?.value ?? null;
+  const srbiBcr = dbSrbiBcr?.value ?? null;
   const m2IdrBn = dbM2Idr?.value ?? null;
   const fxReservesBn = dbFxReserves?.value ?? null;
   const usdidrSpot = dbUsdidr?.value ?? null;
@@ -514,6 +520,15 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     stressScore = Math.round(components.reduce((s, [score, w]) => s + score * w, 0) / totalWeight);
   }
 
+  // P1-B: IndONIA standalone floor — prevents scoring dilution when healthy NPL/LDR/CAR
+  // suppresses interbank stress signal (GFC 2008 pattern: LIBOR-OIS blew out before balance sheets).
+  // Calibrated: BI corridor ceiling (75bps)→ORANGE floor 55; Sep2015 ATH (96bps)→70; Jul2026 ATH (117bps)→80.
+  if (indoniaSpreadBps !== null) {
+    if (indoniaSpreadBps >= 117) stressScore = Math.max(stressScore, 80);
+    else if (indoniaSpreadBps >= 96) stressScore = Math.max(stressScore, 70);
+    else if (indoniaSpreadBps >= 75) stressScore = Math.max(stressScore, 55);
+  }
+
   // FSAP amplifier: SBN yield shock transmits to banking CAR via sovereign-bank nexus
   if (impliedCarHitPp !== null && impliedCarHitPp > 0.5) {
     stressScore = Math.min(100, stressScore + Math.min(15, Math.round(impliedCarHitPp * 5)));
@@ -538,6 +553,22 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     uninsuredDepositSharePct,
   );
   stressScore = Math.min(100, stressScore + diamondDybvig.scoreBump);
+
+  // ── KBMI Basket Contagion (P1-A) ─────────────────────────────────────────────
+  // basket ≥3/4 crash >8% = systemic panic. SRBI BCR <1.3 cross-check: banks
+  // hoarding interbank cash simultaneously = composite high-confidence signal.
+  let kbmiContagionBump = 0;
+  if (kbmiContagion !== null) {
+    const basketSrbiComposite = kbmiContagion.contagionSignal && srbiBcr !== null && srbiBcr < 1.3;
+    if (kbmiContagion.ojkFormalAction) {
+      kbmiContagionBump = 25;
+    } else if (basketSrbiComposite) {
+      kbmiContagionBump = 20;
+    } else if (kbmiContagion.contagionSignal) {
+      kbmiContagionBump = 12;
+    }
+    stressScore = Math.min(100, stressScore + kbmiContagionBump);
+  }
 
   // ── AT1 Perpetual Bond — Himbara capital stress signal ───────────────────────
   // Issuance signal (manual env pin): preemptive CAR buffer = forward-looking concern.
@@ -767,6 +798,26 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     }
   }
 
+  // KBMI basket contagion flags
+  if (kbmiContagion !== null) {
+    const returnStr = Object.entries(kbmiContagion.sessionReturnsPct)
+      .map(([t, r]) => `${t}: ${r !== null ? r.toFixed(1) + '%' : 'n/a'}`)
+      .join(' | ');
+    if (kbmiContagion.contagionSignal) {
+      const crashList = kbmiContagion.crashSymbols.join(', ');
+      const srbiNote = srbiBcr !== null && srbiBcr < 1.3
+        ? ` + SRBI BCR ${srbiBcr.toFixed(2)} (banks hoarding) = composite RED`
+        : '';
+      flags.push(`KBMI CONTAGION: ${kbmiContagion.basketCrashCount}/4 basket crashed >8% [${crashList}]${srbiNote}. Session: ${returnStr}. (+${kbmiContagionBump} score)`);
+    } else if (kbmiContagion.basketCrashCount > 0) {
+      const crashList = kbmiContagion.crashSymbols.join(', ');
+      flags.push(`KBMI watch: ${kbmiContagion.basketCrashCount}/4 basket crashed [${crashList}] — below contagion threshold (≥3/4). Session: ${returnStr}`);
+    }
+    if (kbmiContagion.ojkFormalAction) {
+      flags.push(`OJK FORMAL BANKING ACTION: ${kbmiContagion.ojkNewsExcerpt ?? 'bank regulatory action detected via Exa'}. (+${kbmiContagionBump} score)`);
+    }
+  }
+
   // Deposito savings ratio flag (BI SEKI, deposito/(deposito+tabungan))
   if (depositoSharePct !== null) {
     if (depositoSharePct > 60) {
@@ -829,6 +880,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     depositoSharePct,
     diamondDybvig,
     liquiditySpiral,
+    kbmiContagion,
     dataDate, flags, summary,
   };
 }
@@ -851,7 +903,7 @@ export const bankingStressEngine = new DynamicStructuredTool({
         `| NPL Gross % | ${output.nplPct?.toFixed(1) ?? 'n/a'} | KLR EW >3%, Acute >5% |`,
         `| LDR % | ${output.ldrPct?.toFixed(1) ?? 'n/a'} | YELLOW >90%, RED >110% |`,
         `| CAR % | ${output.carPct?.toFixed(1) ?? 'n/a'} | YELLOW <15%, RED <8% |`,
-        `| IndONIA 3M % | ${output.indoniaPct?.toFixed(2) ?? 'n/a'} | — |`,
+        `| IndONIA O/N % | ${output.indoniaPct?.toFixed(2) ?? 'n/a'} | — |`,
         `| BI Rate % | ${output.biRatePct?.toFixed(2) ?? 'n/a'} | — |`,
         `| IndONIA-BI Spread | ${output.indoniaSpreadBps !== null ? output.indoniaSpreadBps + 'bps' : 'n/a'} | YELLOW >30bps, ORANGE >50bps, RED >75bps (BI corridor) |`,
         `| Real IndONIA Rate | ${output.realIndoniaPct !== null ? output.realIndoniaPct.toFixed(2) + '%' : 'n/a'} | <0% = financial repression (KLR signal) |`,

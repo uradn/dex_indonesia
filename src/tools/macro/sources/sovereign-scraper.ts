@@ -384,7 +384,7 @@ export async function fetchIndonesiaCdsHistoricalWgb(): Promise<Array<{ date: st
 
 /**
  * Fetch Indonesia IndONIA (Indonesia Overnight Index Average) compounded rate from TE.
- * BI discontinued JIBOR in Dec 2023; TE now reports IndONIA on the same interbank-rate URL.
+ * BI discontinued JIBOR O/N Jan 2019, all tenors Jan 2026; TE now reports IndONIA O/N on the same interbank-rate URL.
  * Pattern: "Interbank Rate in Indonesia ... X.XX percent"
  * Typical healthy spread vs BI Rate: 0.1–0.5%. Crisis: >1.5%.
  */
@@ -419,7 +419,7 @@ export async function fetchIndoniaRateTe(): Promise<MacroDataPoint | null> {
   };
 }
 
-/** @deprecated Use fetchIndoniaRateTe — JIBOR discontinued Dec 2023 */
+/** @deprecated Use fetchIndoniaRateTe — JIBOR O/N discontinued Jan 2019, all tenors Jan 2026 */
 export const fetchJiborTe = fetchIndoniaRateTe;
 
 /**
