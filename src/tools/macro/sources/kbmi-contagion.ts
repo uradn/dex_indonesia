@@ -4,9 +4,17 @@
  * Signal is NOT individual bank health — it's basket crash pattern + OJK formal action.
  *
  * Components:
- * 1. KBMI I stock basket (BABP + BBYB + BMAS + AGRO) via Yahoo Finance (daily).
+ * 1. KBMI I stock basket (BABP + BBYB + INPC + AGRO) via Yahoo Finance (daily).
  *    Trigger: ≥3/4 drop >8% same session = systemic panic, not idiosyncratic event.
  *    Single stock can drop on thin volume / corporate news — basket filters that noise.
+ *    Basket notes:
+ *      BABP (Bank MNC): KBMI I, liquid (~14M shr/day), MNC Group (private)
+ *      BBYB (Bank Neo Commerce): KBMI I, most liquid (~40M shr/day), independent
+ *      INPC (Bank Artha Graha): KBMI I, liquid (~3.6M shr/day), Artha Graha Group (private)
+ *        Replaced BMAS (Bank Kasikorn): removed — practically untradeable (32K shr/day);
+ *        crash on BMAS = single order, not systemic signal.
+ *      AGRO (Bank Raya/BRI): KBMI I, liquid (~5M shr/day). Note: BRI subsidiary; BRI
+ *        backstop dampens systemic reads — monitor for basket replacement P3-B review.
  * 2. Exa news: OJK formal action (BDPI / pengawasan intensif / pembekuan / pencabutan izin).
  *    7-day lookback — OJK formal press releases are indexed within hours.
  * 3. SRBI bid-cover cross-check (read from DB, written by M3): BCR < 1.3 + basket stress
@@ -16,7 +24,7 @@ import YahooFinance from 'yahoo-finance2';
 
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
-const KBMI1_BASKET = ['BABP.JK', 'BBYB.JK', 'BMAS.JK', 'AGRO.JK'] as const;
+const KBMI1_BASKET = ['BABP.JK', 'BBYB.JK', 'INPC.JK', 'AGRO.JK'] as const;
 const CRASH_THRESHOLD_PCT = 8;   // session drop >8% = crash signal
 const CONTAGION_MIN_COUNT = 3;   // ≥3/4 crash = basket contagion confirmed
 
