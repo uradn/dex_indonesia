@@ -10,7 +10,7 @@ date: "3 November 2026"
 **Dibuat:** 3 November 2026
 **Sistem:** Dexter Indonesia Sovereign Macro Intel — Module 8 (Banking Stress)
 **Scope:** IndONIA lag resolution, KBMI contagion basket design, BPD/TKD M10 cross-flag
-**Status:** Design document — pre-implementation review
+**Status:** Partially implemented — Nov 3 2026 (P2, P3 selesai; P1 masih pending)
 **Basis data:** BI SSKI Tabel 13, OJK LSPI, DJPK SIKD, IMF FSAP CR/25/53, Gibson Dunn APLMA Dec 2024, CEIC, banking-stress-engine.ts, kbmi-contagion.ts
 
 ---
@@ -31,14 +31,16 @@ Module 8 (Banking Stress) menggunakan IndONIA via Trading Economics sebagai indi
 
 ### Kesimpulan utama
 
-| Item | Verdict | Alasan |
-|------|---------|--------|
-| BABP single-stock trigger | **Tolak** | Idiosyncratic (MNC Group risk), illiquid, aktif dalam krisis sendiri Nov 3 |
-| KBMI I basket ≥3/4 crash >8% | **Setujui** | Pattern systemic, existing infra, calibrated |
-| IndONIA direct dari BI (19:30 WIB) | **Prioritas 1** | BI publish harian — lag fix sejati |
-| IndONIA via TE sebagai confirmator | **Pertahankan** | Lagging tapi tidak perlu dibuang |
-| BPD/TKD cross-flag di M10 | **Setujui** | DJPK SIKD machine-readable, no JS-SPA needed |
-| Bug: komentar "JIBOR discontinued Dec 2023" | **Fix segera** | Salah: O/N Jan 2019, ALL tenors Dec 2025 |
+| Item | Verdict | Status | Alasan |
+|------|---------|--------|--------|
+| BABP single-stock trigger | **Tolak** | ✅ Confirmed empirically | BABP liquidity crisis Nov 3 = isolated idiosyncratic — basket 1/4, contagion signal NOT fired |
+| KBMI I basket ≥3/4 crash >8% | **Setujui** | ✅ Basket updated | BMAS (32K ADTV) diganti INPC — kbmi-contagion.ts selesai, belum integrated ke M8 |
+| IndONIA direct dari BI (19:30 WIB) | **Prioritas 1** | ✅ DONE — commit a27f4bf | `fetchIndoniaBiDirect()` di bi.ts; stores `indonia_compounded_30d_pct`; M8 prefer BI (<5d fresh) |
+| IndONIA via TE sebagai confirmator | **Pertahankan** | ✅ Retained as fallback | TE = 3M proxy (bukan O/N); `indonia_3m_pct` naming correct; M8 fallback jika BI >5d stale |
+| BPD/TKD cross-flag di M10 | **Setujui** | ✅ DONE — commit af83923 | `sources/djpk.ts` + M10 seasonality-aware shortfall; BJBR+BJTM equity proxy |
+| Bug: komentar "JIBOR discontinued Dec 2023" | **Fix segera** | ✅ DONE — commit c056821 | Corrected: O/N Jan 2019, all tenors Jan 2026 — di banking-stress-engine.ts + sovereign-scraper.ts |
+| P1-A: Integrate kbmi-contagion.ts ke M8 | **Prioritas 1** | ❌ PENDING | kbmi-contagion.ts exists + updated, tapi belum di-import ke banking-stress-engine.ts |
+| P1-B: IndONIA standalone floor | **Prioritas 1** | ❌ PENDING | 20% weight terlalu rendah — 117bps ATH = M8 score 17 (GREEN). Floor fix diperlukan |
 
 ---
 
@@ -250,9 +252,12 @@ BI publish IndONIA 19:30 WIB setiap hari kerja. Zero intermediary. Lag 0 hari ke
 
 ### 3.2 Opsi B: Multi-Bank Equity Basket (KBMI I)
 
-**Implementasi yang sudah ada (`kbmi-contagion.ts`, untracked):**
+**Implementasi aktual (`kbmi-contagion.ts`, commit 7c094e7):**
 ```typescript
-const KBMI1_BASKET = ['BABP.JK', 'BBYB.JK', 'BMAS.JK', 'AGRO.JK']
+// BMAS (Bank Kasikorn) dihapus: ADTV 32K shr/day = practically untradeable;
+// crash pada BMAS = single order, bukan systemic signal.
+// INPC (Bank Artha Graha) menggantikan: ~3.6M shr/day, mktCap 2.2T, private.
+const KBMI1_BASKET = ['BABP.JK', 'BBYB.JK', 'INPC.JK', 'AGRO.JK']
 const CRASH_THRESHOLD_PCT = 8   // session drop >8% = crash signal
 const CONTAGION_MIN_COUNT = 3   // ≥3/4 crash = basket contagion
 ```
@@ -310,28 +315,18 @@ AT1 HIMBARA sudah dimonitor sebagai bagian M8 via `HIMBARA_AT1_SECONDARY_PCT` en
 |--------|------|-----------|------|-------|---------|
 | BABP.JK | MNC Bank | ~Rp 3.59T | I | Illiquid, MNC Group risk, aktif krisis Nov 3 | Pertahankan sebagai canary |
 | BBYB.JK | Bank Neo Commerce | ~Rp 3.32T | I | Digital bank — DPK outflow cepat (digital run) | Valid |
-| BMAS.JK | Bank Maspion | ~Rp 3–4T | I | KBMI I independen, Jawa Timur fokus | Valid |
-| AGRO.JK | Bank Raya (BRI Agro) | ~Rp 3.42T | I | **Anak BRI KBMI IV — implicit backstop** | Pertimbangkan replace |
+| ~~BMAS.JK~~ | ~~Bank Maspion~~ | ~~Rp 3–4T~~ | ~~I~~ | **ADTV 32K shr/day — untradeable; crash = single order** | **✅ REMOVED** |
+| **INPC.JK** | **Bank Artha Graha** | **~Rp 2.2T** | **I** | **~3.6M shr/day, private Artha Graha Group** | **✅ ADDED (commit 7c094e7)** |
+| AGRO.JK | Bank Raya (BRI Agro) | ~Rp 3.42T | I | Anak BRI KBMI IV — implicit backstop. ~5M shr/day | Retained dengan caveat |
 
-**Daftar pengganti AGRO — listed IDX, independen (dari research):**
+**Keputusan aktual (Nov 3 2026):** BMAS diganti INPC — bukan AGRO diganti BBHI seperti rekomendasi awal.
+Alasan: BMAS liquidity lebih kritis dari AGRO backstop concern. BBHI (mktCap 13T) likely KBMI II — tier salah untuk basket.
+AGRO dipertahankan dengan catatan "BRI backstop dampens systemic reads" di komentar kode.
 
-*KBMI I candidates:*
-- BACA.JK (Bank Capital) — Rp 3.39T, independen
-- BGTG.JK (Bank Ganesha) — Rp 3.24T, independen
+**Kandidat future replacement AGRO** (jika BRI backstop terbukti mute signal):
 - BBSI.JK (Krom Bank, ex-Bisnis) — Rp 3.20T, independen
+- BACA.JK (Bank Capital) — Rp 3.39T, independen
 - AMAR.JK (Bank Amar) — Rp 3.18T, independen
-
-*KBMI II candidates (lebih liquid, higher value signal):*
-- BBHI.JK (Allo Bank, Salim Group) — Rp 6.89T, **most liquid KBMI II**, independen dari BUMN
-- ARTO.JK (Bank Jago, Gojek ecosystem) — Rp 8.36T, sangat liquid
-- MAYA.JK (Bank Mayapada) — Rp 4.40T, borderline I/II
-
-**Rekomendasi basket revised:**
-```typescript
-// Replace AGRO (BRI backstop) dengan BBHI (Allo/Salim, independent, liquid)
-const KBMI1_BASKET = ['BABP.JK', 'BBYB.JK', 'BMAS.JK', 'BBHI.JK']
-```
-Atau pertahankan AGRO dengan flag di output: "AGRO crash alone not systemic — BRI parent backstop available."
 
 ### 4.2 Threshold Calibration: >8%
 
@@ -506,46 +501,61 @@ IF shortfall_severe (< expected × 0.75):
 ║          BANKING CONTAGION EARLY WARNING — 4-LAYER ARCHITECTURE     ║
 ╠══════════════════════════════════════════════════════════════════════╣
 ║                                                                      ║
-║  Layer 1: INTERBANK RATE DIRECT (Daily, ~0 lag)            [NEW]   ║
+║  Layer 1: INTERBANK RATE DIRECT (Daily, ~0 lag)         [✅ DONE]  ║
 ║  ─────────────────────────────────────────────────────────────────  ║
 ║  Source: bi.go.id IndONIA — published 19:30 WIB daily              ║
 ║  Signal: spread > BI Rate +30bps tension / +50bps stress           ║
 ║          spread > BI Rate +75bps = BI ceiling, forced injection     ║
 ║  Action: FLAG immediately                                           ║
-║  Status: NOT implemented — test Playwright BI IndONIA page         ║
+║  Status: ✅ fetchIndoniaBiDirect() live — commit a27f4bf           ║
+║          stores indonia_compounded_30d_pct (source: bi_indonia_direct) ║
+║          M8 prefers BI (<5d fresh) over TE 3M proxy                ║
+║          ⚠️ Standalone floor NOT yet implemented — see P1-B        ║
 ║                                                                      ║
-║  Layer 2: KBMI EQUITY BASKET (Intraday, D+0)            [READY]   ║
+║  Layer 2: KBMI EQUITY BASKET (Intraday, D+0)        [⏳ PENDING]  ║
 ║  ─────────────────────────────────────────────────────────────────  ║
-║  Source: Yahoo Finance (kbmi-contagion.ts, existing infra)          ║
+║  Source: Yahoo Finance (kbmi-contagion.ts)                          ║
+║  Basket: BABP + BBYB + INPC + AGRO (commit 7c094e7: BMAS→INPC)    ║
 ║  Signal: ≥3/4 basket crash >8% same session                        ║
 ║  SRBI cross: BCR < 1.3 + basket = composite high-confidence        ║
 ║  Action: FLAG "KBMI contagion pattern"                              ║
-║  Status: kbmi-contagion.ts exists, NOT integrated to M8            ║
+║  Status: ⏳ kbmi-contagion.ts updated, NOT integrated to M8 (P1-A) ║
+║          Nov 3 2026 live test: BABP crisis → 1/4 → NOT fired ✓    ║
 ║                                                                      ║
-║  Layer 3: OJK REGULATORY NEWS (Hours)                   [READY]   ║
+║  Layer 3: OJK REGULATORY NEWS (Hours)               [⏳ PENDING]  ║
 ║  ─────────────────────────────────────────────────────────────────  ║
-║  Source: Exa news search (kbmi-contagion.ts, existing infra)        ║
+║  Source: Exa news search (kbmi-contagion.ts)                        ║
 ║  Signal: BDPI / Bank dalam Penyehatan / pembekuan                  ║
 ║  Action: ESCALATE to RED immediately                                ║
-║  Status: implemented in kbmi-contagion.ts, NOT integrated          ║
+║  Status: ⏳ implemented in kbmi-contagion.ts, NOT integrated (P1-A) ║
 ║                                                                      ║
-║  Layer 4: INDONIA via TE CONFIRMATOR (Lagging)       [EXISTING]   ║
+║  Layer 4: INDONIA via TE CONFIRMATOR (Lagging)       [✅ DONE]    ║
 ║  ─────────────────────────────────────────────────────────────────  ║
-║  Source: Trading Economics (existing, monthly)                      ║
+║  Source: Trading Economics (monthly) — 3M proxy, NOT O/N           ║
 ║  Signal: IndONIA spread >40bps (existing M8 condition)             ║
 ║  Action: if Layer 1/2 already fired → ESCALATE to RED              ║
 ║          standalone: existing M8 scoring unchanged                  ║
-║  Status: already implemented — no change needed                    ║
+║  Status: ✅ already implemented; indonia_3m_pct naming correct     ║
+║          (TE = 3M proxy; JIBOR date bugs fixed — commit c056821)   ║
 ║                                                                      ║
 ╚══════════════════════════════════════════════════════════════════════╝
 ```
 
-**BPD supplementary layer (M10 cross-flag):**
+**BPD supplementary layer (M10 cross-flag) — ✅ DONE commit af83923:**
 ```
 DJPK SIKD TKD realisasi < seasonality-adjusted threshold
   → M10 output flag: BPD DPK captive risk
-  → Monitor BJBR.JK + BJTM.JK equity
+  → Monitor BJBR.JK + BJTM.JK equity (bothDown5 flag)
   → Cross to BI SEKI TABEL1_1 for BPD category DPK trend
+
+Implementasi: sources/djpk.ts (baru) + fiscal-engine.ts
+  Indicators stored: tkd_realisasi_pct, tkd_realisasi_idr_t, tkdd_pagu_idr_t,
+                     dau_realisasi_pct, dbh_realisasi_pct, dana_desa_realisasi_pct,
+                     dak_nonfisik_realisasi_pct (category: sovereign, source: djpk_sikd)
+  Seasonality: TKD_EXPECTED_PACE (Jan 9% → Dec 97.5%)
+  Thresholds: actual < expected × 0.85 = significant; × 0.75 = severe
+  BPD equity: BJBR.JK + BJTM.JK via Yahoo Finance (no DB cache, always fresh)
+  Nov 3 2026 live: TKDD 84.92% vs expected 86.5% M11 → no shortfall ✓
 ```
 
 **Scoring integration:**
@@ -563,76 +573,126 @@ DJPK SIKD TKD realisasi < seasonality-adjusted threshold
 
 ## 7. Implementation Roadmap
 
-### P1: Integrasi `kbmi-contagion.ts` ke M8 Engine
+### P1-A: Integrasi `kbmi-contagion.ts` ke M8 Engine ❌ PENDING
 
 **Effort:** ~2–3 jam | **Risk:** Low | **Impact:** High — closes gap immediately, zero new dependency
 
 Files:
 - `src/tools/macro/banking-stress-engine.ts` — import, parallel fetch, scoring, flags, output interface
-- `src/tools/macro/sources/kbmi-contagion.ts` — verify SRBI BCR cross-check reads from DB correctly
+- `src/tools/macro/sources/kbmi-contagion.ts` — basket already updated (BMAS→INPC, commit 7c094e7)
 
 Steps:
 1. `import { fetchKbmiContagion, KbmiContagionResult } from './sources/kbmi-contagion.js'`
 2. Add to parallel `Promise.allSettled` block bersama IndONIA, DPK, etc.
 3. Add `kbmiContagion: KbmiContagionResult | null` ke `BankingStressOutput` interface
 4. Scoring: `contagionSignal === true` → +12; `ojkFormalAction === true` → +25
-5. Flag output: detail basket state + which symbols crashed
+5. Flag output: detail basket state + which symbols crashed + SRBI BCR cross-check
 6. Summary line: basket state dalam output tabel M8
 
-### P2: Test IndONIA Direct dari BI
+### P1-B: IndONIA Standalone Floor (Scoring Architecture Fix) ❌ PENDING
 
-**Effort:** ~3–5 jam | **Risk:** Medium (BI scrapeability unknown) | **Impact:** Very High
+**Effort:** ~30 menit | **Risk:** Zero | **Impact:** Critical — fixes GFC-pattern dilution
 
-Steps:
-1. Playwright test: `bi.go.id/en/fungsi-utama/moneter/indonia-jibor/default.aspx`
-2. Parse IndONIA rate dari halaman
-3. Jika accessible: `fetchIndoniaBiDirect()` di `sources/bi-seki-money.ts`
-4. Daily freshness gate (1d TTL vs current monthly)
-5. Replace `fetchIndoniaRateTe()` untuk current rate, pertahankan TE sebagai fallback
-6. Update date field: actual daily date bukan end-of-month
+File: `src/tools/macro/banking-stress-engine.ts`
 
-### P3: TKD DJPK SIKD Scraper untuk M10
+```typescript
+// Add after weighted score computed, before final alert:
+if (indoniaSpreadBps !== null && indoniaSpreadBps >= 75) {
+  stressScore = Math.max(stressScore, 55); // ORANGE floor at BI corridor crisis level
+}
+if (indoniaSpreadBps !== null && indoniaSpreadBps >= 96) {
+  stressScore = Math.max(stressScore, 70); // HIGH ORANGE floor at Sep 2015 ATH level
+}
+if (indoniaSpreadBps !== null && indoniaSpreadBps >= 117) {
+  stressScore = Math.max(stressScore, 80); // RED floor at Jul 2026 new ATH level
+}
+```
 
-**Effort:** ~4–6 jam | **Risk:** Medium | **Impact:** Medium (enables BPD cross-flag)
+Tanpa fix ini: Jul 2026 (117bps ATH) = M8 score 17/100 GREEN. Dengan fix: score 80/100 RED.
 
-Steps:
-1. Inspect `djpk.kemenkeu.go.id/portal/data/tkdd` — Playwright table parse
-2. `fetchTkdRealisasi()` di `sources/djpk.ts` (baru) atau extend `kemenkeu.ts`
-3. Parse: TKDD pagu, realisasi YTD, bulan data
-4. Seasonality-aware shortfall detection
-5. Cross-flag output di fiscal engine
+### P2-A: IndONIA Direct dari BI ✅ DONE — commit a27f4bf
 
-### P4: Fix JIBOR Comment Bug
+**Effort selesai:** ~4 jam | **Risk berhasil dilewati:** BI Playwright accessible
 
-**Effort:** 5 menit | **Risk:** Zero | **Impact:** Code correctness
+Implementasi aktual:
+- `fetchIndoniaBiDirect()` di `sources/bi.ts` (bukan bi-seki-money.ts seperti rencana awal)
+- Stores `indonia_compounded_30d_pct` (source: `bi_indonia_direct`), 1d freshness gate
+- M8 prefers BI jika < 5d fresh; fallback ke TE 3M proxy
+- Output tag: "BI 30d cpd" vs "TE 3M"
+- Pattern matching: 3 regex fallbacks untuk variasi layout BI page
 
-- `banking-stress-engine.ts:47`: `"Dec 2023"` → `"Jan 2026 (O/N discontinued Jan 2019)"`
-- `sovereign-scraper.ts` deprecated comment: sama
+### P2-B: Rename `indonia_3m_pct` ✅ EVALUATED — tidak perlu rename
 
-### P5: AGRO.JK Replacement (Optional)
+**Keputusan:** `indonia_3m_pct` adalah nama yang BENAR.
+Trading Economics memang melaporkan THREE MONTH interbank rate (bukan O/N IndONIA).
+Ini adalah proxy 3M yang berbeda dari IndONIA O/N BI direct.
+Rename ke `indonia_on_pct` justru salah karena TE bukan O/N source.
+Dua indicator berbeda: `indonia_compounded_30d_pct` (BI, O/N compounded) vs `indonia_3m_pct` (TE, 3M term).
 
-**Effort:** ~1 jam | **Risk:** Low | **Impact:** Low-Medium
+### P3-A: TKD DJPK SIKD Scraper untuk M10 ✅ DONE — commit af83923
 
-Verify BBHI.JK ADTV > Rp 1B/hari. Jika valid, replace AGRO → BBHI di `kbmi-contagion.ts`.
+**Effort selesai:** ~5 jam
+
+Implementasi aktual:
+- `sources/djpk.ts` baru (bukan extend kemenkeu.ts seperti rencana awal)
+- Static HTML table — tidak perlu Playwright (regex parse langsung dari fetch HTML)
+- 6h freshness gate dengan DB cache reconstruction
+- 7 indicators disimpan (category: sovereign, source: djpk_sikd)
+- `BpdEquityProxy`: BJBR.JK + BJTM.JK via Yahoo Finance, no DB cache
+- M10 integration: parallel fetch, seasonality-aware computation, TKD table section di output
+
+### P3-B: AGRO.JK Replacement ✅ DONE (partially) — commit 7c094e7
+
+**Keputusan aktual:** BMAS diganti INPC, bukan AGRO diganti BBHI.
+- BMAS ADTV 32K/hari = lebih kritis dari AGRO backstop concern
+- BBHI mktCap 13T → likely KBMI II — tier salah untuk basket
+- AGRO dipertahankan dengan caveat "BRI backstop dampens systemic reads"
+- INPC (Bank Artha Graha): ~3.6M shr/day, private, confirmed KBMI I
+
+### P3-C: Backtest basket 2020 COVID ✅ VALIDATED — no code change
+
+- Mar 12 2020: max 2/4 crash (BBYB + AGRO)
+- ≥3/4 threshold NOT fired = correct — COVID market-wide, bukan KBMI-I-specific
+- BABP ADTV 0-3K di 2020 → tidak liquid cukup untuk crash sebagai signal
+- Threshold robust terhadap general market crash false positives ✓
+
+### P3-D: Validasi SRBI BCR threshold 1.3 ✅ VALIDATED — no code change
+
+- 45 data points di DB: min=1.006, P10=1.09, P25=1.34, median=2.03
+- BCR < 1.3 fires ~24th percentile (bottom quartile of auctions)
+- Sep 14 2026 BCR=1.22 confirmed threshold was useful during post-MSCI stress
+- Valid sebagai AND-condition dengan basket crash
+
+### B1-B3: JIBOR Date Bug ✅ DONE — commit c056821
+
+- `banking-stress-engine.ts:47`: fixed "Dec 2023" → "JIBOR O/N Jan 2019, all tenors Jan 2026"
+- `sovereign-scraper.ts:387`: same fix
+- `sovereign-scraper.ts:422`: @deprecated comment fixed
 
 ---
 
 ## 8. Pertanyaan Terbuka
 
-**1. BI IndONIA page — Playwright accessible?**
-Belum diuji. Dependency kritis untuk Layer 1. Perlu proof-of-concept.
+**1. BI IndONIA page — Playwright accessible? ✅ RESOLVED**
+Berhasil. `fetchIndoniaBiDirect()` live, commit a27f4bf. BI page accessible via Playwright, consistent dengan precedent BI SEKI TABEL1_1.
 
-**2. DJPK SIKD table — scrapeable?**
-Visual web table dikonfirmasi ada. Perlu test Playwright intercept/parse.
+**2. DJPK SIKD table — scrapeable? ✅ RESOLVED**
+Berhasil. Static HTML table — tidak perlu Playwright. `fetch()` langsung + regex parse cukup. `sources/djpk.ts` live, commit af83923.
 
-**3. SRBI BCR threshold 1.3 — validated?**
-Perlu analisis 84 data points dari `backfill-srbi-history.ts`. Berapa BCR normal? Jika median 2.0+, maka <1.3 genuine stress. Belum dikonfirmasi.
+**3. SRBI BCR threshold 1.3 — validated? ✅ RESOLVED**
+45 data points. Median 2.03, P25 1.34, P10 1.09. BCR < 1.3 = ~24th percentile. Valid sebagai AND-condition. Sep 14 2026 BCR=1.22 = genuine stress event.
 
-**4. Basket historical backtest (2020 COVID):**
-Apakah BABP + BBYB + BMAS + AGRO semua crash ≥3/4 pada 16–17 Maret 2020? `yf.chart(period1: '2020-03-01')` dapat menjawab ini. Perlu validation sebelum production.
+**4. Basket historical backtest (2020 COVID): ✅ RESOLVED**
+Max 2/4 crash pada Mar 12 2020 (BBYB + AGRO). Threshold ≥3/4 tidak trigger — correct. BABP ADTV 0-3K di 2020, terlalu illiquid.
 
-**5. AGRO replacement — BBHI atau tetap?**
-Binary decision sebelum implementasi.
+**5. AGRO replacement — BBHI atau tetap? ✅ RESOLVED**
+Keputusan: BMAS (bukan AGRO) yang diganti, dengan INPC. BBHI likely KBMI II (mktCap 13T). AGRO dipertahankan dengan caveat. Lihat Section 4.1 untuk detail.
+
+**6. P1-A kbmi-contagion.ts integration — kapan? ⏳ OPEN**
+Belum diintegrasikan ke M8 banking-stress-engine.ts. Next item di backlog. ~2-3 jam.
+
+**7. P1-B IndONIA standalone floor — kapan? ⏳ OPEN**
+Scoring architecture fix masih pending. Bundle dengan P1-A dalam satu commit.
 
 ---
 
@@ -708,12 +768,23 @@ BEKS = BPD Banten, BPD termuda (Banten pisah dari Jawa Barat 2000). APBD Banten 
 ---
 
 *Dibuat: 3 November 2026*
+*Diperbarui: 3 November 2026 — realisasi implementasi P2 + P3 + validasi P3-C/D*
 *Research findings incorporated: PUAB spread Jul 2026 117bps ATH, JIBOR timeline correction, BABP liquidity crisis active Nov 3, DJPK SIKD TKD machine-readable, KBMI threshold correction (modal inti, not assets), IMF FSAP 2025 BPD findings*
+*Status implementasi: P2-A/B + P3-A/B/C/D selesai. P1-A (kbmi-contagion.ts integration) + P1-B (IndONIA standalone floor) masih pending — next items di backlog.*
 
 ---
 
-## Appendix F: Binary Decisions Before Implementation
+## Appendix F: Binary Decisions — Resolved
 
-**Q1 (Basket):** Ganti AGRO.JK dengan BBHI.JK (liquid, independent, no BUMN backstop), atau pertahankan AGRO dengan catatan di output?
+**Q1 (Basket): ✅ RESOLVED**
+Keputusan: ganti BMAS (bukan AGRO) dengan INPC. Pertahankan AGRO dengan catatan.
+- BBHI (Allo Bank) mktCap 13T → likely KBMI II, tier salah
+- BMAS ADTV 32K/hari = false positive risk lebih tinggi dari AGRO backstop concern
+- INPC: 3.6M shr/day, private, confirmed KBMI I ✓
+- Basket sekarang: BABP + BBYB + INPC + AGRO
 
-**Q2 (TKD cross-flag):** Scrape DJPK SIKD (preferred, test needed) atau gunakan APBN KiTa PDF via Jina Reader (simpler, less automated)?
+**Q2 (TKD cross-flag): ✅ RESOLVED**
+Keputusan: DJPK SIKD (preferred option).
+- Static HTML table — lebih sederhana dari dugaan awal
+- Tidak perlu Playwright: `fetch()` + regex langsung cukup
+- `sources/djpk.ts` live, 6h freshness gate, 7 DB indicators
