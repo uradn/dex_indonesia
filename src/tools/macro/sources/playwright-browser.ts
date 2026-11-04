@@ -24,6 +24,10 @@ const CF_POLL_MS = 500;
 
 let browser: Browser | null = null;
 let context: BrowserContext | null = null;
+// Promise-singleton lock: prevents the TOCTOU race when 13 modules call getContext()
+// simultaneously in Promise.allSettled. Without this, all callers see browser===null and
+// each calls chromium.launch() — spawning 13+ redundant browser processes.
+let _contextInitPromise: Promise<BrowserContext> | null = null;
 
 function loadCookieStore(): Record<string, unknown>[] {
   try {
@@ -52,35 +56,45 @@ const STEALTH_SCRIPT = `
 `;
 
 async function getContext(): Promise<BrowserContext> {
-  if (!browser || !browser.isConnected()) {
-    browser = await chromium.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-dev-shm-usage',
-        '--disable-logging',
-        '--log-level=3',
-      ],
-    });
-    context = null;
+  // Fast path: browser + context already alive (the common case after first init).
+  if (browser?.isConnected() && context) return context;
+
+  // Serialise concurrent callers onto one init promise so only one chromium.launch()
+  // ever runs per process. All other callers await the same promise.
+  if (!_contextInitPromise) {
+    _contextInitPromise = (async () => {
+      if (!browser || !browser.isConnected()) {
+        browser = await chromium.launch({
+          headless: true,
+          args: [
+            '--no-sandbox',
+            '--disable-blink-features=AutomationControlled',
+            '--disable-dev-shm-usage',
+            '--disable-logging',
+            '--log-level=3',
+          ],
+        });
+        context = null;
+      }
+      if (!context) {
+        context = await browser.newContext({
+          // Chrome 128 on macOS to match cf_clearance cookies obtained via FlareSolverr UA
+          userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+          viewport: { width: 1280, height: 800 },
+          locale: 'id-ID',
+          timezoneId: 'Asia/Jakarta',
+        });
+        await context.addInitScript(STEALTH_SCRIPT);
+        const saved = loadCookieStore();
+        if (saved.length > 0) {
+          await context.addCookies(saved as unknown as Parameters<BrowserContext['addCookies']>[0]);
+        }
+      }
+      return context;
+    })().finally(() => { _contextInitPromise = null; });
   }
-  if (!context) {
-    context = await browser.newContext({
-      // Chrome 128 on macOS to match cf_clearance cookies obtained via FlareSolverr UA
-      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-      viewport: { width: 1280, height: 800 },
-      locale: 'id-ID',
-      timezoneId: 'Asia/Jakarta',
-    });
-    await context.addInitScript(STEALTH_SCRIPT);
-    // Restore persisted cookies
-    const saved = loadCookieStore();
-    if (saved.length > 0) {
-      await context.addCookies(saved as unknown as Parameters<BrowserContext['addCookies']>[0]);
-    }
-  }
-  return context;
+
+  return _contextInitPromise;
 }
 
 /** Wait until Cloudflare challenge clears (title no longer "Just a moment..."). */
