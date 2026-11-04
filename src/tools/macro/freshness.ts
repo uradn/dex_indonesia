@@ -100,6 +100,9 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   { name: 'lps_deposit_coverage_value_pct', module: 'M8', freshDays: 90, yellowDays: 120, redDays: 180 },
   // Policy response coordination — KS#2 feed; 24h cache per policy-response.ts
   { name: 'policy_response_level', module: 'M3', freshDays: 1, yellowDays: 2, redDays: 5 },
+  // IndONIA compounded 30d — BI direct daily (bi.go.id 19:30 WIB); env override BI_INDONIA_COMPOUNDED_30D_PCT
+  // 2d fresh (BI publishes daily; allow 1 missed day), 7d yellow (weekend + delay), 14d red
+  { name: 'indonia_compounded_30d_pct', module: 'M8', freshDays: 2, yellowDays: 7, redDays: 14 },
 ];
 
 const SPEC_BY_NAME: Map<string, IndicatorFreshnessSpec> = new Map(INDICATORS.map(s => [s.name, s]));

@@ -7,6 +7,7 @@ import { fetchSbn10yTradingEconomics, fetchBiRateTradingEconomics } from './sour
 import { fetchFoodInflationTe } from './sources/pihps.js';
 import { computeCostRecovery, DOMESTIC_FUEL_PRICES } from './sources/pertamina.js';
 import { fetchDubaiCrude } from './sources/dubai-crude.js';
+import { computeCredibilityResult, credibilityBump, type AnnouncementSignal } from './sources/bayesian-credibility.js';
 import type { AlertLevel } from './types.js';
 
 export const NARRATIVE_DIVERGENCE_DESCRIPTION = `
@@ -70,14 +71,18 @@ function bayesianCredibilityUpdate(
 
 interface NarrativeDivergenceOutput {
   narrativeCredibilityScore: number;
+  adjustedCredibilityScore: number;  // Phase 1 Bayesian-adjusted (±12pts vs old ±6)
   alertLevel: AlertLevel;
   checks: DivergenceCheck[];
   flags: string[];
   narrative: string;
   date: string;
-  // Bayesian posterior credibility (game theory — cheap-talk / Sobel 1985)
-  bayesianPosterior: number;       // P(BI credible | all observed data), 0–1
+  // Bayesian posterior credibility — Phase 1 institution-specific
+  bayesianPosterior: number;       // composite weighted (BI 60% + Kemenkeu 40%)
   bayesianRegime: 'credible' | 'watch' | 'strained' | 'not_credible';
+  biCredibilityPct: number;        // P(BI credible | track record) posterior %
+  kemenkeuCredibilityPct: number;  // P(Kemenkeu credible | track record) posterior %
+  bayesianAdj: number;             // score adjustment applied (−12 to +12)
 }
 
 // APBN 2026 key assumptions — UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025
@@ -420,17 +425,41 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
       : 'Official guidance broadly aligned with market pricing.',
   ].join(' ');
 
-  // ── Bayesian posterior credibility update (P1 partial — Sobel cheap-talk) ────
-  const priorPoint = await getLatestPoint('narrative_credibility_posterior');
-  const prior = priorPoint?.value ?? 0.60;
-  const posterior = bayesianCredibilityUpdate(prior, checks.filter(c => c.flagged).length, checks.length);
+  // ── Bayesian Credibility — Phase 1: Institution-Specific Posteriors ────────
+  // Uses announcement_outcomes DB track record (backfilled 2020–2026).
+  // Infer signal specificity from divergence level: high divergence → vague guidance.
+  const inferredSpecificity: AnnouncementSignal['specificity'] =
+    avgDivergence > 60 ? 'vague' :
+    avgDivergence > 35 ? 'general' :
+    avgDivergence > 15 ? 'specific' : 'verifiable';
+
+  const [biCredibility, kemenkeuCredibility] = await Promise.all([
+    computeCredibilityResult({
+      institution: 'bi_monetary', announcementType: 'rate_guidance',
+      specificity: inferredSpecificity, timebound: false, magnitude: 'medium', rawText: narrative,
+    }),
+    computeCredibilityResult({
+      institution: 'kemenkeu_fiscal', announcementType: 'deficit_ceiling',
+      specificity: inferredSpecificity, timebound: true, magnitude: 'large', rawText: narrative,
+    }),
+  ]);
+
+  // Composite posterior: weighted avg (BI 60% / Kemenkeu 40%) — BI more market-relevant
+  const posterior = Math.max(0.05, Math.min(0.95,
+    parseFloat((biCredibility.posterior * 0.60 + kemenkeuCredibility.posterior * 0.40).toFixed(4))
+  ));
+
+  // Apply Bayesian credibility bump to final score (±12pts range vs old ±6)
+  const bayesianAdj = credibilityBump(posterior);
+  const adjustedCredibilityScore = Math.max(0, Math.min(100, narrativeCredibilityScore + bayesianAdj));
+
   await upsertPoints([{
     indicator: 'narrative_credibility_posterior',
     category: 'sovereign',
     date: new Date().toISOString().slice(0, 10),
     value: posterior,
     unit: 'probability',
-    source: 'computed_bayesian_m6',
+    source: 'computed_bayesian_m6_p1',
     fetchedAt: new Date().toISOString(),
   }]);
   const bayesianRegime: NarrativeDivergenceOutput['bayesianRegime'] =
@@ -440,6 +469,7 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
 
   return {
     narrativeCredibilityScore,
+    adjustedCredibilityScore,
     alertLevel,
     checks,
     flags,
@@ -447,6 +477,9 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     date: new Date().toISOString().slice(0, 10),
     bayesianPosterior: posterior,
     bayesianRegime,
+    biCredibilityPct: Math.round(biCredibility.posterior * 100),
+    kemenkeuCredibilityPct: Math.round(kemenkeuCredibility.posterior * 100),
+    bayesianAdj,
   };
 }
 
@@ -454,7 +487,7 @@ function formatOutput(output: NarrativeDivergenceOutput): string {
   return [
     `# Narrative Divergence Engine — Indonesia`,
     `**Date:** ${output.date}`,
-    `**Alert:** ${alertLabel(output.alertLevel)} | **Credibility Score:** ${output.narrativeCredibilityScore}/100 | **Bayesian P(credible):** ${(output.bayesianPosterior * 100).toFixed(1)}% [${output.bayesianRegime.toUpperCase()}]`,
+    `**Alert:** ${alertLabel(output.alertLevel)} | **Credibility Score:** ${output.narrativeCredibilityScore}/100 (adj: ${output.adjustedCredibilityScore}) | **Bayesian P(credible):** ${(output.bayesianPosterior * 100).toFixed(1)}% [${output.bayesianRegime.toUpperCase()}] | BI: ${output.biCredibilityPct}% | Kemenkeu: ${output.kemenkeuCredibilityPct}% | Adj: ${output.bayesianAdj >= 0 ? '+' : ''}${output.bayesianAdj}pts`,
     ``,
     `## Summary`,
     output.narrative,

@@ -459,6 +459,23 @@ async function parseSrbiZip(zipBuf: Buffer): Promise<MacroDataPoint | null> {
  *   - indonia_3m_pct: TE proxy, 3M term rate (JIBOR 3M behavior), ~4-week lag
  */
 export async function fetchIndoniaBiDirect(): Promise<MacroDataPoint | null> {
+  // Env override: BI_INDONIA_COMPOUNDED_30D_PCT — always wins (env_manual pattern like BI_DNDF).
+  // Set manually when BI Playwright scrape fails. Source: bi.go.id IndONIA/JIBOR page (daily 19:30 WIB).
+  const envVal = process.env.BI_INDONIA_COMPOUNDED_30D_PCT;
+  if (envVal) {
+    const val = parseFloat(envVal);
+    if (!isNaN(val) && val >= 2 && val <= 12) {
+      const today = new Date().toISOString().slice(0, 10);
+      const pt: MacroDataPoint = {
+        indicator: 'indonia_compounded_30d_pct', category: 'banking', date: today,
+        value: parseFloat(val.toFixed(5)), unit: '%', source: 'env_manual',
+        fetchedAt: new Date().toISOString(),
+      };
+      await upsertPoints([pt]);
+      return pt;
+    }
+  }
+
   const cached = await getLatestPoint('indonia_compounded_30d_pct');
   if (cached?.source === 'bi_indonia_direct') {
     const ageDays = (Date.now() - new Date(cached.fetchedAt).getTime()) / 86_400_000;

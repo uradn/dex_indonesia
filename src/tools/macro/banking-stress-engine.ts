@@ -17,6 +17,7 @@ import { fetchLpsDepositCoverage } from './sources/lps-deposit-coverage.js';
 import { fetchKbmiContagion, type KbmiContagionResult } from './sources/kbmi-contagion.js';
 import { fetchIndoniaBiDirect } from './sources/bi.js';
 import { fetchBiGwm, scoreGwmLevel, scoreGwmDirection, GWM_NORMAL_ANCHOR_PCT, GWM_LDR_SENSITIVITY, type BiGwmData } from './sources/bi-gwm.js';
+import { computeMinskyStressIndex, formatMinskySection } from './sources/minsky-stress-index.js';
 
 export const BANKING_STRESS_DESCRIPTION = `
 MACRO INTELLIGENCE — Banking Stress Engine (Module 8)
@@ -713,6 +714,12 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     stressScore = Math.min(100, stressScore + gwmLevelBump + gwmDirectionBump);
   }
 
+  // ── Minsky FIH Phase 1 — BPD + corporate FX sectors ──────────────────────
+  const msi = await computeMinskyStressIndex().catch(() => null);
+  if (msi !== null && msi.m8Bump > 0) {
+    stressScore = Math.min(100, stressScore + msi.m8Bump);
+  }
+
   // 5. Alert level: high stressScore = more stress = higher alert
   const alert = alertFromScore(stressScore) as AlertLevel;
 
@@ -905,6 +912,15 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
 
   // Diamond-Dybvig flags
   flags.push(...diamondDybvig.flags);
+
+  // Minsky FIH flags
+  if (msi !== null) {
+    if (msi.minskyMomentRisk) {
+      flags.push(`MINSKY MOMENT RISK: 2+ sectors in Ponzi regime — coordinated deleveraging precondition. ${msi.transmissionPath.join(' → ')}`);
+    } else if (msi.overallRegime !== 'systemic_hedge') {
+      flags.push(`Minsky FIH ${msi.overallRegime.replace(/_/g, ' ').toUpperCase()} (${msi.compositeScore}/100) — balance sheet deterioration ahead of equilibrium triggers. M8 bump: +${msi.m8Bump}`);
+    }
+  }
 
   // Brunnermeier-Pedersen spiral flags
   flags.push(...liquiditySpiral.flags);

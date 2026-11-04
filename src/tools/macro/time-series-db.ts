@@ -56,6 +56,23 @@ CREATE TABLE IF NOT EXISTS macro_theses (
   notes TEXT,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS announcement_outcomes (
+  id INTEGER PRIMARY KEY,
+  date TEXT NOT NULL,
+  institution TEXT NOT NULL,
+  announcement_type TEXT NOT NULL,
+  announced_value TEXT,
+  specificity TEXT NOT NULL DEFAULT 'general',
+  timebound INTEGER NOT NULL DEFAULT 0,
+  outcome_date TEXT,
+  outcome_text TEXT,
+  followed_through INTEGER,
+  source TEXT NOT NULL DEFAULT '',
+  UNIQUE(date, institution, announcement_type, announced_value)
+);
+CREATE INDEX IF NOT EXISTS idx_ao_institution_type ON announcement_outcomes(institution, announcement_type);
+CREATE INDEX IF NOT EXISTS idx_ao_date ON announcement_outcomes(date);
 `;
 
 type SqliteQuery<T> = {
@@ -336,4 +353,94 @@ export async function getAllTheses(limit = 20): Promise<ThesisRecord[]> {
   const db = await openDb();
   const rows = db.query<ThesisRow>(`SELECT * FROM macro_theses ORDER BY created_at DESC LIMIT ?`).all(limit);
   return rows.map(rowToThesis);
+}
+
+// ── Announcement Outcomes DB ──────────────────────────────────────────────────
+
+export type InstitutionType = 'bi_monetary' | 'kemenkeu_fiscal' | 'kemenkeu_subsidi' | 'esdm_bbm' | 'kemenkeu_mbg';
+export type AnnouncementType = 'rate_guidance' | 'deficit_ceiling' | 'subsidi_commitment' | 'bbm_hike' | 'policy_commitment' | 'policy_reversal';
+export type Specificity = 'vague' | 'general' | 'specific' | 'verifiable';
+
+export interface AnnouncementOutcome {
+  id?: number;
+  date: string;
+  institution: InstitutionType;
+  announcementType: AnnouncementType;
+  announcedValue?: string | null;
+  specificity: Specificity;
+  timebound: boolean;
+  outcomeDate?: string | null;
+  outcomeText?: string | null;
+  followedThrough?: 1 | 0 | -1 | null;
+  source: string;
+}
+
+type AoRow = {
+  id: number;
+  date: string;
+  institution: string;
+  announcement_type: string;
+  announced_value: string | null;
+  specificity: string;
+  timebound: number;
+  outcome_date: string | null;
+  outcome_text: string | null;
+  followed_through: number | null;
+  source: string;
+};
+
+function rowToAo(r: AoRow): AnnouncementOutcome {
+  return {
+    id: r.id,
+    date: r.date,
+    institution: r.institution as InstitutionType,
+    announcementType: r.announcement_type as AnnouncementType,
+    announcedValue: r.announced_value,
+    specificity: r.specificity as Specificity,
+    timebound: r.timebound === 1,
+    outcomeDate: r.outcome_date,
+    outcomeText: r.outcome_text,
+    followedThrough: r.followed_through as 1 | 0 | -1 | null,
+    source: r.source,
+  };
+}
+
+export async function upsertAnnouncementOutcome(ao: AnnouncementOutcome): Promise<void> {
+  const db = await openDb();
+  db.query(
+    `INSERT OR REPLACE INTO announcement_outcomes
+     (date, institution, announcement_type, announced_value, specificity, timebound,
+      outcome_date, outcome_text, followed_through, source)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    ao.date, ao.institution, ao.announcementType, ao.announcedValue ?? null,
+    ao.specificity, ao.timebound ? 1 : 0,
+    ao.outcomeDate ?? null, ao.outcomeText ?? null, ao.followedThrough ?? null, ao.source,
+  );
+}
+
+export async function getAnnouncementOutcomes(
+  institution: InstitutionType,
+  announcementType: AnnouncementType,
+  lookbackDays = 365,
+): Promise<AnnouncementOutcome[]> {
+  const db = await openDb();
+  const since = new Date(Date.now() - lookbackDays * 86_400_000).toISOString().slice(0, 10);
+  return db.query<AoRow>(
+    `SELECT * FROM announcement_outcomes WHERE institution = ? AND announcement_type = ? AND date >= ? ORDER BY date DESC`,
+  ).all(institution, announcementType, since).map(rowToAo);
+}
+
+/** Laplace-smoothed prior P(credible) from tracked outcomes. Returns null if <3 records. */
+export async function computeCredibilityPrior(
+  institution: InstitutionType,
+  announcementType: AnnouncementType,
+  lookbackDays = 730,
+): Promise<{ priorProbability: number; sampleSize: number } | null> {
+  const records = await getAnnouncementOutcomes(institution, announcementType, lookbackDays);
+  const withOutcome = records.filter(r => r.followedThrough !== null);
+  if (withOutcome.length < 3) return null;
+  const followed = withOutcome.filter(r => r.followedThrough === 1).length;
+  const priorProbability = (followed + 1) / (withOutcome.length + 2);
+  return { priorProbability, sampleSize: withOutcome.length };
 }

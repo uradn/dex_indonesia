@@ -48,6 +48,10 @@ bun scripts/backfill-approval-history.ts   # backfill prabowo_approval_pct month
 #   --csv=path.csv: bulk import (date,value,source — date=YYYY-MM; no header required)
 #   --dry-run | --from=YYYY-MM --to=YYYY-MM | --min-confidence=N (skip low-conf auto results)
 #   Run once after setup; monthly cron not needed (morning-check auto-refreshes latest via VPI fetch)
+bun scripts/backfill-announcement-outcomes.ts  # seed announcement_outcomes DB for Bayesian M6 credibility engine
+#   27 records: BI rate guidance (11), Kemenkeu fiscal (8), ESDM BBM (5), MBG (3) — 2020–2026
+#   --dry-run: print counts only. Run once; re-run is idempotent (INSERT OR REPLACE).
+#   DB computed priors: BI 50% (n=4, 730d), ESDM 60% (n=3); Kemenkeu falls back to hard-coded 0.42.
 
 # Dashboard (localhost:6080)
 bun scripts/dashboard.ts                  # start dashboard server (port 6080)
@@ -263,6 +267,11 @@ HIMBARA_AT1_SECONDARY_PCT  # HIMBARA AT1 secondary price (% of par, e.g. 87.5); 
 # Historical: 2022=2.87%, 2023=2.94%, 2024=est.3.1% (trend rising). Threshold <2%=LOW backstop.
 # OR backstop triggered by M10 fiscal stress (APBN deficit >4.5%) — whichever fires first.
 LPS_FUND_ADEQUACY_PCT      # LPS "Tingkat Kecukupan Dana" %; updates M8 D-D condition 6 precision
+# M8 Banking — IndONIA compounded 30d rate (BI direct, daily 19:30 WIB)
+# Source: bi.go.id/en/fungsi-utama/moneter/indonia-jibor/default.aspx (Playwright)
+# env-always-wins when Playwright fails. Last known: 6.18682% (Aug 11 2026, BI SEKI TABEL1_25_1.pdf).
+# Update when morning-check Playwright run succeeds; or pin manually from BI JIBOR page.
+BI_INDONIA_COMPOUNDED_30D_PCT  # e.g. 6.18682; env_manual source; range 2–12%
 # M8 Banking — BI GWM (Giro Wajib Minimum) required reserve ratio
 # Source: BI press release + Exa media. Time series stored in DB (bi_gwm_pct).
 # Signal: level (<7%=loose, 7-9%=normal, >9%=tight) + direction (hike=stress, cut=relief) + LDR interaction.

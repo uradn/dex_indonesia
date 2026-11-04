@@ -635,6 +635,13 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   );
   stressScore = Math.min(100, stressScore + calvoDebtTrap.scoreBump);
 
+  // ── Minsky FIH Phase 1 — BPDPKS + fiscal sovereign sectors ───────────────
+  const { computeMinskyStressIndex } = await import('./sources/minsky-stress-index.js');
+  const msi = await computeMinskyStressIndex().catch(() => null);
+  if (msi !== null && msi.m10Bump > 0) {
+    stressScore = Math.min(100, stressScore + msi.m10Bump);
+  }
+
   const alert = alertFromScore(stressScore) as AlertLevel;
 
   // Persist projected deficit % GDP so dashboard can chart trajectory over time
@@ -769,6 +776,17 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
 
   // Calvo debt trap flags
   flags.push(...calvoDebtTrap.flags);
+
+  // Minsky FIH flags (M10: BPDPKS + fiscal sovereign)
+  if (msi !== null && msi.m10Bump > 0) {
+    const ponziSectors = msi.assessments.filter(a => (a.sector === 'bpdpks' || a.sector === 'fiscal' || a.sector === 'pertamina') && a.regime !== 'hedge');
+    for (const a of ponziSectors) {
+      flags.push(`Minsky FIH ${a.regime.toUpperCase()} [${a.sector}]: ${a.keyRisk} (+${a.score} score component)`);
+    }
+    if (msi.minskyMomentRisk) {
+      flags.push(`MINSKY MOMENT PRECONDITION: 2+ sectors in Ponzi regime — debt-cycle deterioration ahead of equilibrium triggers. M10 bump: +${msi.m10Bump}`);
+    }
+  }
 
   // 7. Narrative
   const isAnnualRevenueFlag = latestRevenueTrn !== null && latestRevenueTrn > ANNUAL_DATA_THRESHOLD_TRN;
