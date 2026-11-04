@@ -45,7 +45,7 @@ Cross-confirmed modules: 1/13
 | M5 | Foreign Flow | EIDO ETF, silent exit detection, SSVI (Sudden Stop Vulnerability Index), **MSCI EM status** (Standalone consultation Oct 15 2026; `downgrade_risk` P(downgrade)=85%; `msciReversalProbability` field; Bryant phase tracker), May 2026 rebalancing outflow |
 | M6 | Narrative Divergence | Official guidance vs market — APBN assumptions vs aktual, BBM narrative vs cost recovery |
 | M7 | ASEAN Relative Value | IDR idiosyncratic component vs ASEAN peers (supplementary — not in SCD weight) |
-| M8 | Banking Stress | NPL (OJK/World Bank API), LDR, CAR, IndONIA corridor (DFR = BI Rate −100bps / LF = BI Rate +75bps), FSAP nexus (implied CAR hit), KLR signals, M2/FX reserves ratio, **BNPL sub-indicator** (OJK IKNB fintech NPL), **Himbara AT1 issuance** (env pin: BNI $700M Apr + Mandiri $750M Sep 2026 = $1.45B — FX mismatch on capital base, domestic market insufficient) |
+| M8 | Banking Stress | NPL (OJK/World Bank API), LDR, CAR, IndONIA corridor (DFR = BI Rate −100bps / LF = BI Rate +75bps), FSAP nexus (implied CAR hit), KLR signals, M2/FX reserves ratio, **BNPL sub-indicator** (OJK IKNB fintech NPL), **Himbara AT1 issuance** (env pin: BNI $700M Apr + Mandiri $750M Sep 2026 = $1.45B — FX mismatch on capital base), **GWM signal** (`bi-gwm.ts`: level + direction + LDR interaction; 7% Oct 23 cut from 9%; env `BI_GWM_PCT`), **OJK tier discrimination** (BPR=0 / commercial=+15 / HIMBARA=+25 — routine BPR revocations not systemic) |
 | M9 | Market Stress | IHSG P/E + breadth, valuation disconnect, **stop-loss cascade** (3 threshold nodes: 5,000/4,800/4,500 pts — mechanical forced-sell amplifier, independent of fundamentals; +10pts/node bonus) |
 | M10 | Fiscal | APBN realisasi vs target, revenue shortfall, deficit trajectory, **S&P interest/revenue threshold** (≥15% = negative action watch; BI hike cycle uplift computed), **MBG burn rate** (Rp 335T = 8.7% APBN, 4× subsidi energi), **BPDPKS biodiesel insentif** (B50 transition cost) |
 | M11 | Domestic Pressure | PIHPS 10 komoditas pangan + BBM subsidy gap (Pertalite + Solar B50 MOPS/FAME blended) + ICP threshold watch |
@@ -156,7 +156,7 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 **Live deviations (Oct 30, 2026):**
 
 - BI Rate: **5.75%** — tahan Sep 23 RDG (Destry perdana, 4 bulan beruntun Jun–Sep); DFR 4.75%, LF 6.50%
-- BI Gov: **Destry Damayanti** (dilantik 2 Sep 2026, Keppres 92/P/2026) — pro-stability + pro-growth; GWM rupiah 9%
+- BI Gov: **Destry Damayanti** (dilantik 2 Sep 2026, Keppres 92/P/2026) — pro-stability + pro-growth; GWM rupiah **7%** (dipotong 23 Oct 2026 dari 9% — M8 signal active)
 - **Menkeu: Suahasil Nazara** (dilantik 14 Sep 2026, Keppres 97p/2026) — Menkeu ke-3 era Prabowo (SMI → Purbaya → Suahasil); prioritas: APBN kredibel, defisit <3% PDB, transparansi ALCo; rhetoric signal COMMITMENT (CI −6pts)
 
 > ### 🚨 MSCI STANDALONE CONSULTATION — Oct 15 2026 (20:40 GMT)

@@ -78,7 +78,7 @@
 | `foreign_flow_engine` | M5 Foreign Flow | 0.09 | EIDO ETF, silent exit detection, SSVI, MSCI classification risk |
 | `narrative_divergence_engine` | M6 Narrative | 0.02 | Official guidance vs market (APBN assumptions vs actuals), BBM narrative vs cost recovery |
 | `asean_relative_value_engine` | M7 ASEAN RV | — | IDR idiosyncratic component vs ASEAN peers (supplementary, not in SCD weight) |
-| `banking_stress_engine` | M8 Banking | 0.08 | NPL, LDR, CAR, IndONIA corridor, FSAP nexus, BNPL sub-indicator (OJK IKNB) |
+| `banking_stress_engine` | M8 Banking | 0.08 | NPL, LDR, CAR, IndONIA corridor, FSAP nexus, BNPL sub-indicator (OJK IKNB), GWM level+direction+LDR, OJK tier (BPR/commercial/HIMBARA) |
 | `market_stress_engine` | M9 Market | 0.05 | IHSG P/E, advance/decline breadth, valuation disconnect |
 | `fiscal_engine` | M10 Fiscal | 0.09 | APBN realisasi, revenue shortfall, S&P interest/revenue threshold (>15% = negative watch) |
 | `domestic_pressure_engine` | M11 Domestic | 0.06 | PIHPS 10 commodities, BBM subsidy gap, ICP watch |
