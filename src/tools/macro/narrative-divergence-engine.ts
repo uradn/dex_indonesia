@@ -201,7 +201,30 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     });
   }
 
-  // 7. Compound IDR + Oil double-whammy: both diverge simultaneously = APBN under max stress
+  // 7. GDP growth actual vs APBN target (5.4%)
+  // APBN 2026 revenue model: 5.4% GDP growth → taxes + PNBP budget feasible.
+  // Each 0.1pp miss ≈ Rp 2.5-3T revenue shortfall. 0.4pp miss = Rp 10-12T+ APBN gap.
+  // Q3 2026 BPS release ~Nov 5: government guided >5.4%, economist consensus 5.15-5.23%.
+  const gdpPoint = await getLatestPoint('gdp_growth_pct');
+  if (gdpPoint) {
+    const gapPp = APBN_ASSUMPTIONS.gdpGrowth - gdpPoint.value;
+    const divergenceScore =
+      gapPp > 1.0 ? 85 :
+      gapPp > 0.5 ? 60 :
+      gapPp > 0.2 ? 30 :
+      gapPp < -0.1 ? 10 : 15; // above target = small positive score (not flagged)
+    const flagged = gapPp > 0.3;
+    const revenueRisk = gapPp > 0 ? ` — est. Rp ${(gapPp * 25).toFixed(0)}-${(gapPp * 30).toFixed(0)}T revenue shortfall vs APBN` : '';
+    checks.push({
+      dimension: 'GDP Growth Actual vs APBN 5.4% Target',
+      officialClaim: `APBN 2026 GDP growth assumption: ${APBN_ASSUMPTIONS.gdpGrowth}% (UU No.17/2025). Pemerintah Q3 2026 guidance: >5.4% ("pertumbuhan di atas target").`,
+      marketSignal: `BPS actual: ${gdpPoint.value.toFixed(2)}% YoY (${gdpPoint.date.slice(0, 7)}) — ${gapPp >= 0 ? '-' : '+'}${Math.abs(gapPp).toFixed(2)}pp vs target${revenueRisk}${gapPp > 0.3 ? '. APBN revenue model at risk; konsumsi rumah tangga lesu (PHK+inflasi BBM)' : gapPp < -0.1 ? '. Above target — positive' : '. Near-miss — monitor Q3 BPS release'}`,
+      divergenceScore,
+      flagged,
+    });
+  }
+
+  // 9. Compound IDR + Oil double-whammy: both diverge simultaneously = APBN under max stress
   // IDR weakness inflates subsidy cost in IDR terms ON TOP of higher USD oil price
   const idrCheck = checks.find((c) => c.dimension.includes('USDIDR'));
   const oilCheck = checks.find((c) => c.dimension.includes('Oil'));
@@ -220,7 +243,7 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     });
   }
 
-  // 8. PPP Misalignment (R&R Ch.4-5: Relative PPP)
+  // 10. PPP Misalignment (R&R Ch.4-5: Relative PPP)
   // Relative PPP: %ΔUSDIDR ≈ π_Indonesia − π_USA. Persistent deviation = structural misalignment.
   // Positive misalignment (IDR weaker than PPP predicts) → Dornbusch overshoot → may correct
   // Negative (IDR stronger than PPP) → potential future depreciation pressure
@@ -244,7 +267,7 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     }
   }
 
-  // 9. BBM domestic price vs cost recovery — "harga BBM terjangkau" narrative
+  // 11. BBM domestic price vs cost recovery — "harga BBM terjangkau" narrative
   // Uses brentSpot + usdIdrSpot already fetched above; reads Pertalite price from DB
   const pertalitePoint = await getLatestPoint('pertalite_price_idr_liter');
   if (brentSpot && usdIdrSpot && pertalitePoint) {
@@ -260,7 +283,7 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     });
   }
 
-  // 10. Pertamax non-subsidi single-step hike magnitude vs "stable non-subsidi pricing" narrative
+  // 12. Pertamax non-subsidi single-step hike magnitude vs "stable non-subsidi pricing" narrative
   // A >20% single-step hike on non-subsidi BBM = political price suppression released in one shot,
   // contradicting BI's "pre-emptive, gradual" framing and implying pent-up inflationary pressure.
   const pertamaxPoint = await getLatestPoint('pertamax_price_idr_liter');
@@ -278,7 +301,7 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     });
   }
 
-  // 11. Dubai physical crude vs APBN ICP + Brent-Dubai spread (Haye framework)
+  // 13. Dubai physical crude vs APBN ICP + Brent-Dubai spread (Haye framework)
   // ICP formula is Brent-linked (for royalty/revenue calculation).
   // Pertamina's actual physical crude procurement = Dubai/Oman spot + freight + risk premium.
   // During Hormuz disruption: Brent (paper) spikes on fear; Dubai (physical) discounts
@@ -309,7 +332,7 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     });
   }
 
-  // 12. O&G import bill: BPS actuals vs APBN price-implied baseline (validated Jun 2026)
+  // 14. O&G import bill: BPS actuals vs APBN price-implied baseline (validated Jun 2026)
   // Official claim: APBN $70/bbl ICP implies manageable O&G import bill.
   // Gap is PRICE-BASED: $26B = estimated volume × ICP $70 (not a document figure; not in APBN).
   // Not a composition gap — APBN subsidi BBM partial-accounts refined via cost-recovery formula.
@@ -333,7 +356,7 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     });
   }
 
-  // 13. Morris-Shin Signal Precision Index
+  // 15. Morris-Shin Signal Precision Index
   // Four oil price beliefs float simultaneously in public discourse, creating dispersion:
   //   L1: $70 APBN official (UU No.17/2025) — state-anchored public signal
   //   L2: $80 analyst/media focal point (EIA Mar 10 $79 → Kemenkeu Apr 6 → INDEF sensitivity)
