@@ -15,7 +15,7 @@
  *   idx_short_sell_volume_idr_bn  — daily short sell volume, IDR billions
  *   idx_short_sell_pct_volume     — short sell as % of total IHSG volume (if available)
  *
- * FRESHNESS: 2-day gate (daily publication)
+ * FRESHNESS: 14-day internal gate (data cadence effectively weekly; thin media coverage)
  *
  * DATA SOURCE TIER ORDER:
  *   1. Env override  IDX_SHORT_SELL_VOLUME_IDR_BN — manual pin (e.g. from terminal/media)
@@ -34,7 +34,9 @@ import { getLatestPoint, upsertPoints } from '../time-series-db.js';
 import { injectCookies } from './playwright-browser.js';
 import type { MacroDataPoint } from '../types.js';
 
-const FRESHNESS_DAYS = 5;
+// IDX SSV feature launched Oct 2026; only 5 stocks; media coverage thin; effective cadence weekly.
+// 14d prevents daily Exa/Tavily retries when no fresh data exists.
+const FRESHNESS_DAYS = 14;
 const NOW = () => new Date().toISOString();
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
