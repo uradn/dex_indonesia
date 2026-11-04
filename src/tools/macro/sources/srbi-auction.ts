@@ -106,11 +106,56 @@ function parseSrbiText(text: string): Omit<SrbiAuctionData, 'date' | 'bidCoverAl
     /(?:non-?resident|foreign)[\s\S]{0,60}?([\d.,]+)\s*%/i,
   );
 
-  const bidCoverRatio = demandIdrT !== null && allotmentIdrT !== null && allotmentIdrT > 0
-    ? parseFloat((demandIdrT / allotmentIdrT).toFixed(2))
+  let demandFinal = demandIdrT;
+  let allotmentFinal = allotmentIdrT;
+
+  // BI official page fallback (bi.go.id/hasil-lelang-srbi-*):
+  // Amounts are in Miliar (not Triliun). Format:
+  //   "Nominal Penawaran (Rp Miliar)/..." followed by per-tenor values
+  //   "Total Pemenang (Rp Miliar)/..." followed by total awarded
+  if (demandFinal === null && /Nominal Penawaran \(Rp Miliar\)/i.test(text)) {
+    // Sum all per-tenor demand figures between "Nominal Penawaran" and "Bidding Rate"
+    const demandSection = text.match(/Nominal Penawaran \(Rp Miliar\)[^\n]*\n[\s\S]*?(?=Bidding Rate|Nominal Pemenang|Total Pemenang)/i)?.[0] ?? '';
+    const nums = [...demandSection.matchAll(/([\d]{1,3}(?:\.\d{3})*(?:,\d+)?)\s*\n/g)]
+      .map(m => parseIdNumber(m[1]!))
+      .filter((v): v is number => v !== null && v > 10);  // filter out small noise values
+    if (nums.length > 0) {
+      demandFinal = parseFloat((nums.reduce((a, b) => a + b, 0) / 1000).toFixed(3)); // Miliar → Triliun
+    }
+  }
+  if (allotmentFinal === null && /Total Pemenang \(Rp Miliar\)/i.test(text)) {
+    const m = text.match(/Total Pemenang \(Rp Miliar\)[^\n]*\n[^\n]*\n\s*([\d.,]+)/);
+    if (m?.[1]) {
+      const v = parseIdNumber(m[1]);
+      if (v !== null && v > 100) allotmentFinal = parseFloat((v / 1000).toFixed(3)); // Miliar → Triliun
+    }
+  }
+
+  // Cut-off yield from BI official page: "Rata-Rata Tertimbang Pemenang (%)/..." followed by X.XXXXX per tenor.
+  // On BI official pages this section appears after "Jakarta," date line — no early termination.
+  let cutoffFinal = cutoffRatePct;
+  if (cutoffFinal === null && /Rata-Rata Tertimbang Pemenang/i.test(text)) {
+    const afterHeader = text.split(/Rata-Rata Tertimbang Pemenang[^\n]*\n/i)[1] ?? '';
+    // Extract up to 5 rate values (one per tenor row). Last one = 12M (longest tenor = target).
+    const rates = [...afterHeader.matchAll(/([\d]+,[\d]{5})/g)]
+      .slice(0, 5)
+      .map(m => parseIdNumber(m[1]!))
+      .filter((v): v is number => v !== null && v >= 1 && v <= 20);
+    if (rates.length > 0) cutoffFinal = rates[rates.length - 1]!;
+  }
+
+  const bidCoverRatio = demandFinal !== null && allotmentFinal !== null && allotmentFinal > 0
+    ? parseFloat((demandFinal / allotmentFinal).toFixed(2))
     : null;
 
-  return { outstandingIdrT, demandIdrT, allotmentIdrT, bidCoverRatio, cutoffRatePct, foreignParticipationPct };
+  return {
+    outstandingIdrT,
+    demandIdrT: demandFinal,
+    allotmentIdrT: allotmentFinal,
+    bidCoverRatio,
+    cutoffRatePct: cutoffFinal,
+    foreignParticipationPct,
+  };
 }
 
 function scoreBidCover(ratio: number | null): AlertLevel {
@@ -121,9 +166,9 @@ function scoreBidCover(ratio: number | null): AlertLevel {
   return 'green';
 }
 
-// Financial news sites that reliably cover BI SRBI weekly auction results.
-// bi.go.id is not indexed by Exa/Tavily. Bloomberg Technoz = most structured source.
-const SRBI_DOMAINS = ['bloombergtechnoz.com', 'bisnis.com', 'kontan.co.id', 'cnbcindonesia.com'];
+// Financial news + BI official page. bi.go.id Hasil Lelang pages are Exa-indexed and
+// carry the most precise per-tenor figures (amounts in Miliar — parseSrbiText handles this).
+const SRBI_DOMAINS = ['bloombergtechnoz.com', 'bisnis.com', 'kontan.co.id', 'cnbcindonesia.com', 'bi.go.id'];
 const SRBI_QUERY   = 'total penawaran masuk SRBI lelang Bank Indonesia triliun dimenangkan';
 
 async function fetchViaExa(daysBack: number): Promise<SrbiAuctionData | null> {
@@ -146,25 +191,36 @@ async function fetchViaExa(daysBack: number): Promise<SrbiAuctionData | null> {
       return null;
     };
 
-    // First: targeted financial domains (high precision)
+    // Pass 1: media articles (Bloomberg Technoz / Bisnis / Kontan / CNBC) — Triliun format
     const r1 = await exa.search(SRBI_QUERY, {
       numResults: 3,
       type: 'auto',
       startPublishedDate: startDate,
-      includeDomains: SRBI_DOMAINS,
+      includeDomains: ['bloombergtechnoz.com', 'bisnis.com', 'kontan.co.id', 'cnbcindonesia.com'],
       contents: { text: { maxCharacters: 2500 } },
     } as Parameters<typeof exa.search>[1]);
     const hit1 = tryParse(r1.results ?? []);
     if (hit1) return hit1;
 
-    // Fallback: no domain restriction — broader coverage
-    const r2 = await exa.search(SRBI_QUERY, {
+    // Pass 2: BI official "Hasil Lelang SRBI" page — Miliar format (parseSrbiText handles)
+    const r2 = await exa.search('Hasil Lelang SRBI Bank Indonesia Nominal Penawaran Pemenang Miliar', {
+      numResults: 2,
+      type: 'keyword',
+      startPublishedDate: startDate,
+      includeDomains: ['bi.go.id'],
+      contents: { text: { maxCharacters: 3000 } },
+    } as Parameters<typeof exa.search>[1]);
+    const hit2 = tryParse(r2.results ?? []);
+    if (hit2) return hit2;
+
+    // Pass 3: no domain restriction — broader coverage
+    const r3 = await exa.search(SRBI_QUERY, {
       numResults: 5,
       type: 'auto',
       startPublishedDate: startDate,
       contents: { text: { maxCharacters: 2500 } },
     } as Parameters<typeof exa.search>[1]);
-    return tryParse(r2.results ?? []);
+    return tryParse(r3.results ?? []);
   } catch {
     return null;
   }
