@@ -10,7 +10,7 @@ date: "3 November 2026"
 **Dibuat:** 3 November 2026
 **Sistem:** Dexter Indonesia Sovereign Macro Intel — Module 8 (Banking Stress)
 **Scope:** IndONIA lag resolution, KBMI contagion basket design, BPD/TKD M10 cross-flag
-**Status:** Partially implemented — Nov 3 2026 (P2, P3 selesai; P1 masih pending)
+**Status:** Fully implemented — Nov 3 2026 (P1-A/B + P2-A/B + P3-A/B/C/D all done)
 **Basis data:** BI SSKI Tabel 13, OJK LSPI, DJPK SIKD, IMF FSAP CR/25/53, Gibson Dunn APLMA Dec 2024, CEIC, banking-stress-engine.ts, kbmi-contagion.ts
 
 ---
@@ -39,8 +39,8 @@ Module 8 (Banking Stress) menggunakan IndONIA via Trading Economics sebagai indi
 | IndONIA via TE sebagai confirmator | **Pertahankan** | ✅ Retained as fallback | TE = 3M proxy (bukan O/N); `indonia_3m_pct` naming correct; M8 fallback jika BI >5d stale |
 | BPD/TKD cross-flag di M10 | **Setujui** | ✅ DONE — commit af83923 | `sources/djpk.ts` + M10 seasonality-aware shortfall; BJBR+BJTM equity proxy |
 | Bug: komentar "JIBOR discontinued Dec 2023" | **Fix segera** | ✅ DONE — commit c056821 | Corrected: O/N Jan 2019, all tenors Jan 2026 — di banking-stress-engine.ts + sovereign-scraper.ts |
-| P1-A: Integrate kbmi-contagion.ts ke M8 | **Prioritas 1** | ❌ PENDING | kbmi-contagion.ts exists + updated, tapi belum di-import ke banking-stress-engine.ts |
-| P1-B: IndONIA standalone floor | **Prioritas 1** | ❌ PENDING | 20% weight terlalu rendah — 117bps ATH = M8 score 17 (GREEN). Floor fix diperlukan |
+| P1-A: Integrate kbmi-contagion.ts ke M8 | **Prioritas 1** | ✅ DONE — commit eeff19a | basket ≥3/4 +12; +SRBI BCR<1.3 +20; OJK formal +25 → RED immediately |
+| P1-B: IndONIA standalone floor | **Prioritas 1** | ✅ DONE — commit eeff19a | ≥75bps→55, ≥96bps→70, ≥117bps→80. Jul 2026 ATH: 17→80 GREEN→RED |
 
 ---
 
@@ -573,42 +573,32 @@ Implementasi: sources/djpk.ts (baru) + fiscal-engine.ts
 
 ## 7. Implementation Roadmap
 
-### P1-A: Integrasi `kbmi-contagion.ts` ke M8 Engine ❌ PENDING
+### P1-A: Integrasi `kbmi-contagion.ts` ke M8 Engine ✅ DONE — commit eeff19a
 
-**Effort:** ~2–3 jam | **Risk:** Low | **Impact:** High — closes gap immediately, zero new dependency
+**Effort aktual:** ~3 jam | Selesai: Nov 3 2026 (sesi pagi, sebelum P2/P3)
 
-Files:
-- `src/tools/macro/banking-stress-engine.ts` — import, parallel fetch, scoring, flags, output interface
-- `src/tools/macro/sources/kbmi-contagion.ts` — basket already updated (BMAS→INPC, commit 7c094e7)
+Implementasi aktual:
+- `import { fetchKbmiContagion, type KbmiContagionResult }` di banking-stress-engine.ts
+- `fetchKbmiContagion()` di parallel `Promise.allSettled` block (1c)
+- `kbmiContagion: KbmiContagionResult | null` di `BankingStressOutput` interface
+- Scoring: basket alone +12; basket + SRBI BCR <1.3 +20; OJK formal action +25
+- Flags: KBMI CONTAGION (dengan crash list + SRBI note) | KBMI watch (1-2/4) | OJK FORMAL BANKING ACTION
+- Nov 3 2026 live test: BABP crisis → 1/4 → watch flag (not contagion) → correct behavior
 
-Steps:
-1. `import { fetchKbmiContagion, KbmiContagionResult } from './sources/kbmi-contagion.js'`
-2. Add to parallel `Promise.allSettled` block bersama IndONIA, DPK, etc.
-3. Add `kbmiContagion: KbmiContagionResult | null` ke `BankingStressOutput` interface
-4. Scoring: `contagionSignal === true` → +12; `ojkFormalAction === true` → +25
-5. Flag output: detail basket state + which symbols crashed + SRBI BCR cross-check
-6. Summary line: basket state dalam output tabel M8
+### P1-B: IndONIA Standalone Floor (Scoring Architecture Fix) ✅ DONE — commit eeff19a
 
-### P1-B: IndONIA Standalone Floor (Scoring Architecture Fix) ❌ PENDING
+**Effort aktual:** ~30 menit | Bundle dengan P1-A
 
-**Effort:** ~30 menit | **Risk:** Zero | **Impact:** Critical — fixes GFC-pattern dilution
-
-File: `src/tools/macro/banking-stress-engine.ts`
-
+Implementasi aktual di `banking-stress-engine.ts`:
 ```typescript
-// Add after weighted score computed, before final alert:
-if (indoniaSpreadBps !== null && indoniaSpreadBps >= 75) {
-  stressScore = Math.max(stressScore, 55); // ORANGE floor at BI corridor crisis level
-}
-if (indoniaSpreadBps !== null && indoniaSpreadBps >= 96) {
-  stressScore = Math.max(stressScore, 70); // HIGH ORANGE floor at Sep 2015 ATH level
-}
-if (indoniaSpreadBps !== null && indoniaSpreadBps >= 117) {
-  stressScore = Math.max(stressScore, 80); // RED floor at Jul 2026 new ATH level
+// After weighted score computed:
+if (indoniaSpreadBps !== null) {
+  if (indoniaSpreadBps >= 117) stressScore = Math.max(stressScore, 80);
+  else if (indoniaSpreadBps >= 96)  stressScore = Math.max(stressScore, 70);
+  else if (indoniaSpreadBps >= 75)  stressScore = Math.max(stressScore, 55);
 }
 ```
-
-Tanpa fix ini: Jul 2026 (117bps ATH) = M8 score 17/100 GREEN. Dengan fix: score 80/100 RED.
+Dampak retroaktif: Jul 2026 PUAB ATH 117bps → M8 score 17→80 (GREEN→RED). Sep 2015 prior ATH 96bps → 70.
 
 ### P2-A: IndONIA Direct dari BI ✅ DONE — commit a27f4bf
 
@@ -688,11 +678,11 @@ Max 2/4 crash pada Mar 12 2020 (BBYB + AGRO). Threshold ≥3/4 tidak trigger —
 **5. AGRO replacement — BBHI atau tetap? ✅ RESOLVED**
 Keputusan: BMAS (bukan AGRO) yang diganti, dengan INPC. BBHI likely KBMI II (mktCap 13T). AGRO dipertahankan dengan caveat. Lihat Section 4.1 untuk detail.
 
-**6. P1-A kbmi-contagion.ts integration — kapan? ⏳ OPEN**
-Belum diintegrasikan ke M8 banking-stress-engine.ts. Next item di backlog. ~2-3 jam.
+**6. P1-A kbmi-contagion.ts integration — ✅ RESOLVED**
+Done di commit eeff19a. Basket ≥3/4 →+12, basket+SRBI BCR<1.3 →+20, OJK formal →+25.
 
-**7. P1-B IndONIA standalone floor — kapan? ⏳ OPEN**
-Scoring architecture fix masih pending. Bundle dengan P1-A dalam satu commit.
+**7. P1-B IndONIA standalone floor — ✅ RESOLVED**
+Done di commit eeff19a. Floor: ≥75bps→55, ≥96bps→70, ≥117bps→80.
 
 ---
 
@@ -770,7 +760,7 @@ BEKS = BPD Banten, BPD termuda (Banten pisah dari Jawa Barat 2000). APBD Banten 
 *Dibuat: 3 November 2026*
 *Diperbarui: 3 November 2026 — realisasi implementasi P2 + P3 + validasi P3-C/D*
 *Research findings incorporated: PUAB spread Jul 2026 117bps ATH, JIBOR timeline correction, BABP liquidity crisis active Nov 3, DJPK SIKD TKD machine-readable, KBMI threshold correction (modal inti, not assets), IMF FSAP 2025 BPD findings*
-*Status implementasi: P2-A/B + P3-A/B/C/D selesai. P1-A (kbmi-contagion.ts integration) + P1-B (IndONIA standalone floor) masih pending — next items di backlog.*
+*Status implementasi: SEMUA item selesai. P1-A/B (commit eeff19a) + P2-A/B (a27f4bf, c056821) + P3-A (af83923) + P3-B/C/D (7c094e7, validated). Design doc updated Nov 4 2026 untuk koreksi status.*
 
 ---
 
