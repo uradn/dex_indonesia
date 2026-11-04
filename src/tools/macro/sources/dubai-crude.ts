@@ -55,7 +55,7 @@ const EXA_DOMAINS = [
 ];
 const EXA_QUERY = 'Dubai Fateh crude oil spot price assessment USD per barrel daily';
 
-function parseDubaiPriceFromText(text: string): number | null {
+function parseDubaiPriceFromText(text: string, brentHint: number | null = null): number | null {
   // Match patterns like "$94.67/bbl", "$94.67 per barrel", "94.67 USD/bbl"
   // near "Dubai" keyword
   const patterns = [
@@ -69,13 +69,16 @@ function parseDubaiPriceFromText(text: string): number | null {
     const m = text.match(pat);
     if (m?.[1]) {
       const v = parseFloat(m[1]);
-      if (v >= 40 && v <= 250) return v; // sanity bounds
+      if (v < 40 || v > 250) continue;
+      // Cross-check vs Brent: Dubai shouldn't deviate >30% from Brent (historical max crisis spread ~$27)
+      if (brentHint !== null && (v < brentHint * 0.70 || v > brentHint * 1.15)) continue;
+      return v;
     }
   }
   return null;
 }
 
-async function fetchViaExa(): Promise<DubaiCrudeData | null> {
+async function fetchViaExa(brentHint: number | null = null): Promise<DubaiCrudeData | null> {
   if (!process.env.EXASEARCH_API_KEY) return null;
   try {
     const { default: Exa } = await import('exa-js');
@@ -92,7 +95,7 @@ async function fetchViaExa(): Promise<DubaiCrudeData | null> {
 
     for (const r of response.results ?? []) {
       const text = (r as { text?: string }).text ?? r.title ?? '';
-      const price = parseDubaiPriceFromText(text);
+      const price = parseDubaiPriceFromText(text, brentHint);
       if (price !== null) {
         const date = (r.publishedDate ?? NOW()).slice(0, 10);
         return {
@@ -163,8 +166,8 @@ export async function fetchDubaiCrude(): Promise<DubaiCrudeData | null> {
     }
   }
 
-  // Tier 1: Exa search
-  if (!data) data = await fetchViaExa();
+  // Tier 1: Exa search (pass brentPrice so parser rejects implausible values)
+  if (!data) data = await fetchViaExa(brentPrice);
 
   // Tier 2: World Bank Pink Sheet (monthly, ~1 month lag)
   if (!data) data = await fetchViaWorldBank();
