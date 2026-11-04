@@ -53,6 +53,21 @@ Parser regex (`[\d]{2,3}`) matched it without cross-checking against Brent price
 
 **Files changed:** `src/tools/macro/sources/dubai-crude.ts`
 
+### Policy signal: BI GWM cut + SRBI reduction (Oct 23 2026)
+
+**NOT yet reflected in engines (gap):**
+
+| Policy action | Date | Impact |
+|--------------|------|--------|
+| BI GWM cut 9% → 7% | Oct 23 2026 | ~Rp200T liquidity released to banks; LDR pressure eases; M8 score should moderate |
+| SRBI outstanding cut Rp950T → Rp900T | Oct 23 2026 | Less sterilization drag; M10 SRBI cost (Rp52T/yr) decreases proportionally |
+| SRBI frequency weekly → bi-weekly | Oct 24 2026 | Already captured in `FRESHNESS_DAYS=14` in `srbi-auction.ts` |
+
+GWM rate not tracked in any engine — M8 banking-stress-engine.ts has zero `GWM` references.
+Add `bi_gwm_pct` indicator to DB and M8 engine when time allows (medium priority).
+
+Sources: Liputan6 Oct 23, Okezone Oct 23, Mirae Asset Oct 26.
+
 ### Open items (carry forward)
 
 | # | Item | Priority | Action |
