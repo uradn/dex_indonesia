@@ -62,11 +62,12 @@ function latestGdpQuarterEnd(): string {
   const now = new Date();
   const mo = now.getMonth() + 1;
   const yr = now.getFullYear();
-  // Q2 (Apr-Jun) releases ~Aug 5. Q3 (Jul-Sep) releases ~Nov. Q4 releases ~Feb. Q1 releases ~May.
-  if (mo >= 8)  return `${yr}-06-30`;
-  if (mo >= 5)  return `${yr}-03-31`;
-  if (mo >= 2)  return `${yr - 1}-12-31`;
-  return `${yr - 1}-09-30`;
+  // BPS release schedule: Q1 (Jan-Mar) →May 5, Q2 (Apr-Jun) →Aug 5, Q3 (Jul-Sep) →Nov 5, Q4 (Oct-Dec) →Feb 5
+  if (mo >= 11) return `${yr}-09-30`;   // Nov-Dec → Q3 data
+  if (mo >= 8)  return `${yr}-06-30`;   // Aug-Oct → Q2 data
+  if (mo >= 5)  return `${yr}-03-31`;   // May-Jul → Q1 data
+  if (mo >= 2)  return `${yr - 1}-12-31`; // Feb-Apr → Q4 prior year
+  return `${yr - 1}-09-30`;              // Jan → Q3 prior year
 }
 
 async function searchExa(query: string): Promise<string> {
