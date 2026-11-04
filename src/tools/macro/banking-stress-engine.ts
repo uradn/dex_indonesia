@@ -581,7 +581,11 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   if (kbmiContagion !== null) {
     const basketSrbiComposite = kbmiContagion.contagionSignal && srbiBcr !== null && srbiBcr < 1.3;
     if (kbmiContagion.ojkFormalAction) {
-      kbmiContagionBump = 25;
+      // BPR/BPRS revocations are routine (~2/month) — not systemic, no score bump.
+      // Commercial bank actions: +15. HIMBARA systemic actions: +25.
+      kbmiContagionBump = kbmiContagion.ojkBankTier === 'bpr'      ? 0
+        : kbmiContagion.ojkBankTier === 'himbara'  ? 25
+        : 15; // commercial bank
     } else if (basketSrbiComposite) {
       kbmiContagionBump = 20;
     } else if (kbmiContagion.contagionSignal) {
@@ -870,7 +874,11 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
       flags.push(`KBMI watch: ${kbmiContagion.basketCrashCount}/4 basket crashed [${crashList}] — below contagion threshold (≥3/4). Session: ${returnStr}`);
     }
     if (kbmiContagion.ojkFormalAction) {
-      flags.push(`OJK FORMAL BANKING ACTION: ${kbmiContagion.ojkNewsExcerpt ?? 'bank regulatory action detected via Exa'}. (+${kbmiContagionBump} score)`);
+      const tierLabel = kbmiContagion.ojkBankTier === 'bpr'      ? 'BPR/BPRS (routine — not systemic)'
+        : kbmiContagion.ojkBankTier === 'himbara'  ? 'HIMBARA (systemic)'
+        : 'commercial bank';
+      const scoreNote = kbmiContagionBump > 0 ? ` (+${kbmiContagionBump} score)` : ' (BPR revocation routine — no score bump)';
+      flags.push(`OJK FORMAL BANKING ACTION [${tierLabel}]: ${kbmiContagion.ojkNewsExcerpt ?? 'bank regulatory action detected via Exa'}.${scoreNote}`);
     }
   }
 

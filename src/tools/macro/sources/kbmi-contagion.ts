@@ -34,9 +34,18 @@ export interface KbmiContagionResult {
   sessionReturnsPct: Record<string, number | null>; // ticker → session % change
   contagionSignal: boolean;                         // basketCrashCount >= CONTAGION_MIN_COUNT
   ojkFormalAction: boolean;                         // OJK BDPI / pembekuan news found
+  ojkBankTier: 'bpr' | 'commercial' | 'himbara' | null; // tier of affected bank
   ojkNewsExcerpt: string | null;
   fetchedAt: string;
 }
+
+// BPR (Bank Perkreditan Rakyat / BPRS Syariah) = small rural credit banks.
+// OJK revokes ~2/month — routine, NOT systemic. Zero M8 score bump.
+const BPR_PATTERN = /\bBPRS?\b|Bank Perkreditan Rakyat|BPR Syariah/i;
+
+// HIMBARA = state-owned systemically important banks. Any OJK action = critical.
+const HIMBARA_PATTERN =
+  /\b(BRI|BNI|Bank Mandiri|BTN|Bank Tabungan Negara|Bank Rakyat Indonesia|Bank Negara Indonesia)\b/i;
 
 async function fetchBasketReturns(): Promise<{ symbol: string; returnPct: number | null }[]> {
   const results = await Promise.allSettled(
@@ -73,10 +82,14 @@ const OJK_DOMAINS = [
 const FORMAL_PATTERN =
   /BDPI|bank dalam pengawasan intensif|pembekuan|pencabutan izin|OJK tutup bank|bank dibekukan/i;
 
-async function fetchOjkFormalAction(): Promise<{ found: boolean; excerpt: string | null }> {
+async function fetchOjkFormalAction(): Promise<{
+  found: boolean;
+  tier: KbmiContagionResult['ojkBankTier'];
+  excerpt: string | null;
+}> {
   try {
     const apiKey = process.env.EXASEARCH_API_KEY;
-    if (!apiKey) return { found: false, excerpt: null };
+    if (!apiKey) return { found: false, tier: null, excerpt: null };
     const { default: Exa } = await import('exa-js');
     const exa = new Exa(apiKey);
     const resp = await exa.search(OJK_ACTION_QUERY, {
@@ -88,16 +101,20 @@ async function fetchOjkFormalAction(): Promise<{ found: boolean; excerpt: string
     } as Parameters<typeof exa.search>[1]);
     for (const r of resp.results ?? []) {
       const text = `${r.title ?? ''} ${r.text ?? ''}`;
-      if (FORMAL_PATTERN.test(text)) {
-        return {
-          found: true,
-          excerpt: `${r.title ?? '(no title)'}: ${(r.text ?? '').slice(0, 200).trim()}`,
-        };
-      }
+      if (!FORMAL_PATTERN.test(text)) continue;
+      const tier: KbmiContagionResult['ojkBankTier'] =
+        BPR_PATTERN.test(text)     ? 'bpr'
+        : HIMBARA_PATTERN.test(text) ? 'himbara'
+        : 'commercial';
+      return {
+        found: true,
+        tier,
+        excerpt: `${r.title ?? '(no title)'}: ${(r.text ?? '').slice(0, 200).trim()}`,
+      };
     }
-    return { found: false, excerpt: null };
+    return { found: false, tier: null, excerpt: null };
   } catch {
-    return { found: false, excerpt: null };
+    return { found: false, tier: null, excerpt: null };
   }
 }
 
@@ -125,6 +142,7 @@ export async function fetchKbmiContagion(): Promise<KbmiContagionResult> {
     sessionReturnsPct,
     contagionSignal: basketCrashCount >= CONTAGION_MIN_COUNT,
     ojkFormalAction: ojkNews.found,
+    ojkBankTier: ojkNews.tier,
     ojkNewsExcerpt: ojkNews.excerpt,
     fetchedAt: new Date().toISOString(),
   };
