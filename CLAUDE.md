@@ -263,6 +263,11 @@ HIMBARA_AT1_SECONDARY_PCT  # HIMBARA AT1 secondary price (% of par, e.g. 87.5); 
 # Historical: 2022=2.87%, 2023=2.94%, 2024=est.3.1% (trend rising). Threshold <2%=LOW backstop.
 # OR backstop triggered by M10 fiscal stress (APBN deficit >4.5%) — whichever fires first.
 LPS_FUND_ADEQUACY_PCT      # LPS "Tingkat Kecukupan Dana" %; updates M8 D-D condition 6 precision
+# M8 Banking — BI GWM (Giro Wajib Minimum) required reserve ratio
+# Source: BI press release + Exa media. Time series stored in DB (bi_gwm_pct).
+# Signal: level (<7%=loose, 7-9%=normal, >9%=tight) + direction (hike=stress, cut=relief) + LDR interaction.
+# Latest: 7.0% (cut from 9.0% on Oct 23 2026). Update when BI announces GWM change.
+BI_GWM_PCT                 # required reserve ratio %; env-always-wins over DB cache; e.g. 7.0
 # M9 Market Stress
 IDX_LAST_CIRCUIT_BREAKER_DATE  # YYYY-MM-DD; update when circuit breaker fires (−8% intraday halt); flag active 30d
 IDX_SHORT_SELL_VOLUME_IDR_BN   # IDR billions; manual pin when you see figure in media/terminal (IDX Oct 2026 feature, media coverage thin)
