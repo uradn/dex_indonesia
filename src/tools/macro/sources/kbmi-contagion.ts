@@ -39,9 +39,10 @@ export interface KbmiContagionResult {
   fetchedAt: string;
 }
 
-// BPR (Bank Perkreditan Rakyat / BPRS Syariah) = small rural credit banks.
+// BPR (Bank Perkreditan Rakyat / Bank Perekonomian Rakyat / BPRS Syariah) = small rural credit banks.
+// OJK rebranded BPR "Perkreditan"→"Perekonomian" via POJK 7/POJK.03/2023 (effective 2024).
 // OJK revokes ~2/month — routine, NOT systemic. Zero M8 score bump.
-const BPR_PATTERN = /\bBPRS?\b|Bank Perkreditan Rakyat|BPR Syariah/i;
+const BPR_PATTERN = /\bBPRS?\b|Bank Perkreditan Rakyat|Bank Perekonomian Rakyat|BPR Syariah/i;
 
 // HIMBARA = state-owned systemically important banks. Any OJK action = critical.
 const HIMBARA_PATTERN =
