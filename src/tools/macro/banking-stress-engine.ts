@@ -16,6 +16,7 @@ import { fetchOjkPdn } from './sources/ojk-pdn.js';
 import { fetchLpsDepositCoverage } from './sources/lps-deposit-coverage.js';
 import { fetchKbmiContagion, type KbmiContagionResult } from './sources/kbmi-contagion.js';
 import { fetchIndoniaBiDirect } from './sources/bi.js';
+import { fetchBiGwm, scoreGwmLevel, scoreGwmDirection, GWM_NORMAL_ANCHOR_PCT, GWM_LDR_SENSITIVITY, type BiGwmData } from './sources/bi-gwm.js';
 
 export const BANKING_STRESS_DESCRIPTION = `
 MACRO INTELLIGENCE — Banking Stress Engine (Module 8)
@@ -79,6 +80,7 @@ interface BankingStressOutput {
   diamondDybvig: DiamondDybvig;
   liquiditySpiral: LiquiditySpiral;
   kbmiContagion: KbmiContagionResult | null;
+  gwmData: BiGwmData | null;
   dataDate: string;
   flags: string[];
   summary: string;
@@ -374,13 +376,14 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   }
 
   // 1c. Frequently-updated indicators + KBMI basket + BI IndONIA direct (all parallel)
-  const [indoniaPoint, extDebtPoint, ihprPoint, m2Point, kbmiResult, indoniaDirectResult] = await Promise.allSettled([
+  const [indoniaPoint, extDebtPoint, ihprPoint, m2Point, kbmiResult, indoniaDirectResult, gwmResult] = await Promise.allSettled([
     fetchIndoniaRateTe(),
     fetchExternalDebtTe(),
     fetchIhprTe(),
     fetchM2MoneySupplyTe(),
     fetchKbmiContagion(),
     fetchIndoniaBiDirect(),
+    fetchBiGwm(),
   ]);
   const indonia = indoniaPoint.status === 'fulfilled' ? indoniaPoint.value : null;
   const extDebt = extDebtPoint.status === 'fulfilled' ? extDebtPoint.value : null;
@@ -388,6 +391,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   let m2 = m2Point.status === 'fulfilled' ? m2Point.value : null;
   const kbmiContagion = kbmiResult.status === 'fulfilled' ? kbmiResult.value : null;
   const indoniaDirectFetch = indoniaDirectResult.status === 'fulfilled' ? indoniaDirectResult.value : null;
+  const gwmData = gwmResult.status === 'fulfilled' ? gwmResult.value : null;
   if (m2 === null) {
     // Tier 2: World Bank annual M2 (no Playwright, free API, 1-year lag)
     m2 = await fetchM2WorldBank();
@@ -692,6 +696,19 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     }
   }
 
+  // ── GWM (Giro Wajib Minimum) — required reserve ratio stress ────────────────
+  // Level: >8% = tightening squeeze on bank liquidity; <5% = BI crisis floor.
+  // Direction: hike within 90d = tightening headwind; cut to <5% = emergency distress.
+  // OJK nominal LDR doesn't deduct GWM reserves from DPK denominator → high GWM
+  // inflates effective funding pressure beyond what nominal LDR shows.
+  let gwmLevelBump = 0;
+  let gwmDirectionBump = 0;
+  if (gwmData !== null) {
+    gwmLevelBump = scoreGwmLevel(gwmData.gwmPct);
+    gwmDirectionBump = scoreGwmDirection(gwmData);
+    stressScore = Math.min(100, stressScore + gwmLevelBump + gwmDirectionBump);
+  }
+
   // 5. Alert level: high stressScore = more stress = higher alert
   const alert = alertFromScore(stressScore) as AlertLevel;
 
@@ -814,6 +831,29 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     }
   }
 
+  // GWM flags
+  if (gwmData !== null) {
+    const prevStr = gwmData.prevGwmPct !== null ? `${gwmData.prevGwmPct}%→` : '';
+    const effLdrStr = gwmData.effectiveLdrAdjPp !== 0
+      ? ` Effective LDR adj: ${gwmData.effectiveLdrAdjPp > 0 ? '+' : ''}${gwmData.effectiveLdrAdjPp.toFixed(1)}pp vs ${GWM_NORMAL_ANCHOR_PCT}% normal anchor.`
+      : '';
+    if (gwmData.gwmPct < 4.0) {
+      flags.push(`GWM CRISIS FLOOR: ${gwmData.gwmPct}% — BI emergency easing (COVID-level). Systemic liquidity stress confirmed. (+${gwmLevelBump + gwmDirectionBump} score)`);
+    } else if (gwmData.gwmPct < 5.0) {
+      flags.push(`GWM near-crisis: ${gwmData.gwmPct}% — BI aggressively injecting liquidity. (+${gwmLevelBump} score)${effLdrStr}`);
+    } else if (gwmData.gwmPct > 8.0) {
+      const dirNote = gwmDirectionBump > 0 ? ` Hike within 90d adds +${gwmDirectionBump} score.` : '';
+      flags.push(`GWM tightening: ${prevStr}${gwmData.gwmPct}% — above 8% threshold; bank liquidity constraint elevated.${effLdrStr}${dirNote} (+${gwmLevelBump + gwmDirectionBump} score)`);
+    } else if (gwmData.direction === 'cut' && gwmData.changePp !== null && Math.abs(gwmData.changePp) >= 1.0) {
+      // Normalization cut to normal range — pro-liquidity, informational only
+      const daysStr = gwmData.daysSinceChange !== null ? ` (${gwmData.daysSinceChange}d ago)` : '';
+      const releasedT = Math.abs(gwmData.changePp) * 10; // ~Rp10T per 0.1pp (rough DPK×0.001)
+      flags.push(`GWM easing: ${prevStr}${gwmData.gwmPct}%${daysStr} — BI normalization cut releases ~Rp${releasedT.toFixed(0)}0T liquidity to banks.${effLdrStr}`);
+    } else if (gwmData.direction === 'hike' && gwmDirectionBump > 0) {
+      flags.push(`GWM hike within 90d: ${prevStr}${gwmData.gwmPct}% — tightening headwind on bank liquidity. (+${gwmDirectionBump} score)`);
+    }
+  }
+
   // KBMI basket contagion flags
   if (kbmiContagion !== null) {
     const returnStr = Object.entries(kbmiContagion.sessionReturnsPct)
@@ -897,6 +937,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     diamondDybvig,
     liquiditySpiral,
     kbmiContagion,
+    gwmData,
     dataDate, flags, summary,
   };
 }
