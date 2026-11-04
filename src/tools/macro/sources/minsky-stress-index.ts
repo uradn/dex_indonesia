@@ -35,8 +35,15 @@ export interface MinskyStressIndex {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Module-level TTL cache — M8 and M10 both call this in parallel during morning-check;
+// 5-minute window is sufficient to deduplicate within a single run.
+let _msiCache: { result: MinskyStressIndex; ts: number } | null = null;
+const MSI_CACHE_TTL_MS = 5 * 60 * 1000;
 
 export async function computeMinskyStressIndex(): Promise<MinskyStressIndex> {
+  if (_msiCache !== null && Date.now() - _msiCache.ts < MSI_CACHE_TTL_MS) {
+    return _msiCache.result;
+  }
   const [
     indoniaSpread, usdIdr, hedgingCompliance, ldrPoint, tkdRealisasi,
     srbiOutstanding, apbnDeficit, subsidiYtd, apbnRevenue, biRate,
@@ -284,7 +291,7 @@ export async function computeMinskyStressIndex(): Promise<MinskyStressIndex> {
   if (fxAssessment.regime !== 'hedge') transmissionPath.push('Corporate FX mismatch → forced dollar buying → IDR spiral');
   if (minskyMomentRisk) transmissionPath.push('⚠️ MINSKY MOMENT RISK: 2+ Ponzi sectors → coordinated deleveraging');
 
-  return {
+  const result: MinskyStressIndex = {
     assessments,
     overallRegime,
     compositeScore,
@@ -293,6 +300,8 @@ export async function computeMinskyStressIndex(): Promise<MinskyStressIndex> {
     m10Bump,
     transmissionPath,
   };
+  _msiCache = { result, ts: Date.now() };
+  return result;
 }
 
 /** Format MSI as markdown section for engine output. */
