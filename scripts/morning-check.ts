@@ -2,6 +2,7 @@
  * Indonesia Macro Morning Brief — all 13 modules + silent crisis detector.
  * Run: bun scripts/morning-check.ts
  */
+import { closeBrowser } from '../src/tools/macro/sources/playwright-browser.js';
 import { runFxDefenseEngine } from '../src/tools/macro/fx-defense-engine.js';
 import { runBoPEngine } from '../src/tools/macro/bop-engine.js';
 import { runSovereignRiskEngine } from '../src/tools/macro/sovereign-risk-engine.js';
@@ -465,3 +466,6 @@ try {
 } catch {
   // thesis table may not exist yet — silent fail
 }
+
+await closeBrowser();
+process.exit(0);
