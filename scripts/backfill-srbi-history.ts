@@ -21,6 +21,7 @@ process.chdir(resolve(dirname(fileURLToPath(import.meta.url)), '..'));
 import Exa from 'exa-js';
 import { upsertPoints, getLatestPoint } from '../src/tools/macro/time-series-db.js';
 import type { MacroDataPoint } from '../src/tools/macro/types.js';
+import { closeBrowser } from '../src/tools/macro/sources/playwright-browser.js';
 
 const DRY_RUN = process.argv.includes('--dry-run');
 const FROM_ARG = process.argv.find(a => a.startsWith('--from='))?.split('=')[1]
@@ -239,4 +240,4 @@ async function main() {
   console.log(`\nDone. Saved: ${saved} auctions | Skipped: ${skipped} no-auction days | Failed: ${failed}`);
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+main().then(() => closeBrowser()).then(() => process.exit(0)).catch(e => { console.error(e); closeBrowser().then(() => process.exit(1)); });

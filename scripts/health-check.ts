@@ -8,6 +8,7 @@
  */
 import { Database } from 'bun:sqlite';
 import { INDICATORS, type IndicatorFreshnessSpec } from '../src/tools/macro/freshness.js';
+import { closeBrowser } from '../src/tools/macro/sources/playwright-browser.js';
 
 const showAll = process.argv.includes('--all');
 type IndicatorSpec = IndicatorFreshnessSpec;
@@ -133,7 +134,9 @@ if (counts.missing > 0) {
 }
 if (counts.red > 0) {
   console.log(color(`\n⚠ ${counts.red} critical issue(s) — engine output may be unreliable.`, 'red'));
+  await closeBrowser();
   process.exit(1);
 }
 console.log(color('\n✓ All indicators within acceptable freshness windows.', 'green'));
+await closeBrowser();
 process.exit(0);
