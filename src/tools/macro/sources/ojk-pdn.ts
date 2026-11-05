@@ -30,12 +30,16 @@ const NOW = () => new Date().toISOString();
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
 // OJK SPI blocked — Indonesian financial media reliably report the monthly PDN figure
-const PDN_DOMAINS = ['bloombergtechnoz.com', 'bisnis.com', 'kontan.co.id', 'cnbcindonesia.com'];
+const PDN_DOMAINS = [
+  'bloombergtechnoz.com', 'bisnis.com', 'kontan.co.id', 'cnbcindonesia.com',
+  'beritamoneter.com', 'antaranews.com', 'katakini.com', 'saghanews.com',
+  'keuangan.kontan.co.id', 'investor.id', 'tempo.co',
+];
 function pdnQueries(): { exa: string; tavily: string } {
   const yr = new Date().getFullYear();
   return {
-    exa:    `OJK PDN posisi devisa neto perbankan persen modal ${yr}`,
-    tavily: `OJK PDN posisi devisa neto bank persen modal statistik perbankan ${yr}`,
+    exa:    `OJK "posisi devisa neto" persen modal perbankan ${yr}`,
+    tavily: `OJK PDN "posisi devisa neto" bank persen modal statistik perbankan ${yr}`,
   };
 }
 
@@ -73,7 +77,7 @@ async function fetchViaExa(): Promise<OjkPdnData | null> {
   try {
     const { default: Exa } = await import('exa-js');
     const exa = new Exa(process.env.EXASEARCH_API_KEY);
-    const startDate = new Date(Date.now() - 50 * 86_400_000).toISOString().slice(0, 10);
+    const startDate = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10);
     const { exa: EXA_QUERY } = pdnQueries();
 
     const tryResults = (results: Array<{ text?: string; title?: string | null; publishedDate?: string | null; url?: string | null }>): OjkPdnData | null => {
@@ -115,7 +119,7 @@ async function fetchViaTavily(): Promise<OjkPdnData | null> {
       query: pdnQueries().tavily,
       max_results: 4,
       include_domains: PDN_DOMAINS,
-      time_range: 'month',
+      days: 90,
       include_raw_content: true,
     } as Parameters<typeof tavily.rawResults>[0]);
 

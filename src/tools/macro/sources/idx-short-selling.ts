@@ -151,35 +151,61 @@ function parseShortSellText(text: string): { volumeIdrBn: number | null; pctOfTo
   return { volumeIdrBn, pctOfTotalVolume };
 }
 
+// BEI suspension news — "setop", "suspend", "hentikan" short selling.
+// Suspension = volume 0; itself a M9 stress signal (exchange halting a market feature under stress).
+const IDX_SS_SUSPEND_QUERY =
+  'BEI IDX "short selling" setop hentikan suspend dihentikan sementara 2026';
+
+async function detectSuspension(): Promise<{ suspended: boolean; date: string; sourceUrl: string | null }> {
+  if (!process.env.EXASEARCH_API_KEY) return { suspended: false, date: TODAY(), sourceUrl: null };
+  try {
+    const { default: Exa } = await import('exa-js');
+    const exa = new Exa(process.env.EXASEARCH_API_KEY);
+    const startDate = new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10);
+    const r = await exa.search(IDX_SS_SUSPEND_QUERY, {
+      numResults: 4, type: 'auto', startPublishedDate: startDate,
+      contents: { text: { maxCharacters: 1000 } },
+    } as Parameters<typeof exa.search>[1]).catch(() => null);
+    if (!r) return { suspended: false, date: TODAY(), sourceUrl: null };
+    for (const res of (r.results ?? [])) {
+      const combined = `${res.title ?? ''} ${(res as any).text ?? ''}`.toLowerCase();
+      if (/(?:setop|hentikan|suspend|dihentikan)\s+(?:sementara\s+)?(?:transaksi\s+)?short.?sell/i.test(combined) ||
+          /short.?sell(?:ing)?\s+(?:transaksi\s+)?(?:dihentikan|disetop|disuspend)/i.test(combined)) {
+        return {
+          suspended: true,
+          date: (res.publishedDate ?? NOW()).slice(0, 10),
+          sourceUrl: res.url ?? null,
+        };
+      }
+    }
+  } catch { /* ignore */ }
+  return { suspended: false, date: TODAY(), sourceUrl: null };
+}
+
 async function fetchViaExa(): Promise<IdxShortSellData | null> {
   if (!process.env.EXASEARCH_API_KEY) return null;
   try {
     const { default: Exa } = await import('exa-js');
     const exa = new Exa(process.env.EXASEARCH_API_KEY);
-    const startDate = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
+    const startDate = new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10);
 
     // First: targeted media domains; fallback to open search (new IDX feature — thin coverage)
     let results: typeof r1.results = [];
     const r1 = await exa.search(IDX_SS_QUERY, {
-      numResults: 5,
-      type: 'auto',
-      startPublishedDate: startDate,
+      numResults: 5, type: 'auto', startPublishedDate: startDate,
       includeDomains: IDX_SS_DOMAINS,
       contents: { text: { maxCharacters: 3000 } },
     } as Parameters<typeof exa.search>[1]);
     results = r1.results ?? [];
     if (results.every(r => parseShortSellText((r as { text?: string }).text ?? r.title ?? '').volumeIdrBn === null)) {
       const r2 = await exa.search(IDX_SS_QUERY, {
-        numResults: 5,
-        type: 'auto',
-        startPublishedDate: startDate,
+        numResults: 5, type: 'auto', startPublishedDate: startDate,
         contents: { text: { maxCharacters: 3000 } },
       } as Parameters<typeof exa.search>[1]);
       results = [...results, ...(r2.results ?? [])];
     }
-    const response = { results };
 
-    for (const r of (response.results ?? [])) {
+    for (const r of results) {
       const text = (r as { text?: string }).text ?? r.title ?? '';
       if (!text) continue;
       const parsed = parseShortSellText(text);
@@ -363,14 +389,25 @@ export async function fetchIdxShortSelling(): Promise<IdxShortSellData | null> {
   }
 
   // Auto-fetch tier: Exa → Tavily → cf_clearance cache → FlareSolverr (if FLARESOLVERR_URL set)
-  const data = (await fetchViaExa()) ?? (await fetchViaTavily()) ?? (await fetchViaCachedClearance()) ?? (await fetchViaFlareSolverr());
+  let data = (await fetchViaExa()) ?? (await fetchViaTavily()) ?? (await fetchViaCachedClearance()) ?? (await fetchViaFlareSolverr());
+
+  // If all tiers fail, check for BEI suspension (suspension = volume 0, itself a M9 signal)
+  if (!data || data.volumeIdrBn === null) {
+    const { suspended, date: suspDate, sourceUrl: suspUrl } = await detectSuspension();
+    if (suspended) {
+      data = { date: suspDate, volumeIdrBn: 0, pctOfTotalVolume: null, sourceUrl: suspUrl, fetchedAt: NOW() };
+    }
+  }
+
   if (!data || data.volumeIdrBn === null) return null;
 
-  const source = process.env.EXASEARCH_API_KEY || process.env.TAVILY_API_KEY
-    ? 'exa_media_search'
-    : process.env.FLARESOLVERR_URL
-      ? 'flaresolverr'
-      : 'cf_clearance_cache';
+  const source = data.volumeIdrBn === 0 && data.sourceUrl
+    ? 'bei_suspended'
+    : process.env.EXASEARCH_API_KEY || process.env.TAVILY_API_KEY
+      ? 'exa_media_search'
+      : process.env.FLARESOLVERR_URL
+        ? 'flaresolverr'
+        : 'cf_clearance_cache';
 
   const points: MacroDataPoint[] = [{
     indicator: 'idx_short_sell_volume_idr_bn',
