@@ -458,13 +458,91 @@ async function parseSrbiZip(zipBuf: Buffer): Promise<MacroDataPoint | null> {
  *   - indonia_compounded_30d_pct: BI official, O/N 30d backward average, < 1d lag
  *   - indonia_3m_pct: TE proxy, 3M term rate (JIBOR 3M behavior), ~4-week lag
  */
+const INDONIA_QUERIES = [
+  'IndONIA compounded 30 hari Bank Indonesia persen terbaru',
+  'Compounded INDONIA 30 days percent Bank Indonesia rate',
+  'IndONIA rate Bank Indonesia overnight index average percent',
+  'suku bunga IndONIA Bank Indonesia persen bulan ini',
+];
+const INDONIA_DOMAINS = [
+  'bi.go.id', 'bisnis.com', 'cnbcindonesia.com', 'kontan.co.id',
+  'katadata.co.id', 'antaranews.com', 'bloombergtechnoz.com', 'tempo.co',
+  'bca.co.id', 'mandiri.co.id', 'bri.co.id', 'investor.id', 'idntimes.com',
+];
+const INDONIA_RANGE = { min: 2, max: 12 };
+
+function parseIndoniaRate(text: string): number | null {
+  const pats = [
+    // "Compounded INDONIA 30 ... 5.56789%"
+    /compounded\s+indonia\s*(?:30\s*(?:days?|hari))?\s*[:\s]+\**\s*([\d]+[.,][\d]{3,6})\s*%?/i,
+    // "IndONIA ... 5.56% compounded"
+    /indonia\s*(?:compounded)?\s+30?\s*[:\s]+\**\s*([\d]+[.,][\d]{2,6})\s*%/i,
+    // generic: "IndONIA ... sebesar/mencapai/di 5.56%"
+    /indonia[\s\S]{0,60}?(?:sebesar|mencapai|menjadi|di|pada|:)\s*([\d]+[.,][\d]{2,6})\s*%/i,
+    // "5.56% ... IndONIA"
+    /([\d]+[.,][\d]{2,6})\s*%[\s\S]{0,50}?indonia/i,
+  ];
+  for (const p of pats) {
+    const m = text.match(p);
+    if (m?.[1]) {
+      const v = parseFloat(m[1].replace(',', '.'));
+      if (!isNaN(v) && v >= INDONIA_RANGE.min && v <= INDONIA_RANGE.max) return v;
+    }
+  }
+  return null;
+}
+
+async function fetchIndoniaViaExa(): Promise<{ rate: number | null; sourceUrl: string | null }> {
+  if (!process.env.EXASEARCH_API_KEY) return { rate: null, sourceUrl: null };
+  try {
+    const { default: Exa } = await import('exa-js');
+    const exa = new Exa(process.env.EXASEARCH_API_KEY);
+    const startDate = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+    for (const query of INDONIA_QUERIES) {
+      const resp = await exa.search(query, {
+        numResults: 6, type: 'auto', startPublishedDate: startDate,
+        includeDomains: INDONIA_DOMAINS,
+        contents: { text: { maxCharacters: 3000 } },
+      } as Parameters<typeof exa.search>[1]).catch(() => null);
+      if (!resp) continue;
+      for (const r of (resp.results ?? [])) {
+        const combined = `${r.title ?? ''} ${(r as any).text ?? ''}`;
+        const rate = parseIndoniaRate(combined);
+        if (rate != null) return { rate, sourceUrl: r.url ?? null };
+      }
+    }
+  } catch { /* ignore */ }
+  return { rate: null, sourceUrl: null };
+}
+
+async function fetchIndoniaViaTavily(): Promise<{ rate: number | null; sourceUrl: string | null }> {
+  if (!process.env.TAVILY_API_KEY) return { rate: null, sourceUrl: null };
+  try {
+    const { TavilySearchAPIWrapper } = await import('@langchain/tavily');
+    const tavily = new TavilySearchAPIWrapper({ tavilyApiKey: process.env.TAVILY_API_KEY });
+    for (const query of INDONIA_QUERIES) {
+      const resp = await tavily.rawResults({
+        query, maxResults: 5, searchDepth: 'advanced',
+        includeRawContent: true, days: 14,
+      } as Parameters<typeof tavily.rawResults>[0]).catch(() => null);
+      if (!resp) continue;
+      for (const r of ((resp as any).results ?? [])) {
+        const combined = `${r.title ?? ''} ${r.content ?? ''} ${r.raw_content ?? ''}`;
+        const rate = parseIndoniaRate(combined);
+        if (rate != null) return { rate, sourceUrl: r.url ?? null };
+      }
+    }
+  } catch { /* ignore */ }
+  return { rate: null, sourceUrl: null };
+}
+
 export async function fetchIndoniaBiDirect(): Promise<MacroDataPoint | null> {
   // Env override: BI_INDONIA_COMPOUNDED_30D_PCT — always wins (env_manual pattern like BI_DNDF).
   // Set manually when BI Playwright scrape fails. Source: bi.go.id IndONIA/JIBOR page (daily 19:30 WIB).
   const envVal = process.env.BI_INDONIA_COMPOUNDED_30D_PCT;
   if (envVal) {
     const val = parseFloat(envVal);
-    if (!isNaN(val) && val >= 2 && val <= 12) {
+    if (!isNaN(val) && val >= INDONIA_RANGE.min && val <= INDONIA_RANGE.max) {
       const today = new Date().toISOString().slice(0, 10);
       const pt: MacroDataPoint = {
         indicator: 'indonia_compounded_30d_pct', category: 'banking', date: today,
@@ -476,47 +554,63 @@ export async function fetchIndoniaBiDirect(): Promise<MacroDataPoint | null> {
     }
   }
 
+  // Cache gate: 1d freshness, any source
   const cached = await getLatestPoint('indonia_compounded_30d_pct');
-  if (cached?.source === 'bi_indonia_direct') {
+  if (cached) {
     const ageDays = (Date.now() - new Date(cached.fetchedAt).getTime()) / 86_400_000;
     if (ageDays < 1) return cached;
   }
 
+  // Tier 1: BI Playwright (direct; blocked on some networks — ERR_CONNECTION_RESET)
   const text = await fetchRenderedTextWithBrowser(
     'https://www.bi.go.id/en/fungsi-utama/moneter/indonia-jibor/default.aspx',
   );
-  if (!text) return null;
-
-  // BI renders compounded IndONIA 30d as a table value.
-  // Rendered innerText patterns observed on this page:
-  const RATE_RANGE = { min: 2, max: 12 };
-  const patterns = [
-    // "Compounded INDONIA 30 days\n5.12581"
-    /compounded\s+indonia\s+30\s*(?:days?|hari)?\s*\n+\s*([\d]+\.[\d]{3,6})/i,
-    // "Compounded INDONIA\n...5.12581%"
-    /compounded\s+indonia[^\n]*\n(?:[^\n]{0,80}\n){0,3}[^\n]*?([\d]+\.[\d]{3,6})\s*%?/i,
-    // generic fallback: "INDONIA" near a 5-decimal rate
-    /indonia[^\n]*\n(?:[^\n]{0,80}\n){0,5}[^\n]*?([\d]+\.[\d]{4,6})/i,
-  ];
-
-  for (const pat of patterns) {
-    const m = text.match(pat);
-    if (m) {
-      const val = parseFloat(m[1]!);
-      if (!isNaN(val) && val >= RATE_RANGE.min && val <= RATE_RANGE.max) {
-        const pt: MacroDataPoint = {
-          indicator: 'indonia_compounded_30d_pct',
-          category: 'banking',
-          date: TODAY(),
-          value: parseFloat(val.toFixed(5)),
-          unit: '%',
-          source: 'bi_indonia_direct',
-          fetchedAt: NOW(),
-        };
-        await upsertPoints([pt]);
-        return pt;
+  if (text) {
+    const textPatterns = [
+      /compounded\s+indonia\s+30\s*(?:days?|hari)?\s*\n+\s*([\d]+\.[\d]{3,6})/i,
+      /compounded\s+indonia[^\n]*\n(?:[^\n]{0,80}\n){0,3}[^\n]*?([\d]+\.[\d]{3,6})\s*%?/i,
+      /indonia[^\n]*\n(?:[^\n]{0,80}\n){0,5}[^\n]*?([\d]+\.[\d]{4,6})/i,
+    ];
+    for (const pat of textPatterns) {
+      const m = text.match(pat);
+      if (m) {
+        const val = parseFloat(m[1]!);
+        if (!isNaN(val) && val >= INDONIA_RANGE.min && val <= INDONIA_RANGE.max) {
+          const pt: MacroDataPoint = {
+            indicator: 'indonia_compounded_30d_pct', category: 'banking',
+            date: TODAY(), value: parseFloat(val.toFixed(5)),
+            unit: '%', source: 'bi_indonia_direct', fetchedAt: NOW(),
+          };
+          await upsertPoints([pt]);
+          return pt;
+        }
       }
     }
   }
+
+  // Tier 2: Exa news search
+  const exaResult = await fetchIndoniaViaExa();
+  if (exaResult.rate != null) {
+    const pt: MacroDataPoint = {
+      indicator: 'indonia_compounded_30d_pct', category: 'banking',
+      date: TODAY(), value: parseFloat(exaResult.rate.toFixed(5)),
+      unit: '%', source: exaResult.sourceUrl ?? 'exa_indonia_news', fetchedAt: NOW(),
+    };
+    await upsertPoints([pt]);
+    return pt;
+  }
+
+  // Tier 3: Tavily fallback
+  const tavilyResult = await fetchIndoniaViaTavily();
+  if (tavilyResult.rate != null) {
+    const pt: MacroDataPoint = {
+      indicator: 'indonia_compounded_30d_pct', category: 'banking',
+      date: TODAY(), value: parseFloat(tavilyResult.rate.toFixed(5)),
+      unit: '%', source: tavilyResult.sourceUrl ?? 'tavily_indonia_news', fetchedAt: NOW(),
+    };
+    await upsertPoints([pt]);
+    return pt;
+  }
+
   return null;
 }
