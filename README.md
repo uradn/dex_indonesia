@@ -43,7 +43,7 @@ Cross-confirmed modules: 1/13
 | M3 | FX Defense | USDIDR z-score, pseudo-stability, BI intervention, **SRBI auction bid-cover** (weekly capital flow proxy — 1wk lead vs DJPPR), 1st/2nd-gen crisis gates |
 | M4 | Commodity | Ekspor basket (coal/CPO/nickel/LNG), oil import vulnerability, ICP threshold watch, **B50 biodiesel mandate** (Jul 1 2026 CPO diversion → BoP), **PLN coal DMO compliance** (HBA gap, TDL hike risk) |
 | M5 | Foreign Flow | EIDO ETF, silent exit detection, SSVI (Sudden Stop Vulnerability Index), **MSCI EM status** (Standalone consultation Oct 15 2026; `downgrade_risk` P(downgrade)=85%; `msciReversalProbability` field; Bryant phase tracker), May 2026 rebalancing outflow |
-| M6 | Narrative Divergence | Official guidance vs market — APBN assumptions vs aktual, BBM narrative vs cost recovery |
+| M6 | Narrative Divergence | Official guidance vs market — APBN assumptions vs aktual, BBM narrative vs cost recovery, **BPS data credibility** (3-episode timing anomaly: Agu 2025 Paramadina critique, Sep 3 2026 "selisih proyeksi dan realisasi", Nov 5 2026 GDP Q3 beat dirilis T-6d sebelum MSCI SAIR — M6 signal aktif) |
 | M7 | ASEAN Relative Value | IDR idiosyncratic component vs ASEAN peers (supplementary — not in SCD weight) |
 | M8 | Banking Stress | NPL (OJK/World Bank API), LDR, CAR, IndONIA corridor (DFR = BI Rate −100bps / LF = BI Rate +75bps), FSAP nexus (implied CAR hit), KLR signals, M2/FX reserves ratio, **BNPL sub-indicator** (OJK IKNB fintech NPL), **Himbara AT1 issuance** (env pin: BNI $700M Apr + Mandiri $750M Sep 2026 = $1.45B — FX mismatch on capital base), **GWM signal** (`bi-gwm.ts`: level + direction + LDR interaction; 7% Oct 23 cut from 9%; env `BI_GWM_PCT`), **OJK tier discrimination** (BPR=0 / commercial=+15 / HIMBARA=+25 — routine BPR revocations not systemic) |
 | M9 | Market Stress | IHSG P/E + breadth, valuation disconnect, **stop-loss cascade** (3 threshold nodes: 5,000/4,800/4,500 pts — mechanical forced-sell amplifier, independent of fundamentals; +10pts/node bonus) |
@@ -216,9 +216,9 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 - **⚠️ Morris-Shin ALERT ACTIVE**: oil belief dispersion (CV>12%) + CDS velocity +4.4bps/wk + **DNDF 1M failure** → self-fulfilling attack window MELEBAR; confidence gate VULNERABILITY ZONE (net DC-AC +14); SRBI sterilization burden 38.7% cadev; catalyst watch: Pertamina loss disclosure, APBN Kita quarterly
 - **⚠️ SRBI DATA STALE 21d** — LOW CONFIDENCE on M3 score; sterilization stress signal degraded
 - **⚠️ TRANSMISSION UNDERWAY (SSS=100/100)**: political stress **98/100 🔴** transmitting to financial markets (avg 45/100). Gap CLOSING — forced-sell and mandate-exit mechanics EXECUTION PHASE, not forecast. Silent phase over.
-- **⚠️ MSCI SAIR Nov 12 T-13d** — Semi-Annual Index Review: free-float exclusions + Standalone confirmation. Bryant ETF mechanics PEAK FORCED-SELL PERIOD.
+- **⚠️ MSCI SAIR Nov 12 T-6d 🔴** — Semi-Annual Index Review: free-float exclusions + Standalone confirmation. Bryant ETF mechanics PEAK FORCED-SELL PERIOD.
 - **⚠️ PHK**: 1.100 pekerja at risk 30d window (trend signal); 2 tahun Prabowo-Gibran berlangsung — public discontent spills to streets (ABC News)
-- **⚠️ IHSG Oct 16 CLOSE: 5,204 (−11.25%, −659pts)** — circuit breaker 08:58 WIB; **IDX circuit breaker flag active 14d** (fired Oct 16; flag active 30d)
+- **⚠️ IHSG Oct 16 CLOSE: 5,204 (−11.25%, −659pts)** — circuit breaker 08:58 WIB; **IDX circuit breaker flag active 21d** (fired Oct 16; flag active 30d — expires ~Nov 15)
 - **⚠️ Gelombang Demo Jakarta Oct 20–29**: (1) **Oct 20** — tuntutan lapangan kerja + karhutla; BBM langka Bali; 2th Prabowo (2) **Oct 28 (Hari Sumpah Pemuda)** — 53 elemen di Bundaran HI, Monas, DPR/MPR, Tugu Tani; BEM UI + Komite Sadar tema *"Tepati atau Pergi"*; three-finger salute; spanduk "Prabowo-Gibran Gagal Total" + "All Eyes on Karhutla" (3) **Oct 29** — 61 titik aksi (Polda Metro Jaya); BEM SI se-Jabodetabek, BEM UNJ, Trisakti, Federasi Serikat Pekerja Global, Gerakan Ojol Bersatu, UMKM; kawasan Monas, DPR/MPR, Istana Negara, kementerian
 - **⚠️ HASHIM DJOJOHADIKUSUMO — INNER CIRCLE IDR WARNING (Oct 29, Rapimnas Kadin 2026)**
 
@@ -262,7 +262,7 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 >
 > **M6 — Narrative Credibility:** Orang yang paling keras bicara GCG = co-owner broker yang disanksi karena governance failure. Gap antara retorika dan realita tidak bisa lebih lebar dari ini. Narrative credibility Indonesia di mata MSCI: **COLLAPSE**. Pandu adalah wajah reformasi — jika wajah itu cacat, siapa yang tersisa untuk meyakinkan MSCI?
 >
-> **M5 — Foreign Flow / MSCI Path:** MSCI SAIR Nov 12 T-13d. Defense Indonesia selama ini bergantung pada kredibilitas Pandu sebagai liaison. Bloomberg exposé ini = defense posture Indonesia di konsultasi MSCI melemah dramatically. P(reversal MSCI) turun lebih jauh dari <15%.
+> **M5 — Foreign Flow / MSCI Path:** MSCI SAIR Nov 12 T-6d. Defense Indonesia selama ini bergantung pada kredibilitas Pandu sebagai liaison. Bloomberg exposé ini = defense posture Indonesia di konsultasi MSCI melemah dramatically. P(reversal MSCI) turun lebih jauh dari <15%.
 >
 > **M12 — Political / Institutional Capture:** Danantara (sovereign wealth fund Rp 9.000T AUM) dipimpin oleh orang yang co-owns broker di tengah manipulasi probe. Institutional integrity questioned at sovereign level.
 >
@@ -271,7 +271,7 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 > **Konteks keluarga:** Pandu = putra **Dr. Sjahrir** (almarhum — ekonom senior, anggota Wantimpres era Presiden SBY) dan **Nurmala Kartini Sjahrir** (antropolog, Dubes Indonesia untuk Argentina 2010–2014). Ibunya adalah **adik kandung Luhut Binsar Pandjaitan** — Ketua Dewan Ekonomi Nasional (DEN), arsitek utama pembentukan Danantara. Pandu = **keponakan langsung Luhut**. Ini bukan sekadar koneksi jaringan bisnis personal — ini jaringan keluarga yang menempatkan keponakan dari figur policy ekonomi paling konsisten dalam dua dekade terakhir sebagai CIO sovereign wealth fund Rp9.000T. Ketika sosok itu ternyata co-owns broker OJK-sanksi di tengah probe market integrity yang memicu MSCI Standalone consultation, pertanyaannya bukan hanya tentang konflik kepentingan individu — tapi **capture institusional di tingkat sovereign**.
 
 - SCD: **87% 🔴 RED** (morning check Oct 30) | **8/13 modules** cross-confirmed | M12 Political Risk **98/100 🔴** | M10 Fiscal **72/100 🔴** | M4 Commodity **65/100 🟠** | M5 Foreign Flow **64/100 🟠** | M11 Domestic Pressure **60/100 🟠** | M2 Sovereign **54/100 🟠** | M3 FX Defense **54/100 🟠** | M6 Narrative **53/100 🟠** | M7 ASEAN RV **25/100 🟡** | M8 Banking **36/100 🟡** | M9 Market **17/100 🟢** (A/D 0.85 recovery berlanjut) | M1 BoP **25/100 🟢** | M13 ULN **12/100 🟢** | **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-38) — CDS 103.0bps (technical relief -16.3bps), USDIDR 18,150, targets: CDS 164bps / USDIDR 20,020 / SBN 8.62% | all kill switches inactive
-- **📅 Milestone watch**: T+90=Dec 21 (CDS 164bps / USDIDR 20,020 / SBN 8.62%) — CDS velocity +4.4bps/wk → 200bps ~155d (extended dari 62d akibat relief). MSCI SAIR Nov 12 T-13d 🔴 CRITICAL.
+- **📅 Milestone watch**: T+90=Dec 21 (CDS 164bps / USDIDR 20,020 / SBN 8.62%) — CDS velocity +4.4bps/wk → 200bps ~155d (extended dari 62d akibat relief). MSCI SAIR Nov 12 T-6d 🔴 CRITICAL.
 
 ### BBM Subsidy Monitoring (Module 11)
 
