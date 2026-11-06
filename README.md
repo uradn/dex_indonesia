@@ -84,7 +84,7 @@ Framework teoritis utama yang di-embed ke dalam sistem ini. Setiap sinyal beriku
 **Contoh output r-g (Module 13):**
 ```
 ### R-G Debt Dynamics (R&R Ch.14–16)
-r−g = SBN 10Y 6.71% − GDP growth 5.40% = +1.31pp [KNIFE-EDGE]
+r−g = SBN 10Y 7.10% − GDP growth 5.47% = +1.63pp [ADVERSE]
 Debt/GDP: 27.8% → Primary surplus needed to stabilize: +0.36% GDP
 Flag: R-G ADVERSE — without primary surplus, debt/GDP expands mechanically
 ```
@@ -756,7 +756,7 @@ bash env-check.sh                        # live ping semua API key di .env
 | M9 Market | `ihsg_pe_ratio`, `idx_advance_decline_ratio` | >30d / >14d |
 | M13 ULN | `indonesia_external_debt_bn`, `uln_dsr_pct`, `uln_shortterm_pct` | >180d / >730d / >730d |
 
-Threshold lengkap di `src/tools/macro/freshness.ts`. Health-check baseline Nov 2 2026: SCD **93% RED** · SSS **100/100 TRANSMISSION UNDERWAY** · 9/13 cross-confirmed · **50 fresh | 2 aging | 2 stale | 0 critical** · M12 Political Risk 99/100 🔴 · M10 Fiscal 87/100 🔴 · M5 Foreign Flow 75/100 🔴 · M4 Commodity 67/100 🟠 · M2 Sovereign 65/100 🟠 · M11 Domestic 60/100 🟠 · M3 FX Defense 53/100 🟠 · M6 Narrative 53/100 🟠 · M8 Banking 52/100 🟠 · M7 ASEAN RV 34/100 🟢 · M1 BoP 25/100 🟢 · M13 ULN 12/100 🟢 · M9 Market 0/100 🟢 · **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-41) · Brent $110.3/bbl · USDIDR 18,145 · IHSG 5,113 · CDS 104.5bps (+4.7bps/wk) · SBN 10Y 7.747% · Term premium 2.00% · **B-P Spiral ACTIVE 3/3** (AT1 76.5% + SBN z=2.45 + IHSG disc 47.1%) · **Calvo Trap SEVERE** (trap_metric 4.49pp) · **Obstfeld Escape ELEVATED** (pressure 57/100) · **Impossible Trinity ACTIVE** · MSCI SAIR Nov 12 T-10d 🔴.
+Threshold lengkap di `src/tools/macro/freshness.ts`. Health-check baseline Nov 5 2026: SCD **63% ORANGE** (turun dari 93% RED Nov 2 — IHSG recovery, BPR false-positive fix, PDN data restored) · **51 fresh | 0 aging | 0 stale | 0 critical** · M10 Fiscal 96/100 🔴 · M12 Political Risk 86/100 🔴 · M4 Commodity 62/100 🟠 · M5 Foreign Flow 55/100 🟠 · M8 Banking 52/100 🟠 · M11 Domestic 58/100 🟠 · M2 Sovereign 58/100 🟠 · M3 FX Defense 38/100 🟡 · M6 Narrative 48/100 🟡 · M1 BoP 45/100 🟡 · M9 Market 40/100 🟡 · M7 ASEAN RV 35/100 🟡 · M13 ULN 44/100 🟡 · **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-44) · GDP Q3 2026: **5.47% YoY** (BPS 5 Nov, beat konsensus 5.2%, driver: govt spending 8.95%) · Brent ~$112/bbl · MSCI SAIR Nov 12 T-6d 🔴 · `MSCI_SAIR_DATE` wajib update ke 2027-05-XX setelah event · lihat `doc/msci-sair-nov12-checklist.md`.
 
 ---
 
