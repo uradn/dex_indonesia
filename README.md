@@ -199,7 +199,7 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 >
 > **Bryant (1980) common knowledge — EVENT TERJADI:** Oct 15 announcement = threshold common knowledge yang kita monitor sejak T-45d. Setiap EM fund manager sekarang tahu, dan tahu bahwa yang lain tahu. Rational equilibrium = sell now. Ini bukan panik; ini koordinasi rasional.
 
-- **APBN Semester I 2026**: Defisit Rp196.5T (0.76% PDB). **Subsidi energi YTD: Rp331.4T** (Kemenkeu, Oct 9) vs APBN target Rp87T — run-rate **457%** 🔴; **Outlook full-year: defisit 4.23% GDP** (melampaui 3% constitutional limit)
+- **APBN per September 2026** (APBN KiTa, Oct 9): Pendapatan **Rp2.341,5T** (74.2% target) · Belanja **Rp2.660,5T** (69.2% pagu) · **Defisit Rp319T = 1.24% PDB** (9-bulan aktual) · Keseimbangan Primer **+Rp125.5T** (positif). **Subsidi+Kompensasi Energi YTD**: Rp376.8T per Sep (subsidi 222.5T + kompensasi 154.4T); **Rp333.9T per 30 Oct energi only** (Suahasil KSSK Nov 3) vs target subsidi energi original Rp87T → run-rate **~460%** 🔴; **target direvisi Rp500T** (dari Rp338T awal, Lapsem). ICP Oktober rata-rata **$93/bbl** (Suahasil KSSK). **Outlook full-year: defisit 4.23% GDP** (engine projection, melampaui 3% constitutional limit)
 - Term premium: **~1.89%** (SBN 10Y 7.643% − BI Rate 5.75%) — 11bps dari ORANGE threshold 2.0%
 - S&P interest/revenue ratio: **~20.5%** — 5.5pp above S&P 15% negative-watch threshold 🔴
 - USDIDR spot: **18,150** (engine Oct 30 run 2); cadev **$146.3B**; DNDF contingent $8B → effective **$138.3B**; G-G ratio **2.09x**
