@@ -267,6 +267,8 @@ UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
 > **M12 — Political / Institutional Capture:** Danantara (sovereign wealth fund Rp 9.000T AUM) dipimpin oleh orang yang co-owns broker di tengah manipulasi probe. Institutional integrity questioned at sovereign level.
 >
 > Sumber: [Bloomberg](https://www.bloomberg.com/news/articles/2026-10-29/indonesia-s-wealth-fund-cio-owns-stake-in-sanctioned-brokerage) · [Free Malaysia Today](https://www.freemalaysiatoday.com/category/business/2026/10/29/indonesia-s-wealth-fund-cio-owns-stake-in-sanctioned-brokerage) · [The Star](https://www.thestar.com.my/aseanplus/aseanplus-news/2026/10/29/indonesias-wealth-fund-cio-owns-stake-in-sanctioned-brokerage)
+>
+> **Konteks keluarga:** Pandu = putra **Dr. Sjahrir** (almarhum — ekonom senior, anggota Wantimpres era Presiden SBY) dan **Nurmala Kartini Sjahrir** (antropolog, Dubes Indonesia untuk Argentina 2010–2014). Ibunya adalah **adik kandung Luhut Binsar Pandjaitan** — Ketua Dewan Ekonomi Nasional (DEN), arsitek utama pembentukan Danantara. Pandu = **keponakan langsung Luhut**. Ini bukan sekadar koneksi jaringan bisnis personal — ini jaringan keluarga yang menempatkan keponakan dari figur policy ekonomi paling konsisten dalam dua dekade terakhir sebagai CIO sovereign wealth fund Rp9.000T. Ketika sosok itu ternyata co-owns broker OJK-sanksi di tengah probe market integrity yang memicu MSCI Standalone consultation, pertanyaannya bukan hanya tentang konflik kepentingan individu — tapi **capture institusional di tingkat sovereign**.
 
 - SCD: **87% 🔴 RED** (morning check Oct 30) | **8/13 modules** cross-confirmed | M12 Political Risk **98/100 🔴** | M10 Fiscal **72/100 🔴** | M4 Commodity **65/100 🟠** | M5 Foreign Flow **64/100 🟠** | M11 Domestic Pressure **60/100 🟠** | M2 Sovereign **54/100 🟠** | M3 FX Defense **54/100 🟠** | M6 Narrative **53/100 🟠** | M7 ASEAN RV **25/100 🟡** | M8 Banking **36/100 🟡** | M9 Market **17/100 🟢** (A/D 0.85 recovery berlanjut) | M1 BoP **25/100 🟢** | M13 ULN **12/100 🟢** | **Thesis #14 TRIGGERED** (armed Sep 22, hari ke-38) — CDS 103.0bps (technical relief -16.3bps), USDIDR 18,150, targets: CDS 164bps / USDIDR 20,020 / SBN 8.62% | all kill switches inactive
 - **📅 Milestone watch**: T+90=Dec 21 (CDS 164bps / USDIDR 20,020 / SBN 8.62%) — CDS velocity +4.4bps/wk → 200bps ~155d (extended dari 62d akibat relief). MSCI SAIR Nov 12 T-13d 🔴 CRITICAL.
@@ -420,11 +422,7 @@ Bahlil bilang $77 (April) → ICP $107 live (Sep 15). APBN pasang $70. Empat ang
 | **Oct 18 2026** | Iran FM Araghchi: proposal 7-hari buka Hormuz **"masih di meja"**; Trump suspend sanksi baru minyak Rusia → minyak turun; Brent slide |
 | **Oct 19 2026** | Brent **$107.40** (−2.24%); **IRGC klaim kapal tanker kena ranjau dan terbakar** Hormuz (ANTARA/Kompas); tanker transits **2/hari** (Oct 11 data); Hormuz deal unresolved; US renews warning warganya; **IHSG 4,918** sub-5,000 intraday; IDR 18,040–18,049; SCD 73% 🔴 RED (7/13 cross-confirmed) |
 | **Oct 20 2026** | **Demo 20 Oktober** berlangsung (tuntutan lapangan kerja + karhutla); IHSG recovery **5,205** (+5.5% dari intraday Oct 19); USDIDR 17,995; Brent **$110.7** ($10.7 di atas threshold); CDS 99.5bps; **SCD 57% 🟠 ORANGE** (5/13) — IHSG recovery tidak ubah forced-sell dynamic; Bryant ETF mechanics ACTIVE (T+5d) |
-| **Oct 27 2026** | **SCD 93% 🔴 RED** (8/13 cross-confirmed) — LOMPATAN DARI 57%; SSS **100/100 TRANSMISSION UNDERWAY**; CDS **107.7bps** (velocity +4.2bps/wk); SBN 10Y **7.454%**; USDIDR **18,145**; **🚨 DNDF 1M ZERO BIDS** di 18,199 — forward anchor BI gagal, NDF offshore 18,210; Morris-Shin ALERT aktif; MSCI SAIR Nov 12 T-16d; **Thesis #14 hari ke-35** |
-| **Oct 28 2026** | **FOMC ✅ HOLD 10-2** — Fed funds tetap 3.75–4.00%; dissenter Cook + Hammack mau hike; Dec hike odds naik **82.6%**; hawkish hold; **Demo Sumpah Pemuda** — 53 elemen Bundaran HI/Monas/DPR; BEM UI + Komite Sadar tema *"Tepati atau Pergi"*; three-finger salute; spanduk "Prabowo-Gibran Gagal Total" |
-| **Oct 29 2026** | **SCD 89% 🔴 RED** | CDS **119.3bps** (+11.6 dari Oct 27) — velocity **+9.2bps/wk 🔴** (doubled); SBN **7.706%** (SBN auction bids ↓52%, yield 4-year high); **200bps watch ~62d** (dari 154d); IHSG **5,098** (−3.49%) A/D **0.04** near collapse; **61 titik demo** Jakarta (BEM SI, Trisakti, Ojol, UMKM, Serikat Buruh); **🚨 HASHIM DJOJOHADIKUSUMO** (adik Presiden): *"Rupiah bisa Rp22.000, bencana"* — M6/M12 revelation event; **💣 PANDU SJAHRIR (Danantara CIO)** co-owns PT Supra Sekuritas (broker OJK-sanksi manipulasi, "SS") — Bloomberg investigasi; MSCI reform defense credibility COLLAPSE; Thesis #14 hari ke-37 |
-| **Oct 30–31 2026** | **SCD 87–90% 🔴 RED**; M12 **100/100** (single-pass fix); CDS **103–104.5bps** (technical relief −16bps dari 119.3bps); SBN **7.643–7.747%**; A/D **0.85** (breadth recovery); IHSG **5,042–5,113**; Brent **$112.0–112.3**; **Thesis #14 hari ke-38–41** (CDS velocity +4.4bps/wk, USDIDR 18,145) |
-| **Nov 1–2 2026** | **Bloomberg** *"Wash Trades and 5,000% Gains"* (Suhartono/Wirayani) + **Nikkei** *"Political Maneuvers Hinder Market Reforms"* (Kawasaki) terbit bersamaan — konfirmasi global wash trade scandal: PT **Abadi** +**5,000%** ~7 minggu; **Samuel Sekuritas** handle >50% volume; research note prediksi 50,000% terbit 2 hari sebelum MSCI "investability concerns" Jan 2026; OJK fines total **Rp2.1T** (>12 entitas); IHSG Oct 30 close **5,057** (−7.03% weekly, **−41.52% YTD** — worst major index globally); Market cap IDX **Rp8,862T** (−7.52%); Foreign net sell YTD **Rp97.92T** (~$5.4B); Hashim (forum bisnis, Destry Damayanti hadir): *"hentikan gorengan segera"* di depan Bakrie + Widjaja; **Prabowo sebelumnya (Oct)**: *"MSCI coba intimidasi Indonesia — kita tidak takut"* — sinyal kontradiktif dari satu pemerintah; **SCD 93% RED** (Nov 2 morning check, 9/13 cross-confirmed, hari ke-41 Thesis #14) |
+| **Oct 27–Nov 5 2026** | Brent: **$107–115/bbl** (Hormuz premium persists; IRGC patrols active; tanker transits <5/hari). **FOMC Oct 28 HOLD** (3.75–4.00%) — Dec 2026 hike odds **82.6%**; double-whammy Hormuz + Fed hawkish pada IDR. **🚨 DNDF 1M ZERO BIDS Oct 27** — BI tawarkan forward Rp18,199/USD, tidak ada pembeli; NDF offshore 18,210; forward anchor BI gagal; intervention capacity dipertanyakan pasar. Subsidi energi YTD Rp331.4T (run-rate **457%** target APBN). **Nov 3–4**: pemerintah buka jalur impor Pertalite dari China & India via Pertamina Patra Niaga — lihat bagian [Russia-Indonesia Energy Deal](#russia-indonesia-energy-deal-2026). Dampak domestic lengkap (SCD, MSCI, demo, Hashim, Pandu): lihat bagian **MSCI Standalone** dan **⚠️ bullets** di atas. |
 
 **Dampak global:**
 
@@ -550,12 +548,39 @@ Sistem akan otomatis rekalkulasi subsidy gap, ICP alert, dan foreign flow risk s
 3. **Payment mechanism** — USD clearing alternative (IDR/RUB swap, barter batubara/CPO/nikel) masih dalam finalisasi → execution risk. Bahlil belum konfirmasi publik per Oct 19
 4. **Volume timeline** — 150 juta barel adalah total framework, bukan bulanan; pace delivery belum dikonfirmasi publik
 5. **Fiscal arithmetic** — Suahasil Oct 1 signal: Kemenkeu internally skeptis deal cukup tutup fiskal gap. Run-rate subsidi 457% (Rp331.4T YTD) — deal offset hanya ~7–14% per liter. BBM hike masih tabel pilihan Kemenkeu post-31 Des jika Brent bertahan $100+
+6. **Realization pace** — Nov 3–4 2026: pemerintah membuka jalur impor Pertalite **dari China dan India** via Pertamina Patra Niaga (Dirjen Migas ESDM Laode Sulaeman). Signal implicit: Russia crude G2G belum cukup cover gap pasokan BBM siap distribusi dalam timeframe yang dibutuhkan. Dua-layer diversifikasi (crude + refined product) = pengakuan bahwa satu jalur tidak cukup.
+
+**Update Nov 3–4 2026 — Diversifikasi Pertalite ke China & India:**
+
+Bersamaan dengan deal Russia yang masih dalam tahap realisasi, pemerintah membuka jalur impor BBM siap pakai:
+
+| Parameter | Russia (Crude) | China + India (Refined) |
+|-----------|----------------|------------------------|
+| **Produk** | ESPO Blend crude (input kilang) | Pertalite RON 90 (finished fuel) |
+| **Vehicle** | Lemigas — G2G ESDM | Pertamina Patra Niaga |
+| **Mekanisme** | Framework MoU | Perpres terbit → Permen finalisasi Nov 2026 |
+| **Alasan diversifikasi** | Diskon ESPO ~$10–15/bbl vs Brent | Kurangi ketergantungan Singapura |
+| **Hormuz exposure** | ✅ Nihil (ESPO route via Kozmino) | ✅ Nihil (China/India Pacific route) |
+| **Status Nov 2026** | MoU — delivery pace belum dikonfirmasi | Permen disempurnakan; implementasi bertahap |
+
+Sumber: Dirjen Migas ESDM Laode Sulaeman — [CNN Indonesia 4 Nov 2026](https://www.cnnindonesia.com/ekonomi/20261104103155-92-1423088/indonesia-jajaki-impor-pertalite-dari-china-dan-india) · Kompas 3 Nov 2026.
+
+**Interpretasi dua layer diversifikasi:**
+- **Layer 1 (crude)**: Russia ESPO → kilang Balongan/Cilacap → produk BBM. Offset biaya crude ~Rp485–975/L dari formula.
+- **Layer 2 (refined)**: China/India RON 90 → langsung ke depot Pertamina Patra Niaga → distribusi. Bypass step kilang.
+- Signal utama: Russia crude belum cukup cepat → Indonesia butuh finished fuel dari sumber lain. Kemungkinan: refinery bottleneck (Balongan/Cilacap kapasitas ~1 juta bbl/hari total), atau delivery pace ESPO lebih lambat dari target, atau keduanya.
+- Dua layer ini komplementer bukan redundan: Russia mengurangi biaya input, China/India mengurangi ketergantungan pada satu jalur distribusi finished product dan mengamankan volume.
+
+**Implikasi engine:**
+- **M6 Narrative**: dua diversifikasi paralel = sinyal implisit bahwa official stance ("Russia deal cukup") tidak sepenuhnya dipercaya internal. Credibility index bias lebih tinggi.
+- **M5 Foreign Flow**: China sourcing bisa perkuat screen ESG/Western fund (selain Russia) — tapi magnitude lebih kecil karena finished product, bukan G2G crude.
+- **M11 cost recovery**: Jika harga impor Pertalite China/India berbeda dari formula Brent-based, engine perlu adjustment saat Permen rinci mekanisme harga baru.
 
 ---
 
 ### Game Theory — Strategic Behavior Engine
 
-> Ref lengkap: [`docs/GAME_THEORY_KAJIAN.md`](docs/GAME_THEORY_KAJIAN.md) — serial 20-tweet + data gap table + roadmap.
+> Ref: [`docs/GAME_THEORY_KAJIAN.md`](docs/GAME_THEORY_KAJIAN.md) — serial 20-tweet + data gap table (snapshot Sep 16 2026; coverage telah naik ke ~100% per Nov 2 2026 seperti peta di bawah).
 
 SCD bukan hanya agregasi statistik — beberapa modul mengimplementasikan **logika strategic behavior** di mana output satu aktor berinteraksi dengan belief/aksi aktor lain. Nov 2 2026: **GT coverage ~100%** (naik dari 35% Sep 14 → 51% Sep 15 → 63% Oct 19 → 65% Oct 20 → 100% Nov 2 dengan B-P Spiral + Calvo Trap + Obstfeld Escape + Impossible Trinity).
 
