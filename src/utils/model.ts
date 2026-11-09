@@ -21,7 +21,7 @@ const PROVIDER_MODELS: Record<string, Model[]> = {
     { id: 'claude-opus-4-7', displayName: 'Opus 4.7' },
   ],
   google: [
-    { id: 'gemini-3-flash-preview', displayName: 'Gemini 3 Flash' },
+    { id: 'gemini-3.8-flash', displayName: 'Gemini 3.8 Flash' },
     { id: 'gemini-3.1-pro-preview', displayName: 'Gemini 3.1 Pro' },
   ],
   xai: [

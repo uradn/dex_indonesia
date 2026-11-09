@@ -11,6 +11,7 @@ const MODEL_TO_PROVIDER_MAP: Record<string, string> = {
   'gpt-5.2': 'openai',
   'claude-sonnet-4-5': 'anthropic',
   'gemini-3': 'google',
+  'gemini-3.8-flash': 'google',
 };
 
 // Deprecated model IDs to upgrade on load
