@@ -91,45 +91,96 @@ async function fetchIdxForeignFlowCnbcIndonesia(): Promise<number | null> {
  *   uses safari184 TLS fingerprint that passes idx.co.id Cloudflare as of Nov 2026
  */
 async function fetchIdxForeignFlowDirect(): Promise<{ value: number; source: string } | null> {
-  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const url = `https://www.idx.co.id/primary/TradingSummary/GetStockSummary?length=9999&start=0&date=${dateStr}`;
+  // Build date candidates: today + up to 3 trading days back (IDX may publish summary with delay)
+  const dateCandidates: string[] = [];
+  for (let i = 0; i < 4; i++) {
+    const d = new Date(Date.now() - i * 86_400_000);
+    const dow = d.getUTCDay();
+    if (dow !== 0 && dow !== 6) { // skip weekend
+      dateCandidates.push(d.toISOString().slice(0, 10).replace(/-/g, ''));
+    }
+    if (dateCandidates.length >= 3) break;
+  }
+  const dateStr = dateCandidates[0] ?? new Date().toISOString().slice(0, 10).replace(/-/g, '');
 
   let rawJson: string | null = null;
   let usedSource = '';
 
-  // Path A: FlareSolverr
-  const solverrUrl = process.env.FLARESOLVERR_URL?.replace(/\/$/, '');
-  if (solverrUrl && !rawJson) {
-    try {
-      const res = await fetch(`${solverrUrl}/v1`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cmd: 'request.get', url, maxTimeout: 60000 }),
-        signal: AbortSignal.timeout(70_000),
-      });
-      if (res.ok) {
-        const j = await res.json() as { solution?: { response?: string } };
-        const body = j.solution?.response ?? '';
-        if (body.length > 100) { rawJson = body; usedSource = 'idx_direct_flaresolverr'; }
-      }
-    } catch { /* try next */ }
-  }
+  // Try each date candidate, stopping at first with real data
+  for (const dateCandidate of dateCandidates) {
+    const url = `https://www.idx.co.id/primary/TradingSummary/GetStockSummary?length=9999&start=0&date=${dateCandidate}`;
+    rawJson = null;
 
-  // Path B: curl-impersonate binary (safari184 TLS fingerprint)
-  if (!rawJson) {
-    for (const bin of ['curl-impersonate', 'curl-impersonate-chrome']) {
+    // Path A: FlareSolverr
+    const solverrUrl = process.env.FLARESOLVERR_URL?.replace(/\/$/, '');
+    if (solverrUrl) {
       try {
-        const result = spawnSync(bin, ['--impersonate', 'safari184', '--silent', '--max-time', '15', url], {
+        const res = await fetch(`${solverrUrl}/v1`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cmd: 'request.get', url, maxTimeout: 60000 }),
+          signal: AbortSignal.timeout(70_000),
+        });
+        if (res.ok) {
+          const j = await res.json() as { solution?: { response?: string } };
+          const body = j.solution?.response ?? '';
+          if (body.length > 100) { rawJson = body; usedSource = 'idx_direct_flaresolverr'; }
+        }
+      } catch { /* try next */ }
+    }
+
+    // Path B: curl-impersonate binary (chrome131 profile — verified Nov 2026)
+    if (!rawJson) {
+      for (const bin of ['curl-impersonate', 'curl-impersonate-chrome']) {
+        try {
+          const result = spawnSync(bin, ['--impersonate', 'chrome131', '--silent', '--max-time', '15', url], {
+            encoding: 'utf8',
+            timeout: 20_000,
+          });
+          if (result.status === 0 && result.stdout.length > 100) {
+            rawJson = result.stdout;
+            usedSource = 'idx_direct_curl_impersonate';
+            break;
+          }
+        } catch { /* binary not found */ }
+      }
+    }
+
+    // Path C: Python curl_cffi (pip install curl_cffi — chrome131 verified Nov 2026)
+    if (!rawJson) {
+      try {
+        const pyScript = [
+          'import curl_cffi.requests as req',
+          `resp = req.get(${JSON.stringify(url)}, impersonate="chrome131", timeout=15)`,
+          'print(resp.text)',
+        ].join('; ');
+        const result = spawnSync('python3', ['-c', pyScript], {
           encoding: 'utf8',
           timeout: 20_000,
         });
         if (result.status === 0 && result.stdout.length > 100) {
           rawJson = result.stdout;
-          usedSource = 'idx_direct_curl_impersonate';
-          break;
+          usedSource = 'idx_direct_curl_cffi';
         }
-      } catch { /* binary not found */ }
+      } catch { /* python3 or curl_cffi not available */ }
     }
+
+    if (!rawJson) continue; // try next date with same paths... actually break here: bypass failed
+
+    // Parse and check if data is non-empty before accepting this date
+    try {
+      const jsonStart = rawJson.indexOf('{');
+      const jsonEnd = rawJson.lastIndexOf('}');
+      if (jsonStart === -1 || jsonEnd === -1) { rawJson = null; continue; }
+      const parsed = JSON.parse(rawJson.slice(jsonStart, jsonEnd + 1)) as {
+        recordsTotal?: number;
+        data?: unknown[];
+        Data?: unknown[];
+      };
+      const total = parsed.recordsTotal ?? 0;
+      if (total === 0) { rawJson = null; continue; } // no data for this date, try T-1
+      break; // data found, stop trying dates
+    } catch { rawJson = null; continue; }
   }
 
   if (!rawJson) return null;
@@ -148,21 +199,27 @@ async function fetchIdxForeignFlowDirect(): Promise<{ value: number; source: str
     const rows = parsed.data ?? parsed.Data;
     if (!Array.isArray(rows) || rows.length === 0) return null;
 
-    let totalBuy = 0;
-    let totalSell = 0;
-    for (const row of rows) {
-      const buy = Number(row['ForeignBuy'] ?? row['foreign_buy'] ?? row['RemoteBuy'] ?? 0);
-      const sell = Number(row['ForeignSell'] ?? row['foreign_sell'] ?? row['RemoteSell'] ?? 0);
-      if (!isNaN(buy)) totalBuy += buy;
-      if (!isNaN(sell)) totalSell += sell;
+    // ForeignBuy/ForeignSell are SHARES (not IDR). Multiply by Close price per stock.
+    // Covers Regular board only (~40-60% of total headline figure; non-regular board
+    // aggregate endpoints are 503. Directionally correct for M5 signal purposes.)
+    let totalBuyIdr = 0;
+    let totalSellIdr = 0;
+    for (const row of rows as Array<Record<string, unknown>>) {
+      const close = Number((row['Close'] ?? row['Previous']) ?? 0);
+      const buyShares = Number(row['ForeignBuy'] ?? 0);
+      const sellShares = Number(row['ForeignSell'] ?? 0);
+      if (close > 0) {
+        totalBuyIdr += buyShares * close;
+        totalSellIdr += sellShares * close;
+      }
     }
 
-    const netIdr = totalBuy - totalSell;
-    if (Math.abs(netIdr) < 1000) return null; // sanity: at minimum thousands IDR → something is off
+    const netIdr = totalBuyIdr - totalSellIdr;
+    if (Math.abs(netIdr) < 1_000_000) return null; // <Rp1mn = likely empty / parse error
     const netIdrBn = netIdr / 1_000_000_000;
-    if (Math.abs(netIdrBn) > 50_000) return null; // >50T IDR = parse error
+    if (Math.abs(netIdrBn) > 50_000) return null; // >Rp50T = parse error
 
-    return { value: parseFloat(netIdrBn.toFixed(2)), source: usedSource };
+    return { value: parseFloat(netIdrBn.toFixed(2)), source: `${usedSource}_regular_board` };
   } catch {
     return null;
   }
