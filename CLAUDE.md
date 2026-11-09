@@ -37,6 +37,10 @@ bun scripts/health-check.ts --all         # also list every fresh indicator
 bun scripts/brent-alert.ts               # manual Brent ICP threshold check ($99 default); crontab every 4h
 bun scripts/msci-countdown.ts            # MSCI Nov 12 2026 countdown — macOS alert at T-60/T-30/T-7/T-0; crontab daily 08:00 WIB
 bun scripts/scd-alert.ts                 # SCD RED alert — reads macro_scores DB, fires if SCD ≥75% or ≥3 RED modules; crontab 08:30 WIB after morning-check
+bun scripts/idx-closing-check.ts         # IDX closing check: IHSG close + IDX foreign flow refresh; crontab 16:05 WIB Mon-Fri
+#   Writes ihsg_close_daily + ihsg_volume_daily to macro_series; macOS alert if IHSG ±1.5% or circuit breaker territory (−7%)
+#   IDX foreign flow bypass: Python curl_cffi chrome131 profile (pip install curl_cffi) → GetStockSummary Regular board
+#   Source tagged `idx_direct_curl_cffi_regular_board` (~40-60% of headline; directionally correct, prevents 21d+ stale gap)
 bun scripts/refresh-monthly-data.ts      # manual monthly data refresh (7 indicators: CPI/GDP/cadev/PMI/ULN/unemployment/subsidi)
 bun scripts/backfill-srbi-history.ts    # backfill SRBI auction history Sep 2023→now from BI official pages (idempotent, Exa batch)
 #   --dry-run: print URLs only | --from=YYYY-MM-DD: override start date
@@ -92,6 +96,7 @@ bun scripts/add-morning-brief-cron.ts     # daily 08:00 WIB Mon-Fri — 13 modul
 bun scripts/add-weekly-deepdive-cron.ts   # Monday 07:00 WIB — 13 modules + sovereign memo + Hormuz shock (Brent $105 + IDR 19,000)
 bun scripts/add-monthly-deepdive-cron.ts  # 1st of month 08:00 WIB — 13 modules + APBN realisasi + ULN/DSR + compound shock (Brent $120 + IDR 20,500 + VIX 45) + backtest analog
 bun scripts/add-thesis-check-cron.ts      # Monday 07:30 WIB — T+3/6/12 milestone check + kill switch auto-detect for armed/triggered theses
+bun scripts/add-idx-closing-cron.ts       # 16:05 WIB Mon-Fri — IDX closing check (IHSG + foreign flow via curl_cffi Cloudflare bypass)
 ```
 
 CI runs `bun run typecheck` + `bun test` every push/PR.
@@ -283,7 +288,10 @@ IDX_SHORT_SELL_VOLUME_IDR_BN   # IDR billions; manual pin when you see figure in
 # IDX Cloudflare bypass — idx.co.id blocks headless Playwright ("Attention Required" tier)
 # Run FlareSolverr then set this env for direct IDX page scraping:
 #   docker run -p 8191:8191 ghcr.io/flaresolverr/flaresolverr:latest
-FLARESOLVERR_URL               # e.g. http://localhost:8191 — enables fetchViaFlareSolverr() in idx-short-selling.ts
+FLARESOLVERR_URL               # e.g. http://localhost:8191 — enables fetchViaFlareSolverr() in idx-short-selling.ts + idx.ts (GetStockSummary)
+# IDX Cloudflare bypass alternative (no Docker): pip install curl_cffi → python3 with chrome131 profile
+# Used by idx.ts fetchIdxForeignFlowDirect() Path C. Verified bypass profile: chrome131 (Nov 2026).
+# GetStockSummary: sums ForeignBuy×Close per stock (Regular board only). Non-regular aggregate (GetForeignSummary) = 503.
 
 # Brent ICP threshold alert — crontab every 4h, macOS notification + flag file
 BRENT_ALERT_THRESHOLD      # USD/bbl — default 99 (warn $1 before Bahlil $100 commitment breaks)
