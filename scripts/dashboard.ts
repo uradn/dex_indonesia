@@ -1959,6 +1959,10 @@ const RR_HTML = `<!DOCTYPE html>
     <div class="card-title">r − g Debt Dynamics — Blanchard / R&R Ch.13</div>
     <div style="color:var(--muted)">Loading…</div>
   </div>
+  <div class="card" id="panel-capital-flow" style="grid-column:span 2">
+    <div class="card-title">Capital Flow Pressure — IDX Foreign Flow & IHSG Close</div>
+    <div style="color:var(--muted)">Loading…</div>
+  </div>
 </div>
 <script>
 function fmtNum(v,d=2){ return v != null ? (+v).toFixed(d) : '—'; }
@@ -2334,12 +2338,81 @@ function renderRG(d) {
   \`;
 }
 
+function renderCapitalFlow(flow) {
+  if (!flow) return '<div style="color:var(--muted);font-size:11px">Data tidak tersedia</div>';
+  const history = flow.history || [];
+  const closes = flow.closes || [];
+  const prevMedia = flow.prevMedia ?? null;
+
+  const latest = history[0] ?? null;
+  const latestVal = latest ? latest.value : null;
+  const latestDate = latest ? latest.date : null;
+  const latestSrc = latest ? latest.source : '';
+  const flowCls = latestVal === null ? 'muted' : latestVal >= 0 ? 'green' : 'red';
+  const flowSign = latestVal !== null && latestVal >= 0 ? '+' : '';
+
+  const ihsgClose = closes[0] ?? null;
+  const ihsgPrev = closes[1] ?? null;
+  const ihsgPct = ihsgClose && ihsgPrev && ihsgPrev.value ? ((ihsgClose.value - ihsgPrev.value) / ihsgPrev.value * 100) : null;
+  const ihsgCls = ihsgPct === null ? 'muted' : ihsgPct >= 0 ? 'green' : 'red';
+
+  const prevVal = prevMedia?.value ?? null;
+  const prevDate = prevMedia?.date ?? null;
+  const prevCls = prevVal === null ? 'muted' : prevVal >= 0 ? 'green' : 'red';
+  const prevSign = prevVal !== null && prevVal >= 0 ? '+' : '';
+
+  const bars = history.slice(0, 7).reverse();
+  const maxAbs = bars.length ? Math.max(...bars.map(b => Math.abs(b.value)), 1) : 1;
+  const W = 280, H = 50, barW = Math.floor(W / (bars.length || 7)) - 2;
+  const barsSvg = bars.map((b, i) => {
+    const pct = Math.abs(b.value) / maxAbs;
+    const h = Math.max(2, Math.round(pct * (H - 14)));
+    const x = i * (barW + 2) + 1;
+    const y = H - h - 10;
+    const col = b.value >= 0 ? 'var(--green)' : 'var(--red)';
+    const lbl = b.date ? b.date.slice(5) : '';
+    return \`<rect x="\${x}" y="\${y}" width="\${barW}" height="\${h}" fill="\${col}" opacity="0.7"/>\` +
+      \`<text x="\${x + barW/2}" y="\${H}" text-anchor="middle" font-size="7" fill="var(--muted)">\${lbl}</text>\` +
+      \`<text x="\${x + barW/2}" y="\${y - 2}" text-anchor="middle" font-size="7" fill="\${col}">\${b.value >= 0 ? '+' : ''}\${b.value.toFixed(0)}</text>\`;
+  }).join('');
+
+  return \`
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+      <div style="background:var(--bg);border-radius:6px;padding:8px">
+        <div style="font-size:9px;color:var(--muted);margin-bottom:3px">IDX Flow (Hari Ini)</div>
+        <div class="big-num \${flowCls}" style="font-size:18px">\${latestVal !== null ? flowSign+latestVal.toFixed(1)+' T' : '—'}</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px">\${latestDate ?? ''}</div>
+      </div>
+      <div style="background:var(--bg);border-radius:6px;padding:8px">
+        <div style="font-size:9px;color:var(--muted);margin-bottom:3px">IHSG Close</div>
+        <div class="big-num \${ihsgCls}" style="font-size:18px">\${ihsgClose ? ihsgClose.value.toLocaleString('id-ID') : '—'}</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px">\${ihsgPct !== null ? (ihsgPct >= 0 ? '+' : '')+ihsgPct.toFixed(2)+'% vs prev' : ''}</div>
+      </div>
+      <div style="background:var(--bg);border-radius:6px;padding:8px">
+        <div style="font-size:9px;color:var(--muted);margin-bottom:3px">Media Prev</div>
+        <div class="big-num \${prevCls}" style="font-size:18px">\${prevVal !== null ? prevSign+prevVal.toFixed(1)+' T' : '—'}</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px">\${prevDate ?? 'IDR bn'}</div>
+      </div>
+    </div>
+    <div style="font-size:9px;color:var(--muted);margin-bottom:4px">7-Hari Terakhir (IDR Triliun)</div>
+    <svg width="\${W}" height="\${H}" viewBox="0 0 \${W} \${H}" style="display:block;overflow:visible">
+      <line x1="0" y1="\${H-10}" x2="\${W}" y2="\${H-10}" stroke="var(--border)" stroke-width="0.5"/>
+      \${barsSvg}
+    </svg>
+    <div style="font-size:8px;color:var(--muted);margin-top:6px">Sumber: \${latestSrc || 'idx'} · Regular board only (~40-60% headline)</div>
+  \`;
+}
+
 async function refresh() {
-  const snap = await fetch('/api/snapshot').then(r => r.json());
+  const [snap, flow] = await Promise.all([
+    fetch('/api/snapshot').then(r => r.json()),
+    fetch('/api/idx-flow').then(r => r.json()).catch(() => null),
+  ]);
   document.getElementById('panel-gg').innerHTML = '<div class="card-title">G-G Shield — Greenspan-Guidotti Ratio</div>' + renderGG(snap);
   document.getElementById('panel-rr').innerHTML = '<div class="card-title">R&R Open Economy — 7 Frameworks Live</div>' + renderRR(snap);
   document.getElementById('panel-msci-reforms').innerHTML = '<div class="card-title">MSCI Standalone Consultation Tracker</div>' + renderMsciReforms(snap);
   document.getElementById('panel-rg').innerHTML = '<div class="card-title">r − g Debt Dynamics — Blanchard / R&R Ch.13</div>' + renderRG(snap);
+  document.getElementById('panel-capital-flow').innerHTML = '<div class="card-title">Capital Flow Pressure — IDX Foreign Flow & IHSG Close</div>' + renderCapitalFlow(flow);
   document.getElementById('last-updated-rr').textContent = 'Updated ' + new Date().toLocaleTimeString('id-ID');
 }
 
@@ -2542,6 +2615,10 @@ const BS_HTML = `<!DOCTYPE html>
     <div class="card">
       <div class="card-title">Kill Switch Status</div>
       <div id="panel-kill">Loading…</div>
+    </div>
+    <div class="card">
+      <div class="card-title">IDX Flow Today — Foreign Net & IHSG Close</div>
+      <div id="panel-idx-flow">Loading…</div>
     </div>
     <div class="card" style="border-left:3px solid var(--orange)">
       <div class="card-title" style="color:var(--orange)">Haye Oil Framework — Delivered Cost & BoP Drain</div>
@@ -3782,12 +3859,40 @@ async function killThesis(id) {
   } catch (e) { setMsg('Error: ' + e.message); }
 }
 
+function renderIdxFlowBs(flow) {
+  if (!flow || !flow.history || !flow.history.length) return '<div style="color:var(--muted);font-size:11px">Data tidak tersedia — jalankan idx-closing-check.ts</div>';
+  const latest = flow.history[0];
+  const closes = flow.closes || [];
+  const ihsgClose = closes[0] ?? null;
+  const ihsgPrev = closes[1] ?? null;
+  const ihsgPct = ihsgClose && ihsgPrev && ihsgPrev.value ? ((ihsgClose.value - ihsgPrev.value) / ihsgPrev.value * 100) : null;
+  const flowCls = latest.value >= 0 ? 'green' : 'red';
+  const flowSign = latest.value >= 0 ? '+' : '';
+  const ihsgCls = ihsgPct === null ? 'muted' : ihsgPct >= 0 ? 'green' : 'red';
+  const prevMedia2 = flow.prevMedia; const prevVal2 = prevMedia2?.value ?? null;
+  const prevCls2 = prevVal2 === null ? 'muted' : prevVal2 >= 0 ? 'green' : 'red';
+  return \`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+    <div style="background:var(--bg);border-radius:4px;padding:6px">
+      <div style="font-size:8px;color:var(--muted)">IDX Net (\${latest.date})</div>
+      <div class="\${flowCls}" style="font-size:16px;font-weight:700">\${flowSign}\${latest.value.toFixed(1)} T</div>
+      <div style="font-size:8px;color:var(--muted)">\${latest.source.replace('idx_direct_curl_cffi_','')}</div>
+    </div>
+    <div style="background:var(--bg);border-radius:4px;padding:6px">
+      <div style="font-size:8px;color:var(--muted)">IHSG Close</div>
+      <div class="\${ihsgCls}" style="font-size:16px;font-weight:700">\${ihsgClose ? ihsgClose.value.toLocaleString('id-ID') : '—'}</div>
+      <div style="font-size:8px;color:var(--muted)">\${ihsgPct !== null ? (ihsgPct >= 0 ? '+' : '')+ihsgPct.toFixed(2)+'%' : ''}</div>
+    </div>
+  </div>
+  <div style="margin-top:6px;font-size:9px;color:var(--muted)">Media prev: <span class="\${prevCls2}">\${prevVal2 !== null ? (prevVal2 >= 0 ? '+' : '')+prevVal2.toFixed(1)+' T' : '—'}</span> (\${prevMedia2?.date ?? '—'}) · Regular board ~40-60% headline</div>\`;
+}
+
 async function loadData() {
   try {
-    const [thesis, archive, snap] = await Promise.all([
+    const [thesis, archive, snap, flow] = await Promise.all([
       fetch('/api/thesis/compute').then(x => x.json()),
       fetch('/api/thesis/all').then(x => x.json()),
       fetch('/api/snapshot').then(x => x.json()),
+      fetch('/api/idx-flow').then(x => x.json()).catch(() => null),
     ]);
     currentThesis = thesis;
     activeArmed = archive.find(t => t.status === 'armed' || t.status === 'triggered') ?? null;
@@ -3821,6 +3926,7 @@ async function loadData() {
     document.getElementById('panel-gt').innerHTML = renderGameTheory(thesis, snap);
     document.getElementById('panel-timeline').innerHTML = renderTimeline(thesis);
     document.getElementById('panel-kill').innerHTML = renderKill(thesis, activeArmed, snap);
+    document.getElementById('panel-idx-flow').innerHTML = renderIdxFlowBs(flow);
     document.getElementById('panel-haye').innerHTML = renderHaye(snap);
     document.getElementById('panel-mkt').innerHTML = renderMkt(thesis, snap);
     document.getElementById('panel-ev').innerHTML = renderEv(thesis);
@@ -3921,6 +4027,27 @@ const server = Bun.serve({
     if (url.pathname === '/api/snapshot') {
       try {
         return Response.json(buildSnapshot());
+      } catch (e) {
+        return Response.json({ error: String(e) }, { status: 500 });
+      }
+    }
+
+    if (url.pathname === '/api/idx-flow') {
+      try {
+        const db = openDb();
+        try {
+          const history = db.query<{ date: string; value: number; source: string }>(
+            `SELECT date, value, source FROM macro_series WHERE indicator = 'idx_foreign_net_buy_idr_bn' ORDER BY date DESC LIMIT 10`
+          ).all();
+          const closes = db.query<{ date: string; value: number }>(
+            `SELECT date, value FROM macro_series WHERE indicator = 'ihsg_close_daily' ORDER BY date DESC LIMIT 2`
+          ).all();
+          // prevMedia: latest media-scraped value + date (for context, not necessarily YTD)
+          const prevRow = db.query<{ value: number; date: string }>(
+            `SELECT value, date FROM macro_series WHERE indicator = 'idx_foreign_net_buy_idr_bn' AND source NOT LIKE '%curl_cffi%' ORDER BY date DESC LIMIT 1`
+          ).get();
+          return Response.json({ history, closes, prevMedia: prevRow ? { value: +prevRow.value.toFixed(1), date: prevRow.date } : null });
+        } finally { db.close(); }
       } catch (e) {
         return Response.json({ error: String(e) }, { status: 500 });
       }
