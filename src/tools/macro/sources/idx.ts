@@ -6,15 +6,19 @@
  *
  * Source priority:
  *   1. CNBC Indonesia market page (cnbcindonesia.com — plain fetch, daily close headline)
- *   2. EODHD macro indicator API (eodhd.com — requires EODHD_API_KEY; no foreign-flow series currently)
- *   3. IDX JSON API endpoints (idx.co.id — frequently 403)
- *   4. IDX market summary Playwright scrape (idx.co.id — JS-rendered, last resort)
+ *   2. IDX GetStockSummary direct (idx.co.id/primary/TradingSummary) via:
+ *        a. FlareSolverr (if FLARESOLVERR_URL set — docker run -p 8191:8191 ghcr.io/flaresolverr/flaresolverr:latest)
+ *        b. curl-impersonate binary (if installed — brew install curl-impersonate)
+ *   3. EODHD macro indicator API (eodhd.com — no foreign-flow series; placeholder)
+ *   4. IDX JSON API endpoints (idx.co.id — frequently 403)
+ *   5. IDX market summary Playwright scrape (idx.co.id — JS-rendered, last resort)
  *
  * Note: values in IDR billion. Typical daily range ±500–3000 IDR bn.
  * Monthly cumulative > -5000 IDR bn = significant exit signal.
  */
 import type { MacroDataPoint } from '../types.js';
 import { fetchRenderedTextWithBrowser } from './playwright-browser.js';
+import { spawnSync } from 'node:child_process';
 
 const NOW = () => new Date().toISOString();
 const TODAY = () => new Date().toISOString().slice(0, 10);
@@ -72,6 +76,96 @@ async function fetchIdxForeignFlowCnbcIndonesia(): Promise<number | null> {
     }
   } catch { /* fall through */ }
   return null;
+}
+
+/**
+ * IDX GetStockSummary direct — Cloudflare bypass via FlareSolverr or curl-impersonate.
+ *
+ * Endpoint returns all 700+ stocks with ForeignBuy/ForeignSell in IDR.
+ * Net flow = sum(ForeignBuy) - sum(ForeignSell) across all stocks, converted to IDR bn.
+ *
+ * FlareSolverr: set FLARESOLVERR_URL=http://localhost:8191
+ *   docker run -p 8191:8191 ghcr.io/flaresolverr/flaresolverr:latest
+ *
+ * curl-impersonate: brew install curl-impersonate
+ *   uses safari184 TLS fingerprint that passes idx.co.id Cloudflare as of Nov 2026
+ */
+async function fetchIdxForeignFlowDirect(): Promise<{ value: number; source: string } | null> {
+  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const url = `https://www.idx.co.id/primary/TradingSummary/GetStockSummary?length=9999&start=0&date=${dateStr}`;
+
+  let rawJson: string | null = null;
+  let usedSource = '';
+
+  // Path A: FlareSolverr
+  const solverrUrl = process.env.FLARESOLVERR_URL?.replace(/\/$/, '');
+  if (solverrUrl && !rawJson) {
+    try {
+      const res = await fetch(`${solverrUrl}/v1`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cmd: 'request.get', url, maxTimeout: 60000 }),
+        signal: AbortSignal.timeout(70_000),
+      });
+      if (res.ok) {
+        const j = await res.json() as { solution?: { response?: string } };
+        const body = j.solution?.response ?? '';
+        if (body.length > 100) { rawJson = body; usedSource = 'idx_direct_flaresolverr'; }
+      }
+    } catch { /* try next */ }
+  }
+
+  // Path B: curl-impersonate binary (safari184 TLS fingerprint)
+  if (!rawJson) {
+    for (const bin of ['curl-impersonate', 'curl-impersonate-chrome']) {
+      try {
+        const result = spawnSync(bin, ['--impersonate', 'safari184', '--silent', '--max-time', '15', url], {
+          encoding: 'utf8',
+          timeout: 20_000,
+        });
+        if (result.status === 0 && result.stdout.length > 100) {
+          rawJson = result.stdout;
+          usedSource = 'idx_direct_curl_impersonate';
+          break;
+        }
+      } catch { /* binary not found */ }
+    }
+  }
+
+  if (!rawJson) return null;
+
+  try {
+    // Strip HTML if FlareSolverr returned a full page instead of bare JSON
+    const jsonStart = rawJson.indexOf('{');
+    const jsonEnd = rawJson.lastIndexOf('}');
+    if (jsonStart === -1 || jsonEnd === -1) return null;
+    const cleaned = rawJson.slice(jsonStart, jsonEnd + 1);
+
+    const parsed = JSON.parse(cleaned) as {
+      data?: Array<Record<string, unknown>>;
+      Data?: Array<Record<string, unknown>>;
+    };
+    const rows = parsed.data ?? parsed.Data;
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+
+    let totalBuy = 0;
+    let totalSell = 0;
+    for (const row of rows) {
+      const buy = Number(row['ForeignBuy'] ?? row['foreign_buy'] ?? row['RemoteBuy'] ?? 0);
+      const sell = Number(row['ForeignSell'] ?? row['foreign_sell'] ?? row['RemoteSell'] ?? 0);
+      if (!isNaN(buy)) totalBuy += buy;
+      if (!isNaN(sell)) totalSell += sell;
+    }
+
+    const netIdr = totalBuy - totalSell;
+    if (Math.abs(netIdr) < 1000) return null; // sanity: at minimum thousands IDR → something is off
+    const netIdrBn = netIdr / 1_000_000_000;
+    if (Math.abs(netIdrBn) > 50_000) return null; // >50T IDR = parse error
+
+    return { value: parseFloat(netIdrBn.toFixed(2)), source: usedSource };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -207,12 +301,17 @@ async function fetchIdxForeignFlowPlaywright(): Promise<number | null> {
  * Positive = net inflow (foreigners buying). Negative = net outflow (foreigners selling).
  */
 export async function fetchIdxForeignNetFlow(): Promise<MacroDataPoint | null> {
-  // Priority: RTI Business → EODHD → IDX API → IDX Playwright
+  // Priority: CNBC Indonesia → IDX direct (Cloudflare bypass) → EODHD → IDX API → Playwright
   let netBuyIdrBn: number | null = null;
   let source = 'idx_scrape';
 
   netBuyIdrBn = await fetchIdxForeignFlowCnbcIndonesia();
   if (netBuyIdrBn !== null) { source = 'cnbc_indonesia'; }
+
+  if (netBuyIdrBn === null) {
+    const direct = await fetchIdxForeignFlowDirect();
+    if (direct !== null) { netBuyIdrBn = direct.value; source = direct.source; }
+  }
 
   if (netBuyIdrBn === null) {
     netBuyIdrBn = await fetchIdxForeignFlowEodhd();
