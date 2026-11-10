@@ -2388,79 +2388,141 @@ function renderRG(d) {
   \`;
 }
 
-function renderTradeTrend(t) {
+function renderTradeTrend(t, snap) {
   if (!t || !t.balance || t.balance.length === 0) return '<div style="color:var(--muted);font-size:11px">Data tidak tersedia</div>';
   const rows = t.balance.slice().reverse(); // oldest → newest
-  const expRows = (t.exports || []).slice().reverse();
-  const impRows = (t.imports || []).slice().reverse();
 
-  // Latest values for KV tiles
-  const latestTb = t.balance[0];
-  const latestExp = t.exports && t.exports[0] ? t.exports[0] : null;
-  const latestImp = t.imports && t.imports[0] ? t.imports[0] : null;
+  const latestTb  = t.balance[0];
+  const latestExp = t.exports?.[0] ?? null;
+  const latestImp = t.imports?.[0] ?? null;
+  const prevTb    = t.balance[1] ?? null;
 
-  const tbCls = latestTb.value >= 2 ? 'green' : latestTb.value >= 0 ? 'yellow' : latestTb.value >= -2 ? 'orange' : 'red';
+  const tbCls  = latestTb.value >= 2 ? 'green' : latestTb.value >= 0 ? 'yellow' : latestTb.value >= -2 ? 'orange' : 'red';
   const expCls = latestExp && latestExp.value > 15 ? 'green' : latestExp && latestExp.value > 10 ? 'yellow' : 'orange';
   const impCls = latestImp && latestImp.value > 28 ? 'orange' : 'green';
-
-  // Trend: compare latest vs prev month
-  const prevTb = t.balance[1] ?? null;
   const trendArrow = prevTb ? (latestTb.value > prevTb.value ? ' ↑' : latestTb.value < prevTb.value ? ' ↓' : ' →') : '';
 
-  // SVG bar chart: trade balance monthly bars
-  const W = 420, H = 50, n = rows.length;
-  const vals = rows.map(r => r.value);
+  // ── Live Brent impact & oil import bill ──────────────────────────────────
+  // Indonesia: net oil importer ~15M bbl/month crude + refined/LPG
+  // Empirical: Δ$10/bbl Brent ≈ ±$1.5–2bn/month trade balance (BPS Apr 2026 = $4.6B/mo)
+  // Oil import bill ~ brent × 15M bbl × 1.15 (refined premium) ÷ 1e9
+  const OIL_VOL_MBL = 15;      // million barrels/month net import
+  const ICP_APBN    = 70;      // APBN 2026 ICP assumption USD/bbl
+  const brent       = snap?.indicators?.['brent_price_usd']?.value ?? null;
+  const usdidr      = snap?.indicators?.['usdidr_spot']?.value ?? null;
+
+  const oilBillMonthly = brent !== null ? +(brent * OIL_VOL_MBL * 1.15 / 1000).toFixed(1) : null;
+  const oilBillApbn    = +(ICP_APBN * OIL_VOL_MBL * 1.15 / 1000).toFixed(1);
+  const oilBillGap     = oilBillMonthly !== null ? +(oilBillMonthly - oilBillApbn).toFixed(1) : null;
+  const oilBillAnnGap  = oilBillGap !== null ? +(oilBillGap * 12).toFixed(0) : null;
+
+  const oilBillCls = oilBillGap === null ? 'muted' : oilBillGap > 2 ? 'red' : oilBillGap > 1 ? 'orange' : oilBillGap > 0 ? 'yellow' : 'green';
+
+  // ── CAD quarterly ────────────────────────────────────────────────────────
+  const cadQtr    = snap?.indicators?.['current_account_pct_gdp_quarterly']?.value ?? null;
+  const cadQtrBn  = snap?.indicators?.['current_account_quarterly_bn']?.value ?? null;
+  const cadCls    = cadQtr === null ? 'muted' : cadQtr < -4 ? 'red' : cadQtr < -3 ? 'orange' : cadQtr < -2 ? 'yellow' : 'green';
+
+  // ── Scenario table: trade balance sensitivity to Brent ───────────────────
+  // Model: TB(Brent) ≈ TB_base + (Brent_base − Brent) × sensitivity
+  // sensitivity = 0.175 bn per $1/bbl (empirical ~$1.5–2bn per $10)
+  const SENS = 0.175; // bn per $1/bbl
+  const TB_BASE  = latestTb.value;
+  const BRT_BASE = brent ?? 91.6;
+  const scenarios = [70, 91, 100, 110, 120].map(b => {
+    const tb = +(TB_BASE + (BRT_BASE - b) * SENS).toFixed(1);
+    const cls = tb >= 2 ? 'green' : tb >= 0 ? 'yellow' : tb >= -2 ? 'orange' : 'red';
+    return { brent: b, tb, cls };
+  });
+
+  // ── SVG bar chart ────────────────────────────────────────────────────────
+  const W = 420, H = 55, n = rows.length;
+  const vals   = rows.map(r => r.value);
   const maxAbs = Math.max(...vals.map(Math.abs), 1);
-  const barW = Math.floor(W / (n || 7)) - 2;
+  const barW   = Math.floor(W / (n || 7)) - 2;
+  const monthNames = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
   const barsSvg = rows.map((r, i) => {
     const pct = Math.abs(r.value) / maxAbs;
-    const h = Math.max(2, Math.round(pct * (H - 14)));
-    const x = i * (barW + 2) + 1;
-    const y = H - h - 10;
+    const h   = Math.max(2, Math.round(pct * (H - 16)));
+    const x   = i * (barW + 2) + 1;
+    const y   = H - h - 12;
     const col = r.value < -2 ? 'var(--red)' : r.value < 0 ? 'var(--orange)' : r.value < 1 ? 'var(--yellow)' : 'var(--green)';
-    // Month label from date e.g. "2026-09-30" → "Sep"
-    const monthNames = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-    const monthNum = r.date ? parseInt(r.date.slice(5,7)) : 0;
-    const lbl = monthNames[monthNum] ?? r.date?.slice(5,7) ?? '';
+    const monthNum = r.date ? parseInt(r.date.slice(5, 7)) : 0;
+    const lbl = monthNames[monthNum] ?? '';
     const valLbl = (r.value >= 0 ? '+' : '') + r.value.toFixed(1);
     return \`<rect x="\${x}" y="\${y}" width="\${barW}" height="\${h}" fill="\${col}" opacity="0.75"/>\` +
-      \`<text x="\${x + barW/2}" y="\${H}" text-anchor="middle" font-size="7" fill="var(--muted)">\${lbl}</text>\` +
-      \`<text x="\${x + barW/2}" y="\${y - 3}" text-anchor="middle" font-size="7" fill="\${col}">\${valLbl}</text>\`;
+      \`<text x="\${x + barW / 2}" y="\${H - 1}" text-anchor="middle" font-size="7" fill="var(--muted)">\${lbl}</text>\` +
+      \`<text x="\${x + barW / 2}" y="\${y - 3}" text-anchor="middle" font-size="7" fill="\${col}">\${valLbl}</text>\`;
   }).join('');
 
-  // Oil price context (Brent drives imports)
-  const brentNote = \`<div style="font-size:9px;color:var(--muted);margin-top:6px">Sensitivitas: setiap Δ$10/bbl Brent ≈ ±$1.5–2bn/bulan trade balance (Indonesia net oil importer ~15M bbl/bulan). Brent $91.6 → Agu-Sep gap +$0.13bn. Brent $110+ → risiko trade defisit.</div>\`;
+  // ── Threshold marker at zero ─────────────────────────────────────────────
+  const zeroY = H - 12;
+  const zeroLine = \`<line x1="0" y1="\${zeroY}" x2="\${W}" y2="\${zeroY}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3,2"/>\`;
 
-  // Exports source note
-  const srcNote = latestExp && latestExp.source
-    ? \`<span style="font-size:8px;color:\${latestExp.source.includes('exa') || latestExp.source.includes('tavily') ? 'var(--green)' : 'var(--muted)'}"> [\${latestExp.source.includes('exa') || latestExp.source.includes('tavily') ? 'BPS' : 'TE'}]</span>\`
+  // ── Source badge ─────────────────────────────────────────────────────────
+  const srcBadge = latestExp?.source
+    ? \`<span style="font-size:8px;color:\${latestExp.source.includes('exa') || latestExp.source.includes('tavily') ? 'var(--green)' : 'var(--muted)'}">[\${latestExp.source.includes('exa') || latestExp.source.includes('tavily') ? 'BPS' : 'TE'}]</span>\`
     : '';
 
   return \`
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
       <div style="background:var(--bg);border-radius:6px;padding:8px">
-        <div style="font-size:9px;color:var(--muted);margin-bottom:3px">Trade Balance (latest)</div>
-        <div class="big-num \${tbCls}" style="font-size:18px">\${latestTb.value >= 0 ? '+' : ''}\${latestTb.value.toFixed(2)} bn\${trendArrow}</div>
-        <div style="font-size:8px;color:var(--muted);margin-top:2px">\${latestTb.date ?? ''} · surplus =  GREEN</div>
+        <div style="font-size:9px;color:var(--muted);margin-bottom:3px">Trade Balance</div>
+        <div class="big-num \${tbCls}" style="font-size:18px">\${latestTb.value >= 0 ? '+' : ''}\${latestTb.value.toFixed(2)}bn\${trendArrow}</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px">\${latestTb.date ?? ''}</div>
       </div>
       <div style="background:var(--bg);border-radius:6px;padding:8px">
-        <div style="font-size:9px;color:var(--muted);margin-bottom:3px">Exports (terbaru)\${srcNote}</div>
-        <div class="big-num \${expCls}" style="font-size:18px">\${latestExp ? '$'+latestExp.value.toFixed(1)+'bn' : '—'}</div>
+        <div style="font-size:9px;color:var(--muted);margin-bottom:3px">Exports \${srcBadge}</div>
+        <div class="big-num \${expCls}" style="font-size:18px">\${latestExp ? '$' + latestExp.value.toFixed(1) + 'bn' : '—'}</div>
         <div style="font-size:8px;color:var(--muted);margin-top:2px">\${latestExp?.date ?? ''}</div>
       </div>
       <div style="background:var(--bg);border-radius:6px;padding:8px">
-        <div style="font-size:9px;color:var(--muted);margin-bottom:3px">Imports (terbaru)</div>
-        <div class="big-num \${impCls}" style="font-size:18px">\${latestImp ? '$'+latestImp.value.toFixed(1)+'bn' : '—'}</div>
+        <div style="font-size:9px;color:var(--muted);margin-bottom:3px">Imports</div>
+        <div class="big-num \${impCls}" style="font-size:18px">\${latestImp ? '$' + latestImp.value.toFixed(1) + 'bn' : '—'}</div>
         <div style="font-size:8px;color:var(--muted);margin-top:2px">\${latestImp?.date ?? ''}</div>
       </div>
+      <div style="background:var(--bg);border-radius:6px;padding:8px">
+        <div style="font-size:9px;color:var(--muted);margin-bottom:3px">Oil Import Gap vs APBN</div>
+        <div class="big-num \${oilBillCls}" style="font-size:18px">\${oilBillGap !== null ? (oilBillGap >= 0 ? '+' : '') + oilBillGap.toFixed(1) + 'bn/mo' : '—'}</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px">\${oilBillMonthly !== null ? '$' + oilBillMonthly + 'bn actual vs $' + oilBillApbn + 'bn APBN ($' + ICP_APBN + '/bbl ICP)' : ''}</div>
+      </div>
     </div>
-    <div style="font-size:9px;color:var(--muted);margin-bottom:4px">Trade Balance Monthly (USD bn) — May→Nov 2026</div>
-    <svg width="\${W}" height="\${H}" viewBox="0 0 \${W} \${H}" style="display:block;overflow:visible">
-      <line x1="0" y1="\${H-10}" x2="\${W}" y2="\${H-10}" stroke="var(--border)" stroke-width="0.5"/>
-      \${barsSvg}
-    </svg>
-    \${brentNote}
-    <div style="font-size:8px;color:var(--muted);margin-top:4px">M1 BoP · Sumber: BPS siaran pers (via Exa) → Trading Economics Playwright fallback · Cross-validation: exp−imp≈balance ±$2bn</div>
+
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px">
+      <div>
+        <div style="font-size:9px;color:var(--muted);margin-bottom:4px">Trade Balance Bulanan (USD bn)</div>
+        <svg width="\${W}" height="\${H}" viewBox="0 0 \${W} \${H}" style="display:block;overflow:visible">
+          \${zeroLine}
+          \${barsSvg}
+        </svg>
+      </div>
+      <div style="background:var(--bg);border-radius:6px;padding:10px">
+        <div style="font-size:9px;color:var(--muted);margin-bottom:6px">CAD Quarterly vs R&R Threshold</div>
+        \${cadQtr !== null ? \`
+          <div class="big-num \${cadCls}" style="font-size:20px">\${cadQtr.toFixed(1)}% GDP</div>
+          <div style="font-size:8px;color:var(--muted);margin-top:2px">\${cadQtrBn !== null ? '$' + cadQtrBn.toFixed(1) + 'bn (BI NPI quarterly)' : ''}</div>
+          <div style="margin-top:6px;font-size:8px">
+            <div style="color:\${cadQtr < -3 ? 'var(--red)' : 'var(--muted)'}">R&R threshold: −3.0% → \${cadQtr < -3 ? '🔴 BREACHED' : '🟢 OK'}</div>
+            <div style="color:\${cadQtr < -4 ? 'var(--red)' : 'var(--muted)'};margin-top:2px">Crisis zone: −4.0% (2013 peak: −4.4%)</div>
+          </div>
+        \` : '<div style="color:var(--muted)">No quarterly CAD data</div>'}
+      </div>
+    </div>
+
+    <div style="margin-bottom:8px">
+      <div style="font-size:9px;color:var(--muted);margin-bottom:5px">Sensitivitas Brent → Trade Balance (model: Δ$10/bbl ≈ ±$1.75bn/mo, 15M bbl net import)\${brent !== null ? ' · current Brent $' + brent.toFixed(1) : ''}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        \${scenarios.map(s => \`
+          <div style="background:var(--bg);border-radius:4px;padding:5px 8px;text-align:center;\${s.brent === Math.round(BRT_BASE) ? 'border:1px solid var(--border)' : ''}">
+            <div style="font-size:8px;color:var(--muted)">Brent $\${s.brent}</div>
+            <div style="font-size:11px;font-weight:600;color:\${s.cls === 'green' ? 'var(--green)' : s.cls === 'yellow' ? 'var(--yellow)' : s.cls === 'orange' ? 'var(--orange)' : 'var(--red)'}">\${s.tb >= 0 ? '+' : ''}\${s.tb.toFixed(1)}bn</div>
+          </div>
+        \`).join('')}
+        \${oilBillAnnGap !== null ? \`<div style="background:var(--bg);border-radius:4px;padding:5px 8px;border-left:2px solid var(--orange);margin-left:4px"><div style="font-size:8px;color:var(--muted)">Oil gap vs APBN/yr</div><div style="font-size:11px;font-weight:600;color:var(--orange)">+$\${oilBillAnnGap}bn</div></div>\` : ''}
+      </div>
+    </div>
+
+    <div style="font-size:8px;color:var(--muted)">M1 BoP · BPS siaran pers (Exa/Tavily) → TE fallback · Cross-validation ±$2bn guard · Sensitivity: empirical BPS Apr 2026 ($4.6B/mo at Brent $107)</div>
   \`;
 }
 
@@ -2540,7 +2602,7 @@ async function refresh() {
   document.getElementById('panel-msci-reforms').innerHTML = '<div class="card-title">MSCI Standalone Consultation Tracker</div>' + renderMsciReforms(snap);
   document.getElementById('panel-rg').innerHTML = '<div class="card-title">r − g Debt Dynamics — Blanchard / R&R Ch.13</div>' + renderRG(snap);
   document.getElementById('panel-capital-flow').innerHTML = '<div class="card-title">Capital Flow Pressure — IDX Foreign Flow & IHSG Close</div>' + renderCapitalFlow(flow);
-  document.getElementById('panel-trade-trend').innerHTML = '<div class="card-title">Trade Balance Trend — BoP External Position (M1)</div>' + renderTradeTrend(trade);
+  document.getElementById('panel-trade-trend').innerHTML = '<div class="card-title">Trade Balance Trend — BoP External Position (M1)</div>' + renderTradeTrend(trade, snap);
   document.getElementById('last-updated-rr').textContent = 'Updated ' + new Date().toLocaleTimeString('id-ID');
 }
 
