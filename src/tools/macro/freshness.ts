@@ -76,10 +76,11 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   // DNDF — env_manual annual update from BI LKT
   { name: 'bi_dndf_outstanding_bn',      module: 'M3',  freshDays: 100,yellowDays: 200, redDays: 400 },
   { name: 'uln_hedging_compliance_pct',  module: 'M13', freshDays: 120,yellowDays: 200, redDays: 365 },
-  // BoP monthly (BPS/TE trade data, BI NPI quarterly CAD)
+  // BoP monthly (BPS siaran pers via Exa/Tavily, or TE scrape fallback; NPI quarterly CAD)
   { name: 'trade_balance_bn',                   module: 'M1',  freshDays: 35, yellowDays: 55,  redDays: 90 },
   { name: 'current_account_pct_gdp_quarterly',  module: 'M1',  freshDays: 100,yellowDays: 130, redDays: 180 },
   { name: 'imports_bn',                         module: 'M1',  freshDays: 50, yellowDays: 70,  redDays: 90 },
+  { name: 'exports_bn',                         module: 'M1',  freshDays: 50, yellowDays: 70,  redDays: 90 },
   // Market daily (IHSG P/E from EIDO proxy, A/D from scrape)
   { name: 'ihsg_pe_ratio',                      module: 'M9',  freshDays: 5,  yellowDays: 14,  redDays: 30 },
   { name: 'idx_advance_decline_ratio',          module: 'M9',  freshDays: 7,  yellowDays: 14,  redDays: 21 },

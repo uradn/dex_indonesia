@@ -143,6 +143,42 @@ export function computeTermPremium(sbn10y: number, biRate: number): {
 interface TeScrapeResult {
   value: number;
   unit: string;
+  reportingPeriod: string | null; // ISO date (last day of reported month) or null
+}
+
+const TE_PERIOD_MONTH_MAP: Record<string, number> = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+  january: 1, february: 2, march: 3, april: 4, june: 6,
+  july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+};
+
+/**
+ * Extract the reporting period from a TE page body text.
+ * TE typically shows "Last Updated: Sep 2026" or the period in breadcrumbs/headline.
+ * Returns ISO date of the last day of that month, e.g. "2026-09-30".
+ */
+function extractTeReportingPeriod(text: string): string | null {
+  const lower = text.toLowerCase();
+  // "last updated: sep 2026" or "sep 2026" near top of page
+  const patterns = [
+    /last\s+updated[:\s]+([a-z]{3,9})\s+(202[0-9])/i,
+    /([a-z]{3,9})\s+(202[0-9])\s+\|/i,
+    /\|\s*([a-z]{3,9})\s+(202[0-9])/i,
+  ];
+  for (const pat of patterns) {
+    const m = lower.match(pat);
+    if (m) {
+      const monthName = m[1].slice(0, 3);
+      const monthNum = TE_PERIOD_MONTH_MAP[monthName] ?? TE_PERIOD_MONTH_MAP[m[1]];
+      const year = parseInt(m[2]);
+      if (monthNum && year) {
+        const lastDay = new Date(year, monthNum, 0).getDate();
+        return `${year}-${String(monthNum).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      }
+    }
+  }
+  return null;
 }
 
 /**
@@ -157,7 +193,7 @@ function parseTeDomValue(text: string, titleKeyword: string): TeScrapeResult | n
   const usdMatch = section.match(/to\s+US[D]?\s+([\d.]+)\s+billion/i);
   if (usdMatch) {
     const value = parseFloat(usdMatch[1]);
-    if (!isNaN(value)) return { value, unit: 'bn_USD' };
+    if (!isNaN(value)) return { value, unit: 'bn_USD', reportingPeriod: extractTeReportingPeriod(text) };
   }
   // Fallback: first number in section (trade balance uses "surplus/deficit of USD X.XX")
   const match = section.match(/([-\d]+\.?\d*)\s*(?:USD Billion|USD Million|Million USD|Billion|%)?/);
@@ -165,12 +201,13 @@ function parseTeDomValue(text: string, titleKeyword: string): TeScrapeResult | n
   const value = parseFloat(match[1]);
   if (isNaN(value)) return null;
   const unit = /billion/i.test(section.slice(0, 200)) ? 'bn_USD' : 'mn_USD';
-  return { value, unit };
+  return { value, unit, reportingPeriod: extractTeReportingPeriod(text) };
 }
 
 /**
  * Fetch Indonesia trade balance from Trading Economics (Playwright).
- * Returns monthly figure in bn USD.
+ * Returns monthly figure in bn USD. Uses extracted reporting period as date
+ * (not TODAY()) so DB rows reflect actual BPS/TE reporting month.
  */
 export async function fetchTradeBalanceTe(): Promise<MacroDataPoint | null> {
   const text = await fetchRenderedTextWithBrowser('https://tradingeconomics.com/indonesia/balance-of-trade');
@@ -183,17 +220,17 @@ export async function fetchTradeBalanceTe(): Promise<MacroDataPoint | null> {
   return {
     indicator: 'trade_balance_bn',
     category: 'bop',
-    date: TODAY(),
+    date: result.reportingPeriod ?? TODAY(),
     value,
     unit: 'bn_USD',
-    source: 'trading_economics_scrape',
+    source: result.reportingPeriod ? 'trading_economics_scrape' : 'trading_economics_scrape_no_period',
     fetchedAt: NOW(),
   };
 }
 
 /**
  * Fetch Indonesia exports from Trading Economics (Playwright).
- * Returns monthly figure in bn USD.
+ * Returns monthly figure in bn USD. Uses extracted reporting period as date.
  */
 export async function fetchExportsTe(): Promise<MacroDataPoint | null> {
   const text = await fetchRenderedTextWithBrowser('https://tradingeconomics.com/indonesia/exports');
@@ -205,17 +242,17 @@ export async function fetchExportsTe(): Promise<MacroDataPoint | null> {
   return {
     indicator: 'exports_bn',
     category: 'bop',
-    date: TODAY(),
+    date: result.reportingPeriod ?? TODAY(),
     value,
     unit: 'bn_USD',
-    source: 'trading_economics_scrape',
+    source: result.reportingPeriod ? 'trading_economics_scrape' : 'trading_economics_scrape_no_period',
     fetchedAt: NOW(),
   };
 }
 
 /**
  * Fetch Indonesia imports from Trading Economics (Playwright).
- * Returns monthly figure in bn USD.
+ * Returns monthly figure in bn USD. Uses extracted reporting period as date.
  */
 export async function fetchImportsTe(): Promise<MacroDataPoint | null> {
   const text = await fetchRenderedTextWithBrowser('https://tradingeconomics.com/indonesia/imports');
@@ -227,10 +264,10 @@ export async function fetchImportsTe(): Promise<MacroDataPoint | null> {
   return {
     indicator: 'imports_bn',
     category: 'bop',
-    date: TODAY(),
+    date: result.reportingPeriod ?? TODAY(),
     value,
     unit: 'bn_USD',
-    source: 'trading_economics_scrape',
+    source: result.reportingPeriod ? 'trading_economics_scrape' : 'trading_economics_scrape_no_period',
     fetchedAt: NOW(),
   };
 }

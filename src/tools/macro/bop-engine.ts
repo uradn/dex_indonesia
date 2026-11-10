@@ -5,7 +5,7 @@ import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
 import { buildSnapshot, compositeScore, detectFlags, alertFromScore, alertLabel, rateOfChange } from './scoring.js';
 import { getFreshPoint, stalenessFlag } from './freshness.js';
 import { fetchBiFxReserves } from './sources/bi.js';
-import { fetchTradeBalance, fetchImports, fetchExports, bpsAvailable } from './sources/bps.js';
+import { fetchTradeBalance, fetchImports, fetchExports, bpsAvailable, fetchTradeFromBpsExa } from './sources/bps.js';
 import { fetchTradeBalanceTe, fetchExportsTe, fetchImportsTe } from './sources/sovereign-scraper.js';
 import { fetchCurrentAccount, fetchFxReservesMonths, fetchCurrentAccountBn } from './sources/imf.js';
 import { fetchBbgFxReserves, bloombergAvailable } from './sources/bloomberg.js';
@@ -46,7 +46,12 @@ Tracks Indonesia's BoP position and external sector vulnerability. Detects:
 `.trim();
 
 export async function runBoPEngine(): Promise<BoPEngineOutput> {
-  // 1. Fetch trade data — BPS (Playwright, bypasses Cloudflare) → TE scrape fallback
+  // 1. Fetch trade data: BPS Exa search (authoritative, correct period) → TE scrape fallback
+  //    Priority chain:
+  //      a) fetchTradeFromBpsExa() — Exa/Tavily BPS siaran pers; has real reporting date
+  //      b) TE Playwright scrape — concurrent fetch of 3 separate pages; cross-validated
+  //         before storing to prevent period-mismatch artifacts (e.g. exports showing
+  //         a different month than trade_balance → exports - imports ≠ trade_balance).
   const [tradeSeries, importSeries, exportSeries] = await Promise.all([
     fetchTradeBalance(24),
     fetchImports(24),
@@ -56,17 +61,47 @@ export async function runBoPEngine(): Promise<BoPEngineOutput> {
   if (importSeries.length > 0) await upsertPoints(importSeries);
   if (exportSeries.length > 0) await upsertPoints(exportSeries);
 
-  // TE Playwright fallback: seed current month if BPS returned nothing
+  let bpsExaUsed = false;
   if (tradeSeries.length === 0) {
+    // Try BPS Exa first (authoritative source, correct period date)
+    try {
+      const bpsExaPoints = await fetchTradeFromBpsExa();
+      if (bpsExaPoints && bpsExaPoints.length > 0) {
+        await upsertPoints(bpsExaPoints);
+        bpsExaUsed = true;
+      }
+    } catch { /* fall through to TE */ }
+  }
+
+  // TE Playwright fallback: seed current month if BPS Exa returned nothing
+  if (tradeSeries.length === 0 && !bpsExaUsed) {
     const [tbTe, expTe, impTe] = await Promise.allSettled([
       fetchTradeBalanceTe(),
       fetchExportsTe(),
       fetchImportsTe(),
     ]);
-    const tePoints = [tbTe, expTe, impTe]
-      .filter((r): r is PromiseFulfilledResult<NonNullable<Awaited<ReturnType<typeof fetchTradeBalanceTe>>>> =>
-        r.status === 'fulfilled' && r.value !== null)
-      .map((r) => r.value);
+    const tbVal = tbTe.status === 'fulfilled' && tbTe.value !== null ? tbTe.value : null;
+    const expVal = expTe.status === 'fulfilled' && expTe.value !== null ? expTe.value : null;
+    const impVal = impTe.status === 'fulfilled' && impTe.value !== null ? impTe.value : null;
+
+    // Cross-validation: exports - imports must ≈ trade_balance (within $2bn tolerance).
+    // TE pages update on different cycles → can show different reporting months.
+    // If arithmetic is inconsistent: store trade_balance only (single-page, most reliable).
+    const tePoints: NonNullable<typeof tbVal>[] = [];
+    if (tbVal) tePoints.push(tbVal);
+    if (expVal && impVal && tbVal) {
+      const derived = expVal.value - impVal.value;
+      const consistent = Math.abs(derived - tbVal.value) <= 2.0;
+      if (consistent) {
+        tePoints.push(expVal, impVal);
+      }
+      // If inconsistent: skip exports/imports, store trade_balance only
+    } else if (expVal) {
+      tePoints.push(expVal);
+    } else if (impVal) {
+      tePoints.push(impVal);
+    }
+
     if (tePoints.length > 0) await upsertPoints(tePoints);
   }
 

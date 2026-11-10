@@ -146,7 +146,7 @@ const SNAPSHOT_INDICATORS = [
   'bbm_subsidy_gap_idr_liter', 'bbm_cost_recovery_idr_liter',
   'solar_subsidy_gap_idr_liter', 'solar_cost_recovery_idr_liter',
   'pertalite_price_idr_liter', 'solar_price_idr_liter', 'pertamax_price_idr_liter', 'pertamax_green_price_idr_liter',
-  'bi_fx_reserves_bn', 'trade_balance_bn',
+  'bi_fx_reserves_bn', 'trade_balance_bn', 'exports_bn', 'imports_bn',
   'bank_npl_gross_pct', 'bank_car_pct', 'bank_ldr_pct', 'indonia_3m_pct',
   'unemployment_rate_pct', 'inflation_cpi_pct', 'gdp_growth_pct',
   'greenspan_guidotti', 'uln_dsr_pct', 'uln_gdp_ratio_pct',
@@ -1351,6 +1351,11 @@ async function refresh() {
     document.getElementById('panel-polrisk').innerHTML = renderPolRisk(snapshot);
     document.getElementById('panel-asean').innerHTML = renderAsean(snapshot);
     document.getElementById('panel-bop').innerHTML = renderBoP(snapshot);
+    // Load trade trend asynchronously for sparkline
+    fetch('/api/trade-trend').then(r => r.json()).then(t => {
+      const el = document.getElementById('panel-bop-trade-trend');
+      if (el && t.balance && t.balance.length > 0) el.innerHTML = renderTradeTrendSparkline(t);
+    }).catch(() => {});
     document.getElementById('panel-commodity').innerHTML = renderCommodity(snapshot);
     document.getElementById('panel-narrative').innerHTML = renderNarrative(snapshot);
     document.getElementById('panel-market').innerHTML = renderMarket(snapshot);
@@ -1666,6 +1671,11 @@ function renderBoP(d) {
   const ind = d.indicators;
   const trade    = ind['trade_balance_bn']?.value ?? null;
   const tradeDate= ind['trade_balance_bn']?.date ?? null;
+  const tradeSrc = ind['trade_balance_bn']?.source ?? '';
+  const exports_ = ind['exports_bn']?.value ?? null;
+  const expDate  = ind['exports_bn']?.date ?? null;
+  const imports_ = ind['imports_bn']?.value ?? null;
+  const impDate  = ind['imports_bn']?.date ?? null;
   const reserves = ind['bi_fx_reserves_bn']?.value ?? null;
   const resDate  = ind['bi_fx_reserves_bn']?.date ?? null;
   const gg       = ind['greenspan_guidotti']?.value ?? null;
@@ -1673,14 +1683,49 @@ function renderBoP(d) {
   const effRes   = reserves !== null && dndf !== null ? +(reserves - dndf).toFixed(1) : reserves;
   const ms = d.moduleScores?.['bop'];
   const scoreLine = ms ? kv('M1 BoP Score', ms.score + '/100', ms.alertLevel === 'RED' ? 'red' : ms.alertLevel === 'ORANGE' ? 'orange' : ms.alertLevel === 'YELLOW' ? 'yellow' : 'green') : '';
+
+  // Cross-check consistency: if exports - imports ≠ trade_balance ± $2bn, flag it
+  const teInconsistent = exports_ !== null && imports_ !== null && trade !== null &&
+    Math.abs((exports_ - imports_) - trade) > 2.0;
+  const consistencyNote = teInconsistent
+    ? \`<div style="font-size:9px;color:var(--orange);margin-top:3px">⚑ TE period mismatch: exp-imp ≠ balance — exports/imports from different TE update cycle</div>\`
+    : '';
+
+  const sourceTag = tradeSrc.includes('exa') || tradeSrc.includes('tavily')
+    ? \`<span style="font-size:8px;color:var(--green);margin-left:4px">BPS</span>\`
+    : \`<span style="font-size:8px;color:var(--muted);margin-left:4px">TE</span>\`;
+
   return [
     scoreLine,
-    kv('Trade Balance', trade !== null ? (trade >= 0 ? '+' : '') + fmtNum(trade,1) + 'bn' + stale(tradeDate,60) : '—', trade !== null && trade < -2 ? 'red' : trade !== null && trade < 0 ? 'orange' : 'green'),
+    kv('Trade Balance', trade !== null ? (trade >= 0 ? '+' : '') + fmtNum(trade,1) + 'bn' + stale(tradeDate,60) + sourceTag : '—', trade !== null && trade < -2 ? 'red' : trade !== null && trade < 0 ? 'orange' : 'green'),
+    exports_ !== null ? kv('Exports', \`$\${fmtNum(exports_,1)}bn\${stale(expDate,60)}\`, exports_ < 10 ? 'orange' : 'green') : '',
+    imports_ !== null ? kv('Imports', \`$\${fmtNum(imports_,1)}bn\${stale(impDate,60)}\`, imports_ > 28 ? 'orange' : imports_ > 25 ? 'yellow' : 'green') : '',
+    consistencyNote,
+    \`<div id="panel-bop-trade-trend" style="margin-top:4px"></div>\`,
     kv('FX Reserves', reserves !== null ? '$' + fmtNum(reserves,1) + 'bn' + stale(resDate,90) : '—', reserves !== null && reserves < 100 ? 'red' : reserves !== null && reserves < 120 ? 'orange' : reserves !== null && reserves < 130 ? 'yellow' : 'green'),
     dndf !== null ? kv('DNDF Contingent', '$' + fmtNum(dndf,1) + 'bn', dndf > 12 ? 'orange' : 'yellow') : '',
     effRes !== null && dndf !== null ? kv('Effective Reserves', '$' + fmtNum(effRes,1) + 'bn', effRes < 90 ? 'red' : effRes < 110 ? 'orange' : effRes < 125 ? 'yellow' : 'green') : '',
     kv('G-G Ratio', gg !== null ? fmtNum(gg,2) + 'x' : '—', gg !== null && gg < 1.0 ? 'red' : gg !== null && gg < 1.5 ? 'orange' : gg !== null && gg < 2.0 ? 'yellow' : 'green'),
   ].join('');
+}
+
+function renderTradeTrendSparkline(t) {
+  const rows = (t.balance || []).slice().reverse(); // oldest first
+  if (rows.length < 2) return '';
+  const vals = rows.map(r => r.value);
+  const max = Math.max(...vals.map(Math.abs)) || 1;
+  const W = 160, H = 30, barW = Math.floor(W / rows.length) - 1;
+  const bars = rows.map((r, i) => {
+    const pct = Math.min(r.value / max, 1);
+    const h = Math.max(2, Math.abs(pct) * H);
+    const y = r.value >= 0 ? (H - h) : H;
+    const col = r.value < -2 ? '#e74c3c' : r.value < 0 ? '#e67e22' : r.value < 1 ? '#f1c40f' : '#27ae60';
+    const x = i * (barW + 1);
+    const lbl = r.date ? r.date.slice(5, 7) + '/' + r.date.slice(2, 4) : '';
+    return \`<rect x="\${x}" y="\${y}" width="\${barW}" height="\${h}" fill="\${col}" opacity="0.85"/><text x="\${x + barW/2}" y="\${H+9}" text-anchor="middle" font-size="5" fill="#888">\${lbl}</text>\`;
+  }).join('');
+  const latest = rows[rows.length - 1];
+  return \`<div style="margin-top:2px"><div style="font-size:9px;color:var(--muted);margin-bottom:2px">Trade balance trend (USD bn)</div><svg width="\${W}" height="\${H+12}" style="overflow:visible">\${bars}</svg><div style="font-size:9px;color:var(--muted);margin-top:1px">Latest: \${latest.value >= 0 ? '+' : ''}\${latest.value.toFixed(1)}bn (\${latest.date ?? ''})</div></div>\`;
 }
 
 // ── Commodity Panel (M4) ──────────────────────────────────────────────────────
@@ -4047,6 +4092,27 @@ const server = Bun.serve({
             `SELECT value, date FROM macro_series WHERE indicator = 'idx_foreign_net_buy_idr_bn' AND source NOT LIKE '%curl_cffi%' ORDER BY date DESC LIMIT 1`
           ).get();
           return Response.json({ history, closes, prevMedia: prevRow ? { value: +prevRow.value.toFixed(1), date: prevRow.date } : null });
+        } finally { db.close(); }
+      } catch (e) {
+        return Response.json({ error: String(e) }, { status: 500 });
+      }
+    }
+
+    if (url.pathname === '/api/trade-trend') {
+      try {
+        const db = openDb();
+        try {
+          // Last 8 trade_balance_bn datapoints (each is a monthly figure)
+          const balance = db.query<{ date: string; value: number; source: string }>(
+            `SELECT date, value, source FROM macro_series WHERE indicator = 'trade_balance_bn' ORDER BY date DESC LIMIT 8`
+          ).all();
+          const exports_ = db.query<{ date: string; value: number }>(
+            `SELECT date, value FROM macro_series WHERE indicator = 'exports_bn' ORDER BY date DESC LIMIT 8`
+          ).all();
+          const imports_ = db.query<{ date: string; value: number }>(
+            `SELECT date, value FROM macro_series WHERE indicator = 'imports_bn' ORDER BY date DESC LIMIT 8`
+          ).all();
+          return Response.json({ balance, exports: exports_, imports: imports_ });
         } finally { db.close(); }
       } catch (e) {
         return Response.json({ error: String(e) }, { status: 500 });
