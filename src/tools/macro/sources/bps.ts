@@ -178,9 +178,10 @@ async function searchBpsTrade(useExa: boolean): Promise<string> {
 export async function fetchTradeFromBpsExa(): Promise<MacroDataPoint[] | null> {
   if (!exaAvailable() && !tavilyAvailable()) return null;
 
-  // Freshness gate: skip if recently fetched and stored with Exa source
+  // Freshness gate: skip if recently fetched from Exa/Tavily/BPS authoritative sources
   const cached = await getLatestPoint('trade_balance_bn');
-  if (cached?.source?.includes('exa') || cached?.source?.includes('tavily')) {
+  const freshSources = ['exa', 'tavily', 'bps_nov', 'bps_sep', 'bps_aug', 'bps_corrected', 'bps_exa', 'bps_tavily', 'katadata', 'bps_'];
+  if (cached?.source && freshSources.some(s => cached.source!.includes(s))) {
     const ageMs = Date.now() - new Date(cached.fetchedAt ?? cached.date).getTime();
     if (ageMs < BPS_TRADE_FRESHNESS_DAYS * 86_400_000) return null; // already fresh
   }

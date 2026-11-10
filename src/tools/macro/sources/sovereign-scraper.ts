@@ -183,25 +183,49 @@ function extractTeReportingPeriod(text: string): string | null {
 
 /**
  * Extract a numeric value from a rendered Trading Economics page body text.
- * Looks for the first large number near the indicator title.
+ * Prefers absolute USD billion values over YoY growth rates.
+ * TE exports pages sometimes show YoY% prominently before the absolute value,
+ * causing naive parsers to pick up growth rates (e.g. 11.87%) instead of USD bn.
  */
 function parseTeDomValue(text: string, titleKeyword: string): TeScrapeResult | null {
   const idx = text.toLowerCase().indexOf(titleKeyword.toLowerCase());
   if (idx < 0) return null;
-  const section = text.slice(idx, idx + 400);
-  // Target "to USD/US XX.XX billion" — skips leading YoY % figures
-  const usdMatch = section.match(/to\s+US[D]?\s+([\d.]+)\s+billion/i);
-  if (usdMatch) {
-    const value = parseFloat(usdMatch[1]);
-    if (!isNaN(value)) return { value, unit: 'bn_USD', reportingPeriod: extractTeReportingPeriod(text) };
+  const section = text.slice(idx, idx + 500);
+  const period = extractTeReportingPeriod(text);
+
+  // Priority 1: "to USD/US XX.XX billion" — absolute value after growth narrative
+  const usdToMatch = section.match(/to\s+US[D]?\s+([\d.]+)\s+billion/i);
+  if (usdToMatch) {
+    const value = parseFloat(usdToMatch[1]);
+    if (!isNaN(value)) return { value, unit: 'bn_USD', reportingPeriod: period };
   }
-  // Fallback: first number in section (trade balance uses "surplus/deficit of USD X.XX")
+
+  // Priority 2: "XX.XX USD Billion" or "XX.XX Billion USD" — direct absolute format
+  const usdBnMatch = section.match(/([\d]+\.[\d]+)\s*(?:USD\s+Billion|Billion\s+USD)/i);
+  if (usdBnMatch) {
+    const value = parseFloat(usdBnMatch[1]);
+    if (!isNaN(value)) return { value, unit: 'bn_USD', reportingPeriod: period };
+  }
+
+  // Priority 3: "USD X.XX billion" or "US$ X.XX billion"
+  const usdPrefixMatch = section.match(/US[D$]?\s*\$?\s*([\d]+\.[\d]+)\s*billion/i);
+  if (usdPrefixMatch) {
+    const value = parseFloat(usdPrefixMatch[1]);
+    if (!isNaN(value)) return { value, unit: 'bn_USD', reportingPeriod: period };
+  }
+
+  // Fallback: first number. Reject if it looks like a percentage (no "billion" nearby).
+  // Trade balance uses "surplus/deficit of USD X.XX" format — first number is correct there.
   const match = section.match(/([-\d]+\.?\d*)\s*(?:USD Billion|USD Million|Million USD|Billion|%)?/);
   if (!match) return null;
   const value = parseFloat(match[1]);
   if (isNaN(value)) return null;
+  // Skip if the number precedes a "%" — that's a growth rate, not an absolute value
+  const matchEnd = match.index! + match[0].length;
+  const after = section.slice(matchEnd, matchEnd + 20);
+  if (after.trim().startsWith('%') || after.trim().startsWith('percent')) return null;
   const unit = /billion/i.test(section.slice(0, 200)) ? 'bn_USD' : 'mn_USD';
-  return { value, unit, reportingPeriod: extractTeReportingPeriod(text) };
+  return { value, unit, reportingPeriod: period };
 }
 
 /**
@@ -238,7 +262,8 @@ export async function fetchExportsTe(): Promise<MacroDataPoint | null> {
   const result = parseTeDomValue(text, 'Exports');
   if (!result) return null;
   const value = result.unit === 'mn_USD' ? result.value / 1000 : result.value;
-  if (value < 5 || value > 100) return null;
+  // Indonesia monthly exports 2020–2026 range: $12–35B. Reject values in YoY% range.
+  if (value < 12 || value > 50) return null;
   return {
     indicator: 'exports_bn',
     category: 'bop',
@@ -260,7 +285,8 @@ export async function fetchImportsTe(): Promise<MacroDataPoint | null> {
   const result = parseTeDomValue(text, 'Imports');
   if (!result) return null;
   const value = result.unit === 'mn_USD' ? result.value / 1000 : result.value;
-  if (value < 5 || value > 100) return null;
+  // Indonesia monthly imports 2020–2026 range: $12–30B. Reject values in YoY% range.
+  if (value < 12 || value > 45) return null;
   return {
     indicator: 'imports_bn',
     category: 'bop',
