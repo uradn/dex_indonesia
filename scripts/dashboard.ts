@@ -212,6 +212,7 @@ const CHART_INDICATORS = [
   'eido_price', 'bbm_subsidy_gap_idr_liter', 'brent_price_usd',
   'bi_fx_reserves_bn', 'sbn_foreign_ownership_pct',
   'srbi_outstanding_trn_idr', 'srbi_bid_cover_ratio',
+  'trade_balance_bn',
 ];
 
 const ASEAN_FX = ['usdidr_spot', 'usdmyr_spot', 'usdsgd_spot', 'usdthb_spot', 'usdphp_spot', 'usdvnd_spot'];
@@ -2008,6 +2009,10 @@ const RR_HTML = `<!DOCTYPE html>
     <div class="card-title">Capital Flow Pressure — IDX Foreign Flow & IHSG Close</div>
     <div style="color:var(--muted)">Loading…</div>
   </div>
+  <div class="card" id="panel-trade-trend" style="grid-column:span 2">
+    <div class="card-title">Trade Balance Trend — BoP External Position (M1)</div>
+    <div style="color:var(--muted)">Loading…</div>
+  </div>
 </div>
 <script>
 function fmtNum(v,d=2){ return v != null ? (+v).toFixed(d) : '—'; }
@@ -2383,6 +2388,82 @@ function renderRG(d) {
   \`;
 }
 
+function renderTradeTrend(t) {
+  if (!t || !t.balance || t.balance.length === 0) return '<div style="color:var(--muted);font-size:11px">Data tidak tersedia</div>';
+  const rows = t.balance.slice().reverse(); // oldest → newest
+  const expRows = (t.exports || []).slice().reverse();
+  const impRows = (t.imports || []).slice().reverse();
+
+  // Latest values for KV tiles
+  const latestTb = t.balance[0];
+  const latestExp = t.exports && t.exports[0] ? t.exports[0] : null;
+  const latestImp = t.imports && t.imports[0] ? t.imports[0] : null;
+
+  const tbCls = latestTb.value >= 2 ? 'green' : latestTb.value >= 0 ? 'yellow' : latestTb.value >= -2 ? 'orange' : 'red';
+  const expCls = latestExp && latestExp.value > 15 ? 'green' : latestExp && latestExp.value > 10 ? 'yellow' : 'orange';
+  const impCls = latestImp && latestImp.value > 28 ? 'orange' : 'green';
+
+  // Trend: compare latest vs prev month
+  const prevTb = t.balance[1] ?? null;
+  const trendArrow = prevTb ? (latestTb.value > prevTb.value ? ' ↑' : latestTb.value < prevTb.value ? ' ↓' : ' →') : '';
+
+  // SVG bar chart: trade balance monthly bars
+  const W = 420, H = 50, n = rows.length;
+  const vals = rows.map(r => r.value);
+  const maxAbs = Math.max(...vals.map(Math.abs), 1);
+  const barW = Math.floor(W / (n || 7)) - 2;
+  const barsSvg = rows.map((r, i) => {
+    const pct = Math.abs(r.value) / maxAbs;
+    const h = Math.max(2, Math.round(pct * (H - 14)));
+    const x = i * (barW + 2) + 1;
+    const y = H - h - 10;
+    const col = r.value < -2 ? 'var(--red)' : r.value < 0 ? 'var(--orange)' : r.value < 1 ? 'var(--yellow)' : 'var(--green)';
+    // Month label from date e.g. "2026-09-30" → "Sep"
+    const monthNames = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    const monthNum = r.date ? parseInt(r.date.slice(5,7)) : 0;
+    const lbl = monthNames[monthNum] ?? r.date?.slice(5,7) ?? '';
+    const valLbl = (r.value >= 0 ? '+' : '') + r.value.toFixed(1);
+    return \`<rect x="\${x}" y="\${y}" width="\${barW}" height="\${h}" fill="\${col}" opacity="0.75"/>\` +
+      \`<text x="\${x + barW/2}" y="\${H}" text-anchor="middle" font-size="7" fill="var(--muted)">\${lbl}</text>\` +
+      \`<text x="\${x + barW/2}" y="\${y - 3}" text-anchor="middle" font-size="7" fill="\${col}">\${valLbl}</text>\`;
+  }).join('');
+
+  // Oil price context (Brent drives imports)
+  const brentNote = \`<div style="font-size:9px;color:var(--muted);margin-top:6px">Sensitivitas: setiap Δ$10/bbl Brent ≈ ±$1.5–2bn/bulan trade balance (Indonesia net oil importer ~15M bbl/bulan). Brent $91.6 → Agu-Sep gap +$0.13bn. Brent $110+ → risiko trade defisit.</div>\`;
+
+  // Exports source note
+  const srcNote = latestExp && latestExp.source
+    ? \`<span style="font-size:8px;color:\${latestExp.source.includes('exa') || latestExp.source.includes('tavily') ? 'var(--green)' : 'var(--muted)'}"> [\${latestExp.source.includes('exa') || latestExp.source.includes('tavily') ? 'BPS' : 'TE'}]</span>\`
+    : '';
+
+  return \`
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+      <div style="background:var(--bg);border-radius:6px;padding:8px">
+        <div style="font-size:9px;color:var(--muted);margin-bottom:3px">Trade Balance (latest)</div>
+        <div class="big-num \${tbCls}" style="font-size:18px">\${latestTb.value >= 0 ? '+' : ''}\${latestTb.value.toFixed(2)} bn\${trendArrow}</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px">\${latestTb.date ?? ''} · surplus =  GREEN</div>
+      </div>
+      <div style="background:var(--bg);border-radius:6px;padding:8px">
+        <div style="font-size:9px;color:var(--muted);margin-bottom:3px">Exports (terbaru)\${srcNote}</div>
+        <div class="big-num \${expCls}" style="font-size:18px">\${latestExp ? '$'+latestExp.value.toFixed(1)+'bn' : '—'}</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px">\${latestExp?.date ?? ''}</div>
+      </div>
+      <div style="background:var(--bg);border-radius:6px;padding:8px">
+        <div style="font-size:9px;color:var(--muted);margin-bottom:3px">Imports (terbaru)</div>
+        <div class="big-num \${impCls}" style="font-size:18px">\${latestImp ? '$'+latestImp.value.toFixed(1)+'bn' : '—'}</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px">\${latestImp?.date ?? ''}</div>
+      </div>
+    </div>
+    <div style="font-size:9px;color:var(--muted);margin-bottom:4px">Trade Balance Monthly (USD bn) — May→Nov 2026</div>
+    <svg width="\${W}" height="\${H}" viewBox="0 0 \${W} \${H}" style="display:block;overflow:visible">
+      <line x1="0" y1="\${H-10}" x2="\${W}" y2="\${H-10}" stroke="var(--border)" stroke-width="0.5"/>
+      \${barsSvg}
+    </svg>
+    \${brentNote}
+    <div style="font-size:8px;color:var(--muted);margin-top:4px">M1 BoP · Sumber: BPS siaran pers (via Exa) → Trading Economics Playwright fallback · Cross-validation: exp−imp≈balance ±$2bn</div>
+  \`;
+}
+
 function renderCapitalFlow(flow) {
   if (!flow) return '<div style="color:var(--muted);font-size:11px">Data tidak tersedia</div>';
   const history = flow.history || [];
@@ -2449,15 +2530,17 @@ function renderCapitalFlow(flow) {
 }
 
 async function refresh() {
-  const [snap, flow] = await Promise.all([
+  const [snap, flow, trade] = await Promise.all([
     fetch('/api/snapshot').then(r => r.json()),
     fetch('/api/idx-flow').then(r => r.json()).catch(() => null),
+    fetch('/api/trade-trend').then(r => r.json()).catch(() => null),
   ]);
   document.getElementById('panel-gg').innerHTML = '<div class="card-title">G-G Shield — Greenspan-Guidotti Ratio</div>' + renderGG(snap);
   document.getElementById('panel-rr').innerHTML = '<div class="card-title">R&R Open Economy — 7 Frameworks Live</div>' + renderRR(snap);
   document.getElementById('panel-msci-reforms').innerHTML = '<div class="card-title">MSCI Standalone Consultation Tracker</div>' + renderMsciReforms(snap);
   document.getElementById('panel-rg').innerHTML = '<div class="card-title">r − g Debt Dynamics — Blanchard / R&R Ch.13</div>' + renderRG(snap);
   document.getElementById('panel-capital-flow').innerHTML = '<div class="card-title">Capital Flow Pressure — IDX Foreign Flow & IHSG Close</div>' + renderCapitalFlow(flow);
+  document.getElementById('panel-trade-trend').innerHTML = '<div class="card-title">Trade Balance Trend — BoP External Position (M1)</div>' + renderTradeTrend(trade);
   document.getElementById('last-updated-rr').textContent = 'Updated ' + new Date().toLocaleTimeString('id-ID');
 }
 

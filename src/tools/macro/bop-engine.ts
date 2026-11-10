@@ -243,12 +243,13 @@ export async function runBoPEngine(): Promise<BoPEngineOutput> {
   }
 
   // Freshness gate — M1 BoP core inputs
-  const [freshTrade, freshCa, freshImports] = await Promise.all([
+  const [freshTrade, freshCa, freshImports, freshExports] = await Promise.all([
     getFreshPoint('trade_balance_bn'),
     getFreshPoint('current_account_pct_gdp_quarterly'),
     getFreshPoint('imports_bn'),
+    getFreshPoint('exports_bn'),
   ]);
-  for (const fp of [freshTrade, freshCa, freshImports]) {
+  for (const fp of [freshTrade, freshCa, freshImports, freshExports]) {
     if (fp.cls === 'orange' || fp.cls === 'red') {
       flags.push(stalenessFlag(fp.spec?.name ?? 'unknown', fp.ageDays!, fp.spec, fp.cls));
     }
