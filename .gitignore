@@ -76,3 +76,7 @@ nmap_*/
 
 # Word/Office temp lock files
 docs/~$*
+
+# Research docs & PDFs — local only, not for repo
+docs/*.docx
+docs/*.pdf
