@@ -178,12 +178,14 @@ async function searchBpsTrade(useExa: boolean): Promise<string> {
 export async function fetchTradeFromBpsExa(): Promise<MacroDataPoint[] | null> {
   if (!exaAvailable() && !tavilyAvailable()) return null;
 
-  // Freshness gate: skip if recently fetched from Exa/Tavily/BPS authoritative sources
+  // Freshness gate: return [] (not null) when data is fresh — signals "skip TE fallback"
+  // null = unavailable/failed → caller may fall through to TE
+  // []   = fresh, no fetch needed → caller must NOT run TE
   const cached = await getLatestPoint('trade_balance_bn');
   const freshSources = ['exa', 'tavily', 'bps_nov', 'bps_sep', 'bps_aug', 'bps_corrected', 'bps_exa', 'bps_tavily', 'katadata', 'bps_'];
   if (cached?.source && freshSources.some(s => cached.source!.includes(s))) {
     const ageMs = Date.now() - new Date(cached.fetchedAt ?? cached.date).getTime();
-    if (ageMs < BPS_TRADE_FRESHNESS_DAYS * 86_400_000) return null; // already fresh
+    if (ageMs < BPS_TRADE_FRESHNESS_DAYS * 86_400_000) return []; // already fresh — block TE
   }
 
   let rawText = '';

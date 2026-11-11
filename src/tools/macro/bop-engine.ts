@@ -64,11 +64,12 @@ export async function runBoPEngine(): Promise<BoPEngineOutput> {
   let bpsExaUsed = false;
   if (tradeSeries.length === 0) {
     // Try BPS Exa first (authoritative source, correct period date)
+    // Returns [] = "fresh, skip TE" | null = unavailable/failed → fall through to TE
     try {
       const bpsExaPoints = await fetchTradeFromBpsExa();
-      if (bpsExaPoints && bpsExaPoints.length > 0) {
-        await upsertPoints(bpsExaPoints);
-        bpsExaUsed = true;
+      if (bpsExaPoints !== null) {
+        bpsExaUsed = true; // [] = fresh gate fired; non-empty = new data saved
+        if (bpsExaPoints.length > 0) await upsertPoints(bpsExaPoints);
       }
     } catch { /* fall through to TE */ }
   }
