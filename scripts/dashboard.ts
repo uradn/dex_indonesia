@@ -147,7 +147,7 @@ const SNAPSHOT_INDICATORS = [
   'solar_subsidy_gap_idr_liter', 'solar_cost_recovery_idr_liter',
   'pertalite_price_idr_liter', 'solar_price_idr_liter', 'pertamax_price_idr_liter', 'pertamax_green_price_idr_liter',
   'bi_fx_reserves_bn', 'trade_balance_bn', 'exports_bn', 'imports_bn',
-  'bank_npl_gross_pct', 'bank_car_pct', 'bank_ldr_pct', 'indonia_3m_pct',
+  'bank_npl_gross_pct', 'bank_car_pct', 'bank_ldr_pct', 'indonia_3m_pct', 'indonia_compounded_30d_pct',
   'unemployment_rate_pct', 'inflation_cpi_pct', 'gdp_growth_pct',
   'greenspan_guidotti', 'uln_dsr_pct', 'uln_gdp_ratio_pct',
   'pihps_beras_medium_idr', 'pihps_cabai_rawit_merah_idr', 'pihps_cabai_merah_kriting_idr',
@@ -194,7 +194,7 @@ const SNAPSHOT_INDICATORS = [
   // m4 coal DMO + PLN supply
   'hba_price_usd_ton', 'coal_dmo_compliance_pct', 'pln_coal_secured_pct',
   // m12 PHK + relokasi
-  'phk_workers_at_risk_30d', 'phk_events_30d_count',
+  'phk_workers_at_risk_30d', 'phk_events_30d_count', 'phk_ytd_kemnaker',
   // m12 presidential approval rating (VPI)
   'prabowo_approval_pct',
   // ks#2 policy response level (0=none,1=isolated,2=partial,3=full_package)
@@ -1053,8 +1053,8 @@ function renderBanking(d) {
   const carDate = ind['bank_car_pct']?.date;
   const ldr     = ind['bank_ldr_pct']?.value;
   const ldrDate = ind['bank_ldr_pct']?.date;
-  const indonia     = ind['indonia_3m_pct']?.value;
-  const indoniaDate = ind['indonia_3m_pct']?.date;
+  const indonia     = ind['indonia_compounded_30d_pct']?.value ?? ind['indonia_3m_pct']?.value;
+  const indoniaDate = ind['indonia_compounded_30d_pct']?.date ?? ind['indonia_3m_pct']?.date;
   const fintechNpl = ind['fintech_npl_pct']?.value;
   const pe = ind['ihsg_pe_ratio']?.value;
   const ad = ind['idx_advance_decline_ratio']?.value;
@@ -1111,6 +1111,10 @@ function computeDoomLoop(d) {
   const chinaPmiDate = ind['china_pmi_manufacturing']?.date ?? null;
   const chinaPmiDetail = chinaPmi != null ? chinaPmi.toFixed(1) + (chinaPmi < 48 ? ' DEMAND DESTRUCTION' : chinaPmi < 50 ? ' contracting' : ' neutral') + (chinaPmiDate ? ' ['+chinaPmiDate.slice(0,7)+']' : '') + ' · 6-8w lead' : null;
   items.push({ label: 'China PMI demand signal', active: chinaPmi != null && chinaPmi < 50, detail: chinaPmiDetail });
+
+  const phkYtdDoom = ind['phk_ytd_kemnaker']?.value ?? null;
+  const phkYtdDetail = phkYtdDoom != null ? Math.round(phkYtdDoom).toLocaleString('id') + ' workers YTD JKP' + (phkYtdDoom > 75000 ? ' CRITICAL' : ' ELEVATED') : null;
+  items.push({ label: 'PHK YTD systemic (>50k)', active: phkYtdDoom != null && phkYtdDoom > 50000, detail: phkYtdDetail });
 
   const score = items.filter(i => i.active).length;
   return { items, score };
@@ -1494,10 +1498,16 @@ function renderPolRisk(d) {
   const approvalFlags = msPolRisk?.flags?.filter(f => f.includes('APPROVAL') || f.includes('approval')) ?? [];
   const approvalTrend = approvalFlags.find(f => f.includes('DECLINING')) ? ' ▼ falling' : approvalFlags.find(f => f.includes('RISING') || f.includes('rising')) ? ' ▲ rising' : '';
 
+  const phkYtd     = ind['phk_ytd_kemnaker']?.value ?? null;
+  const phkYtdDate = ind['phk_ytd_kemnaker']?.date ?? null;
+  const phkYtdCls  = phkYtd !== null ? (phkYtd > 75000 ? 'red' : phkYtd > 50000 ? 'orange' : phkYtd > 25000 ? 'yellow' : 'green') : '';
+  const phkYtdLbl  = phkYtd !== null ? (phkYtd > 75000 ? ' CRITICAL' : phkYtd > 50000 ? ' ELEVATED' : '') : '';
+
   const ctxSection = \`
     <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px">
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px">Macro Context</div>
       \${approval !== null ? kv('Prabowo Approval', fmtNum(approval,1)+'%'+stale(approvalDate,45)+approvalTrend+' <span style="color:var(--muted)">(VPI)</span>', approvalCls) : ''}
+      \${phkYtd !== null ? kv('PHK YTD (Kemnaker JKP)', Math.round(phkYtd).toLocaleString('id')+' workers'+stale(phkYtdDate,50)+phkYtdLbl, phkYtdCls) : ''}
       \${kv('CPI Inflation', inflCpi !== null ? fmtNum(inflCpi,1)+'%'+stale(inflDate,90)+' <span style="color:var(--muted)">(target 2.5%)</span>' : '—', inflCls)}
       \${kv('Food Inflation', foodInfl !== null ? fmtNum(foodInfl,2)+'% YoY' : '—', foodInflCls)}
       \${kv('GDP Growth', gdpGrowth !== null ? fmtNum(gdpGrowth,1)+'%'+stale(gdpDate,90) : '—', gdpCls)}
