@@ -47,7 +47,7 @@ import {
   type SentimentResult,
 } from './sources/political-risk.js';
 import { fetchXSocialSentiment, type XSentimentResult } from './sources/x-social.js';
-import { fetchPhkRelokasi, type PhkRelokasiData } from './sources/phk-relokasi.js';
+import { fetchPhkRelokasi, fetchPhkYtdKemnaker, type PhkRelokasiData } from './sources/phk-relokasi.js';
 import { fetchVetoPlayerFriction, type VetoPlayerData } from './sources/veto-player.js';
 import type { AlertLevel } from './types.js';
 
@@ -134,7 +134,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
   const [
     foodResult, unrestResult, stabilityResult, geopoliticalResult,
     tavilyFoodResult, tavilyUnrestResult, tavilyStabilityResult, tavilyGeopoliticalResult,
-    xResult, phkResult,
+    xResult, phkResult, phkYtdResult,
     breakingFoodResult, breakingUnrestResult,
     vetoResult,
   ] = await Promise.allSettled([
@@ -148,6 +148,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     searchNewsSentimentTavily('geopolitical_risk'),
     fetchXSocialSentiment(),
     fetchPhkRelokasi(),
+    fetchPhkYtdKemnaker(),
     searchBreakingNewsSentiment('food_pressure'),
     searchBreakingNewsSentiment('social_unrest'),
     fetchVetoPlayerFriction(),
@@ -163,6 +164,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
   const tavilyGeopolitical   = tavilyGeopoliticalResult.status === 'fulfilled' ? tavilyGeopoliticalResult.value : null;
   const xSentiment           = xResult.status                 === 'fulfilled' ? xResult.value                 : null;
   const phkData              = phkResult.status               === 'fulfilled' ? phkResult.value               : null;
+  const phkYtdKemnaker       = phkYtdResult.status            === 'fulfilled' ? phkYtdResult.value             : null;
   const breakingFood         = breakingFoodResult.status      === 'fulfilled' ? breakingFoodResult.value      : null;
   const breakingUnrest       = breakingUnrestResult.status    === 'fulfilled' ? breakingUnrestResult.value    : null;
   const vetoData             = vetoResult.status              === 'fulfilled' ? vetoResult.value               : null;
@@ -331,6 +333,11 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     flags.push(`PHK MASSAL/RELOKASI EVENT (30d): ${phkData.workersAtRisk30d.toLocaleString('id')} workers at risk across ${phkData.eventCount30d} reported event(s) — FDI exit + industrial-region stress concentration. Top: ${phkData.topHeadline}${url}`);
   } else if (phkData && phkData.workersAtRisk30d >= 1000) {
     flags.push(`PHK watch (30d): ${phkData.workersAtRisk30d.toLocaleString('id')} workers at risk across ${phkData.eventCount30d} event(s) — single-event scale below 5k threshold but trend signal`);
+  }
+
+  if (typeof phkYtdKemnaker === 'number' && phkYtdKemnaker > 50_000) {
+    const severity = phkYtdKemnaker > 75_000 ? 'CRITICAL' : 'ELEVATED';
+    flags.push(`PHK YTD (Kemnaker JKP): ${phkYtdKemnaker.toLocaleString('id')} workers laid off YTD — cumulative stress ${severity}; >50k = systemic labor market deterioration; >75k = structural crisis signal`);
   }
 
   if (xSentiment && xSentiment.highSeverityCount > 0) {

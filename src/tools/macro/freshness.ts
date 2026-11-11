@@ -57,6 +57,7 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   // Political quarterly
   { name: 'unemployment_rate_pct',       module: 'M12', freshDays: 100,yellowDays: 130, redDays: 180 },
   { name: 'phk_workers_at_risk_30d',     module: 'M12', freshDays: 5,  yellowDays: 14,  redDays: 30 },
+  { name: 'phk_ytd_kemnaker',            module: 'M12', freshDays: 35, yellowDays: 50,  redDays: 75 },
   // Food daily (Playwright)
   { name: 'pihps_beras_medium_idr',      module: 'M11', freshDays: 3,  yellowDays: 7,   redDays: 14 },
   // M4 commodity supplementary

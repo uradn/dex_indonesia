@@ -19,6 +19,12 @@ import { getLatestPoint, upsertPoints } from '../time-series-db.js';
 import type { MacroDataPoint } from '../types.js';
 
 const FRESHNESS_DAYS = 3;
+const KEMNAKER_YTD_FRESHNESS_DAYS = 35;
+
+const MONTH_NAMES_ID = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+];
 
 const DOMAINS = [
   'detik.com', 'cnbcindonesia.com', 'bisnis.com', 'kontan.co.id',
@@ -146,6 +152,101 @@ async function fetchViaTavily(): Promise<PhkRelokasiData | null> {
   } catch {
     return null;
   }
+}
+
+function parseYtdWorkers(text: string): number | null {
+  const lower = text.toLowerCase();
+  const contextPatterns: RegExp[] = [
+    /jkp[\s\S]{0,200}?(\d{2,3}[.,]\d{3})\s*(?:orang|pekerja|tenaga\s+kerja)/i,
+    /phk[\s\S]{0,100}?(\d{2,3}[.,]\d{3})\s*(?:orang|pekerja|tenaga\s+kerja)/i,
+    /(\d{2,3}[.,]\d{3})\s*(?:orang|pekerja|tenaga\s+kerja)[\s\S]{0,100}?(?:kumulatif|ytd|sepanjang|sejak awal|total)/i,
+    /kumulatif[\s\S]{0,150}?(\d{2,3}[.,]\d{3})\s*(?:orang|pekerja|tenaga\s+kerja)/i,
+  ];
+  for (const pat of contextPatterns) {
+    const m = lower.match(pat);
+    if (m) {
+      const raw = m[1]!.replace(/\./g, '').replace(',', '');
+      const v = parseInt(raw, 10);
+      if (!isNaN(v) && v >= 1_000 && v <= 500_000) return v;
+    }
+  }
+  return null;
+}
+
+/**
+ * Fetch Kemnaker JKP cumulative YTD PHK count from Exa/Tavily media search.
+ * This is the monthly cumulative total (satudata.kemnaker.go.id JKP data),
+ * NOT the same as phk_workers_at_risk_30d (single-event max).
+ * Freshness: 35 days (Kemnaker publishes monthly, media covers first week of each month).
+ */
+export async function fetchPhkYtdKemnaker(): Promise<number | null> {
+  const cached = await getLatestPoint('phk_ytd_kemnaker');
+  if (cached) {
+    const ageMs = Date.now() - new Date(cached.fetchedAt ?? cached.date).getTime();
+    if (ageMs < KEMNAKER_YTD_FRESHNESS_DAYS * 86_400_000) return cached.value;
+  }
+
+  if (!process.env.EXASEARCH_API_KEY && !process.env.TAVILY_API_KEY) return null;
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const monthName = MONTH_NAMES_ID[now.getMonth()]!;
+  const query = `Kemnaker JKP PHK ${monthName} ${year} kumulatif tenaga kerja total Indonesia`;
+
+  let rawText = '';
+  try {
+    if (process.env.EXASEARCH_API_KEY) {
+      const resp = await fetch('https://api.exa.ai/search', {
+        method: 'POST',
+        headers: { 'x-api-key': process.env.EXASEARCH_API_KEY!, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          numResults: 5,
+          includeDomains: ['satudata.kemnaker.go.id', 'kemnaker.go.id', 'cnbcindonesia.com', 'bisnis.com', 'kompas.com', 'detik.com', 'antaranews.com'],
+          contents: { text: { maxCharacters: 1500 } },
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (resp.ok) {
+        const data = await resp.json() as { results?: Array<{ text?: string; title?: string }> };
+        rawText = (data.results ?? []).map(r => `${r.title ?? ''}: ${r.text ?? ''}`).join('\n');
+      }
+    }
+    if (!rawText && process.env.TAVILY_API_KEY) {
+      const resp = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: process.env.TAVILY_API_KEY,
+          query,
+          max_results: 5,
+          include_domains: ['kemnaker.go.id', 'cnbcindonesia.com', 'bisnis.com', 'kompas.com', 'detik.com', 'antaranews.com'],
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (resp.ok) {
+        const data = await resp.json() as { results?: Array<{ content?: string; title?: string }> };
+        rawText = (data.results ?? []).map(r => `${r.title ?? ''}: ${r.content ?? ''}`).join('\n');
+      }
+    }
+  } catch { return null; }
+
+  if (!rawText) return null;
+  const value = parseYtdWorkers(rawText);
+  if (value === null) return null;
+
+  const today = new Date().toISOString().slice(0, 10);
+  await upsertPoints([{
+    indicator: 'phk_ytd_kemnaker',
+    category: 'pangan',
+    date: today,
+    value,
+    unit: 'workers',
+    source: 'exa_kemnaker_ytd',
+    fetchedAt: new Date().toISOString(),
+  }]);
+
+  return value;
 }
 
 export async function fetchPhkRelokasi(): Promise<PhkRelokasiData | null> {

@@ -249,6 +249,82 @@ async function fetchPihpsBi(): Promise<MacroDataPoint[]> {
   return results;
 }
 
+/**
+ * Tier 1C: Exa/ANTARA national PIHPS search.
+ * Fills the gap when Playwright tiers (1A hargapangan.id, 1B bi.go.id) fail.
+ * infopangan_jakarta (Tier 2A) gives Jakarta-only prices (beras medium ~Rp13,918 vs national ~Rp17,000).
+ * This tier uses ANTARA/Liputan6 articles reporting BI PIHPS national figures.
+ */
+async function fetchPihpsFromExa(): Promise<MacroDataPoint[]> {
+  if (!process.env.EXASEARCH_API_KEY && !process.env.TAVILY_API_KEY) return [];
+
+  const year = new Date().getFullYear();
+  const query = `harga pangan nasional PIHPS beras medium cabai bawang ${year} Rp per kg`;
+
+  let rawText = '';
+  try {
+    if (process.env.EXASEARCH_API_KEY) {
+      const resp = await fetch('https://api.exa.ai/search', {
+        method: 'POST',
+        headers: { 'x-api-key': process.env.EXASEARCH_API_KEY!, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          numResults: 5,
+          includeDomains: ['antaranews.com', 'bi.go.id', 'liputan6.com', 'idxchannel.com', 'cnbcindonesia.com', 'bisnis.com', 'kompas.com'],
+          startPublishedDate: new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10),
+          contents: { text: { maxCharacters: 2000 } },
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (resp.ok) {
+        const data = await resp.json() as { results?: Array<{ text?: string; title?: string }> };
+        rawText = (data.results ?? []).map(r => `${r.title ?? ''}: ${r.text ?? ''}`).join('\n');
+      }
+    }
+    if (!rawText && process.env.TAVILY_API_KEY) {
+      const resp = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: process.env.TAVILY_API_KEY,
+          query,
+          max_results: 5,
+          include_domains: ['antaranews.com', 'bi.go.id', 'liputan6.com', 'idxchannel.com', 'cnbcindonesia.com', 'bisnis.com'],
+          time_range: 'week',
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (resp.ok) {
+        const data = await resp.json() as { results?: Array<{ content?: string; title?: string }> };
+        rawText = (data.results ?? []).map(r => `${r.title ?? ''}: ${r.content ?? ''}`).join('\n');
+      }
+    }
+  } catch { return []; }
+
+  if (!rawText) return [];
+
+  const today = TODAY();
+  const fetchedAt = NOW();
+  const results: MacroDataPoint[] = [];
+
+  for (const spec of PIHPS_COMMODITIES) {
+    const price = extractPriceNearTerm(rawText, spec.searchTerms, spec.minPrice, spec.maxPrice);
+    if (price !== null) {
+      results.push({
+        indicator: spec.indicator,
+        category: 'pangan',
+        date: today,
+        value: price,
+        unit: spec.unit,
+        source: 'exa_pihps_national',
+        fetchedAt,
+      });
+    }
+  }
+
+  return results;
+}
+
 /** Merge PIHPS tiers by indicator — first occurrence wins (higher tier = more authoritative). */
 function mergePihpsTiers(...tiers: MacroDataPoint[][]): MacroDataPoint[] {
   const seen = new Map<string, MacroDataPoint>();
@@ -281,9 +357,14 @@ export async function fetchPihpsCommodities(): Promise<MacroDataPoint[]> {
   const after1b = mergePihpsTiers(primary, bi);
   if (after1b.length >= 10) return after1b;
 
+  // Tier 1C — Exa/ANTARA national PIHPS search (fills gap before Jakarta-only fallback)
+  const exa = await fetchPihpsFromExa();
+  const after1c = mergePihpsTiers(after1b, exa);
+  if (after1c.length >= 10) return after1c;
+
   // Tier 2A — fast REST, but Jakarta excludes daging_ayam (per-ekor pricing)
   const jakarta = await fetchInfoPanganJakarta();
-  const after2a = mergePihpsTiers(after1b, jakarta);
+  const after2a = mergePihpsTiers(after1c, jakarta);
   if (after2a.length >= 10) return after2a;
 
   // Tier 2B — BPN Panel Harga has all 10 incl. daging_ayam per kg (national)
