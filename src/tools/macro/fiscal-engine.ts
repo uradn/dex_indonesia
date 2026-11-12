@@ -715,7 +715,7 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   const daysToB50 = Math.round((b50Mandate.getTime() - today.getTime()) / 86_400_000);
   if (b50StatusNumeric !== null) {
     if (b50StatusNumeric === 50) {
-      flags.push(`B50 mandate ACTIVE — CPO feedstock demand ~18M mt vs 19.6M kL capacity; biodiesel subsidi BPDPKS upside; CPO export volume diversion risk to BoP`);
+      flags.push(`B50 mandate ACTIVE — quota 19.6M kL biodiesel (~17.8M MT CPO feedstock); biodiesel subsidi BPDPKS upside; CPO export volume diversion risk to BoP`);
     } else if (b50StatusNumeric === 45) {
       flags.push(`B45 de-facto (B50 mandate not met) — quota ~15.6M kL flat; signals supply constraint vs APBN biodiesel program assumption`);
     }

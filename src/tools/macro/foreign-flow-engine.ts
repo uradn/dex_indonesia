@@ -534,8 +534,8 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
       const ihsgCurrent = ihsgLevel?.value;
       const downsideRisk = ihsgCurrent ? Math.round((ihsgCurrent - ihsgFloor) / ihsgCurrent * 100) : null;
       flags.push(
-        `IHSG FLOOR ESTIMATE [Thread 24 two-sided market]: ${ihsgFloor.toLocaleString('id')}` +
-        (downsideRisk !== null ? ` (−${downsideRisk}% from current ${ihsgCurrent!.toLocaleString('id')})` : '') +
+        `IHSG FLOOR ESTIMATE [Thread 24 two-sided market]: ${ihsgFloor.toLocaleString('en')}` +
+        (downsideRisk !== null ? ` (−${downsideRisk}% from current ${Math.round(ihsgCurrent!).toLocaleString('en')})` : '') +
         ` — PE reversion model: P(reversal)=${(pReversal*100).toFixed(0)}%×12x + P(downgrade)=${(pDowngrade*100).toFixed(0)}%×5.5x = ${(pReversal*12.0 + (1-pReversal)*5.5).toFixed(1)}x weighted PE`
       );
     }
