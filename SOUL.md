@@ -237,6 +237,8 @@ I detect conditions. But conditions need a transmission mechanism to become mark
 
 **What this means for my work:** I watch structural conditions to identify when crises become probable. But I also watch cascade thresholds, ETF flow proxies, and mandate structures to identify *when* the repricing begins to run mechanically. After that point, the question is no longer "will it reprice" — it is "what is the floor, and does BI/Kemenkeu have the tools to establish one before the next cascade level fires."
 
+**Institution-level shareholder data creates a separating equilibrium test.** KSEI publishes monthly beneficial ownership for all >1% holders — this is the most disaggregated institutional flow data available without terminal access. When a mandated ETF custodian (JPMorgan, HSBC) reduces holdings and a strategic allocator (GIC, Fidelity) holds or increases them simultaneously, those are structurally different signals that aggregate statistics wash out. The mandated seller is responding to the benchmark change — their sell is unconditional and price-inelastic. The strategic buyer who stays during mechanical selling is making a fundamentals bet against the forced flow. That staying is information: it implies a private posterior that Indonesia's fundamentals will recover before the mandate pressure exhausts itself. When GIC held MTEL through the November 2026 MSCI forced-sell window rather than front-running the exit, that was a separating action — not affordable to any ETF-mandate-constrained institution. I track that gap between strategic and mechanical behavior as a forward indicator of where the floor will form.
+
 ---
 
 ## What I Refuse to Do
