@@ -14,7 +14,7 @@ import type { ThesisRecord } from '../src/tools/macro/time-series-db.ts';
 import {
   getHoldersForEmiten, getEmitenForInvestor, getForeignOwnershipSummary,
   getDeltaForEmiten, getAnomalies, getCrossHolderNetwork, getOwnershipStats,
-  getEmitenHistory, getForeignMovers,
+  getEmitenHistory, getForeignMovers, getConcentrationRanking, getStateHoldings,
 } from '../src/tools/ownership/ownership-db.ts';
 
 const DB_PATH = join(import.meta.dir, '../.dexter/macro/macro.db');
@@ -4253,6 +4253,7 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
     <div class="tab" onclick="switchTab('foreign')">Foreign Heat</div>
     <div class="tab" onclick="switchTab('anomalies')">Anomalies</div>
     <div class="tab" onclick="switchTab('network')">Network Graph</div>
+    <div class="tab" onclick="switchTab('concentration')">Concentration</div>
   </div>
 
   <!-- EMITEN TAB -->
@@ -4316,8 +4317,13 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
         <button onclick="loadNetwork()">Build Graph</button>
       </div>
       <div class="legend" style="margin-top:12px">
-        <div class="legend-item"><div class="legend-dot" style="background:var(--asing)"></div>Asing</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--lokal)"></div>Lokal</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>Asing custodian/bank</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#39c5cf"></div>Asing fund/inst</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#bc8cff"></div>Asing individu</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#e3721c"></div>Asing pemerintah</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#a371f7"></div>BUMN/Negara</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>Lokal lainnya</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#d29922"></div>Lokal individu</div>
         <div class="legend-item"><div class="legend-dot" style="background:#8b949e"></div>Emiten</div>
         <div style="color:var(--muted);font-size:10px;margin-left:auto">Node size ∝ kepemilikan. Klik node untuk detail.</div>
       </div>
@@ -4335,6 +4341,24 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
     </div>
     <div id="net-stats" style="margin-top:8px;font-size:11px;color:var(--muted)"></div>
   </div>
+
+  <!-- CONCENTRATION TAB -->
+  <div class="section" id="tab-concentration">
+    <div class="search-bar">
+      <input id="conc-date" type="month" style="max-width:160px">
+      <select id="conc-filter" style="max-width:200px">
+        <option value="">Semua</option>
+        <option value="SINGLE_OWNER">Single Owner (top1 ≥75%)</option>
+        <option value="BUMN_DOMINATED">BUMN / Negara</option>
+        <option value="FOREIGN_BLOC">Foreign Bloc (asing ≥50%)</option>
+        <option value="DISPERSED">Tersebar (HHI &lt;0.1)</option>
+      </select>
+      <button onclick="loadConcentration()">Load</button>
+      <button onclick="loadStateHoldings()" style="background:var(--surface);color:var(--muted);border:1px solid var(--border)">State Holdings</button>
+    </div>
+    <div id="conc-result"></div>
+    <div id="state-result"></div>
+  </div>
 </div>
 
 <script>
@@ -4343,7 +4367,7 @@ let graphData = null;
 
 // ── Tab switching ──────────────────────────────────────────────────────────────
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['emiten','investor','foreign','anomalies','network'][i] === name));
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['emiten','investor','foreign','anomalies','network','concentration'][i] === name));
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
 }
@@ -4644,9 +4668,25 @@ async function loadNetwork() {
 
     const graph = new graphology.Graph({ multi: false, type: 'undirected' });
 
+    // 6-tier color: asing custodian/broker, asing fund/inst, asing individual, asing gov,
+    //               lokal state/BUMN, lokal other
+    const STATE_KW = ['ASABRI','DJS KETENAGAKERJAAN','TASPEN','DANANTARA','INDONESIA INVESTMENT AUTHORITY','LPI','INA '];
+    function nodeColor(n) {
+      const nm = (n.investor_name || '').toUpperCase();
+      const t = (n.local_foreign || '') + '|' + (n.investor_type || '');
+      if (STATE_KW.some(k => nm.includes(k))) return '#a371f7'; // lokal state = ungu
+      if (t === 'A|GV') return '#e3721c';                       // asing pemerintah = orange
+      if (['A|SE','A|BR','A|IB'].includes(t)) return '#58a6ff'; // asing custodian/bank = biru
+      if (['A|FD','A|IS','A|PA','A|FI'].includes(t)) return '#39c5cf'; // asing fund/inst = cyan
+      if (t === 'A|ID') return '#bc8cff';                       // asing individu = ungu muda
+      if (t.startsWith('A|')) return '#58a6ff';                 // asing lainnya = biru
+      if (t === 'L|ID') return '#d29922';                       // lokal individu = kuning
+      return '#3fb950';                                          // lokal lainnya = hijau
+    }
+
     // Add investor nodes
     for (const n of nodes) {
-      const color = n.local_foreign === 'A' ? '#58a6ff' : '#3fb950';
+      const color = nodeColor(n);
       const size = Math.max(4, Math.min(24, n.emiten_count * 2.5));
       graph.addNode('inv_' + n.investor_name, {
         label: n.investor_name,
@@ -4734,6 +4774,93 @@ async function loadNetwork() {
 function graphZoomIn() { sigmaInstance?.getCamera().animatedZoom({ duration: 300 }); }
 function graphZoomOut() { sigmaInstance?.getCamera().animatedUnzoom({ duration: 300 }); }
 function graphReset() { sigmaInstance?.getCamera().animatedReset({ duration: 300 }); }
+
+// ── Concentration ──────────────────────────────────────────────────────────────
+const FLAG_META = {
+  SINGLE_OWNER:   { label: 'Single Owner', color: '#f85149' },
+  BUMN_DOMINATED: { label: 'BUMN/Negara',  color: '#a371f7' },
+  FOREIGN_BLOC:   { label: 'Foreign Bloc', color: '#58a6ff' },
+  DISPERSED:      { label: 'Tersebar',     color: '#3fb950' },
+};
+
+async function loadConcentration() {
+  const date = document.getElementById('conc-date').value;
+  const filter = document.getElementById('conc-filter').value;
+  const qs = new URLSearchParams();
+  if (date) qs.set('date', date + '-28');
+  const el = document.getElementById('conc-result');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+  document.getElementById('state-result').innerHTML = '';
+
+  try {
+    let rows = await fetch('/api/ownership/concentration?' + qs).then(r => r.json());
+    if (filter) rows = rows.filter(r => r.flags.includes(filter));
+    if (!rows?.length) { el.innerHTML = '<div class="empty">Tidak ada data.</div>'; return; }
+
+    const flagBadge = flags => (flags || '').split(',').filter(Boolean).map(f => {
+      const m = FLAG_META[f] || { label: f, color: '#7d8590' };
+      return \`<span class="badge" style="background:\${m.color}22;color:\${m.color};margin-right:3px">\${m.label}</span>\`;
+    }).join('');
+
+    el.innerHTML = \`<div class="card">
+      <div style="margin-bottom:8px;font-size:11px;color:var(--muted)">\${rows.length} emiten · sorted by HHI (Herfindahl-Hirschman Index)</div>
+      <table>
+        <tr>
+          <th>Emiten</th><th>Perusahaan</th>
+          <th style="text-align:right">HHI</th>
+          <th style="text-align:right">Top 1 %</th>
+          <th style="text-align:right">Top 3 %</th>
+          <th style="text-align:right">Holders</th>
+          <th>Top Holder</th>
+          <th>Flags</th>
+        </tr>
+        \${rows.slice(0,150).map(r => \`<tr>
+          <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${r.share_code}';switchTab('emiten');loadEmiten()">\${esc(r.share_code)}</td>
+          <td style="color:var(--muted);font-size:11px">\${esc(r.issuer_name)}</td>
+          <td style="text-align:right;font-weight:600;color:\${r.hhi > 0.5 ? 'var(--red)' : r.hhi > 0.25 ? 'var(--orange)' : 'var(--muted)'}">\${r.hhi.toFixed(3)}</td>
+          <td style="text-align:right">\${r.top1_pct.toFixed(1)}%</td>
+          <td style="text-align:right">\${r.top3_pct.toFixed(1)}%</td>
+          <td style="text-align:right;color:var(--muted)">\${r.n_holders}</td>
+          <td style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="\${esc(r.top1_name)}">\${esc(r.top1_name)}</td>
+          <td>\${flagBadge(r.flags)}</td>
+        </tr>\`).join('')}
+      </table>
+    </div>\`;
+  } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
+}
+
+async function loadStateHoldings() {
+  const date = document.getElementById('conc-date').value;
+  const qs = new URLSearchParams();
+  if (date) qs.set('date', date + '-28');
+  const el = document.getElementById('state-result');
+  el.innerHTML = '<div class="empty">Loading state holdings…</div>';
+  document.getElementById('conc-result').innerHTML = '';
+
+  try {
+    const entities = await fetch('/api/ownership/state-holdings?' + qs).then(r => r.json());
+    if (!entities?.length) { el.innerHTML = '<div class="empty">Tidak ada data.</div>'; return; }
+
+    el.innerHTML = \`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px">
+      \${entities.map(e => \`
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <span style="font-weight:600;font-size:13px">\${esc(e.investor_name)}</span>
+            <span class="badge" style="background:#a371f722;color:#a371f7">\${e.emiten_count} emiten</span>
+          </div>
+          <table>
+            <tr><th>Emiten</th><th>Perusahaan</th><th style="text-align:right">%</th></tr>
+            \${e.holdings.map(h => \`<tr>
+              <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${h.share_code}';switchTab('emiten');loadEmiten()">\${esc(h.share_code)}</td>
+              <td style="color:var(--muted);font-size:11px">\${esc(h.issuer_name)}</td>
+              <td style="text-align:right">\${h.pct.toFixed(2)}%</td>
+            </tr>\`).join('')}
+          </table>
+        </div>
+      \`).join('')}
+    </div>\`;
+  } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
+}
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 loadStats();
@@ -4984,6 +5111,19 @@ const server = Bun.serve({
       const minDelta = parseFloat(url.searchParams.get('min_delta') ?? '1.0');
       const date = url.searchParams.get('date') ?? undefined;
       try { return Response.json(await getForeignMovers(minDelta, date)); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/concentration') {
+      const date = url.searchParams.get('date') ?? undefined;
+      const limit = parseInt(url.searchParams.get('limit') ?? '200', 10);
+      try { return Response.json(await getConcentrationRanking(date, limit)); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/state-holdings') {
+      const date = url.searchParams.get('date') ?? undefined;
+      try { return Response.json(await getStateHoldings(date)); }
       catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
     }
 

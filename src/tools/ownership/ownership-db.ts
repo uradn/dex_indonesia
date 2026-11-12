@@ -297,6 +297,96 @@ export async function getCrossHolderNetwork(date?: string, minEmiten = 2): Promi
   ).all(d, minEmiten);
 }
 
+const STATE_KEYWORDS = ['ASABRI','DJS KETENAGAKERJAAN','TASPEN','DANANTARA','INDONESIA INVESTMENT AUTHORITY',
+  'GOVERNMENT OF INDONESIA','LEMBAGA PENGELOLA INVESTASI','BPJS'];
+
+function isStateHolder(name: string): boolean {
+  const upper = name.toUpperCase();
+  return STATE_KEYWORDS.some(k => upper.includes(k));
+}
+
+export async function getConcentrationRanking(date?: string, limit = 200): Promise<{
+  share_code: string;
+  issuer_name: string;
+  n_holders: number;
+  hhi: number;
+  top1_pct: number;
+  top3_pct: number;
+  top1_name: string;
+  top1_lf: string;
+  flags: string;
+}[]> {
+  const db = await openOwnershipDb();
+  const d = date ?? (await getAvailableDates()).at(-1);
+  if (!d) return [];
+
+  const rows = db.query<{
+    share_code: string; issuer_name: string; n_holders: number; hhi: number;
+    top1_pct: number; top3_pct: number; top1_name: string; top1_lf: string; foreign_pct: number;
+  }>(
+    `SELECT share_code, MAX(issuer_name) as issuer_name,
+       COUNT(*) as n_holders,
+       ROUND(SUM(pct*pct)/10000, 4) as hhi,
+       ROUND(MAX(pct), 2) as top1_pct,
+       ROUND(SUM(CASE WHEN rn<=3 THEN pct ELSE 0 END), 2) as top3_pct,
+       MAX(CASE WHEN rn=1 THEN investor_name ELSE '' END) as top1_name,
+       MAX(CASE WHEN rn=1 THEN local_foreign ELSE '' END) as top1_lf,
+       ROUND(SUM(CASE WHEN local_foreign='A' THEN pct ELSE 0 END), 2) as foreign_pct
+     FROM (
+       SELECT share_code, issuer_name, investor_name, local_foreign, pct,
+         ROW_NUMBER() OVER (PARTITION BY share_code ORDER BY pct DESC) as rn
+       FROM idx_shareholders WHERE date = ?
+     )
+     GROUP BY share_code
+     ORDER BY hhi DESC
+     LIMIT ?`,
+  ).all(d, limit);
+
+  return rows.map(r => {
+    const flags: string[] = [];
+    if (r.top1_pct >= 75) flags.push('SINGLE_OWNER');
+    if (isStateHolder(r.top1_name)) flags.push('BUMN_DOMINATED');
+    if (r.foreign_pct >= 50) flags.push('FOREIGN_BLOC');
+    if (r.hhi < 0.1 && r.n_holders >= 5) flags.push('DISPERSED');
+    return { ...r, flags: flags.join(',') };
+  });
+}
+
+export async function getStateHoldings(date?: string): Promise<{
+  investor_name: string;
+  investor_type: string;
+  emiten_count: number;
+  total_market_value_proxy: number;
+  holdings: { share_code: string; issuer_name: string; pct: number }[];
+}[]> {
+  const db = await openOwnershipDb();
+  const d = date ?? (await getAvailableDates()).at(-1);
+  if (!d) return [];
+
+  const all = db.query<{ investor_name: string; investor_type: string; share_code: string; issuer_name: string; pct: number }>(
+    `SELECT investor_name, investor_type, share_code, issuer_name, pct
+     FROM idx_shareholders WHERE date = ?
+     ORDER BY investor_name, pct DESC`,
+  ).all(d);
+
+  const grouped = new Map<string, typeof all>();
+  for (const r of all) {
+    if (!isStateHolder(r.investor_name)) continue;
+    if (!grouped.has(r.investor_name)) grouped.set(r.investor_name, []);
+    grouped.get(r.investor_name)!.push(r);
+  }
+
+  return Array.from(grouped.entries())
+    .map(([investor_name, rows]) => ({
+      investor_name,
+      investor_type: rows[0]?.investor_type ?? '',
+      emiten_count: rows.length,
+      total_market_value_proxy: Math.round(rows.reduce((s, r) => s + r.pct, 0) * 100) / 100,
+      holdings: rows.map(r => ({ share_code: r.share_code, issuer_name: r.issuer_name, pct: r.pct })),
+    }))
+    .sort((a, b) => b.emiten_count - a.emiten_count);
+}
+
 export async function getEmitenHistory(code: string): Promise<{
   date: string;
   foreign_pct: number;
