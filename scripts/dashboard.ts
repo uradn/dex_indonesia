@@ -11,6 +11,10 @@ import {
   saveThesis, updateThesisStatus, getLatestThesis, getAllTheses,
 } from '../src/tools/macro/time-series-db.ts';
 import type { ThesisRecord } from '../src/tools/macro/time-series-db.ts';
+import {
+  getHoldersForEmiten, getEmitenForInvestor, getForeignOwnershipSummary,
+  getDeltaForEmiten, getAnomalies, getCrossHolderNetwork, getOwnershipStats,
+} from '../src/tools/ownership/ownership-db.ts';
 
 const DB_PATH = join(import.meta.dir, '../.dexter/macro/macro.db');
 const PORT = 6080;
@@ -771,6 +775,7 @@ const HTML = `<!DOCTYPE html>
   <button id="refresh-btn" onclick="refresh()">↻ Refresh</button>
   <a href="/rr" style="margin-left:auto;font-size:11px;color:var(--muted);text-decoration:none;padding:4px 8px;border:1px solid var(--border);border-radius:4px;white-space:nowrap" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">R&amp;R / G-G →</a>
   <a href="/bs" style="font-size:11px;color:var(--muted);text-decoration:none;padding:4px 8px;border:1px solid var(--border);border-radius:4px;white-space:nowrap" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">Big Short →</a>
+  <a href="/ownership" style="font-size:11px;color:var(--muted);text-decoration:none;padding:4px 8px;border:1px solid var(--border);border-radius:4px;white-space:nowrap" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">Shareholder Intel →</a>
 </header>
 <div class="layout">
   <div class="sidebar">
@@ -1997,6 +2002,7 @@ const RR_HTML = `<!DOCTYPE html>
   <span id="last-updated-rr">—</span>
   <a href="/" class="back">← Dashboard</a>
   <a href="/bs" class="back" style="margin-left:6px">Big Short →</a>
+  <a href="/ownership" class="back" style="margin-left:6px">Shareholder Intel →</a>
 </header>
 <div class="page">
   <div class="card" id="panel-gg">
@@ -2784,6 +2790,7 @@ const BS_HTML = `<!DOCTYPE html>
     <a href="/" class="nav">Dashboard</a>
     <a href="/rr" class="nav">R&amp;R / G-G</a>
     <a href="/bs" class="nav active">Big Short</a>
+    <a href="/ownership" class="nav">Shareholder Intel</a>
   </div>
 </header>
 
@@ -4150,6 +4157,501 @@ setInterval(loadData, 120_000);
 </body>
 </html>`;
 
+// ── Ownership Dashboard HTML ──────────────────────────────────────────────────
+
+const OWNERSHIP_HTML = `<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IDX Shareholder Intelligence — Dexter</title>
+<script src="https://unpkg.com/sigma@3/build/sigma.min.js"></script>
+<script src="https://unpkg.com/graphology@0.25/dist/graphology.umd.min.js"></script>
+<script src="https://unpkg.com/graphology-layout-forceatlas2@0.10/dist/graphology-layout-forceatlas2.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --muted: #7d8590; --accent: #58a6ff;
+    --green: #3fb950; --yellow: #d29922; --red: #f85149; --orange: #db6d28;
+    --asing: #58a6ff; --lokal: #3fb950;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; }
+  nav { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; gap: 16px; align-items: center; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 12px; }
+  nav a:hover, nav a.active { color: var(--accent); }
+  nav .title { color: var(--text); font-weight: 600; font-size: 14px; margin-right: 8px; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .card h3 { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px; }
+  .stat-row { display: flex; gap: 24px; margin-bottom: 16px; }
+  .stat { text-align: center; }
+  .stat .val { font-size: 24px; font-weight: 700; color: var(--accent); }
+  .stat .lbl { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+  .search-bar input, .search-bar select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 12px; flex: 1; }
+  .search-bar button { background: var(--accent); color: #000; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
+  .search-bar button:hover { opacity: .85; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; font-weight: 500; }
+  td { padding: 5px 8px; border-bottom: 1px solid #21262d; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #1c2128; }
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .badge-A { background: rgba(88,166,255,.15); color: var(--asing); }
+  .badge-L { background: rgba(63,185,80,.15); color: var(--lokal); }
+  .badge-NEW { background: rgba(63,185,80,.15); color: var(--green); }
+  .badge-EXIT { background: rgba(248,81,73,.15); color: var(--red); }
+  .badge-INCREASE { background: rgba(88,166,255,.12); color: var(--accent); }
+  .badge-DECREASE { background: rgba(219,109,40,.12); color: var(--orange); }
+  .pct-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 3px; }
+  .pct-bar-fill { height: 100%; border-radius: 2px; }
+  #graph-container { width: 100%; height: 520px; border-radius: 8px; background: var(--bg); position: relative; overflow: hidden; }
+  #graph-canvas { width: 100%; height: 100%; }
+  .tabs { display: flex; gap: 2px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .tab { padding: 8px 16px; cursor: pointer; color: var(--muted); font-size: 12px; border-bottom: 2px solid transparent; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .section { display: none; }
+  .section.active { display: block; }
+  .empty { color: var(--muted); text-align: center; padding: 24px; font-size: 12px; }
+  .delta-pos { color: var(--green); }
+  .delta-neg { color: var(--red); }
+  .chip { display: inline-block; background: rgba(88,166,255,.1); color: var(--accent); border-radius: 4px; padding: 1px 6px; font-size: 10px; margin: 1px; }
+  .graph-controls { position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 6px; z-index: 10; }
+  .graph-controls button { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+  .graph-controls button:hover { background: var(--border); }
+  .legend { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+</style>
+</head>
+<body>
+<nav>
+  <span class="title">⬡ Dexter</span>
+  <a href="/">Dashboard</a>
+  <a href="/rr">R&R</a>
+  <a href="/bs">Big Short</a>
+  <a href="/ownership" class="active">Shareholder Intel</a>
+</nav>
+
+<div class="container">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div>
+      <h1 style="font-size:18px;font-weight:700">IDX Shareholder Intelligence</h1>
+      <div style="color:var(--muted);font-size:11px;margin-top:2px">KSEI >1% holders · all IDX emiten · foreign/local split · cross-ownership network</div>
+    </div>
+    <div id="db-stats" style="text-align:right;font-size:11px;color:var(--muted)">loading…</div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('emiten')">By Emiten</div>
+    <div class="tab" onclick="switchTab('investor')">By Investor</div>
+    <div class="tab" onclick="switchTab('foreign')">Foreign Heat</div>
+    <div class="tab" onclick="switchTab('anomalies')">Anomalies</div>
+    <div class="tab" onclick="switchTab('network')">Network Graph</div>
+  </div>
+
+  <!-- EMITEN TAB -->
+  <div class="section active" id="tab-emiten">
+    <div class="search-bar">
+      <input id="emiten-code" placeholder="Kode emiten (e.g. BBCA, TLKM, GOTO)" maxlength="6" style="text-transform:uppercase;max-width:200px">
+      <input id="emiten-date" type="month" style="max-width:160px">
+      <button onclick="loadEmiten()">Cari</button>
+    </div>
+    <div id="emiten-result"></div>
+  </div>
+
+  <!-- INVESTOR TAB -->
+  <div class="section" id="tab-investor">
+    <div class="search-bar">
+      <input id="investor-name" placeholder="Nama investor (e.g. Vanguard, Temasek, BNI Life)">
+      <input id="investor-date" type="month" style="max-width:160px">
+      <button onclick="loadInvestor()">Cari</button>
+    </div>
+    <div id="investor-result"></div>
+  </div>
+
+  <!-- FOREIGN HEAT TAB -->
+  <div class="section" id="tab-foreign">
+    <div class="search-bar">
+      <input id="foreign-date" type="month" style="max-width:160px">
+      <select id="foreign-filter" style="max-width:180px">
+        <option value="">Semua sektor</option>
+        <option value="bank">Banking (BRI/BCA/BBNI/BMRI/BJTM…)</option>
+        <option value="energy">Energy (ADRO/PTBA/MEDC…)</option>
+        <option value="consumer">Consumer (INDF/ICBP/MYOR…)</option>
+      </select>
+      <button onclick="loadForeign()">Load</button>
+    </div>
+    <div id="foreign-result"></div>
+  </div>
+
+  <!-- ANOMALIES TAB -->
+  <div class="section" id="tab-anomalies">
+    <div class="search-bar">
+      <input id="anom-date" type="month" style="max-width:160px">
+      <input id="anom-min-delta" type="number" placeholder="Min delta %" value="2" step="0.5" style="max-width:120px">
+      <button onclick="loadAnomalies()">Load</button>
+    </div>
+    <div id="anom-result"></div>
+  </div>
+
+  <!-- NETWORK GRAPH TAB -->
+  <div class="section" id="tab-network">
+    <div class="card" style="margin-bottom:12px">
+      <div class="search-bar" style="margin-bottom:0">
+        <input id="net-date" type="month" style="max-width:160px">
+        <input id="net-min-emiten" type="number" placeholder="Min emiten per investor" value="3" min="2" max="20" style="max-width:160px">
+        <button onclick="loadNetwork()">Build Graph</button>
+      </div>
+      <div class="legend" style="margin-top:12px">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--asing)"></div>Asing</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--lokal)"></div>Lokal</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#8b949e"></div>Emiten</div>
+        <div style="color:var(--muted);font-size:10px;margin-left:auto">Node size ∝ kepemilikan. Klik node untuk detail.</div>
+      </div>
+    </div>
+    <div style="position:relative">
+      <div id="graph-container">
+        <div id="graph-canvas"></div>
+        <div class="graph-controls">
+          <button onclick="graphZoomIn()">＋</button>
+          <button onclick="graphZoomOut()">－</button>
+          <button onclick="graphReset()">⌂</button>
+        </div>
+      </div>
+      <div id="graph-tooltip" style="display:none;position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px;font-size:12px;pointer-events:none;z-index:20;max-width:260px"></div>
+    </div>
+    <div id="net-stats" style="margin-top:8px;font-size:11px;color:var(--muted)"></div>
+  </div>
+</div>
+
+<script>
+let sigmaInstance = null;
+let graphData = null;
+
+// ── Tab switching ──────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['emiten','investor','foreign','anomalies','network'][i] === name));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ── Utils ──────────────────────────────────────────────────────────────────────
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const fmtPct = v => (v != null ? (v > 0 ? '+' : '') + v.toFixed(2) + '%' : '—');
+const badge = (cls, label) => \`<span class="badge badge-\${cls}">\${esc(label)}</span>\`;
+const localForeignBadge = lf => badge(lf, lf === 'A' ? 'Asing' : 'Lokal');
+
+function gotoInvestor(name) {
+  document.getElementById('investor-name').value = name;
+  switchTab('investor');
+  loadInvestor();
+}
+
+function pctBar(pct, color) {
+  return \`<div class="pct-bar"><div class="pct-bar-fill" style="width:\${Math.min(pct,100)}%;background:\${color}"></div></div>\`;
+}
+
+// ── Stats ──────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const s = await fetch('/api/ownership/stats').then(r => r.json());
+    document.getElementById('db-stats').innerHTML =
+      s.total_rows > 0
+        ? \`<div>\${s.total_rows.toLocaleString()} rows · \${s.emiten_count} emiten · \${s.investor_count} investors</div>
+           <div>Months: \${s.months.map(m => \`<span class="chip">\${m.slice(0,7)}</span>\`).join('')}</div>
+           <div style="margin-top:2px">Latest: <b>\${s.latest_date}</b></div>\`
+        : '<span style="color:var(--red)">No data — run: bun scripts/sync-ksei-ownership.ts --backfill</span>';
+  } catch { document.getElementById('db-stats').textContent = 'Error loading stats'; }
+}
+
+// ── Emiten view ────────────────────────────────────────────────────────────────
+async function loadEmiten() {
+  const code = document.getElementById('emiten-code').value.trim().toUpperCase();
+  const date = document.getElementById('emiten-date').value;
+  if (!code) { alert('Masukkan kode emiten'); return; }
+  const el = document.getElementById('emiten-result');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+
+  const qs = new URLSearchParams({ code });
+  if (date) qs.set('date', date + '-28');
+
+  try {
+    const { holders, deltas, date: d } = await fetch('/api/ownership/emiten?' + qs).then(r => r.json());
+    if (!holders?.length) { el.innerHTML = '<div class="empty">Tidak ada data. Coba jalankan sync dulu.</div>'; return; }
+
+    const foreignPct = holders.filter(h => h.local_foreign === 'A').reduce((s, h) => s + h.pct, 0);
+    const localPct = holders.filter(h => h.local_foreign === 'L').reduce((s, h) => s + h.pct, 0);
+    const deltaMap = Object.fromEntries(deltas.map(d => [d.investor_name, d]));
+
+    el.innerHTML = \`
+      <div class="card" style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div>
+            <span style="font-size:20px;font-weight:700">\${esc(code)}</span>
+            <span style="color:var(--muted);margin-left:8px;font-size:12px">\${esc(holders[0]?.issuer_name)} · \${esc(d)}</span>
+          </div>
+          <div style="display:flex;gap:16px;text-align:right">
+            <div><div style="font-size:18px;font-weight:700;color:var(--asing)">\${foreignPct.toFixed(1)}%</div><div style="font-size:10px;color:var(--muted)">Asing</div></div>
+            <div><div style="font-size:18px;font-weight:700;color:var(--lokal)">\${localPct.toFixed(1)}%</div><div style="font-size:10px;color:var(--muted)">Lokal</div></div>
+            <div><div style="font-size:18px;font-weight:700">\${holders.length}</div><div style="font-size:10px;color:var(--muted)">Holders >1%</div></div>
+          </div>
+        </div>
+        <div style="display:flex;height:8px;border-radius:4px;overflow:hidden">
+          <div style="width:\${foreignPct}%;background:var(--asing)"></div>
+          <div style="width:\${localPct}%;background:var(--lokal)"></div>
+          <div style="flex:1;background:var(--border)"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">
+          \${foreignPct.toFixed(1)}% asing · \${localPct.toFixed(1)}% lokal (disclosed >1%) · sisa: float/unknown
+        </div>
+      </div>
+      <div class="card">
+        <table>
+          <tr><th>Investor</th><th>Type</th><th>L/A</th><th>Nationality</th><th style="text-align:right">%</th><th style="text-align:right">Delta</th><th>Event</th></tr>
+          \${holders.map(h => {
+            const dl = deltaMap[h.investor_name];
+            const delta = dl?.delta_pct;
+            const ev = dl?.event ?? '';
+            return \`<tr>
+              <td><span style="font-weight:500;cursor:pointer;color:var(--accent)" data-inv="\${esc(h.investor_name)}" title="Porto \${esc(h.investor_name)}" onclick="gotoInvestor(this.dataset.inv)">\${esc(h.investor_name)}</span></td>
+              <td><span style="color:var(--muted)">\${esc(h.investor_type)}</span></td>
+              <td>\${localForeignBadge(h.local_foreign)}</td>
+              <td style="color:var(--muted)">\${esc(h.nationality)}</td>
+              <td style="text-align:right;font-weight:600">\${h.pct.toFixed(2)}%
+                \${pctBar(h.pct, h.local_foreign === 'A' ? 'var(--asing)' : 'var(--lokal)' )}</td>
+              <td style="text-align:right" class="\${delta > 0 ? 'delta-pos' : delta < 0 ? 'delta-neg' : ''}">\${delta != null ? fmtPct(delta) : '—'}</td>
+              <td>\${ev ? badge(ev, ev) : ''}</td>
+            </tr>\`;
+          }).join('')}
+        </table>
+      </div>\`;
+  } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
+}
+
+// ── Investor view ──────────────────────────────────────────────────────────────
+async function loadInvestor() {
+  const name = document.getElementById('investor-name').value.trim();
+  const date = document.getElementById('investor-date').value;
+  if (!name) { alert('Masukkan nama investor'); return; }
+  const el = document.getElementById('investor-result');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+
+  const qs = new URLSearchParams({ name });
+  if (date) qs.set('date', date + '-28');
+
+  try {
+    const rows = await fetch('/api/ownership/investor?' + qs).then(r => r.json());
+    if (!rows?.length) { el.innerHTML = '<div class="empty">Tidak ditemukan.</div>'; return; }
+
+    el.innerHTML = \`<div class="card">
+      <div style="margin-bottom:10px">
+        <span style="font-weight:600">\${esc(rows[0]?.investor_name)}</span>
+        <span class="badge badge-\${rows[0]?.local_foreign}" style="margin-left:8px">\${rows[0]?.local_foreign === 'A' ? 'Asing' : 'Lokal'}</span>
+        <span style="color:var(--muted);margin-left:8px;font-size:11px">\${esc(rows[0]?.nationality)} · \${rows.length} emiten</span>
+      </div>
+      <table>
+        <tr><th>Emiten</th><th>Perusahaan</th><th style="text-align:right">%</th></tr>
+        \${rows.map(r => \`<tr>
+          <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${r.share_code}';switchTab('emiten');loadEmiten()">\${esc(r.share_code)}</td>
+          <td style="color:var(--muted)">\${esc(r.issuer_name)}</td>
+          <td style="text-align:right">\${r.pct.toFixed(2)}%
+            \${pctBar(r.pct, r.local_foreign === 'A' ? 'var(--asing)' : 'var(--lokal)')}</td>
+        </tr>\`).join('')}
+      </table>
+    </div>\`;
+  } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
+}
+
+// ── Foreign heat ───────────────────────────────────────────────────────────────
+async function loadForeign() {
+  const date = document.getElementById('foreign-date').value;
+  const qs = new URLSearchParams();
+  if (date) qs.set('date', date + '-28');
+  const el = document.getElementById('foreign-result');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+
+  try {
+    let rows = await fetch('/api/ownership/foreign?' + qs).then(r => r.json());
+    const filter = document.getElementById('foreign-filter').value;
+    // Simple sector filter by emiten name keyword
+    if (filter === 'bank') rows = rows.filter(r => /BRI|BCA|BNI|MANDIRI|CIMB|PANIN|BTN|MEGA|BJTM|BRIS|BJBR/i.test(r.share_code));
+    else if (filter === 'energy') rows = rows.filter(r => /ADRO|PTBA|MEDC|BUMI|ITMG|HRUM|INCO|ANTM|TINS|PSAB/i.test(r.share_code));
+    else if (filter === 'consumer') rows = rows.filter(r => /INDF|ICBP|MYOR|ULTJ|CLEO|HOKI|SIDO|KAEF|KLBF/i.test(r.share_code));
+
+    if (!rows?.length) { el.innerHTML = '<div class="empty">Tidak ada data.</div>'; return; }
+
+    el.innerHTML = \`<div class="card">
+      <div style="margin-bottom:8px;font-size:11px;color:var(--muted)">\${rows.length} emiten · sorted by foreign %</div>
+      <table>
+        <tr><th>Emiten</th><th>Perusahaan</th><th style="text-align:right">Asing %</th><th style="text-align:right">Lokal %</th><th>Top Asing</th></tr>
+        \${rows.slice(0, 100).map(r => \`<tr>
+          <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${r.share_code}';switchTab('emiten');loadEmiten()">\${esc(r.share_code)}</td>
+          <td style="color:var(--muted);font-size:11px">\${esc(r.issuer_name)}</td>
+          <td style="text-align:right">
+            <span style="color:var(--asing);font-weight:600">\${r.foreign_pct.toFixed(1)}%</span>
+            \${pctBar(r.foreign_pct, 'var(--asing)')}
+          </td>
+          <td style="text-align:right">
+            <span style="color:var(--lokal)">\${r.local_pct.toFixed(1)}%</span>
+          </td>
+          <td style="font-size:11px;color:var(--muted)">\${esc(r.top_foreign_investor)}</td>
+        </tr>\`).join('')}
+      </table>
+    </div>\`;
+  } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
+}
+
+// ── Anomalies ──────────────────────────────────────────────────────────────────
+async function loadAnomalies() {
+  const date = document.getElementById('anom-date').value;
+  const minDelta = document.getElementById('anom-min-delta').value || '2';
+  const qs = new URLSearchParams({ min_delta: minDelta });
+  if (date) qs.set('date', date + '-28');
+  const el = document.getElementById('anom-result');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+
+  try {
+    const rows = await fetch('/api/ownership/anomalies?' + qs).then(r => r.json());
+    if (!rows?.length) { el.innerHTML = '<div class="empty">Tidak ada anomali.</div>'; return; }
+
+    el.innerHTML = \`<div class="card">
+      <div style="margin-bottom:8px;font-size:11px;color:var(--muted)">\${rows.length} anomali · NEW/EXIT = >1% threshold cross · INCREASE/DECREASE ≥ \${minDelta}%</div>
+      <table>
+        <tr><th>Event</th><th>Emiten</th><th>Investor</th><th style="text-align:right">Curr %</th><th style="text-align:right">Delta</th></tr>
+        \${rows.map(r => \`<tr>
+          <td>\${badge(r.event, r.event)}</td>
+          <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${r.share_code}';switchTab('emiten');loadEmiten()">\${esc(r.share_code)}</td>
+          <td style="font-size:11px">\${esc(r.investor_name)}</td>
+          <td style="text-align:right">\${r.pct_curr != null ? r.pct_curr.toFixed(2) + '%' : '—'}</td>
+          <td style="text-align:right" class="\${r.delta_pct > 0 ? 'delta-pos' : r.delta_pct < 0 ? 'delta-neg' : ''}">\${r.delta_pct != null ? fmtPct(r.delta_pct) : '—'}</td>
+        </tr>\`).join('')}
+      </table>
+    </div>\`;
+  } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
+}
+
+// ── Network graph (Sigma.js v3 + Graphology) ───────────────────────────────────
+async function loadNetwork() {
+  const date = document.getElementById('net-date').value;
+  const minEmiten = parseInt(document.getElementById('net-min-emiten').value || '3', 10);
+  const qs = new URLSearchParams({ min_emiten: minEmiten });
+  if (date) qs.set('date', date + '-28');
+
+  document.getElementById('graph-canvas').innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px 0">Building graph…</div>';
+  document.getElementById('net-stats').textContent = '';
+
+  try {
+    const nodes = await fetch('/api/ownership/network?' + qs).then(r => r.json());
+    if (!nodes?.length) {
+      document.getElementById('graph-canvas').innerHTML = '<div class="empty">No data. Run sync first.</div>';
+      return;
+    }
+
+    if (sigmaInstance) { sigmaInstance.kill(); sigmaInstance = null; }
+
+    const graph = new graphology.Graph({ multi: false, type: 'undirected' });
+
+    // Add investor nodes
+    for (const n of nodes) {
+      const color = n.local_foreign === 'A' ? '#58a6ff' : '#3fb950';
+      const size = Math.max(4, Math.min(24, n.emiten_count * 2.5));
+      graph.addNode('inv_' + n.investor_name, {
+        label: n.investor_name,
+        x: Math.random(), y: Math.random(),
+        size, color,
+        nodeType: 'investor',
+        data: n,
+      });
+    }
+
+    // Add emiten nodes + edges
+    const emitenSet = new Set();
+    for (const n of nodes) {
+      for (const code of n.codes.split(',')) {
+        if (!code) continue;
+        if (!emitenSet.has(code)) {
+          emitenSet.add(code);
+          graph.addNode('em_' + code, {
+            label: code, x: Math.random(), y: Math.random(),
+            size: 6, color: '#8b949e', nodeType: 'emiten',
+          });
+        }
+        const edgeKey = 'inv_' + n.investor_name + '|em_' + code;
+        if (!graph.hasEdge('inv_' + n.investor_name, 'em_' + code)) {
+          graph.addEdge('inv_' + n.investor_name, 'em_' + code, { size: 1, color: '#30363d' });
+        }
+      }
+    }
+
+    // ForceAtlas2 layout
+    if (typeof graphologyLayoutForceAtlas2 !== 'undefined') {
+      graphologyLayoutForceAtlas2.assign(graph, { iterations: 100, settings: { gravity: 1, scalingRatio: 10 } });
+    }
+
+    // Render with Sigma.js
+    const container = document.getElementById('graph-canvas');
+    container.innerHTML = '';
+    sigmaInstance = new Sigma(graph, container, {
+      renderEdgeLabels: false,
+      defaultEdgeColor: '#30363d',
+      defaultNodeColor: '#8b949e',
+      labelFont: 'Segoe UI, system-ui, sans-serif',
+      labelSize: 11,
+      labelWeight: '500',
+      labelColor: { color: '#e6edf3' },
+      minCameraRatio: 0.1,
+      maxCameraRatio: 10,
+    });
+
+    // Tooltip on hover
+    sigmaInstance.on('enterNode', ({ node }) => {
+      const attrs = graph.getNodeAttributes(node);
+      const tip = document.getElementById('graph-tooltip');
+      if (attrs.nodeType === 'investor') {
+        const d = attrs.data;
+        tip.innerHTML = \`<b>\${esc(attrs.label)}</b><br>
+          \${d.local_foreign === 'A' ? '🌐 Asing' : '🏠 Lokal'} · \${esc(d.nationality)}<br>
+          Pegang <b>\${d.emiten_count}</b> emiten · avg \${d.avg_pct.toFixed(2)}%<br>
+          <span style="color:var(--muted);font-size:10px">\${d.codes}</span>\`;
+      } else {
+        tip.innerHTML = \`<b>\${esc(attrs.label)}</b><br><span style="color:var(--muted)">Klik di tab Emiten</span>\`;
+      }
+      tip.style.display = 'block';
+    });
+    sigmaInstance.on('leaveNode', () => { document.getElementById('graph-tooltip').style.display = 'none'; });
+    sigmaInstance.on('clickNode', ({ node }) => {
+      const attrs = graph.getNodeAttributes(node);
+      if (attrs.nodeType === 'emiten') {
+        const code = node.replace('em_', '');
+        document.getElementById('emiten-code').value = code;
+        switchTab('emiten');
+        loadEmiten();
+      }
+    });
+
+    document.getElementById('net-stats').textContent =
+      \`\${nodes.length} investors · \${emitenSet.size} emiten · \${graph.size} edges · min \${minEmiten} emiten/investor\`;
+
+  } catch (e) {
+    document.getElementById('graph-canvas').innerHTML = \`<div class="empty">Error: \${e.message}</div>\`;
+  }
+}
+
+// Graph camera controls
+function graphZoomIn() { sigmaInstance?.getCamera().animatedZoom({ duration: 300 }); }
+function graphZoomOut() { sigmaInstance?.getCamera().animatedUnzoom({ duration: 300 }); }
+function graphReset() { sigmaInstance?.getCamera().animatedReset({ duration: 300 }); }
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+loadStats();
+</script>
+</body>
+</html>`;
+
 // ── Server ────────────────────────────────────────────────────────────────────
 
 const server = Bun.serve({
@@ -4328,6 +4830,58 @@ const server = Bun.serve({
 
     if (url.pathname === '/api/scd-result') {
       return Response.json(scdState);
+    }
+
+    // ── Ownership routes ──────────────────────────────────────────────────────
+
+    if (url.pathname === '/ownership') {
+      return new Response(OWNERSHIP_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
+    }
+
+    if (url.pathname === '/api/ownership/stats') {
+      try { return Response.json(await getOwnershipStats()); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/emiten') {
+      const code = url.searchParams.get('code') ?? '';
+      const date = url.searchParams.get('date') ?? undefined;
+      if (!code) return Response.json({ error: 'code required' }, { status: 400 });
+      try {
+        const [holders, deltas] = await Promise.all([
+          getHoldersForEmiten(code, date),
+          getDeltaForEmiten(code, date),
+        ]);
+        return Response.json({ code, date: holders[0]?.date ?? '', holders, deltas });
+      } catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/investor') {
+      const name = url.searchParams.get('name') ?? '';
+      const date = url.searchParams.get('date') ?? undefined;
+      if (!name) return Response.json({ error: 'name required' }, { status: 400 });
+      try { return Response.json(await getEmitenForInvestor(name, date)); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/foreign') {
+      const date = url.searchParams.get('date') ?? undefined;
+      try { return Response.json(await getForeignOwnershipSummary(date)); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/anomalies') {
+      const date = url.searchParams.get('date') ?? undefined;
+      const minDelta = parseFloat(url.searchParams.get('min_delta') ?? '2.0');
+      try { return Response.json(await getAnomalies(date, minDelta)); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/network') {
+      const date = url.searchParams.get('date') ?? undefined;
+      const minEmiten = parseInt(url.searchParams.get('min_emiten') ?? '2', 10);
+      try { return Response.json(await getCrossHolderNetwork(date, minEmiten)); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
     }
 
     return new Response('Not found', { status: 404 });
