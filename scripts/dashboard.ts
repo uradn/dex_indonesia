@@ -14,6 +14,7 @@ import type { ThesisRecord } from '../src/tools/macro/time-series-db.ts';
 import {
   getHoldersForEmiten, getEmitenForInvestor, getForeignOwnershipSummary,
   getDeltaForEmiten, getAnomalies, getCrossHolderNetwork, getOwnershipStats,
+  getEmitenHistory, getForeignMovers,
 } from '../src/tools/ownership/ownership-db.ts';
 
 const DB_PATH = join(import.meta.dir, '../.dexter/macro/macro.db');
@@ -4168,6 +4169,7 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
 <script src="https://unpkg.com/sigma@3/build/sigma.min.js"></script>
 <script src="https://unpkg.com/graphology@0.25/dist/graphology.umd.min.js"></script>
 <script src="https://unpkg.com/graphology-layout-forceatlas2@0.10/dist/graphology-layout-forceatlas2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <style>
   :root {
     --bg: #0d1117; --surface: #161b22; --border: #30363d;
@@ -4261,6 +4263,12 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
       <button onclick="loadEmiten()">Cari</button>
     </div>
     <div id="emiten-result"></div>
+    <div id="emiten-history" style="display:none;margin-top:12px">
+      <div class="card">
+        <h3>Foreign vs Local Ownership Trend (9 bulan)</h3>
+        <canvas id="history-chart" height="80"></canvas>
+      </div>
+    </div>
   </div>
 
   <!-- INVESTOR TAB -->
@@ -4285,6 +4293,7 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
       </select>
       <button onclick="loadForeign()">Load</button>
     </div>
+    <div id="foreign-movers-result" style="margin-bottom:12px"></div>
     <div id="foreign-result"></div>
   </div>
 
@@ -4429,6 +4438,7 @@ async function loadEmiten() {
           }).join('')}
         </table>
       </div>\`;
+    loadEmitenHistory(code);
   } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
 }
 
@@ -4473,6 +4483,7 @@ async function loadForeign() {
   if (date) qs.set('date', date + '-28');
   const el = document.getElementById('foreign-result');
   el.innerHTML = '<div class="empty">Loading…</div>';
+  loadForeignMovers(date);
 
   try {
     let rows = await fetch('/api/ownership/foreign?' + qs).then(r => r.json());
@@ -4501,6 +4512,84 @@ async function loadForeign() {
           <td style="font-size:11px;color:var(--muted)">\${esc(r.top_foreign_investor)}</td>
         </tr>\`).join('')}
       </table>
+    </div>\`;
+  } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
+}
+
+// ── Emiten history chart ───────────────────────────────────────────────────────
+let historyChart = null;
+async function loadEmitenHistory(code) {
+  const wrap = document.getElementById('emiten-history');
+  try {
+    const rows = await fetch('/api/ownership/emiten-history?code=' + encodeURIComponent(code)).then(r => r.json());
+    if (!rows?.length) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+    const labels = rows.map(r => r.date.slice(0, 7));
+    const fData = rows.map(r => r.foreign_pct);
+    const lData = rows.map(r => r.local_pct);
+    if (historyChart) { historyChart.destroy(); historyChart = null; }
+    const ctx = document.getElementById('history-chart').getContext('2d');
+    historyChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Asing %', data: fData, borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.08)', tension: 0.3, pointRadius: 4, pointHoverRadius: 6 },
+          { label: 'Lokal %', data: lData, borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.08)', tension: 0.3, pointRadius: 4, pointHoverRadius: 6 },
+        ],
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#7d8590', font: { size: 11 } } },
+          tooltip: { backgroundColor: '#161b22', borderColor: '#30363d', borderWidth: 1, titleColor: '#e6edf3', bodyColor: '#7d8590' },
+        },
+        scales: {
+          x: { ticks: { color: '#7d8590', font: { size: 10 } }, grid: { color: '#21262d' } },
+          y: { ticks: { color: '#7d8590', font: { size: 10 }, callback: v => v + '%' }, grid: { color: '#21262d' }, min: 0 },
+        },
+      },
+    });
+  } catch { wrap.style.display = 'none'; }
+}
+
+// ── Foreign movers ─────────────────────────────────────────────────────────────
+async function loadForeignMovers(date) {
+  const el = document.getElementById('foreign-movers-result');
+  el.innerHTML = '<div class="empty" style="padding:8px">Loading movers…</div>';
+  try {
+    const qs = new URLSearchParams({ min_delta: '1' });
+    if (date) qs.set('date', date + '-28');
+    const rows = await fetch('/api/ownership/foreign-movers?' + qs).then(r => r.json());
+    if (!rows?.length) { el.innerHTML = ''; return; }
+    const inflows = rows.filter(r => r.delta > 0).slice(0, 8);
+    const outflows = rows.filter(r => r.delta < 0).slice(0, 8);
+    el.innerHTML = \`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="card">
+        <h3 style="color:var(--asing)">▲ Foreign Inflow (MoM)</h3>
+        <table>
+          <tr><th>Emiten</th><th style="text-align:right">Sebelum</th><th style="text-align:right">Sekarang</th><th style="text-align:right">Delta</th></tr>
+          \${inflows.map(r => \`<tr>
+            <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${r.share_code}';switchTab('emiten');loadEmiten()">\${esc(r.share_code)}</td>
+            <td style="text-align:right;color:var(--muted)">\${r.prev_fpct.toFixed(1)}%</td>
+            <td style="text-align:right">\${r.curr_fpct.toFixed(1)}%</td>
+            <td style="text-align:right;font-weight:600" class="delta-pos">+\${r.delta.toFixed(2)}%</td>
+          </tr>\`).join('')}
+        </table>
+      </div>
+      <div class="card">
+        <h3 style="color:var(--red)">▼ Foreign Outflow (MoM)</h3>
+        <table>
+          <tr><th>Emiten</th><th style="text-align:right">Sebelum</th><th style="text-align:right">Sekarang</th><th style="text-align:right">Delta</th></tr>
+          \${outflows.map(r => \`<tr>
+            <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${r.share_code}';switchTab('emiten');loadEmiten()">\${esc(r.share_code)}</td>
+            <td style="text-align:right;color:var(--muted)">\${r.prev_fpct.toFixed(1)}%</td>
+            <td style="text-align:right">\${r.curr_fpct.toFixed(1)}%</td>
+            <td style="text-align:right;font-weight:600" class="delta-neg">\${r.delta.toFixed(2)}%</td>
+          </tr>\`).join('')}
+        </table>
+      </div>
     </div>\`;
   } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
 }
@@ -4881,6 +4970,20 @@ const server = Bun.serve({
       const date = url.searchParams.get('date') ?? undefined;
       const minEmiten = parseInt(url.searchParams.get('min_emiten') ?? '2', 10);
       try { return Response.json(await getCrossHolderNetwork(date, minEmiten)); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/emiten-history') {
+      const code = url.searchParams.get('code') ?? '';
+      if (!code) return Response.json({ error: 'code required' }, { status: 400 });
+      try { return Response.json(await getEmitenHistory(code)); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/foreign-movers') {
+      const minDelta = parseFloat(url.searchParams.get('min_delta') ?? '1.0');
+      const date = url.searchParams.get('date') ?? undefined;
+      try { return Response.json(await getForeignMovers(minDelta, date)); }
       catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
     }
 

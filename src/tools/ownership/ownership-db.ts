@@ -297,6 +297,54 @@ export async function getCrossHolderNetwork(date?: string, minEmiten = 2): Promi
   ).all(d, minEmiten);
 }
 
+export async function getEmitenHistory(code: string): Promise<{
+  date: string;
+  foreign_pct: number;
+  local_pct: number;
+  holders: number;
+}[]> {
+  const db = await openOwnershipDb();
+  return db.query<{ date: string; foreign_pct: number; local_pct: number; holders: number }>(
+    `SELECT date,
+       ROUND(SUM(CASE WHEN local_foreign='A' THEN pct ELSE 0 END), 2) as foreign_pct,
+       ROUND(SUM(CASE WHEN local_foreign='L' THEN pct ELSE 0 END), 2) as local_pct,
+       COUNT(*) as holders
+     FROM idx_shareholders WHERE share_code = ? GROUP BY date ORDER BY date`,
+  ).all(code.toUpperCase());
+}
+
+export async function getForeignMovers(minDelta = 1.0, date?: string): Promise<{
+  share_code: string;
+  issuer_name: string;
+  curr_fpct: number;
+  prev_fpct: number;
+  delta: number;
+}[]> {
+  const db = await openOwnershipDb();
+  const dates = await getAvailableDates();
+  const curr = date ?? dates.at(-1);
+  const prev = date ? dates[dates.indexOf(date) - 1] : dates.at(-2);
+  if (!curr || !prev) return [];
+  return db.query<{ share_code: string; issuer_name: string; curr_fpct: number; prev_fpct: number; delta: number }>(
+    `WITH curr AS (
+       SELECT share_code, MAX(issuer_name) as issuer_name,
+         ROUND(SUM(CASE WHEN local_foreign='A' THEN pct ELSE 0 END),2) as fpct
+       FROM idx_shareholders WHERE date = ? GROUP BY share_code
+     ),
+     prev AS (
+       SELECT share_code,
+         ROUND(SUM(CASE WHEN local_foreign='A' THEN pct ELSE 0 END),2) as fpct
+       FROM idx_shareholders WHERE date = ? GROUP BY share_code
+     )
+     SELECT c.share_code, c.issuer_name,
+       c.fpct as curr_fpct, p.fpct as prev_fpct,
+       ROUND(c.fpct - p.fpct, 2) as delta
+     FROM curr c JOIN prev p ON c.share_code = p.share_code
+     WHERE ABS(c.fpct - p.fpct) >= ?
+     ORDER BY ABS(c.fpct - p.fpct) DESC`,
+  ).all(curr, prev, minDelta);
+}
+
 export async function getOwnershipStats(): Promise<{
   total_rows: number;
   emiten_count: number;
