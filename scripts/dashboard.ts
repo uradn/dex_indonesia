@@ -15,6 +15,7 @@ import {
   getHoldersForEmiten, getEmitenForInvestor, getForeignOwnershipSummary,
   getDeltaForEmiten, getAnomalies, getCrossHolderNetwork, getOwnershipStats,
   getEmitenHistory, getForeignMovers, getConcentrationRanking, getStateHoldings,
+  getVelocityFlippers, getEntityGroups, getWashScreener,
 } from '../src/tools/ownership/ownership-db.ts';
 
 const DB_PATH = join(import.meta.dir, '../.dexter/macro/macro.db');
@@ -4227,6 +4228,13 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
   .legend { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
   .legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--muted); }
   .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .badge-HIGH_CHURN { background: rgba(248,81,73,.15); color: var(--red); }
+  .badge-FAST_FLIP { background: rgba(219,109,40,.15); color: var(--orange); }
+  .badge-COORD_ENTRY { background: rgba(210,153,34,.15); color: var(--yellow); }
+  .score-bar { display: inline-block; width: 60px; height: 6px; background: var(--border); border-radius: 3px; vertical-align: middle; margin-right: 6px; }
+  .score-bar-fill { height: 100%; border-radius: 3px; }
+  .sub-section { margin-top: 24px; }
+  .sub-section h4 { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
 </style>
 </head>
 <body>
@@ -4254,6 +4262,7 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
     <div class="tab" onclick="switchTab('anomalies')">Anomalies</div>
     <div class="tab" onclick="switchTab('network')">Network Graph</div>
     <div class="tab" onclick="switchTab('concentration')">Concentration</div>
+    <div class="tab" onclick="switchTab('wash')">Wash Screener</div>
   </div>
 
   <!-- EMITEN TAB -->
@@ -4359,17 +4368,53 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
     <div id="conc-result"></div>
     <div id="state-result"></div>
   </div>
+
+  <!-- WASH SCREENER TAB -->
+  <div class="section" id="tab-wash">
+    <div class="search-bar">
+      <input id="wash-min-score" type="number" value="15" min="0" max="100" style="max-width:120px" placeholder="Min Score (0-100)">
+      <button onclick="loadWashScreener()">Refresh</button>
+      <button onclick="loadFlippers()" style="background:var(--surface);color:var(--muted);border:1px solid var(--border)">Velocity Flippers</button>
+      <button onclick="loadEntityGroups()" style="background:var(--surface);color:var(--muted);border:1px solid var(--border)">Entity Groups</button>
+    </div>
+
+    <div class="sub-section">
+      <h4>Wash Anomaly Score — per Emiten</h4>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:10px">
+        Score = churn 40% + velocity flip 40% + coordinated entry 20%. Excludes Feb 2026 init month + custodian types (SE/BR/IB).
+      </div>
+      <div id="wash-result"><div class="empty">Click Refresh to load</div></div>
+    </div>
+
+    <div class="sub-section">
+      <h4>Velocity Flippers — NEW → EXIT within 1 monthly cycle</h4>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:10px">
+        Investors who appeared as new shareholders in month T and exited by month T+1. Excludes custodians/brokers.
+      </div>
+      <div id="flip-result"><div class="empty">Click Velocity Flippers to load</div></div>
+    </div>
+
+    <div class="sub-section">
+      <h4>Entity Groups — Fuzzy Dedup (same group, multiple legal names)</h4>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:10px">
+        Investor names normalized by stripping legal suffixes (PT, TBK, Ltd, etc.). Groups with ≥2 members shown.
+      </div>
+      <div id="groups-result"><div class="empty">Click Entity Groups to load</div></div>
+    </div>
+  </div>
 </div>
 
 <script>
 let sigmaInstance = null;
 let graphData = null;
+let washLoaded = false;
 
 // ── Tab switching ──────────────────────────────────────────────────────────────
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['emiten','investor','foreign','anomalies','network','concentration'][i] === name));
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['emiten','investor','foreign','anomalies','network','concentration','wash'][i] === name));
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'wash' && !washLoaded) { washLoaded = true; loadWashScreener(); }
 }
 
 // ── Utils ──────────────────────────────────────────────────────────────────────
@@ -4862,6 +4907,93 @@ async function loadStateHoldings() {
   } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
 }
 
+// ── Wash Screener ─────────────────────────────────────────────────────────────
+const washScoreColor = s => s >= 70 ? 'var(--red)' : s >= 45 ? 'var(--orange)' : s >= 25 ? 'var(--yellow)' : 'var(--muted)';
+
+async function loadWashScreener() {
+  const el = document.getElementById('wash-result');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+  const minScore = parseInt(document.getElementById('wash-min-score').value || '15', 10);
+  try {
+    const rows = await fetch(\`/api/ownership/wash-screener?min_score=\${minScore}\`).then(r => r.json());
+    if (!rows.length) { el.innerHTML = '<div class="empty">No emiten above threshold</div>'; return; }
+    el.innerHTML = \`<table>
+      <thead><tr>
+        <th>Code</th><th>Issuer</th><th>Score</th><th>Avg Churn%</th>
+        <th>Flippers</th><th>Coord Months</th><th>Flags</th>
+      </tr></thead>
+      <tbody>
+      \${rows.map(r => \`<tr>
+        <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${esc(r.share_code)}';switchTab('emiten');loadEmiten()">\${esc(r.share_code)}</td>
+        <td>\${esc(r.issuer_name)}</td>
+        <td>
+          <div style="display:flex;align-items:center">
+            <div class="score-bar"><div class="score-bar-fill" style="width:\${r.wash_score}%;background:\${washScoreColor(r.wash_score)}"></div></div>
+            <b style="color:\${washScoreColor(r.wash_score)}">\${r.wash_score}</b>
+          </div>
+        </td>
+        <td>\${r.churn_rate.toFixed(1)}%</td>
+        <td>\${r.flip_count || '—'}</td>
+        <td>\${r.coord_count || '—'}</td>
+        <td>\${(r.flags||'').split(',').filter(Boolean).map(f => \`<span class="badge badge-\${f}">\${f.replace(/_/g,' ')}</span>\`).join(' ')}</td>
+      </tr>\`).join('')}
+      </tbody>
+    </table>\`;
+  } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
+}
+
+async function loadFlippers() {
+  const el = document.getElementById('flip-result');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const rows = await fetch('/api/ownership/flippers').then(r => r.json());
+    if (!rows.length) { el.innerHTML = '<div class="empty">No velocity flippers found</div>'; return; }
+    el.innerHTML = \`<table>
+      <thead><tr>
+        <th>Code</th><th>Issuer</th><th>Investor</th><th>Type</th>
+        <th>Entry</th><th>Exit</th><th>Pct%</th>
+      </tr></thead>
+      <tbody>
+      \${rows.map(r => \`<tr>
+        <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${esc(r.share_code)}';switchTab('emiten');loadEmiten()">\${esc(r.share_code)}</td>
+        <td style="color:var(--muted)">\${esc(r.issuer_name)}</td>
+        <td style="cursor:pointer;color:var(--accent)" data-inv="\${esc(r.investor_name)}" onclick="gotoInvestor(this.dataset.inv)">\${esc(r.investor_name)}</td>
+        <td><span class="chip">\${esc(r.investor_type)}</span></td>
+        <td style="font-size:11px">\${r.entry_date.slice(0,7)}</td>
+        <td style="font-size:11px;color:var(--red)">\${r.exit_date.slice(0,7)}</td>
+        <td style="font-weight:600">\${r.pct_peak.toFixed(2)}%</td>
+      </tr>\`).join('')}
+      </tbody>
+    </table>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">\${rows.length} flip events across \${new Set(rows.map(r=>r.share_code)).size} emiten</div>\`;
+  } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
+}
+
+async function loadEntityGroups() {
+  const el = document.getElementById('groups-result');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const rows = await fetch('/api/ownership/entity-groups').then(r => r.json());
+    if (!rows.length) { el.innerHTML = '<div class="empty">No groups found</div>'; return; }
+    el.innerHTML = \`<table>
+      <thead><tr>
+        <th>Normalized Key</th><th>Member Names</th><th>Emiten</th><th>Total Pct%</th>
+      </tr></thead>
+      <tbody>
+      \${rows.map(r => \`<tr>
+        <td style="font-weight:600;color:var(--yellow);max-width:200px;word-break:break-word">\${esc(r.group_key)}</td>
+        <td style="font-size:11px;color:var(--muted)">
+          \${r.names.map(n => \`<div style="cursor:pointer;color:var(--accent)" data-inv="\${esc(n)}" onclick="gotoInvestor(this.dataset.inv)">\${esc(n)}</div>\`).join('')}
+        </td>
+        <td>\${r.emiten_count}</td>
+        <td>\${r.total_pct.toFixed(2)}%</td>
+      </tr>\`).join('')}
+      </tbody>
+    </table>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">\${rows.length} groups · \${rows.reduce((s,r)=>s+r.names.length,0)} total members</div>\`;
+  } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────────
 loadStats();
 </script>
@@ -5124,6 +5256,24 @@ const server = Bun.serve({
     if (url.pathname === '/api/ownership/state-holdings') {
       const date = url.searchParams.get('date') ?? undefined;
       try { return Response.json(await getStateHoldings(date)); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/wash-screener') {
+      const date = url.searchParams.get('date') ?? undefined;
+      const minScore = parseInt(url.searchParams.get('min_score') ?? '15', 10);
+      try { return Response.json(await getWashScreener(date, minScore)); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/flippers') {
+      try { return Response.json(await getVelocityFlippers()); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/entity-groups') {
+      const date = url.searchParams.get('date') ?? undefined;
+      try { return Response.json(await getEntityGroups(date)); }
       catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
     }
 

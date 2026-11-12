@@ -458,3 +458,236 @@ export async function getOwnershipStats(): Promise<{
     latest_date: months.at(-1) ?? '',
   };
 }
+
+// Initialization month: all NEW events are artifacts (first data load), not real new entrants.
+const FIRST_MONTH = '2026-02-27';
+// Custodian / broker types: nominees for underlying clients, not suspicious actors.
+const CUSTODIAN_TYPES = ['SE', 'BR', 'IB'];
+
+export async function getVelocityFlippers(excludeTypes: string[] = CUSTODIAN_TYPES): Promise<{
+  share_code: string;
+  issuer_name: string;
+  investor_name: string;
+  investor_type: string;
+  entry_date: string;
+  exit_date: string;
+  pct_peak: number;
+}[]> {
+  const db = await openOwnershipDb();
+
+  const allDates = db.query<{ date: string }>(
+    `SELECT DISTINCT date FROM ownership_delta ORDER BY date`,
+  ).all().map(r => r.date);
+
+  const dateIdx = new Map(allDates.map((d, i) => [d, i]));
+
+  // All NEW events (excluding initialization month)
+  const newEvents = db.query<{
+    share_code: string; issuer_name: string; investor_name: string;
+    investor_type: string; date: string; pct_curr: number;
+  }>(
+    `SELECT d.share_code, MAX(s.issuer_name) as issuer_name, d.investor_name,
+            MAX(s.investor_type) as investor_type, d.date, MAX(d.pct_curr) as pct_curr
+     FROM ownership_delta d
+     JOIN idx_shareholders s ON s.share_code = d.share_code
+       AND s.investor_name = d.investor_name AND s.date = d.date
+     WHERE d.event = 'NEW' AND d.date != ?
+     GROUP BY d.share_code, d.investor_name, d.date`,
+  ).all(FIRST_MONTH);
+
+  // Build exit lookup set: "share_code|investor_name|date"
+  const exitSet = new Set(
+    db.query<{ key: string }>(
+      `SELECT (share_code || '|' || investor_name || '|' || date) as key
+       FROM ownership_delta WHERE event = 'EXIT'`,
+    ).all().map(r => r.key),
+  );
+
+  const result: {
+    share_code: string; issuer_name: string; investor_name: string;
+    investor_type: string; entry_date: string; exit_date: string; pct_peak: number;
+  }[] = [];
+
+  for (const ne of newEvents) {
+    if (excludeTypes.includes(ne.investor_type)) continue;
+    const idx = dateIdx.get(ne.date);
+    if (idx === undefined) continue;
+    const nextDate = allDates[idx + 1];
+    if (!nextDate) continue;
+    if (exitSet.has(`${ne.share_code}|${ne.investor_name}|${nextDate}`)) {
+      result.push({
+        share_code: ne.share_code,
+        issuer_name: ne.issuer_name,
+        investor_name: ne.investor_name,
+        investor_type: ne.investor_type,
+        entry_date: ne.date,
+        exit_date: nextDate,
+        pct_peak: ne.pct_curr ?? 0,
+      });
+    }
+  }
+
+  return result.sort((a, b) =>
+    b.exit_date.localeCompare(a.exit_date) || b.pct_peak - a.pct_peak,
+  );
+}
+
+function normalizeGroupKey(name: string): string {
+  const stripped = name
+    .toUpperCase()
+    // strip jurisdiction/country suffixes last
+    .replace(/\b(HONG KONG|SINGAPORE|MAURITIUS|INDONESIA|MALAYSIA|THAILAND|VIETNAM|CAYMAN|BRITISH|LUXEMBOURG|IRELAND|JERSEY)\b/g, '')
+    .replace(/\b(PT|TBK|CO|LTD|LLC|INC|CORP|PTE|SA|AG|BV|NV|SDN|BHD|BERHAD|PERSERO|CV|UD|YAYASAN|LIMITED|TBKP)\b/g, '')
+    .replace(/[.,\-'/\\():]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  // Use first 24 chars as group key to cluster jurisdiction/program variants
+  // (e.g. DJS KETENAGAKERJAAN JHT vs PENSIUN; CGS HK vs SG vs MU)
+  return stripped.length > 24 ? stripped.slice(0, 24).trimEnd() : stripped;
+}
+
+export async function getEntityGroups(date?: string): Promise<{
+  group_key: string;
+  names: string[];
+  emiten_count: number;
+  total_pct: number;
+}[]> {
+  const db = await openOwnershipDb();
+  const d = date ?? (await getAvailableDates()).at(-1);
+  if (!d) return [];
+
+  const investors = db.query<{
+    investor_name: string; share_codes: string; total_pct: number;
+  }>(
+    `SELECT investor_name,
+            GROUP_CONCAT(DISTINCT share_code) as share_codes,
+            SUM(pct) as total_pct
+     FROM idx_shareholders WHERE date = ? GROUP BY investor_name`,
+  ).all(d);
+
+  const groups = new Map<string, {
+    names: string[]; share_codes: Set<string>; total_pct: number;
+  }>();
+
+  for (const inv of investors) {
+    const key = normalizeGroupKey(inv.investor_name);
+    if (!key || key.length < 4) continue;
+    if (!groups.has(key)) groups.set(key, { names: [], share_codes: new Set(), total_pct: 0 });
+    const g = groups.get(key)!;
+    g.names.push(inv.investor_name);
+    for (const c of (inv.share_codes ?? '').split(',')) if (c) g.share_codes.add(c);
+    g.total_pct += inv.total_pct;
+  }
+
+  return Array.from(groups.entries())
+    .filter(([, g]) => g.names.length >= 2)
+    .map(([group_key, g]) => ({
+      group_key,
+      names: g.names,
+      emiten_count: g.share_codes.size,
+      total_pct: Math.round(g.total_pct * 100) / 100,
+    }))
+    .sort((a, b) => b.names.length - a.names.length || b.emiten_count - a.emiten_count);
+}
+
+export async function getWashScreener(date?: string, minScore = 15): Promise<{
+  share_code: string;
+  issuer_name: string;
+  wash_score: number;
+  churn_rate: number;
+  flip_count: number;
+  coord_count: number;
+  flags: string;
+}[]> {
+  const db = await openOwnershipDb();
+
+  // Per-emiten per-month churn (excluding initialization month)
+  const churnRows = db.query<{
+    share_code: string; issuer_name: string; date: string;
+    total: number; new_count: number; exit_count: number;
+  }>(
+    `SELECT d.share_code,
+            (SELECT issuer_name FROM idx_shareholders WHERE share_code=d.share_code LIMIT 1) as issuer_name,
+            d.date,
+            COUNT(*) as total,
+            SUM(CASE WHEN d.event='NEW' THEN 1 ELSE 0 END) as new_count,
+            SUM(CASE WHEN d.event='EXIT' THEN 1 ELSE 0 END) as exit_count
+     FROM ownership_delta d
+     WHERE d.date != ?
+     GROUP BY d.share_code, d.date`,
+  ).all(FIRST_MONTH);
+
+  // Velocity flippers per emiten
+  const flippers = await getVelocityFlippers();
+  const flipCount = new Map<string, number>();
+  for (const f of flippers) {
+    flipCount.set(f.share_code, (flipCount.get(f.share_code) ?? 0) + 1);
+  }
+
+  // Coordinated entry: months with ≥3 new CP/ID investors per emiten
+  const coordRows = db.query<{ share_code: string; date: string; coord_new: number }>(
+    `SELECT d.share_code, d.date,
+            SUM(CASE WHEN s.investor_type IN ('CP','ID') THEN 1 ELSE 0 END) as coord_new
+     FROM ownership_delta d
+     LEFT JOIN idx_shareholders s
+       ON s.share_code=d.share_code AND s.investor_name=d.investor_name AND s.date=d.date
+     WHERE d.event='NEW' AND d.date != ?
+     GROUP BY d.share_code, d.date
+     HAVING coord_new >= 3`,
+  ).all(FIRST_MONTH);
+
+  const coordCount = new Map<string, number>();
+  for (const r of coordRows) {
+    coordCount.set(r.share_code, (coordCount.get(r.share_code) ?? 0) + 1);
+  }
+
+  // Aggregate churn per emiten
+  type Stats = { issuer_name: string; churn_values: number[] };
+  const emitenMap = new Map<string, Stats>();
+  for (const r of churnRows) {
+    if (!emitenMap.has(r.share_code)) {
+      emitenMap.set(r.share_code, { issuer_name: r.issuer_name ?? r.share_code, churn_values: [] });
+    }
+    const churn = r.total > 0 ? (r.new_count + r.exit_count) / r.total : 0;
+    emitenMap.get(r.share_code)!.churn_values.push(churn);
+  }
+
+  const results: {
+    share_code: string; issuer_name: string; wash_score: number;
+    churn_rate: number; flip_count: number; coord_count: number; flags: string;
+  }[] = [];
+
+  for (const [share_code, stats] of emitenMap) {
+    const avg_churn = stats.churn_values.reduce((s, v) => s + v, 0) / stats.churn_values.length;
+    const flips = flipCount.get(share_code) ?? 0;
+    const coords = coordCount.get(share_code) ?? 0;
+
+    // Score components (each 0–100):
+    // churn_score: 20% avg churn rate → 100 (high turnover signal)
+    // flip_score: 7 velocity flippers → 100 (fast money in/out)
+    // coord_score: 4 coordinated-entry months → 100 (synchronized accumulation)
+    const churn_score = Math.min(avg_churn * 500, 100);
+    const flip_score = Math.min(flips * 15, 100);
+    const coord_score = Math.min(coords * 25, 100);
+
+    const wash_score = Math.round(churn_score * 0.4 + flip_score * 0.4 + coord_score * 0.2);
+    if (wash_score < minScore) continue;
+
+    const flags: string[] = [];
+    if (avg_churn > 0.3) flags.push('HIGH_CHURN');
+    if (flips >= 3) flags.push('FAST_FLIP');
+    if (coords >= 2) flags.push('COORD_ENTRY');
+
+    results.push({
+      share_code,
+      issuer_name: stats.issuer_name,
+      wash_score,
+      churn_rate: Math.round(avg_churn * 10000) / 100,
+      flip_count: flips,
+      coord_count: coords,
+      flags: flags.join(','),
+    });
+  }
+
+  return results.sort((a, b) => b.wash_score - a.wash_score).slice(0, 100);
+}
