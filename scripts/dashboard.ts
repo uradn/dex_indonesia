@@ -2875,6 +2875,10 @@ const BS_HTML = `<!DOCTYPE html>
       <div class="card-title">Expected Value Calculator</div>
       <div id="panel-ev">Loading…</div>
     </div>
+    <div class="card" style="border-left:3px solid var(--accent)">
+      <div class="card-title" style="color:var(--accent)">Institutional Positioning Intel <span style="font-size:9px;color:var(--muted);font-weight:400">KSEI &gt;1%</span></div>
+      <div id="panel-inst-pos">Loading…</div>
+    </div>
     <div class="card">
       <div class="card-title">Research Foundation</div>
       <div id="panel-research">Loading…</div>
@@ -4097,6 +4101,54 @@ function renderIdxFlowBs(flow) {
   <div style="margin-top:6px;font-size:9px;color:var(--muted)">Media prev: <span class="\${prevCls2}">\${prevVal2 !== null ? (prevVal2 >= 0 ? '+' : '')+prevVal2.toFixed(1)+' T' : '—'}</span> (\${prevMedia2?.date ?? '—'}) · Regular board ~40-60% headline</div>\`;
 }
 
+async function loadInstPositioning() {
+  const el = document.getElementById('panel-inst-pos');
+  if (!el) return;
+  try {
+    const [summ, kvd] = await Promise.all([
+      fetch('/api/ownership/institutions').then(r => r.json()),
+      fetch('/api/ownership/known-vs-dark').then(r => r.json()),
+    ]);
+    const latest = kvd[kvd.length - 1];
+    const prev = kvd[kvd.length - 2];
+    const darkChange = prev != null ? (latest.dark_ratio - prev.dark_ratio).toFixed(1) : null;
+    const darkCls = latest.dark_ratio > 95 ? 'red' : latest.dark_ratio > 90 ? 'orange' : 'green';
+
+    const trendIcon = d => d == null ? '' : d > 0.05 ? '▲' : d < -0.05 ? '▼' : '→';
+    const trendCls = d => d == null ? 'muted' : d > 0.05 ? 'green' : d < -0.05 ? 'red' : 'muted';
+
+    const swf = summ.filter(r => r.tier === 'SWF');
+    const am = summ.filter(r => r.tier === 'AM' && r.total_pct >= 1.0).slice(0, 5);
+
+    const rowHtml = rows => rows.map(r => \`<div style="display:flex;justify-content:space-between;padding:2px 0">
+      <span style="font-size:11px">\${esc(r.label)}</span>
+      <span style="font-size:11px"><b>\${r.total_pct.toFixed(1)}%</b> (×\${r.emiten_count})
+        <span class="\${trendCls(r.delta_pct)}" style="margin-left:3px">\${trendIcon(r.delta_pct)}\${r.delta_pct != null ? (r.delta_pct > 0 ? '+' : '') + r.delta_pct.toFixed(2) + '%' : ''}</span>
+      </span>
+    </div>\`).join('');
+
+    el.innerHTML = \`
+      <div style="margin-bottom:8px">
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">SWF</div>
+        \${swf.length ? rowHtml(swf) : '<span style="color:var(--muted);font-size:11px">None at &gt;1%</span>'}
+      </div>
+      <div style="margin-bottom:8px">
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Active Managers</div>
+        \${am.length ? rowHtml(am) : '<span style="color:var(--muted);font-size:11px">None at &gt;1%</span>'}
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:7px">
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Dark Foreign</div>
+        <div style="display:flex;align-items:baseline;gap:8px;margin-top:3px">
+          <span class="\${darkCls}" style="font-size:18px;font-weight:700">\${latest.dark_ratio.toFixed(1)}%</span>
+          <span style="font-size:10px;color:var(--muted)">anonymous \${darkChange != null ? '(MoM '+(+darkChange > 0 ? '+' : '')+darkChange+'pp)' : ''}</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px">of \${latest.total_foreign_pct.toFixed(0)}% total foreign holdings untraceable · <a href="/ownership" style="color:var(--accent);text-decoration:none">drill-down →</a></div>
+      </div>\`;
+  } catch {
+    if (el) el.innerHTML = \`<span style="color:var(--muted);font-size:11px">KSEI data unavailable</span>\`;
+  }
+}
+
 async function loadData() {
   try {
     const [thesis, archive, snap, flow] = await Promise.all([
@@ -4143,6 +4195,7 @@ async function loadData() {
     document.getElementById('panel-ev').innerHTML = renderEv(thesis);
     document.getElementById('panel-analog').innerHTML = renderAnalog(thesis);
     document.getElementById('panel-ctr').innerHTML = renderCtr(thesis);
+    loadInstPositioning();
     document.getElementById('panel-archive').innerHTML = renderArchive(archive);
     document.getElementById('panel-research').innerHTML = renderResearch();
     document.getElementById('panel-news').innerHTML = renderNews(thesis);

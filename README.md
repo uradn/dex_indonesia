@@ -791,13 +791,20 @@ Threshold lengkap di `src/tools/macro/freshness.ts`. Morning check baseline Nov 
 bun scripts/dashboard.ts   # start server
 ```
 
-3 halaman:
+4 halaman:
 
 | Route | Deskripsi |
 |-------|-----------|
 | `/` | Main dashboard — 13 panel modul, chart time-series, SCD gauge |
 | `/rr` | R&R / Greenspan-Guidotti page — **4 panels**: G-G Shield · 7 R&R Frameworks · MSCI Nov 2026 Reform Tracker · **r-g Debt Dynamics** (Blanchard/R&R Ch.13) |
 | `/bs` | **Big Short Thesis** — Burry-mode contrarian tracker |
+| `/ownership` | **IDX Shareholder Intelligence** — KSEI >1% holders · 8 tabs: By Emiten · By Investor · Foreign Heat · Anomalies · Network Graph · Concentration · Wash Screener · Institutions |
+
+```bash
+bun scripts/sync-ksei-ownership.ts           # sync latest 2 months (fzn0x/idx GitHub releases)
+bun scripts/sync-ksei-ownership.ts --backfill  # sync all available months (Feb–Oct 2026)
+bun scripts/sync-ksei-ownership.ts --dry-run   # print plan only
+```
 
 **`/` — Main Dashboard:**
 

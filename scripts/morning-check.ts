@@ -163,6 +163,12 @@ if (flow.status === 'fulfilled') {
 } else {
   console.log(`\n### 4. Foreign Flow  ❌ ${String(flow.reason).slice(0, 80)}`);
 }
+// KSEI supplementary — non-blocking, best-effort
+try {
+  const { getInstitutionalFlowSignal } = await import('../src/tools/ownership/ownership-db.js');
+  const sig = await getInstitutionalFlowSignal();
+  console.log(`  🏦 KSEI inst. flow: AM ${sig.am_net_direction} | SWF ${sig.swf_direction} | dark ${sig.dark_ratio_latest.toFixed(1)}%${sig.dark_rising ? ' ↑' : ''} | ${sig.summary}`);
+} catch { /* ownership DB not synced — skip */ }
 
 // 5 — Commodity
 if (commodity.status === 'fulfilled') {
