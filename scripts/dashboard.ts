@@ -16,6 +16,8 @@ import {
   getDeltaForEmiten, getAnomalies, getCrossHolderNetwork, getOwnershipStats,
   getEmitenHistory, getForeignMovers, getConcentrationRanking, getStateHoldings,
   getVelocityFlippers, getEntityGroups, getWashScreener,
+  getInstitutionalSummary, getInstitutionalTimeline, getInstitutionalHoldings,
+  getKnownVsDarkForeign, getInstitutionalFlowSignal, TRACKED_INSTITUTIONS,
 } from '../src/tools/ownership/ownership-db.ts';
 
 const DB_PATH = join(import.meta.dir, '../.dexter/macro/macro.db');
@@ -4263,6 +4265,7 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
     <div class="tab" onclick="switchTab('network')">Network Graph</div>
     <div class="tab" onclick="switchTab('concentration')">Concentration</div>
     <div class="tab" onclick="switchTab('wash')">Wash Screener</div>
+    <div class="tab" onclick="switchTab('institutions')">Institutions</div>
   </div>
 
   <!-- EMITEN TAB -->
@@ -4402,19 +4405,60 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
       <div id="groups-result"><div class="empty">Click Entity Groups to load</div></div>
     </div>
   </div>
+
+  <!-- INSTITUTIONS TAB -->
+  <div class="section" id="tab-institutions">
+    <div class="search-bar">
+      <button onclick="loadInstitutions()">Refresh</button>
+      <button onclick="loadKnownVsDark()" style="background:var(--surface);color:var(--muted);border:1px solid var(--border)">Known vs Dark Timeline</button>
+    </div>
+
+    <div class="sub-section">
+      <h4>Known Institutional Foreign Holders — Latest Month</h4>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:10px">
+        SWF = sovereign wealth fund · AM = asset manager · CUSTODIAN = nominee (clients unknown).
+        1089 unique foreign investors — only ~47 identifiable. Click row → 9-month trend.
+      </div>
+      <div id="inst-result"><div class="empty">Loading…</div></div>
+    </div>
+
+    <div class="sub-section">
+      <h4 id="inst-chart-title">9-Month Trend</h4>
+      <div id="inst-chart-wrap" style="display:none;position:relative;height:200px;margin-bottom:16px">
+        <canvas id="inst-chart"></canvas>
+      </div>
+      <div id="inst-holdings"><div class="empty">Click an institution row above</div></div>
+    </div>
+
+    <div class="sub-section">
+      <h4>Known vs Dark Foreign — 9-Month Timeline</h4>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:10px">
+        "Dark" = foreign investors not matching any tracked institution (SPVs, nominees, offshore vehicles).
+        Rising dark ratio = less traceable hot money entering IDX.
+      </div>
+      <div id="kvd-result"><div class="empty">Click Known vs Dark Timeline to load</div></div>
+      <div id="kvd-chart-wrap" style="display:none;position:relative;height:200px;margin-top:12px">
+        <canvas id="kvd-chart"></canvas>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
 let sigmaInstance = null;
 let graphData = null;
 let washLoaded = false;
+let instLoaded = false;
+let instChart = null;
+let kvdChart = null;
 
 // ── Tab switching ──────────────────────────────────────────────────────────────
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['emiten','investor','foreign','anomalies','network','concentration','wash'][i] === name));
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['emiten','investor','foreign','anomalies','network','concentration','wash','institutions'][i] === name));
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'wash' && !washLoaded) { washLoaded = true; loadWashScreener(); }
+  if (name === 'institutions' && !instLoaded) { instLoaded = true; loadInstitutions(); }
 }
 
 // ── Utils ──────────────────────────────────────────────────────────────────────
@@ -4994,6 +5038,137 @@ async function loadEntityGroups() {
   } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
 }
 
+// ── Institutions ──────────────────────────────────────────────────────────────
+const tierColor = t => t === 'SWF' ? 'var(--yellow)' : t === 'AM' ? 'var(--accent)' : 'var(--muted)';
+const tierBg = t => t === 'SWF' ? 'rgba(210,153,34,.15)' : t === 'AM' ? 'rgba(88,166,255,.12)' : 'rgba(125,133,144,.12)';
+
+async function loadInstitutions() {
+  const el = document.getElementById('inst-result');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const rows = await fetch('/api/ownership/institutions').then(r => r.json());
+    if (!rows.length) { el.innerHTML = '<div class="empty">No institutional holders found</div>'; return; }
+    const trendArrow = d => d == null ? '' : d > 0.05 ? \`<span style="color:var(--green)">▲ +\${d.toFixed(2)}%</span>\` : d < -0.05 ? \`<span style="color:var(--red)">▼ \${d.toFixed(2)}%</span>\` : \`<span style="color:var(--muted)">— \${d.toFixed(2)}%</span>\`;
+    el.innerHTML = \`<table>
+      <thead><tr>
+        <th>Institution</th><th>Tier</th><th>Total %</th><th>MoM</th><th>Emiten</th><th>Names (sample)</th>
+      </tr></thead>
+      <tbody>
+      \${rows.map(r => \`<tr style="cursor:pointer" onclick="loadInstDetail('\${r.key}','\${esc(r.label)}')">
+        <td style="font-weight:600">\${esc(r.label)}</td>
+        <td><span class="badge" style="background:\${tierBg(r.tier)};color:\${tierColor(r.tier)}">\${esc(r.tier)}</span></td>
+        <td>\${r.total_pct.toFixed(2)}%</td>
+        <td>\${trendArrow(r.delta_pct)}</td>
+        <td>\${r.emiten_count}</td>
+        <td style="font-size:10px;color:var(--muted);max-width:260px">\${r.names.slice(0,2).map(n=>esc(n)).join('<br>')}\${r.names.length>2?' <span style="color:var(--accent)">+\${r.names.length-2} more</span>':''}</td>
+      </tr>\`).join('')}
+      </tbody>
+    </table>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">\${rows.length} institutions tracked · \${rows.reduce((s,r)=>s+r.emiten_count,0)} emiten-holdings</div>\`;
+  } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
+}
+
+async function loadInstDetail(key, label) {
+  document.getElementById('inst-chart-title').textContent = label + ' — 9-Month Trend';
+  document.getElementById('inst-chart-wrap').style.display = 'block';
+  document.getElementById('inst-holdings').innerHTML = '<div class="empty">Loading…</div>';
+
+  const [timeline, holdings] = await Promise.all([
+    fetch(\`/api/ownership/institution-timeline?key=\${key}\`).then(r => r.json()),
+    fetch(\`/api/ownership/institution-holdings?key=\${key}\`).then(r => r.json()),
+  ]);
+
+  // Chart
+  const ctx = document.getElementById('inst-chart').getContext('2d');
+  if (instChart) instChart.destroy();
+  instChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: timeline.map(r => r.date.slice(0,7)),
+      datasets: [{
+        label: 'Total % held',
+        data: timeline.map(r => r.total_pct),
+        borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,.08)',
+        tension: 0.3, fill: true, pointRadius: 4,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#7d8590', font: { size: 10 } }, grid: { color: '#21262d' } },
+        y: { ticks: { color: '#7d8590', font: { size: 10 }, callback: v => v+'%' }, grid: { color: '#21262d' } },
+      },
+    },
+  });
+
+  // Holdings table
+  const hel = document.getElementById('inst-holdings');
+  if (!holdings.length) { hel.innerHTML = '<div class="empty">No current holdings</div>'; return; }
+  hel.innerHTML = \`<table>
+    <thead><tr><th>Code</th><th>Issuer</th><th>Investor Name</th><th>Pct%</th></tr></thead>
+    <tbody>
+    \${holdings.map(h => \`<tr>
+      <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${esc(h.share_code)}';switchTab('emiten');loadEmiten()">\${esc(h.share_code)}</td>
+      <td style="color:var(--muted)">\${esc(h.issuer_name)}</td>
+      <td style="font-size:11px">\${esc(h.investor_name)}</td>
+      <td>\${h.pct.toFixed(2)}%</td>
+    </tr>\`).join('')}
+    </tbody>
+  </table>\`;
+}
+
+async function loadKnownVsDark() {
+  const el = document.getElementById('kvd-result');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const rows = await fetch('/api/ownership/known-vs-dark').then(r => r.json());
+    if (!rows.length) { el.innerHTML = '<div class="empty">No data</div>'; return; }
+
+    const latest = rows[rows.length - 1];
+    const prev = rows[rows.length - 2];
+    const ratioChange = prev ? (latest.dark_ratio - prev.dark_ratio).toFixed(1) : '—';
+    const ratioColor = latest.dark_ratio > 90 ? 'var(--red)' : latest.dark_ratio > 80 ? 'var(--orange)' : 'var(--green)';
+
+    el.innerHTML = \`<table>
+      <thead><tr><th>Month</th><th>Total Foreign%</th><th>Known%</th><th>Dark%</th><th>Dark Ratio</th></tr></thead>
+      <tbody>
+      \${rows.map(r => \`<tr>
+        <td>\${r.date.slice(0,7)}</td>
+        <td>\${r.total_foreign_pct.toFixed(1)}%</td>
+        <td style="color:var(--green)">\${r.known_pct.toFixed(2)}%</td>
+        <td style="color:var(--red)">\${r.dark_pct.toFixed(2)}%</td>
+        <td><span style="color:\${r.dark_ratio>90?'var(--red)':r.dark_ratio>80?'var(--orange)':'var(--muted)'};font-weight:600">\${r.dark_ratio.toFixed(1)}%</span></td>
+      </tr>\`).join('')}
+      </tbody>
+    </table>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">Latest dark ratio: <b style="color:\${ratioColor}">\${latest.dark_ratio.toFixed(1)}%</b> (MoM: \${ratioChange}pp)</div>\`;
+
+    // Chart
+    document.getElementById('kvd-chart-wrap').style.display = 'block';
+    const ctx2 = document.getElementById('kvd-chart').getContext('2d');
+    if (kvdChart) kvdChart.destroy();
+    kvdChart = new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels: rows.map(r => r.date.slice(0,7)),
+        datasets: [
+          { label: 'Known %', data: rows.map(r => r.known_pct), backgroundColor: 'rgba(63,185,80,.5)', stack: 'foreign' },
+          { label: 'Dark %', data: rows.map(r => r.dark_pct), backgroundColor: 'rgba(248,81,73,.4)', stack: 'foreign' },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#7d8590', font: { size: 10 } } } },
+        scales: {
+          x: { stacked: true, ticks: { color: '#7d8590', font: { size: 10 } }, grid: { color: '#21262d' } },
+          y: { stacked: true, ticks: { color: '#7d8590', font: { size: 10 }, callback: v => v+'%' }, grid: { color: '#21262d' } },
+        },
+      },
+    });
+  } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────────
 loadStats();
 </script>
@@ -5274,6 +5449,37 @@ const server = Bun.serve({
     if (url.pathname === '/api/ownership/entity-groups') {
       const date = url.searchParams.get('date') ?? undefined;
       try { return Response.json(await getEntityGroups(date)); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/institutions') {
+      const date = url.searchParams.get('date') ?? undefined;
+      try { return Response.json(await getInstitutionalSummary(date)); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/institution-timeline') {
+      const key = url.searchParams.get('key') ?? '';
+      if (!key) return Response.json({ error: 'key required' }, { status: 400 });
+      try { return Response.json(await getInstitutionalTimeline(key)); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/institution-holdings') {
+      const key = url.searchParams.get('key') ?? '';
+      const date = url.searchParams.get('date') ?? undefined;
+      if (!key) return Response.json({ error: 'key required' }, { status: 400 });
+      try { return Response.json(await getInstitutionalHoldings(key, date)); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/known-vs-dark') {
+      try { return Response.json(await getKnownVsDarkForeign()); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/institutional-flow-signal') {
+      try { return Response.json(await getInstitutionalFlowSignal()); }
       catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
     }
 

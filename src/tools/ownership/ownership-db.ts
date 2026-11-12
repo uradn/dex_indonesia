@@ -691,3 +691,251 @@ export async function getWashScreener(date?: string, minScore = 15): Promise<{
 
   return results.sort((a, b) => b.wash_score - a.wash_score).slice(0, 100);
 }
+
+// ── Institutional Foreign Tracker ─────────────────────────────────────────────
+
+export type InstitutionTier = 'SWF' | 'AM' | 'CUSTODIAN';
+
+export type InstitutionDef = {
+  key: string;
+  label: string;
+  keywords: string[];
+  tier: InstitutionTier;
+};
+
+// Priority order matters: AM matched before CUSTODIAN so "JPMCB NA RE - VANGUARD…" → VANGUARD, not JPMCB.
+export const TRACKED_INSTITUTIONS: InstitutionDef[] = [
+  { key: 'GIC', label: 'GIC Singapore', keywords: ['GOVERNMENT OF SINGAPORE'], tier: 'SWF' },
+  { key: 'VANGUARD', label: 'Vanguard', keywords: ['VANGUARD'], tier: 'AM' },
+  { key: 'FIDELITY', label: 'Fidelity', keywords: ['FIDELITY'], tier: 'AM' },
+  { key: 'FRANKLIN', label: 'Franklin Templeton', keywords: ['FRANKLIN TEMPLETON'], tier: 'AM' },
+  { key: 'ABERDEEN', label: 'Aberdeen / abrdn', keywords: ['ABERDEEN', 'ABRDN'], tier: 'AM' },
+  { key: 'LAZARD', label: 'Lazard', keywords: ['LAZARD'], tier: 'AM' },
+  { key: 'WELLINGTON', label: 'Wellington', keywords: ['WELLINGTON INVESTMENTS'], tier: 'AM' },
+  { key: 'INVESCO', label: 'Invesco', keywords: ['INVESCO ASIAN', 'INVESCO FUNDS', 'INVESCO CONTINENTAL'], tier: 'AM' },
+  { key: 'MAYBANK_AM', label: 'Maybank AM', keywords: ['MAYBANK GLOBAL GROWTH', 'MAYBANK OFFSHORE CORPORATE'], tier: 'AM' },
+  { key: 'CIMB_INVEST', label: 'CIMB Investment', keywords: ['CIMB GROUP SDN', 'CIMB PRIVATE EQUITY'], tier: 'AM' },
+  { key: 'ALLIANZ_G', label: 'Allianz Global', keywords: ['ALLIANZ GLOBAL LIMITED'], tier: 'AM' },
+  { key: 'PICTET', label: 'Pictet', keywords: ['BANQUE PICTET'], tier: 'CUSTODIAN' },
+  { key: 'JPMCB', label: 'JPMorgan Custody', keywords: ['JPMCB NA ', 'JPMORGAN CHASE BANK'], tier: 'CUSTODIAN' },
+  { key: 'UBS', label: 'UBS Custody', keywords: ['UBS AG'], tier: 'CUSTODIAN' },
+  { key: 'HSBC', label: 'HSBC Custody', keywords: ['HSBC BANK', 'HSBC LTD'], tier: 'CUSTODIAN' },
+  { key: 'SCB', label: 'Standard Chartered', keywords: ['STANDARD CHARTERED BANK'], tier: 'CUSTODIAN' },
+  { key: 'CGS', label: 'CGS International', keywords: ['CGS INTERNATIONAL'], tier: 'CUSTODIAN' },
+  { key: 'PHILLIP', label: 'Phillip Securities', keywords: ['PHILLIP SECURITIES'], tier: 'CUSTODIAN' },
+];
+
+function matchInstitution(investorName: string): string | null {
+  const upper = investorName.toUpperCase();
+  for (const inst of TRACKED_INSTITUTIONS) {
+    if (inst.keywords.some(kw => upper.includes(kw))) return inst.key;
+  }
+  return null;
+}
+
+export async function getInstitutionalSummary(date?: string): Promise<{
+  key: string;
+  label: string;
+  tier: InstitutionTier;
+  total_pct: number;
+  emiten_count: number;
+  prev_total_pct: number | null;
+  delta_pct: number | null;
+  names: string[];
+}[]> {
+  const db = await openOwnershipDb();
+  const dates = await getAvailableDates();
+  const curr = date ?? dates.at(-1);
+  const prev = date ? dates[dates.indexOf(date) - 1] : dates.at(-2);
+  if (!curr) return [];
+
+  const rows = db.query<{ investor_name: string; pct: number }>(
+    `SELECT investor_name, SUM(pct) as pct FROM idx_shareholders WHERE date=? AND local_foreign='A' GROUP BY investor_name`,
+  ).all(curr);
+
+  const prevRows = prev
+    ? db.query<{ investor_name: string; pct: number }>(
+        `SELECT investor_name, SUM(pct) as pct FROM idx_shareholders WHERE date=? AND local_foreign='A' GROUP BY investor_name`,
+      ).all(prev)
+    : [];
+
+  const prevMap = new Map<string, number>(prevRows.map(r => [r.investor_name, r.pct]));
+
+  type AccEntry = {
+    label: string; tier: InstitutionTier; total_pct: number;
+    prev_total_pct: number; emiten_set: Set<string>; names: string[];
+  };
+  const acc = new Map<string, AccEntry>();
+
+  for (const inst of TRACKED_INSTITUTIONS) {
+    acc.set(inst.key, { label: inst.label, tier: inst.tier, total_pct: 0, prev_total_pct: 0, emiten_set: new Set(), names: [] });
+  }
+
+  for (const r of rows) {
+    const key = matchInstitution(r.investor_name);
+    if (!key) continue;
+    const e = acc.get(key)!;
+    e.total_pct += r.pct;
+    e.prev_total_pct += prevMap.get(r.investor_name) ?? 0;
+    e.names.push(r.investor_name);
+  }
+
+  // Count emiten separately
+  const emitenRows = db.query<{ investor_name: string; share_code: string }>(
+    `SELECT investor_name, share_code FROM idx_shareholders WHERE date=? AND local_foreign='A'`,
+  ).all(curr);
+  for (const r of emitenRows) {
+    const key = matchInstitution(r.investor_name);
+    if (!key) continue;
+    acc.get(key)!.emiten_set.add(r.share_code);
+  }
+
+  return Array.from(acc.entries())
+    .map(([key, e]) => ({
+      key,
+      label: e.label,
+      tier: e.tier,
+      total_pct: Math.round(e.total_pct * 100) / 100,
+      emiten_count: e.emiten_set.size,
+      prev_total_pct: prev ? Math.round(e.prev_total_pct * 100) / 100 : null,
+      delta_pct: prev ? Math.round((e.total_pct - e.prev_total_pct) * 100) / 100 : null,
+      names: [...new Set(e.names)],
+    }))
+    .filter(e => e.total_pct > 0 || (e.prev_total_pct ?? 0) > 0)
+    .sort((a, b) => b.total_pct - a.total_pct);
+}
+
+export async function getInstitutionalTimeline(key: string): Promise<{
+  date: string;
+  total_pct: number;
+  emiten_count: number;
+}[]> {
+  const db = await openOwnershipDb();
+  const dates = await getAvailableDates();
+  const result: { date: string; total_pct: number; emiten_count: number }[] = [];
+
+  for (const d of dates) {
+    const rows = db.query<{ investor_name: string; pct: number; share_code: string }>(
+      `SELECT investor_name, pct, share_code FROM idx_shareholders WHERE date=? AND local_foreign='A'`,
+    ).all(d);
+    let total = 0;
+    const emitenSet = new Set<string>();
+    for (const r of rows) {
+      if (matchInstitution(r.investor_name) === key) {
+        total += r.pct;
+        emitenSet.add(r.share_code);
+      }
+    }
+    result.push({ date: d, total_pct: Math.round(total * 100) / 100, emiten_count: emitenSet.size });
+  }
+  return result;
+}
+
+export async function getInstitutionalHoldings(key: string, date?: string): Promise<{
+  share_code: string;
+  issuer_name: string;
+  investor_name: string;
+  pct: number;
+  local_foreign: string;
+}[]> {
+  const db = await openOwnershipDb();
+  const d = date ?? (await getAvailableDates()).at(-1);
+  if (!d) return [];
+
+  const rows = db.query<{ investor_name: string; pct: number; share_code: string; issuer_name: string }>(
+    `SELECT investor_name, pct, share_code, issuer_name FROM idx_shareholders WHERE date=? AND local_foreign='A' ORDER BY pct DESC`,
+  ).all(d);
+
+  return rows
+    .filter(r => matchInstitution(r.investor_name) === key)
+    .map(r => ({ ...r, local_foreign: 'A' }));
+}
+
+export async function getKnownVsDarkForeign(): Promise<{
+  date: string;
+  known_pct: number;
+  dark_pct: number;
+  total_foreign_pct: number;
+  dark_ratio: number;
+}[]> {
+  const db = await openOwnershipDb();
+  const dates = await getAvailableDates();
+  const result: { date: string; known_pct: number; dark_pct: number; total_foreign_pct: number; dark_ratio: number }[] = [];
+
+  for (const d of dates) {
+    const rows = db.query<{ investor_name: string; pct: number }>(
+      `SELECT investor_name, SUM(pct) as pct FROM idx_shareholders WHERE date=? AND local_foreign='A' GROUP BY investor_name`,
+    ).all(d);
+
+    let known = 0;
+    let total = 0;
+    for (const r of rows) {
+      total += r.pct;
+      if (matchInstitution(r.investor_name)) known += r.pct;
+    }
+    const dark = total - known;
+    result.push({
+      date: d,
+      known_pct: Math.round(known * 100) / 100,
+      dark_pct: Math.round(dark * 100) / 100,
+      total_foreign_pct: Math.round(total * 100) / 100,
+      dark_ratio: total > 0 ? Math.round(dark / total * 1000) / 10 : 0,
+    });
+  }
+  return result;
+}
+
+// M5 supplementary signal: institutional foreign flow quality score 0-100.
+// Higher = more concerning (dark foreign rising, known AM exiting).
+export async function getInstitutionalFlowSignal(): Promise<{
+  score: number;
+  dark_ratio_latest: number;
+  dark_ratio_prev: number;
+  dark_rising: boolean;
+  am_net_direction: 'BUYING' | 'SELLING' | 'NEUTRAL';
+  swf_direction: 'BUYING' | 'SELLING' | 'NEUTRAL';
+  summary: string;
+}> {
+  const kvd = await getKnownVsDarkForeign();
+  const latest = kvd.at(-1);
+  const prev = kvd.at(-2);
+
+  const dark_ratio_latest = latest?.dark_ratio ?? 0;
+  const dark_ratio_prev = prev?.dark_ratio ?? 0;
+  const dark_rising = dark_ratio_latest > dark_ratio_prev + 1;
+
+  const summary_data = await getInstitutionalSummary();
+  const amDelta = summary_data
+    .filter(e => e.tier === 'AM')
+    .reduce((s, e) => s + (e.delta_pct ?? 0), 0);
+  const swfDelta = summary_data
+    .filter(e => e.tier === 'SWF')
+    .reduce((s, e) => s + (e.delta_pct ?? 0), 0);
+
+  const am_net_direction: 'BUYING' | 'SELLING' | 'NEUTRAL' =
+    amDelta > 0.1 ? 'BUYING' : amDelta < -0.1 ? 'SELLING' : 'NEUTRAL';
+  const swf_direction: 'BUYING' | 'SELLING' | 'NEUTRAL' =
+    swfDelta > 0.1 ? 'BUYING' : swfDelta < -0.1 ? 'SELLING' : 'NEUTRAL';
+
+  // Score: dark_ratio contributes 0-60, AM exit contributes 0-25, SWF exit 0-15
+  const dark_score = Math.min(dark_ratio_latest * 0.6, 60);
+  const am_score = am_net_direction === 'SELLING' ? Math.min(Math.abs(amDelta) * 10, 25) : 0;
+  const swf_score = swf_direction === 'SELLING' ? Math.min(Math.abs(swfDelta) * 10, 15) : 0;
+  const score = Math.round(dark_score + am_score + swf_score + (dark_rising ? 5 : 0));
+
+  const parts: string[] = [];
+  if (dark_rising) parts.push(`dark foreign ↑${(dark_ratio_latest - dark_ratio_prev).toFixed(1)}pp`);
+  if (am_net_direction === 'SELLING') parts.push(`AM net sell ${amDelta.toFixed(2)}%`);
+  if (swf_direction === 'SELLING') parts.push(`SWF net sell ${swfDelta.toFixed(2)}%`);
+  if (!parts.length) parts.push('institutional flow stable');
+
+  return {
+    score,
+    dark_ratio_latest,
+    dark_ratio_prev,
+    dark_rising,
+    am_net_direction,
+    swf_direction,
+    summary: parts.join('; '),
+  };
+}
