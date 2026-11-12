@@ -217,7 +217,7 @@ export async function runCommodityEngine(): Promise<CommodityEngineOutput> {
   const daysToB50 = Math.round((new Date(B50_MANDATE_DATE).getTime() - today.getTime()) / 86_400_000);
   if (biodieselData) {
     if (biodieselData.b50StatusNumeric === 50) {
-      flags.push(`B50 mandate ACTIVE — CPO feedstock demand ~18M mt vs capacity 19.6M kL; export volume diversion → BoP drain (CPO export $24.4B basket); domestic CPO shortage risk → minyak goreng spike (M11)`);
+      flags.push(`B50 mandate ACTIVE — quota 19.6M kL biodiesel (~17.8M MT CPO feedstock); export volume diversion → BoP drain (CPO export $24.4B basket); domestic CPO shortage risk → minyak goreng spike (M11)`);
     } else if (biodieselData.b50StatusNumeric === 45) {
       flags.push(`B45 de-facto (B50 mandate not met by Jul 1) — 2026 quota flat at 15.6M kL signals feedstock constraint; less BoP drag than B50 but BPDPKS subsidy still elevated`);
     }

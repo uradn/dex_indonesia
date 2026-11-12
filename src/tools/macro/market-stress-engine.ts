@@ -286,7 +286,7 @@ export async function runMarketStressEngine(): Promise<MarketStressOutput> {
   if (valuationDisconnect) flags.push('Valuation disconnect: elevated P/E + negative breadth — narrow leadership risk');
   if (ihsgFloorEstimate !== null && priceLevel !== null && priceLevel <= ihsgFloorEstimate.level * 1.20) {
     const pctAbove = ((priceLevel - ihsgFloorEstimate.level) / ihsgFloorEstimate.level * 100).toFixed(1);
-    flags.push(`IHSG NEAR STRUCTURAL FLOOR: ${priceLevel.toLocaleString()} pts — ${pctAbove}% above implied EPS floor (${ihsgFloorEstimate.level.toLocaleString()} pts at ${ihsgFloorEstimate.troughPe}× P/E × EPS ${ihsgFloorEstimate.impliedEps}). Below floor = earnings collapse priced in.`);
+    flags.push(`IHSG NEAR STRUCTURAL FLOOR: ${Math.round(priceLevel).toLocaleString('en')} pts — ${pctAbove}% above implied EPS floor (${ihsgFloorEstimate.level.toLocaleString('en')} pts at ${ihsgFloorEstimate.troughPe}× P/E × EPS ${ihsgFloorEstimate.impliedEps}). Below floor = earnings collapse priced in.`);
   }
 
   // IDX circuit breaker / trading halt — env pin IDX_LAST_CIRCUIT_BREAKER_DATE (YYYY-MM-DD)
@@ -356,9 +356,9 @@ function formatCascadeStatus(cascade: StopLossCascade): string {
   if (cascade.priceLevel === null) return '| Stop-Loss Cascade | price n/a | — | 5,000 / 4,800 / 4,500 |';
   const nodeStr = cascade.nodes.map(n => {
     const icon = n.status === 'breached' ? '🔴' : n.status === 'approaching' ? '🟡' : '🟢';
-    return `${icon} ${n.threshold.toLocaleString()}`;
+    return `${icon} ${n.threshold.toLocaleString('en')}`;
   }).join(' → ');
-  return `| Stop-Loss Cascade | IHSG ${cascade.priceLevel.toLocaleString()} pts | ${cascade.levelsBreached > 0 ? cascade.levelsBreached + '/3 BREACHED' : 'CLEAR'} | ${nodeStr} (+${cascade.cascadeBonus}pts bonus) |`;
+  return `| Stop-Loss Cascade | IHSG ${Math.round(cascade.priceLevel).toLocaleString('en')} pts | ${cascade.levelsBreached > 0 ? cascade.levelsBreached + '/3 BREACHED' : 'CLEAR'} | ${nodeStr} (+${cascade.cascadeBonus}pts bonus) |`;
 }
 
 function formatMarketStressOutput(output: MarketStressOutput): string {

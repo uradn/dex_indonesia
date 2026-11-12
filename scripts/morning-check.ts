@@ -255,7 +255,7 @@ if (banking.status === 'fulfilled') {
 if (market.status === 'fulfilled') {
   const r = market.value;
   console.log(`\n### 10. Market (IHSG)  ${emoji(r.alert)} ${r.stressScore}/100`);
-  const priceStr = r.cascade.priceLevel !== null ? `IHSG ${r.cascade.priceLevel.toLocaleString()} pts | ` : '';
+  const priceStr = r.cascade.priceLevel !== null ? `IHSG ${Math.round(r.cascade.priceLevel).toLocaleString('en')} pts | ` : '';
   const cascadeStr = r.cascade.active
     ? `Cascade ${r.cascade.levelsBreached}/3 BREACHED (+${r.cascade.cascadeBonus}pts)`
     : r.cascade.priceLevel !== null ? 'Cascade CLEAR' : 'Cascade n/a';

@@ -9,7 +9,7 @@
  */
 
 import 'dotenv/config';
-import { upsertPoints } from '../src/tools/macro/time-series-db.js';
+import { upsertPoints, getLastN } from '../src/tools/macro/time-series-db.js';
 import type { MacroDataPoint } from '../src/tools/macro/types.js';
 
 function parseNum(text: string, patterns: RegExp[]): number | null {
@@ -183,6 +183,15 @@ async function fetchCpo(): Promise<MacroDataPoint | null> {
     ]),
   );
   if (val === null || val < 400 || val > 2500) return null;
+  // Outlier guard: reject if >50% drop from recent average (bad Exa parse protection)
+  const recent = await getLastN('cpo_price_myr', 6);
+  if (recent.length >= 3) {
+    const avgRecent = recent.reduce((s, p) => s + p.value, 0) / recent.length;
+    if (val < avgRecent * 0.5) {
+      console.log(`  CPO: rejected outlier $${val}/MT (avg recent $${avgRecent.toFixed(0)})`);
+      return null;
+    }
+  }
   // World Bank Pink Sheet monthly — use first of current month
   const now = new Date();
   const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
