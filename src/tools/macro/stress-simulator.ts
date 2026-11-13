@@ -284,7 +284,7 @@ export const stressSimulator = new DynamicStructuredTool({
 
     // ── Scenario inputs summary ────────────────────────────────────────
     const inputLines: string[] = [];
-    if (idrLevel !== undefined)        inputLines.push(`USDIDR:    ${idrLevel.toLocaleString()} (current: ${idrData?.currentValue.toLocaleString() ?? 'n/a'})`);
+    if (idrLevel !== undefined)        inputLines.push(`USDIDR:    ${Math.round(idrLevel).toLocaleString('en')} (current: ${idrData != null ? Math.round(idrData.currentValue).toLocaleString('en') : 'n/a'})`);
     if (vixLevel !== undefined)        inputLines.push(`VIX:       ${vixLevel} (current: ${vixData?.currentValue.toFixed(1) ?? 'n/a'})`);
     if (dxyLevel !== undefined)        inputLines.push(`DXY:       ${dxyLevel} (current: ${dxyData?.currentValue.toFixed(1) ?? 'n/a'})`);
     if (eidoPctChange !== undefined)   inputLines.push(`EIDO:      ${eidoPctChange > 0 ? '+' : ''}${eidoPctChange}% from ${eidoData?.currentValue.toFixed(2) ?? 'n/a'}`);

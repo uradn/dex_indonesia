@@ -124,16 +124,16 @@ export async function computeMinskyStressIndex(): Promise<MinskyStressIndex> {
 
       if (idrWeakening && hedgingCritical) {
         regime = 'ponzi'; score = 20;
-        keyRisk = `Corporate FX: USDIDR ${usdIdrVal.toLocaleString()} (${((usdIdrVal / 15_900 - 1) * 100).toFixed(1)}% depreciation) + hedging compliance ${hedging?.toFixed(1)}% → unhedged USD debt service > EBITDA`;
+        keyRisk = `Corporate FX: USDIDR ${Math.round(usdIdrVal).toLocaleString('en')} (${((usdIdrVal / 15_900 - 1) * 100).toFixed(1)}% depreciation) + hedging compliance ${hedging?.toFixed(1)}% → unhedged USD debt service > EBITDA`;
       } else if (idrWeakening || hedgingLow) {
         regime = 'speculative'; score = 10;
-        keyRisk = `Corporate FX: USDIDR ${usdIdrVal.toLocaleString()} + hedging ${hedging?.toFixed(1) ?? 'unknown'}% → elevated USD debt service cost`;
+        keyRisk = `Corporate FX: USDIDR ${Math.round(usdIdrVal).toLocaleString('en')} + hedging ${hedging?.toFixed(1) ?? 'unknown'}% → elevated USD debt service cost`;
       } else if (usdIdrVal > 18_000) {
         regime = 'speculative'; score = 7;
-        keyRisk = `Corporate FX: USDIDR ${usdIdrVal.toLocaleString()} (above BI APBN assumption 16,500 by ${((usdIdrVal / 16_500 - 1) * 100).toFixed(1)}%) → rising FX debt burden`;
+        keyRisk = `Corporate FX: USDIDR ${Math.round(usdIdrVal).toLocaleString('en')} (above BI APBN assumption 16,500 by ${((usdIdrVal / 16_500 - 1) * 100).toFixed(1)}%) → rising FX debt burden`;
       } else {
         regime = 'hedge'; score = 0;
-        keyRisk = `Corporate FX: USDIDR ${usdIdrVal.toLocaleString()} within manageable range`;
+        keyRisk = `Corporate FX: USDIDR ${Math.round(usdIdrVal).toLocaleString('en')} within manageable range`;
       }
     }
 

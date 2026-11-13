@@ -123,8 +123,8 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     const divergenceScore = Math.round(Math.min(100, Math.max(0, Math.abs(marketVsApbn) * 5)));
     checks.push({
       dimension: 'USDIDR vs APBN Assumption',
-      officialClaim: `APBN baseline: IDR ${APBN_ASSUMPTIONS.usdIdr.toLocaleString()}/USD`,
-      marketSignal: `Market: IDR ${usdIdrSpot.value.toLocaleString()}/USD (${marketVsApbn >= 0 ? '+' : ''}${marketVsApbn.toFixed(1)}% vs APBN)`,
+      officialClaim: `APBN baseline: IDR ${Math.round(APBN_ASSUMPTIONS.usdIdr).toLocaleString('en')}/USD`,
+      marketSignal: `Market: IDR ${Math.round(usdIdrSpot.value).toLocaleString('en')}/USD (${marketVsApbn >= 0 ? '+' : ''}${marketVsApbn.toFixed(1)}% vs APBN)`,
       divergenceScore,
       flagged: Math.abs(marketVsApbn) > 10,
     });
@@ -242,7 +242,7 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     checks.push({
       dimension: 'Compound IDR+Oil vs APBN (Double-Whammy)',
       officialClaim: `APBN oil subsidy cost: USDIDR ${APBN_ASSUMPTIONS.usdIdr} × $${APBN_ASSUMPTIONS.oilPrice}/bbl`,
-      marketSignal: `Market USDIDR ${usdIdrVal.toLocaleString()} × $${brentVal.toFixed(1)}/bbl = +${combinedImpact.toFixed(1)}% real cost overshoot`,
+      marketSignal: `Market USDIDR ${Math.round(usdIdrVal).toLocaleString('en')} × $${brentVal.toFixed(1)}/bbl = +${combinedImpact.toFixed(1)}% real cost overshoot`,
       divergenceScore: Math.min(100, combinedImpact * 2),
       flagged: combinedImpact > 20,
     });

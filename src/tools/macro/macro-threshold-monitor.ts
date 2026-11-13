@@ -73,7 +73,7 @@ export const macroThresholdMonitor = new DynamicStructuredTool({
 
     // ── FX Defense thresholds ──────────────────────────────────────────
     if (checkFx && spots.usdidr !== null) {
-      dataLines.push(`USDIDR: ${spots.usdidr.toLocaleString()}`);
+      dataLines.push(`USDIDR: ${Math.round(spots.usdidr).toLocaleString('en')}`);
 
       if (previousUsdIdr) {
         const dailyMovePct = ((spots.usdidr - previousUsdIdr) / previousUsdIdr) * 100;

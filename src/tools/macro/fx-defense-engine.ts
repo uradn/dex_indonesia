@@ -366,11 +366,11 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
     const ndfPremium = ndfOffshore.rate - currentSpot.value;
     const ndfPremiumPct = (ndfPremium / currentSpot.value) * 100;
     if (ndfPremiumPct > 2) {
-      flags.push(`NDF OFFSHORE PREMIUM CRITICAL: ${ndfOffshore.rate.toLocaleString()} vs spot ${currentSpot.value.toLocaleString()} (+${ndfPremium.toFixed(0)} IDR, +${ndfPremiumPct.toFixed(1)}%) — offshore markets pricing significant IDR weakness. Signal leads onshore by hours.`);
+      flags.push(`NDF OFFSHORE PREMIUM CRITICAL: ${Math.round(ndfOffshore.rate).toLocaleString('en')} vs spot ${Math.round(currentSpot.value).toLocaleString('en')} (+${ndfPremium.toFixed(0)} IDR, +${ndfPremiumPct.toFixed(1)}%) — offshore markets pricing significant IDR weakness. Signal leads onshore by hours.`);
     } else if (ndfPremiumPct > 0.5) {
-      flags.push(`NDF offshore premium: ${ndfOffshore.rate.toLocaleString()} vs spot ${currentSpot.value.toLocaleString()} (+${ndfPremium.toFixed(0)} IDR, +${ndfPremiumPct.toFixed(1)}%) — mild offshore IDR weakness signal.`);
+      flags.push(`NDF offshore premium: ${Math.round(ndfOffshore.rate).toLocaleString('en')} vs spot ${Math.round(currentSpot.value).toLocaleString('en')} (+${ndfPremium.toFixed(0)} IDR, +${ndfPremiumPct.toFixed(1)}%) — mild offshore IDR weakness signal.`);
     } else if (ndfPremiumPct < -0.5) {
-      flags.push(`NDF offshore discount: ${ndfOffshore.rate.toLocaleString()} vs spot ${currentSpot.value.toLocaleString()} (${ndfPremium.toFixed(0)} IDR, ${ndfPremiumPct.toFixed(1)}%) — offshore market more optimistic on IDR than onshore.`);
+      flags.push(`NDF offshore discount: ${Math.round(ndfOffshore.rate).toLocaleString('en')} vs spot ${Math.round(currentSpot.value).toLocaleString('en')} (${ndfPremium.toFixed(0)} IDR, ${ndfPremiumPct.toFixed(1)}%) — offshore market more optimistic on IDR than onshore.`);
     }
   }
 
@@ -426,9 +426,9 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   // Shadow rate flags (R&R 1st-gen crisis)
   if (shadowRate?.monthsToAttack !== null && shadowRate?.monthsToAttack !== undefined) {
     if (shadowRate.monthsToAttack < 6) {
-      flags.push(`SHADOW RATE CRITICAL: defense capacity exhaustion in ${shadowRate.monthsToAttack} months — implied USDIDR ${shadowRate.impliedUsdidr?.toLocaleString() ?? 'n/a'} at collapse point [R&R 1st-gen crisis Ch.12]`);
+      flags.push(`SHADOW RATE CRITICAL: defense capacity exhaustion in ${shadowRate.monthsToAttack} months — implied USDIDR ${shadowRate.impliedUsdidr != null ? Math.round(shadowRate.impliedUsdidr).toLocaleString('en') : 'n/a'} at collapse point [R&R 1st-gen crisis Ch.12]`);
     } else if (shadowRate.monthsToAttack < 12) {
-      flags.push(`Shadow rate watch: ${shadowRate.monthsToAttack} months to defense capacity floor — implied USDIDR ${shadowRate.impliedUsdidr?.toLocaleString() ?? 'n/a'} [R&R Ch.12]`);
+      flags.push(`Shadow rate watch: ${shadowRate.monthsToAttack} months to defense capacity floor — implied USDIDR ${shadowRate.impliedUsdidr != null ? Math.round(shadowRate.impliedUsdidr).toLocaleString('en') : 'n/a'} [R&R Ch.12]`);
     }
   }
 
@@ -608,7 +608,7 @@ function buildNarrative(ctx: {
   if (ctx.spotSnapshot) {
     const dir = ctx.spotSnapshot.roc >= 0 ? 'depreciated' : 'appreciated';
     parts.push(
-      `IDR ${dir} ${Math.abs(ctx.spotSnapshot.roc).toFixed(1)}% MoM to ${ctx.spotSnapshot.current.toLocaleString()} IDR/USD.`,
+      `IDR ${dir} ${Math.abs(ctx.spotSnapshot.roc).toFixed(1)}% MoM to ${Math.round(ctx.spotSnapshot.current).toLocaleString('en')} IDR/USD.`,
     );
   }
   if (ctx.dep3m !== null) {
@@ -704,7 +704,7 @@ function formatOutput(output: FxDefenseEngineOutput): string {
       `| Months to GG floor breach | ${output.shadowRate.monthsToGgBreach !== null ? output.shadowRate.monthsToGgBreach.toFixed(1) + ' mo' : 'n/a (run uln_engine first)'} |`,
       `| Months to SRBI ceiling (1,500T) | ${output.shadowRate.monthsToSrbiCeiling !== null ? output.shadowRate.monthsToSrbiCeiling.toFixed(1) + ' mo' : 'n/a (SRBI not growing)'} |`,
       `| **Months to attack (binding)** | **${output.shadowRate.monthsToAttack !== null ? output.shadowRate.monthsToAttack.toFixed(1) + ' months' : 'n/a'}** |`,
-      `| Implied USDIDR at collapse | ${output.shadowRate.impliedUsdidr !== null ? output.shadowRate.impliedUsdidr.toLocaleString() : 'n/a (requires depreciation trend)'} |`,
+      `| Implied USDIDR at collapse | ${output.shadowRate.impliedUsdidr !== null ? Math.round(output.shadowRate.impliedUsdidr).toLocaleString('en') : 'n/a (requires depreciation trend)'} |`,
       `| IDR depreciation at attack | ${output.shadowRate.depreciationAtAttack !== null ? '+' + output.shadowRate.depreciationAtAttack.toFixed(1) + '%' : 'n/a'} |`,
       ``,
     ].join('\n') : '',

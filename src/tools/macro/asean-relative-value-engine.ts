@@ -433,7 +433,7 @@ function buildNarrative(ctx: {
 
 function formatOutput(output: AseanRelativeValueOutput & { idrSpotPrice?: number }): string {
   const idrDisplay = output.idrSpotPrice
-    ? `IDR ${output.idrSpotPrice.toLocaleString()}`
+    ? `IDR ${Math.round(output.idrSpotPrice).toLocaleString('en')}`
     : 'IDR n/a';
   return [
     `# ASEAN Relative Value Engine — Indonesia`,
