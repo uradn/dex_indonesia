@@ -309,8 +309,8 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
     }]);
   }
 
-  // MSCI Nov 12 2026 countdown (same constant as M5)
-  const NEXT_MSCI_REVIEW = new Date(process.env.MSCI_SAIR_DATE ?? '2026-11-12');
+  // MSCI next SAIR countdown (same constant as M5; env MSCI_SAIR_DATE: 2027-05-01 after Nov 12 passed)
+  const NEXT_MSCI_REVIEW = new Date(process.env.MSCI_SAIR_DATE ?? '2027-05-01');
   const daysToMsci = Math.max(0, Math.floor((NEXT_MSCI_REVIEW.getTime() - Date.now()) / 86_400_000));
 
   // P/E flags — Thailand discount (primary) + SG capital flight signal
@@ -334,7 +334,7 @@ export async function runAseanRelativeValueEngine(): Promise<AseanRelativeValueO
   }
 
   // Gap #2: Coordination game — MSCI deadline as common knowledge + P/E discount joint signal
-  // Bryant (1980) / Morris-Shin (1998): when all fund managers know T=Nov 12, pre-positioning
+  // Bryant (1980) / Morris-Shin (1998): when all fund managers know T (next SAIR May 2027), pre-positioning
   // starts in earnest at T-45. P/E already depressed = less anchor value in holding EIDO.
   if (peDiscountVsTh !== null && peDiscountVsTh > 25 && daysToMsci <= 45) {
     flags.push(

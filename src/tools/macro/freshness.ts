@@ -73,7 +73,8 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   // IDX short sell: feature launched Oct 1 2026; only 5 stocks; 50 initial investors; idx.co.id CF-blocked;
   // media coverage thin; data cadence effectively weekly-to-monthly — 21d RED too tight for new feature
   { name: 'idx_short_sell_volume_idr_bn',module: 'M9',  freshDays: 7,  yellowDays: 21,  redDays: 35 },
-  { name: 'bank_pdnl_pct',              module: 'M8',  freshDays: 35, yellowDays: 55,  redDays: 90 },
+  // OJK SPI PDN published ~45-60d after month-end — 60d fresh gate prevents false-stale alert
+  { name: 'bank_pdnl_pct',              module: 'M8',  freshDays: 60, yellowDays: 80,  redDays: 120 },
   // DNDF — env_manual annual update from BI LKT
   { name: 'bi_dndf_outstanding_bn',      module: 'M3',  freshDays: 100,yellowDays: 200, redDays: 400 },
   { name: 'uln_hedging_compliance_pct',  module: 'M13', freshDays: 120,yellowDays: 200, redDays: 365 },

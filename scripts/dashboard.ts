@@ -3204,8 +3204,8 @@ function renderGameTheory(thesis, snap) {
       <div style="font-size:9px;color:var(--muted);margin-top:4px">Oct 15 2026 → Apr 30 2027 comment close → Jun 30 2027 decision (T-254d)</div>
       <div style="display:flex;gap:5px;margin-top:6px;align-items:center">
         <div style="background:rgba(220,50,50,.12);border:1px solid var(--red);border-radius:3px;padding:3px 7px;font-size:9px">
-          <span class="red" style="font-weight:700">SAIR \${snap?.envFlags?.sairDate ?? '2026-11-12'}</span>
-          <span style="color:var(--muted);margin-left:4px">T-\${Math.max(0, Math.round((new Date(snap?.envFlags?.sairDate ?? '2026-11-12').getTime() - Date.now()) / 86400000))}d · stock exclusions + Standalone confirmation</span>
+          <span class="red" style="font-weight:700">SAIR \${snap?.envFlags?.sairDate ?? '2027-05-01'}</span>
+          <span style="color:var(--muted);margin-left:4px">T-\${Math.max(0, Math.round((new Date(snap?.envFlags?.sairDate ?? '2027-05-01').getTime() - Date.now()) / 86400000))}d · next stage-gate: free-float exclusions + Standalone stage 2</span>
         </div>
       </div>
     </div>

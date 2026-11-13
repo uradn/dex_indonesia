@@ -367,14 +367,15 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   // Peak forced-sell phase bonus: ETF mechanics + mandate rebalancing = concurrent sell waves
   const bryantPhaseBonus = (bryantPhase === 'etf_mechanics' || bryantPhase === 'mandate_rebalancing') && msciStatus === 'downgrade_risk' ? 5 : 0;
 
-  // MSCI SAIR Nov 12 2026 proximity bonus — discrete event, separate from Standalone consultation.
+  // MSCI SAIR proximity bonus — discrete event, separate from Standalone consultation.
   // SAIR (Semi-Annual Index Review) can announce additional free-float exclusions + Standalone confirmation.
   // Triggers second passive sell wave layered on top of consultation-driven continuous selling.
   //   T-0 to T-7  → +10 (SAIR week — MSCI announcement imminent, pre-positioning complete)
   //   T-8 to T-30 → +5  (SAIR window — pre-positioning active, forced-sell front-running)
-  // Expires after Nov 12 (daysToSair < 0). downgrade_risk only — under_review/confirmed lack sell trigger.
-  const MSCI_SAIR_NOV12 = new Date(process.env.MSCI_SAIR_DATE ?? '2026-11-12');
-  const daysToSair = Math.round((MSCI_SAIR_NOV12.getTime() - Date.now()) / 86_400_000);
+  // Active only when daysToSair ∈ [0,30]. downgrade_risk only — under_review/confirmed lack sell trigger.
+  // MSCI_SAIR_DATE env: 2027-05-01 (next SAIR after Nov 12 2026 Standalone confirmation)
+  const MSCI_NEXT_SAIR = new Date(process.env.MSCI_SAIR_DATE ?? '2027-05-01');
+  const daysToSair = Math.round((MSCI_NEXT_SAIR.getTime() - Date.now()) / 86_400_000);
   const sairBonus = msciStatus === 'downgrade_risk' && daysToSair >= 0 && daysToSair <= 7  ? 10
     : msciStatus === 'downgrade_risk' && daysToSair >= 0 && daysToSair <= 30 ? 5
     : 0;
@@ -507,11 +508,11 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
     flags.push(`MSCI May 29 rebalancing: ~$${msciRebalancingOutflowUsd}bn passive outflow (19 companies removed) — explains part of EIDO weakness. Standalone consultation Oct 15 dwarfs this: $3-15B forced-sell if confirmed.`);
   }
 
-  // MSCI SAIR Nov 12 proximity flag
+  // MSCI SAIR proximity flag (next: May 2027)
   if (sairBonus > 0) {
     const sairUrgency = daysToSair <= 7 ? 'IMMINENT' : 'ACTIVE';
     flags.push(
-      `MSCI SAIR NOV 12 T-${daysToSair}d [${sairUrgency}]: Semi-Annual Index Review — free-float noncompliant exclusions possible + Standalone confirmation announcement. ` +
+      `MSCI SAIR T-${daysToSair}d [${sairUrgency}]: Semi-Annual Index Review — free-float noncompliant exclusions possible + Standalone stage-gate announcement. ` +
       `Second passive sell wave layered on ongoing consultation selling. ` +
       `Pre-positioning by active funds in final ${daysToSair}d window. (+${sairBonus} score)`
     );

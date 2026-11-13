@@ -25,7 +25,8 @@
 import { getLatestPoint, upsertPoints } from '../time-series-db.js';
 import type { MacroDataPoint } from '../types.js';
 
-const FRESHNESS_DAYS = 35;
+// OJK SPI PDN published ~45-60d after month-end (not 35d); 60d freshness gate prevents false-stale alert.
+const FRESHNESS_DAYS = 60;
 const NOW = () => new Date().toISOString();
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
