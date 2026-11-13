@@ -187,8 +187,9 @@ const SNAPSHOT_INDICATORS = [
   'hormuz_visible_traffic_pct_prewar', 'hormuz_ghost_transit_mbpd',
   // m8 bnpl/fintech lending (npl leading indicator 2-3q lag)
   'fintech_lending_outstanding_idr_t', 'fintech_lending_growth_yoy_pct',
-  // m10 fiscal monthly realisasi
+  // m10 fiscal monthly realisasi + APBN KiTa YTD pressconf
   'apbn_revenue_monthly_trn', 'apbn_spending_monthly_trn', 'apbn_budget_balance_monthly_trn',
+  'apbn_deficit_ytd_idr_t', 'apbn_spending_ytd_idr_t',
   // regime engine
   'ihsg_level',
   // m3 dndf — off-balance-sheet FX contingent liability
@@ -1023,6 +1024,17 @@ function renderFiscal(d) {
   const fiscalBanner = fiscalLowConf
     ? \`<div class="tag red" style="display:block;padding:6px 8px;font-size:10px;line-height:1.3;white-space:normal;margin-bottom:6px">⚠ \${fiscalLowConf}</div>\`
     : '';
+  const deficitYtd   = ind['apbn_deficit_ytd_idr_t']?.value ?? null;
+  const deficitYtdDt = ind['apbn_deficit_ytd_idr_t']?.date ?? null;
+  const spendingYtd  = ind['apbn_spending_ytd_idr_t']?.value ?? null;
+  const spendingYtdDt= ind['apbn_spending_ytd_idr_t']?.date ?? null;
+  const DEFICIT_CEILING = 689.15;
+  const SPENDING_PAGU   = 3842.73;
+  // Deficit pace: (ytd / ceiling) / (month_of_data / 12) × 100
+  const deficitMonth = deficitYtdDt ? parseInt(deficitYtdDt.slice(5,7)) : null;
+  const deficitPace  = (deficitYtd != null && deficitMonth) ? Math.round((deficitYtd / DEFICIT_CEILING) / (deficitMonth / 12) * 100) : null;
+  const deficitPctPagu  = deficitYtd != null ? Math.round(deficitYtd / DEFICIT_CEILING * 100) : null;
+  const spendingPctPagu = spendingYtd != null ? Math.round(spendingYtd / SPENDING_PAGU * 100) : null;
   const brent    = ind['brent_price_usd']?.value;
   const gap        = ind['bbm_subsidy_gap_idr_liter']?.value;
   const cr         = ind['bbm_cost_recovery_idr_liter']?.value;
@@ -1053,6 +1065,8 @@ function renderFiscal(d) {
     kv('Trade Balance', trade != null ? (trade > 0 ? '+' : '') + fmtNum(trade, 1) + 'bn' : '—', trade < -5 ? 'red' : trade < 0 ? 'orange' : 'green'),
     kv('G-G Ratio', gg ? fmtNum(gg, 2) + 'x' : '—', gg < 1.0 ? 'red' : gg < 1.5 ? 'orange' : gg < 2.0 ? 'yellow' : 'green'),
     kv('ULN DSR', dsr ? fmtNum(dsr, 1) + '%' + stale(dsrDate, 365) : '—', dsr > 30 ? 'red' : dsr > 25 ? 'orange' : dsr > 20 ? 'yellow' : 'green'),
+    deficitYtd != null ? kv('Deficit YTD', 'Rp' + fmtNum(deficitYtd, 0) + 'T (' + deficitPctPagu + '% pagu)' + (deficitPace != null ? ' pace ' + deficitPace + '%' : '') + stale(deficitYtdDt, 90), deficitPace > 100 ? 'red' : deficitPace > 85 ? 'orange' : 'green') : '',
+    spendingYtd != null ? kv('Spending YTD', 'Rp' + fmtNum(spendingYtd, 0) + 'T (' + spendingPctPagu + '% pagu)' + stale(spendingYtdDt, 90), spendingPctPagu > 85 ? 'orange' : 'green') : '',
   ].join('');
 }
 
