@@ -1065,8 +1065,20 @@ function renderFiscal(d) {
     kv('Trade Balance', trade != null ? (trade > 0 ? '+' : '') + fmtNum(trade, 1) + 'bn' : '—', trade < -5 ? 'red' : trade < 0 ? 'orange' : 'green'),
     kv('G-G Ratio', gg ? fmtNum(gg, 2) + 'x' : '—', gg < 1.0 ? 'red' : gg < 1.5 ? 'orange' : gg < 2.0 ? 'yellow' : 'green'),
     kv('ULN DSR', dsr ? fmtNum(dsr, 1) + '%' + stale(dsrDate, 365) : '—', dsr > 30 ? 'red' : dsr > 25 ? 'orange' : dsr > 20 ? 'yellow' : 'green'),
-    deficitYtd != null ? kv('Deficit YTD', 'Rp' + fmtNum(deficitYtd, 0) + 'T (' + deficitPctPagu + '% pagu)' + (deficitPace != null ? ' pace ' + deficitPace + '%' : '') + stale(deficitYtdDt, 90), deficitPace > 100 ? 'red' : deficitPace > 85 ? 'orange' : 'green') : '',
-    spendingYtd != null ? kv('Spending YTD', 'Rp' + fmtNum(spendingYtd, 0) + 'T (' + spendingPctPagu + '% pagu)' + stale(spendingYtdDt, 90), spendingPctPagu > 85 ? 'orange' : 'green') : '',
+    deficitYtd != null ? (() => {
+      const paceColor = deficitPace > 100 ? 'var(--red)' : deficitPace > 85 ? 'var(--orange)' : deficitPace > 66 ? 'var(--yellow)' : 'var(--green)';
+      const barFill = deficitPace != null ? Math.min(100, deficitPace) : 0;
+      const barHtml = deficitPace != null
+        ? \`<span style="display:inline-flex;align-items:center;gap:4px">Rp\${fmtNum(deficitYtd,0)}T (\${deficitPctPagu}% pagu)\${stale(deficitYtdDt,90)}<span style="display:inline-block;vertical-align:middle;width:50px;height:7px;background:var(--border);border-radius:3px;overflow:hidden;margin-left:2px"><span style="display:block;height:100%;width:\${barFill}%;background:\${paceColor};border-radius:3px"></span></span><span style="font-size:9px;color:\${paceColor};font-weight:700">\${deficitPace}%</span></span>\`
+        : \`Rp\${fmtNum(deficitYtd,0)}T (\${deficitPctPagu}% pagu)\`;
+      return kv('Deficit Pace', barHtml, deficitPace > 100 ? 'red' : deficitPace > 85 ? 'orange' : 'green');
+    })() : '',
+    spendingYtd != null ? (() => {
+      const spColor = spendingPctPagu > 90 ? 'var(--red)' : spendingPctPagu > 80 ? 'var(--orange)' : 'var(--green)';
+      const spFill  = Math.min(100, spendingPctPagu ?? 0);
+      const spHtml  = \`<span style="display:inline-flex;align-items:center;gap:4px">Rp\${fmtNum(spendingYtd,0)}T\${stale(spendingYtdDt,90)}<span style="display:inline-block;vertical-align:middle;width:50px;height:7px;background:var(--border);border-radius:3px;overflow:hidden;margin-left:2px"><span style="display:block;height:100%;width:\${spFill}%;background:\${spColor};border-radius:3px"></span></span><span style="font-size:9px;color:\${spColor};font-weight:700">\${spendingPctPagu}%</span></span>\`;
+      return kv('Spending YTD', spHtml, spendingPctPagu > 90 ? 'red' : spendingPctPagu > 80 ? 'orange' : 'green');
+    })() : '',
   ].join('');
 }
 

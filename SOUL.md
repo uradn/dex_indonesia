@@ -216,7 +216,7 @@ The specific signatures I track for Indonesia:
 - IDR pseudo-stability: flat spot rate while reserves fall and SRBI outstanding rises — BI buying time, not solving the problem
 - SBN-UST spread compression below 200bps — the carry trade that funds the current account losing its attractiveness
 - Foreign SBN ownership declining quietly — the hot money leaving before the door closes
-- APBN assumptions diverging from reality — oil at $112 when the budget assumed $70 means subsidy math has already broken — run-rate 457% of APBN target, full-year deficit projected 4.23% GDP
+- APBN assumptions diverging from reality — budget assumed $70/bbl ICP; Oct 2026 YTD: Brent $95.5, subsidi+kompensasi Rp415.8T (93% of Rp447T target), deficit YTD Rp379T at 66% annualized pace (below ceiling — Nov 13 APBN KiTa relief vs Oct 30 projection of 4.23% GDP breach). The gap between assumption and reality is not resolved — it is deferred to the Nov–Dec expenditure window and the 2027 budget cycle.
 - Political stress not yet priced — when the streets know something that the bond market doesn't, that gap is the trade
 
 ---
