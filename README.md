@@ -503,12 +503,17 @@ Sistem akan otomatis rekalkulasi subsidy gap, ICP alert, dan foreign flow risk s
 | **~Apr 2026** | Prabowo kunjungi Moskow — bilateral dengan Putin; energy security masuk agenda utama (konteks: Hormuz krisis sudah aktif sejak 28 Feb, ICP naik ke $77+ YTD) |
 | **16 Apr 2026** | Bahlil statement BBM tidak naik — "pasca kunjungan ke Rusia dan Prancis" (verbatim); konfirmasi energy diplomasi sedang berjalan; margin ke $100 saat itu $23/bbl |
 | **Mei–Jul 2026** | Bahlil serangkaian kunjungan ke Moskow; negosiasi volume, jalur distribusi, mekanisme pembayaran alternatif (IDR/RUB swap atau barter) |
-| **~Jul–Agu 2026** | Framework MoU disepakati: **150 juta barel** crude G2G via **Lemigas** + LPG inclusion. Pricing tidak dipublikasikan |
+| **~Jul–Agu 2026** | Framework MoU disepakati: **150 juta barel** crude G2G via **Lemigas** + LPG inclusion. Pricing tidak dipublikasikan. Perpres 26/2026 diterbitkan sebagai dasar hukum pengadaan minyak bumi, BBM, dan LPG untuk ketahanan energi nasional |
+| **29 Jun 2026** | **Pengiriman pertama tiba**: 770,000 bbl ESPO crude di **Lawe-Lawe Port, Balikpapan** (Kalimantan Timur). Nilai ~$75M (~$96/bbl efektif). Lemigas sebagai contracting authority, Pertamina sebagai refining partner |
+| **5 Agu 2026** | Bahlil konfirmasi resmi: "tahap pertama sudah tiba, tahap kedua dalam proses" |
 | **Sep 2026** | Pertemuan bilateral Prabowo-Putin kedua; deal dikonfirmasi. Bahlil: **"jangan tanya harga"** — komersial sensitivity + secondary sanctions concern. ICP resmi Sep $112.81/bbl (+$23.38 MoM, ESDM Oct 12) — gap subsidi makin melebar |
-| **1 Okt 2026** | Suahasil Nazara (Menkeu baru, dilantik 14 Sep): **"kalau minyak naik, BBM harus naik"** — divergensi publik dari posisi Bahlil ($100 ceiling). Signal: Kemenkeu tidak confident deal Russia cukup menutup fiskal gap; defisit trajectory over 3% |
+| **11 Sep 2026** | Bahlil: **"tahap kedua sudah mulai jalan"** — volume undisclosed; kontrak jangka panjang sedang disiapkan |
+| **1 Okt 2026** | Suahasil Nazara (Menkeu baru, dilantik 14 Sep): **"kalau minyak naik, BBM harus naik"** — divergensi publik dari posisi Bahlil ($100 ceiling). Signal: Kemenkeu internally skeptis deal Russia cukup menutup fiskal gap; defisit trajectory over 3% |
 | **13 Okt 2026** | Bahlil **reaffirm BBM subsidi tidak naik sampai 31 Des 2026** meski Brent $112. Explicitly cite G2G Rusia sebagai cushion. Pertalite gap saat itu Rp6.900/L — total subsidi burden sudah Rp331.4T YTD (run-rate 457%) |
-| **18 Okt 2026** | Trump suspend new Russia sanctions (executive order) → ESPO deal geopolitical risk **sedikit berkurang** (US OFAC enforcement window lebih sempit). Tapi payment mechanism (IDR/RUB swap vs USD) masih belum dikonfirmasi publik |
-| **19 Okt 2026** | Brent $107.40 (−2.24% hari ini); ESPO discount est. $10–15/bbl = net ~$92–97/bbl untuk Indonesia. Pertalite gap Rp7.056/L (at $107.40 spot + USDIDR 18,040) — deal hanya offset Rp485–975/L dari gap Rp7.056/L (~7–14%) |
+| **18 Okt 2026** | Trump suspend new Russia sanctions (executive order) → satu jalur OFAC enforcement lebih sempit. **Tapi**: Lindsey Graham Act of 2026 tetap berlaku — tariff up to 100% pada pembeli utama energi Rusia. Net: risiko sanctions **tidak hilang**, hanya bergeser mekanisme |
+| **19 Okt 2026** | Brent $107.40; ESPO discount est. $10–15/bbl = net ~$92–97/bbl. Pertalite gap Rp7.056/L (at $107.40 + USDIDR 18,040) — deal hanya offset Rp485–975/L (~7–14%) |
+| **24–27 Okt 2026** | **Perpres 26/2026 direvisi** — scope diperluas dari G2G Russia ke impor minyak **berbagai negara** + BLU (Badan Layanan Umum) dilibatkan di samping Lemigas. Signal implicit: Russia single-source tidak cukup cover gap; kebutuhan legal basis untuk China/India refined product |
+| **Nov 2026** | Bloomberg: **[Batam island funnels $1.6B Russian oil](https://www.bloomberg.com/graphics/2026-indonesia-russia-oil-asia-hub/)** — Batam (dekat Singapura) sebagai shadow fleet + STS (ship-to-ship) transfer + blending hub sebelum masuk sistem Pertamina. Volume via Batam jauh melampaui 770k bbl "resmi" Lemigas. Mekanisme ini bypass Pertamina global bond obligation. **Implikasi**: skala akuisisi minyak Rusia aktual jauh di atas official acknowledgment |
 
 **Deal structure:**
 
@@ -516,18 +521,20 @@ Sistem akan otomatis rekalkulasi subsidy gap, ICP alert, dan foreign flow risk s
 |-----------|--------|
 | **Crude spec** | ESPO Blend (API 34–36°, sulfur ~0.5–0.6%) |
 | **Refinery compatibility** | ✅ Compatible — ESPO API 34° ≈ Minas/Duri (API 34°); Balongan + Cilacap siap proses tanpa upgrade |
-| **Vehicle** | Lemigas (Puslitbang Teknologi Minyak & Gas ESDM) — G2G channel, bukan Pertamina langsung. Buffers secondary sanctions risk |
-| **Volume** | ~150 juta barel total framework; ~65–70% total impor crude Indonesia selama ~7–8 bulan (konsumsi ~600–650k bbl/hari) |
+| **Vehicle (official)** | Lemigas (Puslitbang Teknologi Minyak & Gas ESDM) — G2G channel, bukan Pertamina langsung. Buffers secondary sanctions risk; Perpres 26/2026 (direvisi Oct 2026) + BLU sebagai dasar hukum |
+| **Vehicle (shadow)** | **Batam island hub** (Bloomberg Nov 2026): shadow fleet STS transfers + blending dekat Singapura → masuk sistem Pertamina. Volume $1.6B — jauh di atas 770k bbl official Lemigas. Mekanisme ini memisahkan pencatatan dari actual crude origin |
+| **Volume (official)** | 770k bbl terkonfirmasi (Jun 29 delivery); 150 juta barel total framework; phase 2 berjalan Sep 11 (volume undisclosed) |
+| **Volume (aktual est.)** | **Jauh lebih besar** — Bloomberg Batam $1.6B ÷ ~$96/bbl = ~16.7 juta bbl via shadow route |
 | **LPG** | Included — mengurangi exposure ke LPG Qatar via Hormuz (JKM $28+/MMBtu Sep 2026) |
 | **Pricing** | Tidak dipublikasikan. Est. ESPO discount vs Brent: **~$10–15/bbl** (historical Asia ESPO spread). Bahlil refuse to confirm |
-| **Payment** | Tidak dikonfirmasi; kemungkinan IDR/RUB swap atau barter (batubara/CPO/nikel) — menghindari USD SWIFT clearing |
+| **Payment** | Tidak dikonfirmasi; kemungkinan IDR/RUB swap atau barter (batubara/CPO/nikel) — menghindari USD SWIFT clearing. Pertamina global bond terms = obstacle untuk direct payment |
 
 **Dampak ke engine Dexter:**
 
 | Engine | Dampak | Status engine saat ini |
 |--------|--------|------------------------|
-| **M11 `computeCostRecovery()`** | Formula Brent-based **overstates subsidi gap** ~Rp485–975/L jika deal 25–50% of supply. Gap Rp7.056/L (Oct 19, $107.40 Brent + USDIDR 18,040) adalah ceiling — aktual sedikit lebih rendah jika ESPO delivery terealisasi | Env var `RUSSIA_CRUDE_DISCOUNT_USD` tersedia (default 0 = conservative). Set 3.1 (25% supply) atau 6.25 (50%) saat delivery terkonfirmasi |
-| **M10 Subsidi run-rate (457%)** | Slight overstate jika Russia discount material — mungkin aktual ~440–450% bukan 457%; deal hanya offset ~7–14% dari gap per liter | Akan terkoreksi otomatis saat `RUSSIA_CRUDE_DISCOUNT_USD` diset |
+| **M11 `computeCostRecovery()`** | Formula Brent-based **overstates subsidi gap** ~Rp358–716/L jika deal 25–50% of supply. Gap **Rp5,316/L** (Nov 13, $95.5 Brent + USDIDR 18,215) — turun dari peak Rp7,056/L (Oct 19); offset ~7–13% dari gap. Jika volume Batam $1.6B terealisasi → offset bisa lebih besar, tapi masih tidak eliminasi gap | Env var `RUSSIA_CRUDE_DISCOUNT_USD` default 0 (conservative — official 770k bbl saja). Set 3.1 (25%) atau 6.25 (50%) saat realisasi terkonfirmasi; Batam volume butuh verifikasi independen sebelum diset |
+| **M10 Subsidi run-rate (419%)** | Slight overstate jika Russia discount material; deal offset ~7–13% per liter; aktual mungkin ~400–410% | Terkoreksi otomatis saat `RUSSIA_CRUDE_DISCOUNT_USD` diset |
 | **M6 Narrative** | "Jangan tanya harga" = **opacity signal** — pemerintah sadar selisih vs Brent tapi tidak akui. Melemahkan akuntabilitas fiskal → divergence score bertahan | Treated as narrative divergence check #9 amplifier |
 | **M12 Geopolitical** | Prabowo-Putin 2× + Lemigas vehicle = Indonesia non-aligned aktif; concern institutional EM investors (EU-aligned + ESG funds) | `geopolitical_risk` sub-signal diperkuat |
 | **M5 Foreign Flow** | Russia alignment bisa trigger ESG/sanctions-concern screen dari Western fund; partially offset oleh MSCI EM CONFIRMED Jun 23 | Monitor EIDO autocorrelation (herding cascade signal) pasca-deal announcement |
@@ -546,12 +553,13 @@ Sistem akan otomatis rekalkulasi subsidy gap, ICP alert, dan foreign flow risk s
 ```
 
 **⚠️ Caveat:** Deal ini framework MoU — realisasi bergantung pada:
-1. **Secondary sanctions** — Trump suspend new Russia sanctions Oct 18 → OFAC enforcement window lebih sempit; risiko residual **sedikit berkurang** tapi belum eliminated. Lemigas buffer masih relevan untuk European counterparty exposure
-2. **Shipping/insurance** — ESPO route (Kozmino → Asia) tidak via Hormuz ✅; tapi war risk premium + P&I club coverage; shadow fleet pricing naik
-3. **Payment mechanism** — USD clearing alternative (IDR/RUB swap, barter batubara/CPO/nikel) masih dalam finalisasi → execution risk. Bahlil belum konfirmasi publik per Oct 19
-4. **Volume timeline** — 150 juta barel adalah total framework, bukan bulanan; pace delivery belum dikonfirmasi publik
-5. **Fiscal arithmetic** — Suahasil Oct 1 signal: Kemenkeu internally skeptis deal cukup tutup fiskal gap. Run-rate subsidi 457% (Rp331.4T YTD) — deal offset hanya ~7–14% per liter. BBM hike masih tabel pilihan Kemenkeu post-31 Des jika Brent bertahan $100+
-6. **Realization pace** — Nov 3–4 2026: pemerintah membuka jalur impor Pertalite **dari China dan India** via Pertamina Patra Niaga (Dirjen Migas ESDM Laode Sulaeman). Signal implicit: Russia crude G2G belum cukup cover gap pasokan BBM siap distribusi dalam timeframe yang dibutuhkan. Dua-layer diversifikasi (crude + refined product) = pengakuan bahwa satu jalur tidak cukup.
+1. **Secondary sanctions — ELEVATED** — Trump suspend new Russia sanctions Oct 18 (satu mekanisme), tapi **Graham Act of 2026 tetap aktif**: tariff up to 100% pada pembeli utama energi Rusia. Indonesia sudah di-flag ($75M import). Buffer: $15B US energy commitment memberikan "diplomatic room" tapi tidak imun. Lemigas + Batam blending = layer ambiguitas untuk OFAC, bukan eliminasi risiko
+2. **Shipping/insurance** — ESPO route (Kozmino → Asia) tidak via Hormuz ✅; shadow fleet + Batam STS = war risk premium + P&I club coverage lebih tinggi; dokumentasi origin jadi opaque
+3. **Payment mechanism** — USD clearing alternative (IDR/RUB swap, barter batubara/CPO/nikel) masih dalam finalisasi. Pertamina global bond terms mencegah direct Russian crude purchase — Lemigas + Batam route adalah workaround
+4. **Volume timeline** — Phase 1: 770k bbl tiba Jun 29 ✅. Phase 2: "sudah mulai jalan" Sep 11 — volume undisclosed. Batam $1.6B shadow route menunjukkan realisasi aktual jauh di atas official acknowledgment. Total 150 juta barel framework hingga akhir 2026 — pace tidak dipublikasi
+5. **Fiscal arithmetic** — Subsidi run-rate 419% (Rp333.9T YTD Nov 3). Deal offset hanya ~7–13% per liter di Brent $95. BBM hike masih tabel pilihan Kemenkeu post-31 Des jika Brent kembali ke $100+
+6. **Realization pace** — Nov 3–4 2026: jalur impor Pertalite **dari China dan India** dibuka via Pertamina Patra Niaga. Signal: Russia crude belum cukup cepat cover gap BBM siap distribusi. Dua-layer diversifikasi = pengakuan bahwa satu jalur tidak cukup
+7. **Batam shadow scale** — Bloomberg $1.6B via Batam = ~16.7 juta bbl jika $96/bbl. Jika valid, ini ~11% dari framework 150 juta barel via satu route saja. Belum ada konfirmasi official; treat sebagai indicative, bukan confirmed volume untuk engine input
 
 **Update Nov 3–4 2026 — Diversifikasi Pertalite ke China & India:**
 
@@ -564,7 +572,7 @@ Bersamaan dengan deal Russia yang masih dalam tahap realisasi, pemerintah membuk
 | **Mekanisme** | Framework MoU | Perpres terbit → Permen finalisasi Nov 2026 |
 | **Alasan diversifikasi** | Diskon ESPO ~$10–15/bbl vs Brent | Kurangi ketergantungan Singapura |
 | **Hormuz exposure** | ✅ Nihil (ESPO route via Kozmino) | ✅ Nihil (China/India Pacific route) |
-| **Status Nov 2026** | MoU — delivery pace belum dikonfirmasi | Permen disempurnakan; implementasi bertahap |
+| **Status Nov 2026** | Phase 1 ✅ 770k bbl Jun 29. Phase 2 berjalan Sep 11. Perpres direvisi Oct 24–27. Bloomberg: $1.6B via Batam shadow route | Perpres 26/2026 (revisi) berlaku; Permen finalisasi; implementasi bertahap |
 
 Sumber: Dirjen Migas ESDM Laode Sulaeman — [CNN Indonesia 4 Nov 2026](https://www.cnnindonesia.com/ekonomi/20261104103155-92-1423088/indonesia-jajaki-impor-pertalite-dari-china-dan-india) · Kompas 3 Nov 2026.
 
