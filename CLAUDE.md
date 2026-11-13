@@ -56,6 +56,10 @@ bun scripts/backfill-announcement-outcomes.ts  # seed announcement_outcomes DB f
 #   27 records: BI rate guidance (11), Kemenkeu fiscal (8), ESDM BBM (5), MBG (3) — 2020–2026
 #   --dry-run: print counts only. Run once; re-run is idempotent (INSERT OR REPLACE).
 #   DB computed priors: BI 50% (n=4, 730d), ESDM 60% (n=3); Kemenkeu falls back to hard-coded 0.42.
+bun scripts/backfill-apbn-spending-deficit-history.ts  # seed apbn_deficit_ytd_idr_t + apbn_spending_ytd_idr_t historical points
+#   deficit: 2024=509.2T, 2025=695.1T, 2026-Oct=379.0T
+#   spending: 2024-FY=3359.8T, 2025 Q1/Q2/Q3/FY + 2026-Oct=2763.1T
+#   --dry-run: print only. Run once; re-run idempotent.
 
 # Dashboard (localhost:6080)
 bun scripts/dashboard.ts                  # start dashboard server (port 6080)
@@ -283,6 +287,11 @@ BI_INDONIA_COMPOUNDED_30D_PCT  # e.g. 6.18682; env_manual source; range 2–12%
 # Signal: level (<7%=loose, 7-9%=normal, >9%=tight) + direction (hike=stress, cut=relief) + LDR interaction.
 # Latest: 7.0% (cut from 9.0% on Oct 23 2026). Update when BI announces GWM change.
 BI_GWM_PCT                 # required reserve ratio %; env-always-wins over DB cache; e.g. 7.0
+# M10 Fiscal — APBN KiTa monthly pressconf (env always wins; upsert to DB on engine run)
+# Published ~10th of following month. Set from Kemenkeu konpers slides (Suahasil Nazara).
+# Latest: Oct 2026 YTD — Deficit Rp379.0T (54.9% pagu), Spending Rp2,763.1T (71.9% pagu).
+APBN_DEFICIT_YTD_IDR_T   # IDR triliun; e.g. 379.0; backfill via scripts/backfill-apbn-spending-deficit-history.ts
+APBN_SPENDING_YTD_IDR_T  # IDR triliun; e.g. 2763.1; engine uses this if DB apbn_spending_monthly_trn unavail
 # M9 Market Stress
 IDX_LAST_CIRCUIT_BREAKER_DATE  # YYYY-MM-DD; update when circuit breaker fires (−8% intraday halt); flag active 30d
 IDX_SHORT_SELL_VOLUME_IDR_BN   # IDR billions; manual pin when you see figure in media/terminal (IDX Oct 2026 feature, media coverage thin)

@@ -310,6 +310,7 @@ interface FiscalOutput {
   spendingAbsorptionPct: number | null;
   projectedAnnualRevenueTrn: number | null;
   projectedDeficitPctGdp: number | null;
+  deficitPacePct: number | null;  // (ytd_deficit / 689.15T) / (months_elapsed/12) × 100; >100 = above annual pace
   // SRBI sterilization cost (Trilemma quasi-fiscal)
   srbiOutstandingTrn: number | null;
   biRatePct: number | null;
@@ -420,7 +421,19 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   if (pointsToSave.length > 0) await upsertPoints(pointsToSave as NonNullable<typeof revenue>[]);
 
   // 2. Read latest from DB
-  const [dbRevenue, dbSpending, dbBudgetBalance, dbSrbi, dbBiRate, dbGdpGrowth, dbSbn10y] = await Promise.all([
+  // Env overrides for APBN KiTa monthly pressconf figures (wins unconditionally when set)
+  const envDeficitYtd = process.env.APBN_DEFICIT_YTD_IDR_T ? parseFloat(process.env.APBN_DEFICIT_YTD_IDR_T) : NaN;
+  const envSpendingYtd = process.env.APBN_SPENDING_YTD_IDR_T ? parseFloat(process.env.APBN_SPENDING_YTD_IDR_T) : NaN;
+  const envNow = new Date().toISOString();
+  const envToday = envNow.slice(0, 10);
+  if (!isNaN(envDeficitYtd) && envDeficitYtd > 0) {
+    await upsertPoints([{ indicator: 'apbn_deficit_ytd_idr_t', category: 'sovereign', date: envToday, value: envDeficitYtd, unit: 'idr_triliun', source: 'env_manual', fetchedAt: envNow }]);
+  }
+  if (!isNaN(envSpendingYtd) && envSpendingYtd > 0) {
+    await upsertPoints([{ indicator: 'apbn_spending_ytd_idr_t', category: 'sovereign', date: envToday, value: envSpendingYtd, unit: 'idr_triliun', source: 'env_manual', fetchedAt: envNow }]);
+  }
+
+  const [dbRevenue, dbSpending, dbBudgetBalance, dbSrbi, dbBiRate, dbGdpGrowth, dbSbn10y, dbDeficitYtd, dbSpendingYtd] = await Promise.all([
     getLatestPoint('apbn_revenue_monthly_trn'),
     getLatestPoint('apbn_spending_monthly_trn'),
     getLatestPoint('apbn_budget_balance_monthly_trn'),
@@ -428,6 +441,8 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     getLatestPoint('bi_rate_pct'),
     getLatestPoint('gdp_growth_pct'),   // Gap B: multiplier regime flag
     getLatestPoint('sbn_10y_yield_pct'), // Calvo: nominal borrowing cost r
+    getLatestPoint('apbn_deficit_ytd_idr_t'),
+    getLatestPoint('apbn_spending_ytd_idr_t'),
   ]);
 
   const latestRevenueTrn = dbRevenue?.value ?? null;
@@ -482,7 +497,18 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     }
   }
 
-  const ytdDeficitTrn: number | null = null; // can't compute: annual revenue vs monthly spending inconsistent
+  // YTD deficit from APBN KiTa pressconf (env override or DB); spendingYtd from same source
+  const ytdDeficitTrn: number | null = dbDeficitYtd?.value ?? null;
+  if (dbSpendingYtd?.value != null && ytdSpendingTrn === null) {
+    ytdSpendingTrn = dbSpendingYtd.value;
+    if (proRataSpendingTrn > 0) {
+      spendingAbsorptionPct = parseFloat((ytdSpendingTrn / proRataSpendingTrn * 100).toFixed(1));
+    }
+  }
+
+  const deficitPacePct: number | null = ytdDeficitTrn !== null && monthsElapsed > 0
+    ? parseFloat(((ytdDeficitTrn / APBN_2026.deficitTrn) / (monthsElapsed / 12) * 100).toFixed(1))
+    : null;
 
   const projectedDeficitPctGdp = projectedAnnualRevenueTrn !== null
     ? parseFloat(((APBN_2026.spendingTrn - projectedAnnualRevenueTrn) / APBN_2026.gdpTrn * 100).toFixed(2))
@@ -697,6 +723,15 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   if (deficitRisk) {
     flags.push(`Deficit trajectory: projected ${projectedDeficitPctGdp!.toFixed(2)}% GDP — approaching 3% constitutional limit`);
   }
+  if (deficitPacePct !== null) {
+    if (deficitPacePct > 100) {
+      flags.push(`DEFICIT PACE ABOVE CEILING: ${deficitPacePct.toFixed(0)}% annualized pace (IDR ${ytdDeficitTrn!.toFixed(1)}T YTD vs ceiling IDR ${APBN_2026.deficitTrn}T) — full-year breach trajectory`);
+    } else if (deficitPacePct > 85) {
+      flags.push(`Deficit pace elevated: ${deficitPacePct.toFixed(0)}% of annual ceiling IDR ${APBN_2026.deficitTrn}T — late-year risk if spending accelerates`);
+    } else {
+      flags.push(`Deficit pace: ${deficitPacePct.toFixed(0)}% of annual ceiling IDR ${APBN_2026.deficitTrn}T — within budget trajectory`);
+    }
+  }
   if (latestRevenueTrn === null && latestSpendingTrn === null) {
     flags.push('No fiscal data available — TE scrape failed. Check tradingeconomics.com/indonesia/government-revenues');
   }
@@ -838,7 +873,7 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     ytdRevenueTrn, ytdSpendingTrn, ytdDeficitTrn,
     monthsElapsed, proRataRevenueTrn, proRataSpendingTrn,
     revenueAbsorptionPct, spendingAbsorptionPct,
-    projectedAnnualRevenueTrn, projectedDeficitPctGdp,
+    projectedAnnualRevenueTrn, projectedDeficitPctGdp, deficitPacePct,
     srbiOutstandingTrn, biRatePct, srbiAnnualCostTrn, srbiCostAsPctDeficit,
     adjustedInterestTrn, biRateInterestUpliftTrn, spInterestRevenuePct, spThresholdBreached,
     subsidiBbmLpgYtdTrn, subsidiPupukYtdTrn, subsidiKompensasiCombinedYtdTrn,

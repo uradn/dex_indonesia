@@ -106,6 +106,10 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   // IndONIA compounded 30d — BI direct daily (bi.go.id 19:30 WIB); env override BI_INDONIA_COMPOUNDED_30D_PCT
   // 2d fresh (BI publishes daily; allow 1 missed day), 7d yellow (weekend + delay), 14d red
   { name: 'indonia_compounded_30d_pct', module: 'M8', freshDays: 2, yellowDays: 7, redDays: 14 },
+  // APBN KiTa monthly pressconf — env override APBN_DEFICIT_YTD_IDR_T / APBN_SPENDING_YTD_IDR_T
+  // Published ~10th of following month. 35d fresh = covers monthly cadence.
+  { name: 'apbn_deficit_ytd_idr_t',  module: 'M10', freshDays: 35, yellowDays: 55, redDays: 90 },
+  { name: 'apbn_spending_ytd_idr_t', module: 'M10', freshDays: 35, yellowDays: 55, redDays: 90 },
 ];
 
 const SPEC_BY_NAME: Map<string, IndicatorFreshnessSpec> = new Map(INDICATORS.map(s => [s.name, s]));
