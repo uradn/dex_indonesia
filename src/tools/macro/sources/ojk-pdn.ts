@@ -146,6 +146,17 @@ async function fetchViaTavily(): Promise<OjkPdnData | null> {
  * Returns null if no data found (graceful — engine handles absence).
  */
 export async function fetchOjkPdn(): Promise<OjkPdnData | null> {
+  // Env override wins unconditionally (OJK WAF blocks; manual pin from OJK SPI press release)
+  const envVal = process.env.BANK_PDN_PCT;
+  if (envVal) {
+    const pdnPct = parseFloat(envVal);
+    if (!isNaN(pdnPct) && pdnPct >= 0 && pdnPct <= 22) {
+      const today = TODAY();
+      await upsertPoints([{ indicator: 'bank_pdnl_pct', category: 'banking', date: today, value: pdnPct, unit: 'pct_capital', source: 'env_manual', fetchedAt: NOW() }]);
+      return { date: today, pdnPct, sourceUrl: null, fetchedAt: NOW() };
+    }
+  }
+
   // Gate on data DATE so monthly OJK releases trigger re-fetch even if we searched recently
   const cached = await getLatestPoint('bank_pdnl_pct');
   if (cached) {

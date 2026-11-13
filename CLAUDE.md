@@ -251,6 +251,7 @@ SBN_FOREIGN_OWNERSHIP_PCT  # % non-resident SBN holdings; e.g. 14.2; env wins ov
 
 # M8 Banking manual pin — from OJK SPI monthly press release (~30-45 days after month end)
 FINTECH_NPL_PCT            # P2P lending NPL gross %; OJK WAF blocks auto-scrape; current 5.0 (Jun 2026)
+BANK_PDN_PCT               # OJK PDN (Posisi Devisa Neto) as % of regulatory capital; OJK WAF blocks scrape; Exa/Tavily miss Oct 2026+; source: OJK SPI monthly or bisnis.com/kontan.co.id; range 0–20%; env-always-wins
 
 # New data sources — env always wins when set (mirrors DNDF pattern)
 # M4 Commodity
