@@ -82,8 +82,11 @@ const APBN_2026 = {
   sbnAnnualRolloverTrn: 1200,
   biRateBaselinePct: 4.75, // BI Rate at start of 2026 hike cycle
   // Subsidi realisasi targets (UU No.17/2025)
-  subsidiBbmLpgTrn: 87.0,    // Subsidi BBM + LPG energi annual target
-  subsidiPupukTrn: 46.8,      // Subsidi pupuk annual target
+  subsidiBbmLpgTrn: 87.0,              // Subsidi BBM + LPG energi (subsidi line only)
+  subsidiPupukTrn: 46.8,               // Subsidi pupuk annual target
+  // Combined subsidi+kompensasi all categories — official APBN KiTa view (Kemenkeu monthly press conf)
+  // Oct YTD 2026: Rp415.8T = 93% | 2025 Oct YTD: Rp315T → YoY +32%
+  subsidiKompenasasiCombinedTrn: 447.0,
 };
 
 // TKD disbursement expected pace (% of annual pagu) by month — historical 2020-2025 avg
@@ -320,8 +323,10 @@ interface FiscalOutput {
   // Subsidi realisasi
   subsidiBbmLpgYtdTrn: number | null;
   subsidiPupukYtdTrn: number | null;
-  subsidiBbmLpgRunRatePct: number | null;  // annualized YTD / APBN target × 100
+  subsidiKompensasiCombinedYtdTrn: number | null;
+  subsidiBbmLpgRunRatePct: number | null;         // annualized YTD / APBN subsidi-line target (Rp87T)
   subsidiPupukRunRatePct: number | null;
+  subsidiKompensasiCombinedRunRatePct: number | null; // annualized YTD / APBN KiTa combined (Rp447T)
   subsidiDataDate: string | null;
   // MBG (Makan Bergizi Gratis) — 8.7% of APBN spending
   mbgRealisasiYtdTrn: number | null;
@@ -514,6 +519,8 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   // >100% = on pace; >110% = YELLOW; >130% = ORANGE (overshoot)
   const subsidiBbmLpgYtdTrn = subsidyData?.subsidiBbmLpgYtdTrn ?? (await getLatestPoint('subsidi_energi_ytd_idr_t'))?.value ?? null;
   const subsidiPupukYtdTrn = subsidyData?.subsidiPupukYtdTrn ?? (await getLatestPoint('subsidi_pupuk_ytd_idr_t'))?.value ?? null;
+  const subsidiKompensasiCombinedYtdTrn = subsidyData?.subsidiKompensasiCombinedYtdTrn
+    ?? (await getLatestPoint('subsidi_kompensasi_combined_ytd_idr_t'))?.value ?? null;
   const subsidiDataDate = subsidyData?.date ?? null;
 
   const subsidiBbmLpgRunRatePct = subsidiBbmLpgYtdTrn !== null && monthsElapsed > 0
@@ -521,6 +528,10 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     : null;
   const subsidiPupukRunRatePct = subsidiPupukYtdTrn !== null && monthsElapsed > 0
     ? parseFloat(((subsidiPupukYtdTrn / monthsElapsed * 12) / APBN_2026.subsidiPupukTrn * 100).toFixed(1))
+    : null;
+  // Combined view — official APBN KiTa denominator (Rp447T). Oct 2026 confirmed: 93%.
+  const subsidiKompensasiCombinedRunRatePct = subsidiKompensasiCombinedYtdTrn !== null && monthsElapsed > 0
+    ? parseFloat(((subsidiKompensasiCombinedYtdTrn / monthsElapsed * 12) / APBN_2026.subsidiKompenasasiCombinedTrn * 100).toFixed(1))
     : null;
 
   // 4d.b — MBG run-rate (largest discretionary spend Rp 335T)
@@ -691,12 +702,19 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   }
 
   // Subsidi run-rate flags
+  // Two views: (1) subsidi line only vs Rp87T pagu — signals political pressure on hike decision
+  //            (2) combined subsidi+kompensasi vs Rp447T (official APBN KiTa) — signals budget ceiling
   if (subsidiBbmLpgRunRatePct !== null) {
+    const combinedNote = subsidiKompensasiCombinedRunRatePct !== null
+      ? `; combined subsidi+kompensasi (APBN KiTa): ${subsidiKompensasiCombinedRunRatePct.toFixed(0)}% of Rp${APBN_2026.subsidiKompenasasiCombinedTrn}T`
+      : '';
     if (subsidiBbmLpgRunRatePct >= 130) {
-      flags.push(`SUBSIDI ENERGI OVERSHOOT: run rate ${subsidiBbmLpgRunRatePct.toFixed(0)}% of APBN target (Rp${APBN_2026.subsidiBbmLpgTrn}T) — high oil+IDR forcing fiscal rescue choice: hike BBM or blow deficit`);
+      flags.push(`SUBSIDI ENERGI OVERSHOOT: run rate ${subsidiBbmLpgRunRatePct.toFixed(0)}% of APBN target (Rp${APBN_2026.subsidiBbmLpgTrn}T)${combinedNote} — high oil+IDR forcing fiscal rescue choice: hike BBM or blow deficit`);
     } else if (subsidiBbmLpgRunRatePct >= 110) {
-      flags.push(`Subsidi energi elevated: run rate ${subsidiBbmLpgRunRatePct.toFixed(0)}% of APBN target — monitor for blowout if Brent stays above APBN $70/bbl assumption`);
+      flags.push(`Subsidi energi elevated: run rate ${subsidiBbmLpgRunRatePct.toFixed(0)}% of APBN target${combinedNote} — monitor for blowout if Brent stays above APBN $70/bbl assumption`);
     }
+  } else if (subsidiKompensasiCombinedRunRatePct !== null && subsidiKompensasiCombinedRunRatePct >= 100) {
+    flags.push(`Subsidi+kompensasi (APBN KiTa combined): run rate ${subsidiKompensasiCombinedRunRatePct.toFixed(0)}% of Rp${APBN_2026.subsidiKompenasasiCombinedTrn}T — Nov-Dec overrun risk if pace holds`);
   }
   if (subsidiPupukRunRatePct !== null && subsidiPupukRunRatePct >= 120) {
     flags.push(`Subsidi pupuk overshoot: run rate ${subsidiPupukRunRatePct.toFixed(0)}% of APBN target (Rp${APBN_2026.subsidiPupukTrn}T) — LNG feedstock cost pass-through`);
@@ -823,8 +841,8 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     projectedAnnualRevenueTrn, projectedDeficitPctGdp,
     srbiOutstandingTrn, biRatePct, srbiAnnualCostTrn, srbiCostAsPctDeficit,
     adjustedInterestTrn, biRateInterestUpliftTrn, spInterestRevenuePct, spThresholdBreached,
-    subsidiBbmLpgYtdTrn, subsidiPupukYtdTrn,
-    subsidiBbmLpgRunRatePct, subsidiPupukRunRatePct, subsidiDataDate,
+    subsidiBbmLpgYtdTrn, subsidiPupukYtdTrn, subsidiKompensasiCombinedYtdTrn,
+    subsidiBbmLpgRunRatePct, subsidiPupukRunRatePct, subsidiKompensasiCombinedRunRatePct, subsidiDataDate,
     mbgRealisasiYtdTrn, mbgBurnRatePct, mbgDataDate,
     biodieselSubsidyYtdTrn, b50StatusNumeric,
     tkdRealisasiPct, tkdPaguTrn, tkdRealisasiTrn, dauRealisasiPct, danaDesaRealisasiPct,
@@ -897,13 +915,16 @@ function formatFiscalOutput(output: FiscalOutput): string {
           ``,
         ].join('\n')
       : '',
-    output.subsidiBbmLpgYtdTrn !== null || output.subsidiPupukYtdTrn !== null ? [
-      `### Subsidi Realisasi`,
-      `| Subsidi | APBN 2026 Target | YTD Actual | Ann. Run Rate |`,
-      `|---------|--------|-----------|--------------|`,
-      `| BBM+LPG (energi) | IDR ${APBN_2026.subsidiBbmLpgTrn}T | ${output.subsidiBbmLpgYtdTrn !== null ? `IDR ${output.subsidiBbmLpgYtdTrn.toFixed(1)}T` : 'n/a'} | ${output.subsidiBbmLpgRunRatePct !== null ? `${output.subsidiBbmLpgRunRatePct.toFixed(0)}%` : 'n/a'} |`,
+    output.subsidiBbmLpgYtdTrn !== null || output.subsidiKompensasiCombinedYtdTrn !== null ? [
+      `### Subsidi Realisasi (Sumber: Kemenkeu APBN KiTa)`,
+      `| View | APBN 2026 Pagu | YTD Actual | Ann. Run Rate |`,
+      `|------|---------------|-----------|--------------|`,
+      output.subsidiKompensasiCombinedYtdTrn !== null
+        ? `| **Subsidi+Kompensasi (official APBN KiTa)** | IDR ${APBN_2026.subsidiKompenasasiCombinedTrn}T | IDR ${output.subsidiKompensasiCombinedYtdTrn.toFixed(1)}T | ${output.subsidiKompensasiCombinedRunRatePct !== null ? `${output.subsidiKompensasiCombinedRunRatePct.toFixed(0)}%` : 'n/a'} |`
+        : '',
+      `| BBM+LPG subsidi line only | IDR ${APBN_2026.subsidiBbmLpgTrn}T | ${output.subsidiBbmLpgYtdTrn !== null ? `IDR ${output.subsidiBbmLpgYtdTrn.toFixed(1)}T` : 'n/a'} | ${output.subsidiBbmLpgRunRatePct !== null ? `${output.subsidiBbmLpgRunRatePct.toFixed(0)}%` : 'n/a'} |`,
       `| Pupuk | IDR ${APBN_2026.subsidiPupukTrn}T | ${output.subsidiPupukYtdTrn !== null ? `IDR ${output.subsidiPupukYtdTrn.toFixed(1)}T` : 'n/a'} | ${output.subsidiPupukRunRatePct !== null ? `${output.subsidiPupukRunRatePct.toFixed(0)}%` : 'n/a'} |`,
-      output.subsidiDataDate ? `_Data date: ${output.subsidiDataDate} (source: APBN Kita / media)_` : '',
+      output.subsidiDataDate ? `_Data date: ${output.subsidiDataDate} (source: Kemenkeu APBN KiTa / media press conf)_` : '',
       `_Run rate = annualized YTD / APBN target. >110% = elevated; >130% = overshoot alert._`,
     ].filter(Boolean).join('\n') : '',
     output.tkdRealisasiPct !== null ? [

@@ -1,19 +1,19 @@
 /**
  * Indonesia APBN fiscal realization scrapers.
  *
- * APBN 2026 targets (Perpres 201/2024):
- *   Revenue:  IDR 2,996.9 trillion
- *   Spending: IDR 3,621.3 trillion
- *   Deficit:  IDR 624.4 trillion (~2.56% of GDP)
+ * APBN 2026 targets (UU No.17/2025 / Perpres No.118/2025):
+ *   Revenue:  IDR 3,153.58 trillion
+ *   Spending: IDR 3,842.73 trillion (original); post-efisiensi ~3,534T (COSMETIC — pagu unchanged)
+ *   Deficit:  IDR 689.15 trillion (2.68% GDP); revised target 2.85% per Suahasil Nov 13 2026
  *
- * Sources:
- *   Trading Economics Playwright — monthly IDR trillion figures:
- *     government-revenues, government-spending, government-budget-value
+ * OFFICIAL PRIMARY SOURCE: Kemenkeu APBN KiTa (apbnkita.kemenkeu.go.id)
+ *   Monthly cumulative YTD data — press conference ~13th of following month.
+ *   JS-heavy SPA; use Exa/Tavily targeting kemenkeu.go.id for parsed results.
  *
- * Note: TE shows latest monthly figure, not cumulative YTD.
+ * SECONDARY SOURCE: Trading Economics Playwright — monthly IDR trillion figures:
+ *   government-revenues, government-spending, government-budget-value
+ *   Note: TE shows latest monthly figure, not cumulative YTD.
  *   Fiscal engine accumulates monthly DB entries to compute YTD actuals.
- *   Kemenkeu APBN KiTa (apbnkita.kemenkeu.go.id) would give cumulative —
- *   JS-heavy SPA, not yet scraped.
  */
 import type { MacroDataPoint } from '../types.js';
 import { fetchRenderedTextWithBrowser } from './playwright-browser.js';

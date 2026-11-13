@@ -10,9 +10,16 @@
  *   M10 gets early warning of subsidy blowout before it appears in Kemenkeu deficit figures.
  *   Pupuk subsidi overshoot = similar dynamic (LNG feedstock price-linked).
  *
- * APBN 2026 targets (hardcoded — UU No.17/2025):
- *   Subsidi BBM+LPG (energi): ~Rp87T
- *   Subsidi pupuk:             ~Rp46.8T
+ * APBN 2026 targets (UU No.17/2025):
+ *   Subsidi BBM+LPG (energi, subsidi line only): ~Rp87T
+ *   Subsidi pupuk:                                ~Rp46.8T
+ *   Kompensasi energi (BBM+listrik):              ~Rp313T (est.)
+ *   COMBINED subsidi+kompensasi all categories:   ~Rp447T (Kemenkeu APBN KiTa confirmed)
+ *   → Oct YTD 2026: Rp415.8T = 93% of Rp447T (source: Kemenkeu APBN KiTa Nov 13 2026)
+ *   → 2025 Oct YTD was Rp315T → YoY +32%
+ *
+ * OFFICIAL SOURCE: Kemenkeu APBN KiTa — apbnkita.kemenkeu.go.id (JS SPA, not directly scrapeable)
+ *   Monthly press conference by Menkeu ~13th of following month. Use Exa targeting kemenkeu.go.id.
  *
  * TOKEN EFFICIENCY:
  *   Exa: numResults=3, maxCharacters=2500 → ~2000 tokens total. No Playwright.
@@ -27,6 +34,8 @@ export interface SubsidiData {
   date: string;
   subsidiBbmLpgYtdTrn: number | null;
   subsidiPupukYtdTrn: number | null;
+  // Combined subsidi+kompensasi (official Kemenkeu view — APBN KiTa)
+  subsidiKompensasiCombinedYtdTrn: number | null;
   sourceUrl: string | null;
   fetchedAt: string;
 }
@@ -40,7 +49,7 @@ function parseIdNumber(s: string): number | null {
   return isNaN(val) ? null : val;
 }
 
-function parseSubsidiText(text: string): Pick<SubsidiData, 'subsidiBbmLpgYtdTrn' | 'subsidiPupukYtdTrn'> {
+function parseSubsidiText(text: string): Pick<SubsidiData, 'subsidiBbmLpgYtdTrn' | 'subsidiPupukYtdTrn' | 'subsidiKompensasiCombinedYtdTrn'> {
   // Indonesian realisasi numbers appear as "Rp87,5 triliun" or "Rp 87.5 triliun"
   // We want realisasi figures, not pagu/target figures.
   // Key phrase patterns: "realisasi subsidi energi", "subsidi BBM", "subsidi LPG"
@@ -76,18 +85,42 @@ function parseSubsidiText(text: string): Pick<SubsidiData, 'subsidiBbmLpgYtdTrn'
     /fertilizer\s+subsid[\w]*[\s\S]{0,100}?IDR\s*([\d.,]+)\s*(?:T|trillion)/i,
   );
 
-  return { subsidiBbmLpgYtdTrn, subsidiPupukYtdTrn };
+  // Combined subsidi+kompensasi (official APBN KiTa view — Kemenkeu monthly press conference)
+  // Sanity: combined should be 300-600T range (Oct 2026 confirmed: Rp415.8T)
+  const matchCombined = (t: string, ...pats: RegExp[]): number | null => {
+    for (const pat of pats) {
+      const m = t.match(pat);
+      if (m?.[1]) {
+        const v = parseIdNumber(m[1]);
+        if (v !== null && v >= 200 && v <= 700) return v;
+      }
+    }
+    return null;
+  };
+  const subsidiKompensasiCombinedYtdTrn = matchCombined(text,
+    /(?:subsidi\s+dan\s+kompensasi|subsidi\s*&\s*kompensasi)[\s\S]{0,150}?Rp\s*([\d.,]+)\s*triliun/i,
+    /realisasi[\s\S]{0,80}?(?:subsidi\s+dan\s+kompensasi|subsidi\s*&\s*kompensasi)[\s\S]{0,150}?Rp\s*([\d.,]+)\s*triliun/i,
+    /Rp\s*([\d.,]+)\s*triliun[\s\S]{0,80}?(?:subsidi\s+dan\s+kompensasi|subsidi\s*&\s*kompensasi)/i,
+    // "belanja subsidi dan kompensasi energi" pattern from APBN KiTa
+    /belanja\s+subsidi[\s\S]{0,50}?kompensasi[\s\S]{0,150}?Rp\s*([\d.,]+)\s*triliun/i,
+  );
+
+  return { subsidiBbmLpgYtdTrn, subsidiPupukYtdTrn, subsidiKompensasiCombinedYtdTrn };
 }
 
 const SUBSIDI_DOMAINS = [
   'kemenkeu.go.id',
+  'apbnkita.kemenkeu.go.id',
   'bisnis.com',
   'kontan.co.id',
   'cnbcindonesia.com',
   'katadata.co.id',
   'detik.com',
+  'bloombergtechnoz.com',
+  'antaranews.com',
 ];
-const SUBSIDI_QUERY = 'realisasi subsidi energi BBM LPG pupuk APBN 2026 triliun Kemenkeu';
+// Query targets both subsidi-only AND combined subsidi+kompensasi (official APBN KiTa framing)
+const SUBSIDI_QUERY = 'realisasi "subsidi dan kompensasi" energi BBM LPG APBN 2026 triliun Kemenkeu "APBN KiTa"';
 
 async function fetchViaExa(): Promise<SubsidiData | null> {
   if (!process.env.EXASEARCH_API_KEY) return null;
@@ -112,7 +145,9 @@ async function fetchViaExa(): Promise<SubsidiData | null> {
       const text = (r as { text?: string }).text ?? r.title ?? '';
       if (!text) continue;
       const parsed = parseSubsidiText(text);
-      const score = (parsed.subsidiBbmLpgYtdTrn !== null ? 2 : 0) + (parsed.subsidiPupukYtdTrn !== null ? 1 : 0);
+      const score = (parsed.subsidiBbmLpgYtdTrn !== null ? 2 : 0)
+        + (parsed.subsidiPupukYtdTrn !== null ? 1 : 0)
+        + (parsed.subsidiKompensasiCombinedYtdTrn !== null ? 2 : 0);
       if (score > bestScore) {
         bestScore = score;
         best = {
@@ -150,7 +185,9 @@ async function fetchViaTavily(): Promise<SubsidiData | null> {
       const text = r.raw_content ?? r.content ?? '';
       if (!text) continue;
       const parsed = parseSubsidiText(text);
-      const score = (parsed.subsidiBbmLpgYtdTrn !== null ? 2 : 0) + (parsed.subsidiPupukYtdTrn !== null ? 1 : 0);
+      const score = (parsed.subsidiBbmLpgYtdTrn !== null ? 2 : 0)
+        + (parsed.subsidiPupukYtdTrn !== null ? 1 : 0)
+        + (parsed.subsidiKompensasiCombinedYtdTrn !== null ? 2 : 0);
       if (score > bestScore) {
         bestScore = score;
         best = {
@@ -172,16 +209,21 @@ async function fetchViaTavily(): Promise<SubsidiData | null> {
  * 30-day freshness gate — APBN Kita is published monthly.
  */
 export async function fetchSubsidiRealisasi(): Promise<SubsidiData | null> {
-  // Freshness gate: skip if recent data already in DB
+  // Freshness gate: gate on data DATE (not fetchedAt) so monthly APBN KiTa releases trigger re-fetch.
+  // Using fetchedAt would block re-fetch even after Kemenkeu publishes the next month's report.
   const cached = await getLatestPoint('subsidi_energi_ytd_idr_t');
   if (cached) {
-    const ageDays = (Date.now() - new Date(cached.fetchedAt).getTime()) / 86_400_000;
+    const ageDays = (Date.now() - new Date(cached.date).getTime()) / 86_400_000;
     if (ageDays < FRESHNESS_DAYS) {
-      const pupukPt = await getLatestPoint('subsidi_pupuk_ytd_idr_t');
+      const [pupukPt, combinedPt] = await Promise.all([
+        getLatestPoint('subsidi_pupuk_ytd_idr_t'),
+        getLatestPoint('subsidi_kompensasi_combined_ytd_idr_t'),
+      ]);
       return {
         date: cached.date,
         subsidiBbmLpgYtdTrn: cached.value,
         subsidiPupukYtdTrn: pupukPt?.value ?? null,
+        subsidiKompensasiCombinedYtdTrn: combinedPt?.value ?? null,
         sourceUrl: null,
         fetchedAt: cached.fetchedAt,
       };
@@ -214,6 +256,17 @@ export async function fetchSubsidiRealisasi(): Promise<SubsidiData | null> {
       value: data.subsidiPupukYtdTrn,
       unit: 'IDR_trn',
       source: 'exa_kemenkeu',
+      fetchedAt,
+    });
+  }
+  if (data.subsidiKompensasiCombinedYtdTrn !== null) {
+    points.push({
+      indicator: 'subsidi_kompensasi_combined_ytd_idr_t',
+      category: 'sovereign',
+      date,
+      value: data.subsidiKompensasiCombinedYtdTrn,
+      unit: 'IDR_trn',
+      source: 'exa_kemenkeu_apbnkita',
       fetchedAt,
     });
   }

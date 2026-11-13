@@ -28,9 +28,10 @@
  *     SOLAR_BLEND_RATIO=0.50           (override B-blend; 0.40=B40 default, 0.50=B50 Jul 2026 mandate)
  *
  * COST RECOVERY FORMULA:
- *   cost_recovery = ((Brent_USD − russiaDiscount) / 158.987 L/bbl) × USDIDR × 1.40
- *   Factor 1.40: crude 100% + refining 20% + distribution 10% + margin+tax 10%
- *   At APBN baseline ($70/bbl, IDR 16,500): cost recovery ≈ IDR 10,200/liter
+ *   cost_recovery = ((Brent_USD − russiaDiscount) / 158.987 L/bbl) × USDIDR × 1.657
+ *   Factor 1.657: crude 100% + refining 20% + distribution 20% + non-eligible leakage 15% + margin+tax 10%
+ *   Calibrated vs Suahasil Nov 13 2026: at Brent $95.5 / USDIDR 18,190 → Rp 18,102/L (confirmed official)
+ *   At APBN baseline ($70/bbl, IDR 16,500): cost recovery ≈ IDR 12,100/liter
  *
  * RUSSIA CRUDE DISCOUNT (optional override):
  *   G2G deal ~150 juta barel via Lemigas (Apr–Sep 2026); ESPO API 34–36° = Minas-compatible.
@@ -55,7 +56,11 @@
 import type { MacroDataPoint, AlertLevel } from '../types.js';
 
 const LITERS_PER_BARREL = 158.987;
-const COST_RECOVERY_FACTOR = 1.40;
+// Factor calibrated to Suahasil Nazara confirmed figure Nov 13 2026:
+// Pertalite actual cost Rp 18,102/L at Brent ~$95-96, USDIDR ~18,190.
+// Breakdown: crude 100% + refining 20% + distribution 20% + non-eligible leakage 15% + margin+tax 10%.
+// formula: factor = 18,102 × 158.987 / (95.5 × 18,190) = 1.657
+const COST_RECOVERY_FACTOR = 1.657;
 
 export const APBN_ICP_ASSUMPTION    = 70;   // USD/bbl — UU No. 17 Tahun 2025
 export const ICP_SAFETY_THRESHOLD   = 100;  // USD/bbl — Bahlil commitment ceiling, Apr 2026
