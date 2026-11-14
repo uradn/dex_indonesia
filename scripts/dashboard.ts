@@ -4854,6 +4854,8 @@ async function loadAnomalies() {
 
 // ── Network graph (Sigma.js v3 + Graphology) ───────────────────────────────────
 let d3Simulation = null;
+let d3Zoom = null;
+let d3Svg = null;
 
 async function loadNetwork() {
   const date = document.getElementById('net-date').value;
@@ -4919,10 +4921,12 @@ async function loadNetwork() {
     const svg = d3.select(container).append('svg')
       .attr('width', W).attr('height', H)
       .style('background', 'var(--bg)');
+    d3Svg = svg;
 
     const g = svg.append('g');
 
-    svg.call(d3.zoom().scaleExtent([0.05, 8]).on('zoom', e => g.attr('transform', e.transform)));
+    d3Zoom = d3.zoom().scaleExtent([0.05, 8]).on('zoom', e => g.attr('transform', e.transform));
+    svg.call(d3Zoom);
 
     const link = g.append('g').selectAll('line').data(links).join('line')
       .attr('stroke', '#30363d').attr('stroke-width', 0.6).attr('stroke-opacity', 0.5);
@@ -4930,7 +4934,11 @@ async function loadNetwork() {
     const node = g.append('g').selectAll('g').data(gnodes).join('g')
       .style('cursor', 'pointer')
       .call(d3.drag()
-        .on('start', (e, d) => { if (!e.active) d3Simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+        .on('start', (e, d) => {
+          e.sourceEvent.stopPropagation();
+          if (!e.active) d3Simulation.alphaTarget(0.3).restart();
+          d.fx = d.x; d.fy = d.y;
+        })
         .on('drag',  (e, d) => { d.fx = e.x; d.fy = e.y; })
         .on('end',   (e, d) => { if (!e.active) d3Simulation.alphaTarget(0); d.fx = null; d.fy = null; }));
 
@@ -5002,21 +5010,10 @@ async function loadNetwork() {
   }
 }
 
-// Graph camera controls — zoom via D3 programmatic zoom
-function graphZoomIn() {
-  const svg = d3.select('#graph-canvas svg');
-  if (!svg.empty()) svg.transition().call(d3.zoom().scaleBy, 1.4);
-}
-function graphZoomOut() {
-  const svg = d3.select('#graph-canvas svg');
-  if (!svg.empty()) svg.transition().call(d3.zoom().scaleBy, 0.7);
-}
-function graphReset() {
-  const svg = d3.select('#graph-canvas svg');
-  if (!svg.empty()) svg.transition().duration(500).call(
-    d3.zoom().transform, d3.zoomIdentity.translate(0,0).scale(1)
-  );
-}
+// Graph camera controls — programmatic zoom via stored d3Zoom behavior
+function graphZoomIn()  { if (d3Svg && d3Zoom) d3Svg.transition().duration(300).call(d3Zoom.scaleBy, 1.5); }
+function graphZoomOut() { if (d3Svg && d3Zoom) d3Svg.transition().duration(300).call(d3Zoom.scaleBy, 0.67); }
+function graphReset()   { if (d3Svg && d3Zoom) d3Svg.transition().duration(500).call(d3Zoom.transform, d3.zoomIdentity); }
 
 // ── Concentration ──────────────────────────────────────────────────────────────
 const FLAG_META = {
