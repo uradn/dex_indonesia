@@ -4339,7 +4339,7 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
     </div>
     <div style="display:flex;align-items:center;gap:12px">
       <div id="db-stats" style="text-align:right;font-size:11px;color:var(--muted)">loading…</div>
-      <button onclick="toggleLegend()" style="background:rgba(88,166,255,.15);color:var(--accent);border:1px solid rgba(88,166,255,.3);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer">? Legenda</button>
+      <button onclick="toggleLegend()" title="Penjelasan semua kode tipe investor, event, flag, dan warna graph" style="background:rgba(88,166,255,.18);color:var(--accent);border:1px solid rgba(88,166,255,.4);border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">ⓘ Kode &amp; Legenda</button>
     </div>
   </div>
 
@@ -4448,6 +4448,10 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
       <input id="emiten-code" placeholder="Kode emiten (e.g. BBCA, TLKM, GOTO)" maxlength="6" style="text-transform:uppercase;max-width:200px">
       <input id="emiten-date" type="month" style="max-width:160px">
       <button onclick="loadEmiten()">Cari</button>
+    </div>
+    <div style="font-size:10px;color:var(--muted);margin:6px 0 2px;line-height:1.8">
+      <b style="color:var(--text)">Tipe:</b>
+      CP=Perusahaan &nbsp;·&nbsp; ID=Individu &nbsp;·&nbsp; IB=Bank Investasi &nbsp;·&nbsp; IS=Asuransi &nbsp;·&nbsp; FD=Dana/RD &nbsp;·&nbsp; SE=Sekuritas &nbsp;·&nbsp; PR=Dana Pensiun &nbsp;·&nbsp; FI=Bank/LK &nbsp;·&nbsp; VE=Ventura &nbsp;·&nbsp; PA=Pasif/Idx &nbsp;·&nbsp; GV=Pemerintah &nbsp;·&nbsp; SO=BUMN &nbsp;·&nbsp; OT=Lainnya
     </div>
     <div id="emiten-result"></div>
     <div id="emiten-history" style="display:none;margin-top:12px">
@@ -4629,7 +4633,14 @@ const INV_TYPE = {
   CO:'Koperasi / Yayasan Lain', PE:'Entitas Privat (Private Entity)', ST:'Kepercayaan Negara',
   OT:'Lainnya (Other)', AS:'Asosiasi (Association)', DI:'Direksi / Insider',
 };
-const typeChip = code => \`<span class="chip" title="\${INV_TYPE[code] ?? code}">\${esc(code)}</span>\`;
+const INV_TYPE_SHORT = {
+  CP:'Perush.', ID:'Individu', IB:'Inv.Bank', IS:'Asuransi', FD:'Dana/RD',
+  SE:'Sekuritas', PR:'Pensiun', FI:'Bank/LK', VE:'Ventura', PA:'Pasif/Idx',
+  IN:'Internasional', GV:'Pemerintah', SO:'BUMN', FN:'Yayasan', BR:'Broker',
+  CO:'Koperasi', PE:'Privat', ST:'StateTrust', OT:'Lainnya', AS:'Asosiasi', DI:'Direksi',
+};
+// Shows "CP · Perush." inline — always readable, no hover needed
+const typeChip = code => \`<span class="chip" title="\${INV_TYPE[code] ?? code}" style="white-space:nowrap">\${esc(code)}<span style="color:var(--muted);font-weight:400;margin-left:3px">\${INV_TYPE_SHORT[code] ? '· '+INV_TYPE_SHORT[code] : ''}</span></span>\`;
 const localForeignBadge2 = lf => \`<span class="badge badge-\${lf}" title="\${lf==='A'?'Asing (Foreign investor / global custodian)':'Lokal (Investor WNI / perusahaan Indonesia)'}">\${lf==='A'?'Asing':'Lokal'}</span>\`;
 function toggleLegend() {
   const p = document.getElementById('legend-panel');
