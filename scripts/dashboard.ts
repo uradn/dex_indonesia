@@ -4709,7 +4709,7 @@ async function loadForeign() {
           <td style="text-align:right">
             <span style="color:var(--lokal)">\${r.local_pct.toFixed(1)}%</span>
           </td>
-          <td style="font-size:11px;color:var(--muted)">\${esc(r.top_foreign_investor)}</td>
+          <td style="font-size:11px;cursor:pointer;color:var(--accent)" data-inv="\${esc(r.top_foreign_investor)}" onclick="gotoInvestor(this.dataset.inv)">\${esc(r.top_foreign_investor)}</td>
         </tr>\`).join('')}
       </table>
     </div>\`;
@@ -4815,7 +4815,7 @@ async function autoLoadAnomalies() {
         \${rows.map(r => \`<tr>
           <td>\${badge(r.event, r.event)}</td>
           <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${r.share_code}';switchTab('emiten');loadEmiten()">\${esc(r.share_code)}</td>
-          <td style="font-size:11px">\${esc(r.investor_name)}</td>
+          <td style="font-size:11px;cursor:pointer;color:var(--accent)" data-inv="\${esc(r.investor_name)}" onclick="gotoInvestor(this.dataset.inv)">\${esc(r.investor_name)}</td>
           <td style="text-align:right">\${r.pct_curr != null ? r.pct_curr.toFixed(2) + '%' : '—'}</td>
           <td style="text-align:right" class="\${r.delta_pct > 0 ? 'delta-pos' : r.delta_pct < 0 ? 'delta-neg' : ''}">\${r.delta_pct != null ? fmtPct(r.delta_pct) : '—'}</td>
         </tr>\`).join('')}
@@ -4843,7 +4843,7 @@ async function loadAnomalies() {
         \${rows.map(r => \`<tr>
           <td>\${badge(r.event, r.event)}</td>
           <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${r.share_code}';switchTab('emiten');loadEmiten()">\${esc(r.share_code)}</td>
-          <td style="font-size:11px">\${esc(r.investor_name)}</td>
+          <td style="font-size:11px;cursor:pointer;color:var(--accent)" data-inv="\${esc(r.investor_name)}" onclick="gotoInvestor(this.dataset.inv)">\${esc(r.investor_name)}</td>
           <td style="text-align:right">\${r.pct_curr != null ? r.pct_curr.toFixed(2) + '%' : '—'}</td>
           <td style="text-align:right" class="\${r.delta_pct > 0 ? 'delta-pos' : r.delta_pct < 0 ? 'delta-neg' : ''}">\${r.delta_pct != null ? fmtPct(r.delta_pct) : '—'}</td>
         </tr>\`).join('')}
@@ -4961,9 +4961,10 @@ async function loadNetwork() {
         tip.innerHTML = \`<b>\${esc(inv.investor_name)}</b><br>
           \${inv.local_foreign === 'A' ? '🌐 Asing' : '🏠 Lokal'} · \${esc(inv.nationality || '')}<br>
           Pegang <b>\${inv.emiten_count}</b> emiten · avg \${inv.avg_pct.toFixed(2)}%<br>
-          <span style="font-size:10px;color:var(--muted)">\${inv.codes.split(',').slice(0,8).join(', ')}\${inv.codes.split(',').length > 8 ? '…' : ''}</span>\`;
+          <span style="font-size:10px;color:var(--muted)">\${inv.codes.split(',').slice(0,8).join(', ')}\${inv.codes.split(',').length > 8 ? '…' : ''}</span><br>
+          <span style="font-size:10px;color:var(--accent)">↗ Klik → portofolio investor</span>\`;
       } else {
-        tip.innerHTML = \`<b>\${esc(d.label)}</b><br><span style="color:var(--muted);font-size:11px">Klik → tab Emiten</span>\`;
+        tip.innerHTML = \`<b>\${esc(d.label)}</b><br><span style="color:var(--muted);font-size:11px">↗ Klik → tab Emiten</span>\`;
       }
       tip.style.display = 'block';
       tip.style.left = (e.offsetX + 12) + 'px';
@@ -4977,6 +4978,8 @@ async function loadNetwork() {
       if (d.type === 'emiten') {
         document.getElementById('emiten-code').value = d.label;
         switchTab('emiten'); loadEmiten();
+      } else if (d.type === 'investor') {
+        gotoInvestor(d.data.investor_name);
       }
     });
 
@@ -5262,7 +5265,7 @@ async function loadInstDetail(key, label) {
     \${holdings.map(h => \`<tr>
       <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${esc(h.share_code)}';switchTab('emiten');loadEmiten()">\${esc(h.share_code)}</td>
       <td style="color:var(--muted)">\${esc(h.issuer_name)}</td>
-      <td style="font-size:11px">\${esc(h.investor_name)}</td>
+      <td style="font-size:11px;cursor:pointer;color:var(--accent)" data-inv="\${esc(h.investor_name)}" onclick="gotoInvestor(this.dataset.inv)">\${esc(h.investor_name)}</td>
       <td>\${h.pct.toFixed(2)}%</td>
     </tr>\`).join('')}
     </tbody>
