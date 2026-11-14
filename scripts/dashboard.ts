@@ -4495,7 +4495,7 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
   <div class="section" id="tab-institutions">
     <div class="search-bar">
       <button onclick="loadInstitutions()">Refresh</button>
-      <button onclick="loadKnownVsDark()" style="background:var(--surface);color:var(--muted);border:1px solid var(--border)">Known vs Dark Timeline</button>
+      <button onclick="loadKnownVsDark()" style="background:var(--surface);color:var(--muted);border:1px solid var(--border)">Refresh Timeline</button>
     </div>
 
     <div class="sub-section">
@@ -4521,7 +4521,7 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
         "Dark" = foreign investors not matching any tracked institution (SPVs, nominees, offshore vehicles).
         Rising dark ratio = less traceable hot money entering IDX.
       </div>
-      <div id="kvd-result"><div class="empty">Click Known vs Dark Timeline to load</div></div>
+      <div id="kvd-result"><div class="empty">Loading…</div></div>
       <div id="kvd-chart-wrap" style="display:none;position:relative;height:200px;margin-top:12px">
         <canvas id="kvd-chart"></canvas>
       </div>
@@ -4543,7 +4543,7 @@ function switchTab(name) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'wash' && !washLoaded) { washLoaded = true; loadWashScreener(); }
-  if (name === 'institutions' && !instLoaded) { instLoaded = true; loadInstitutions(); }
+  if (name === 'institutions' && !instLoaded) { instLoaded = true; loadInstitutions(); loadKnownVsDark(); }
 }
 
 // ── Utils ──────────────────────────────────────────────────────────────────────
