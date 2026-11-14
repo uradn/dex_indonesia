@@ -4252,8 +4252,7 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IDX Shareholder Intelligence — Dexter</title>
-<script src="https://cdn.jsdelivr.net/npm/sigma@2.4.0/build/sigma.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/graphology@0.25.1/dist/graphology.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <style>
   :root {
@@ -4854,22 +4853,24 @@ async function loadAnomalies() {
 }
 
 // ── Network graph (Sigma.js v3 + Graphology) ───────────────────────────────────
+let d3Simulation = null;
+
 async function loadNetwork() {
   const date = document.getElementById('net-date').value;
   const minEmiten = parseInt(document.getElementById('net-min-emiten').value || '3', 10);
   const qs = new URLSearchParams({ min_emiten: minEmiten });
   if (date) qs.set('date', date + '-28');
 
-  document.getElementById('graph-canvas').innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px 0">Building graph…</div>';
+  const container = document.getElementById('graph-canvas');
+  container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px 0">Building graph…</div>';
   document.getElementById('net-stats').textContent = '';
 
   try {
-    const nodes = await fetch('/api/ownership/network?' + qs).then(r => r.json());
-    if (!nodes?.length) {
-      document.getElementById('graph-canvas').innerHTML = '<div class="empty">No data. Run sync first.</div>';
+    const investors = await fetch('/api/ownership/network?' + qs).then(r => r.json());
+    if (!investors?.length) {
+      container.innerHTML = '<div class="empty">No data. Run sync first.</div>';
       return;
     }
-    // Backfill date picker with latest available date
     if (!date) {
       try {
         const sample = await fetch('/api/ownership/anomalies?min_delta=0.01').then(r => r.json());
@@ -4878,125 +4879,141 @@ async function loadNetwork() {
       } catch {}
     }
 
-    if (sigmaInstance) { sigmaInstance.kill(); sigmaInstance = null; }
+    if (d3Simulation) { d3Simulation.stop(); d3Simulation = null; }
+    container.innerHTML = '';
 
-    const graph = new graphology.Graph({ multi: false, type: 'undirected' });
+    const W = container.clientWidth || 900;
+    const H = container.clientHeight || 520;
 
-    // 6-tier color: asing custodian/broker, asing fund/inst, asing individual, asing gov,
-    //               lokal state/BUMN, lokal other
     const STATE_KW = ['ASABRI','DJS KETENAGAKERJAAN','TASPEN','DANANTARA','INDONESIA INVESTMENT AUTHORITY','LPI','INA '];
     function nodeColor(n) {
       const nm = (n.investor_name || '').toUpperCase();
       const t = (n.local_foreign || '') + '|' + (n.investor_type || '');
-      if (STATE_KW.some(k => nm.includes(k))) return '#a371f7'; // lokal state = ungu
-      if (t === 'A|GV') return '#e3721c';                       // asing pemerintah = orange
-      if (['A|SE','A|BR','A|IB'].includes(t)) return '#58a6ff'; // asing custodian/bank = biru
-      if (['A|FD','A|IS','A|PA','A|FI'].includes(t)) return '#39c5cf'; // asing fund/inst = cyan
-      if (t === 'A|ID') return '#bc8cff';                       // asing individu = ungu muda
-      if (t.startsWith('A|')) return '#58a6ff';                 // asing lainnya = biru
-      if (t === 'L|ID') return '#d29922';                       // lokal individu = kuning
-      return '#3fb950';                                          // lokal lainnya = hijau
+      if (STATE_KW.some(k => nm.includes(k))) return '#a371f7';
+      if (t === 'A|GV') return '#e3721c';
+      if (['A|SE','A|BR','A|IB'].includes(t)) return '#58a6ff';
+      if (['A|FD','A|IS','A|PA','A|FI'].includes(t)) return '#39c5cf';
+      if (t === 'A|ID') return '#bc8cff';
+      if (t.startsWith('A|')) return '#58a6ff';
+      if (t === 'L|ID') return '#d29922';
+      return '#3fb950';
     }
 
-    // Add investor nodes
-    for (const n of nodes) {
-      const color = nodeColor(n);
-      const size = Math.max(4, Math.min(24, n.emiten_count * 2.5));
-      graph.addNode('inv_' + n.investor_name, {
-        label: n.investor_name,
-        x: Math.random(), y: Math.random(),
-        size, color,
-        nodeType: 'investor',
-        data: n,
-      });
-    }
-
-    // Add emiten nodes + edges
+    // Build nodes + links
     const emitenSet = new Set();
-    for (const n of nodes) {
-      for (const code of n.codes.split(',')) {
-        if (!code) continue;
-        if (!emitenSet.has(code)) {
-          emitenSet.add(code);
-          graph.addNode('em_' + code, {
-            label: code, x: Math.random(), y: Math.random(),
-            size: 6, color: '#8b949e', nodeType: 'emiten',
-          });
-        }
-        const edgeKey = 'inv_' + n.investor_name + '|em_' + code;
-        if (!graph.hasEdge('inv_' + n.investor_name, 'em_' + code)) {
-          graph.addEdge('inv_' + n.investor_name, 'em_' + code, { size: 1, color: '#30363d' });
-        }
-      }
-    }
+    investors.forEach(inv => inv.codes.split(',').filter(Boolean).forEach(c => emitenSet.add(c)));
 
-    // Circular layout: investors on outer ring, emiten on inner ring
-    const invNodes = graph.nodes().filter(n => n.startsWith('inv_'));
-    const emNodes  = graph.nodes().filter(n => n.startsWith('em_'));
-    invNodes.forEach((n, i) => {
-      const angle = (2 * Math.PI * i) / Math.max(invNodes.length, 1);
-      graph.setNodeAttribute(n, 'x', Math.cos(angle) * 10);
-      graph.setNodeAttribute(n, 'y', Math.sin(angle) * 10);
-    });
-    emNodes.forEach((n, i) => {
-      const angle = (2 * Math.PI * i) / Math.max(emNodes.length, 1);
-      graph.setNodeAttribute(n, 'x', Math.cos(angle) * 4);
-      graph.setNodeAttribute(n, 'y', Math.sin(angle) * 4);
+    const gnodes = [
+      ...investors.map(inv => ({ id: 'inv_' + inv.investor_name, type: 'investor', data: inv,
+        r: Math.max(5, Math.min(20, inv.emiten_count * 1.8)), color: nodeColor(inv) })),
+      ...[...emitenSet].map(c => ({ id: 'em_' + c, type: 'emiten', label: c, r: 5, color: '#8b949e' })),
+    ];
+    const idxMap = Object.fromEntries(gnodes.map((n,i) => [n.id, i]));
+    const links = [];
+    investors.forEach(inv => {
+      inv.codes.split(',').filter(Boolean).forEach(c => {
+        links.push({ source: idxMap['inv_' + inv.investor_name], target: idxMap['em_' + c] });
+      });
     });
 
-    // Render with Sigma.js
-    const container = document.getElementById('graph-canvas');
-    container.innerHTML = '';
-    sigmaInstance = new Sigma(graph, container, {
-      renderEdgeLabels: false,
-      defaultEdgeColor: '#30363d',
-      defaultNodeColor: '#8b949e',
-      labelFont: 'Segoe UI, system-ui, sans-serif',
-      labelSize: 11,
-      labelWeight: '500',
-      labelColor: { color: '#e6edf3' },
-      minCameraRatio: 0.1,
-      maxCameraRatio: 10,
-    });
+    const svg = d3.select(container).append('svg')
+      .attr('width', W).attr('height', H)
+      .style('background', 'var(--bg)');
 
-    // Tooltip on hover
-    sigmaInstance.on('enterNode', ({ node }) => {
-      const attrs = graph.getNodeAttributes(node);
-      const tip = document.getElementById('graph-tooltip');
-      if (attrs.nodeType === 'investor') {
-        const d = attrs.data;
-        tip.innerHTML = \`<b>\${esc(attrs.label)}</b><br>
-          \${d.local_foreign === 'A' ? '🌐 Asing' : '🏠 Lokal'} · \${esc(d.nationality)}<br>
-          Pegang <b>\${d.emiten_count}</b> emiten · avg \${d.avg_pct.toFixed(2)}%<br>
-          <span style="color:var(--muted);font-size:10px">\${d.codes}</span>\`;
+    const g = svg.append('g');
+
+    svg.call(d3.zoom().scaleExtent([0.05, 8]).on('zoom', e => g.attr('transform', e.transform)));
+
+    const link = g.append('g').selectAll('line').data(links).join('line')
+      .attr('stroke', '#30363d').attr('stroke-width', 0.6).attr('stroke-opacity', 0.5);
+
+    const node = g.append('g').selectAll('g').data(gnodes).join('g')
+      .style('cursor', 'pointer')
+      .call(d3.drag()
+        .on('start', (e, d) => { if (!e.active) d3Simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+        .on('drag',  (e, d) => { d.fx = e.x; d.fy = e.y; })
+        .on('end',   (e, d) => { if (!e.active) d3Simulation.alphaTarget(0); d.fx = null; d.fy = null; }));
+
+    node.append('circle')
+      .attr('r', d => d.r)
+      .attr('fill', d => d.color)
+      .attr('fill-opacity', 0.85)
+      .attr('stroke', d => d.color)
+      .attr('stroke-width', 1.5)
+      .attr('stroke-opacity', 0.4);
+
+    // Labels only for investors with many holdings
+    node.filter(d => d.type === 'investor' && d.data.emiten_count >= 8).append('text')
+      .text(d => d.data.investor_name.split(' ').slice(0,3).join(' '))
+      .attr('text-anchor', 'middle').attr('dy', d => d.r + 10)
+      .attr('font-size', 8).attr('fill', '#8b949e').attr('pointer-events', 'none');
+
+    node.filter(d => d.type === 'emiten').append('text')
+      .text(d => d.label)
+      .attr('text-anchor', 'middle').attr('dy', d => d.r + 9)
+      .attr('font-size', 7).attr('fill', '#484f58').attr('pointer-events', 'none');
+
+    // Tooltip
+    const tip = document.getElementById('graph-tooltip');
+    node.on('mouseover', (e, d) => {
+      if (d.type === 'investor') {
+        const inv = d.data;
+        tip.innerHTML = \`<b>\${esc(inv.investor_name)}</b><br>
+          \${inv.local_foreign === 'A' ? '🌐 Asing' : '🏠 Lokal'} · \${esc(inv.nationality || '')}<br>
+          Pegang <b>\${inv.emiten_count}</b> emiten · avg \${inv.avg_pct.toFixed(2)}%<br>
+          <span style="font-size:10px;color:var(--muted)">\${inv.codes.split(',').slice(0,8).join(', ')}\${inv.codes.split(',').length > 8 ? '…' : ''}</span>\`;
       } else {
-        tip.innerHTML = \`<b>\${esc(attrs.label)}</b><br><span style="color:var(--muted)">Klik di tab Emiten</span>\`;
+        tip.innerHTML = \`<b>\${esc(d.label)}</b><br><span style="color:var(--muted);font-size:11px">Klik → tab Emiten</span>\`;
       }
       tip.style.display = 'block';
-    });
-    sigmaInstance.on('leaveNode', () => { document.getElementById('graph-tooltip').style.display = 'none'; });
-    sigmaInstance.on('clickNode', ({ node }) => {
-      const attrs = graph.getNodeAttributes(node);
-      if (attrs.nodeType === 'emiten') {
-        const code = node.replace('em_', '');
-        document.getElementById('emiten-code').value = code;
-        switchTab('emiten');
-        loadEmiten();
+      tip.style.left = (e.offsetX + 12) + 'px';
+      tip.style.top  = (e.offsetY - 8) + 'px';
+    }).on('mousemove', e => {
+      tip.style.left = (e.offsetX + 12) + 'px';
+      tip.style.top  = (e.offsetY - 8) + 'px';
+    }).on('mouseout', () => { tip.style.display = 'none'; });
+
+    node.on('click', (e, d) => {
+      if (d.type === 'emiten') {
+        document.getElementById('emiten-code').value = d.label;
+        switchTab('emiten'); loadEmiten();
       }
     });
 
+    d3Simulation = d3.forceSimulation(gnodes)
+      .force('link',   d3.forceLink(links).distance(d => d.source.type === 'investor' ? 60 : 40).strength(0.4))
+      .force('charge', d3.forceManyBody().strength(d => d.type === 'investor' ? -120 : -30))
+      .force('center', d3.forceCenter(W / 2, H / 2))
+      .force('collide', d3.forceCollide().radius(d => d.r + 3))
+      .on('tick', () => {
+        link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+        node.attr('transform', d => \`translate(\${d.x},\${d.y})\`);
+      });
+
     document.getElementById('net-stats').textContent =
-      \`\${nodes.length} investors · \${emitenSet.size} emiten · \${graph.size} edges · min \${minEmiten} emiten/investor\`;
+      \`\${investors.length} investors · \${emitenSet.size} emiten · \${links.length} edges · min \${minEmiten} emiten/investor · drag nodes to explore\`;
 
   } catch (e) {
-    document.getElementById('graph-canvas').innerHTML = \`<div class="empty">Error: \${e.message}</div>\`;
+    container.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`;
   }
 }
 
-// Graph camera controls
-function graphZoomIn() { sigmaInstance?.getCamera().animatedZoom({ duration: 300 }); }
-function graphZoomOut() { sigmaInstance?.getCamera().animatedUnzoom({ duration: 300 }); }
-function graphReset() { sigmaInstance?.getCamera().animatedReset({ duration: 300 }); }
+// Graph camera controls — zoom via D3 programmatic zoom
+function graphZoomIn() {
+  const svg = d3.select('#graph-canvas svg');
+  if (!svg.empty()) svg.transition().call(d3.zoom().scaleBy, 1.4);
+}
+function graphZoomOut() {
+  const svg = d3.select('#graph-canvas svg');
+  if (!svg.empty()) svg.transition().call(d3.zoom().scaleBy, 0.7);
+}
+function graphReset() {
+  const svg = d3.select('#graph-canvas svg');
+  if (!svg.empty()) svg.transition().duration(500).call(
+    d3.zoom().transform, d3.zoomIdentity.translate(0,0).scale(1)
+  );
+}
 
 // ── Concentration ──────────────────────────────────────────────────────────────
 const FLAG_META = {

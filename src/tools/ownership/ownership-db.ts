@@ -199,9 +199,22 @@ export async function getAvailableDates(): Promise<string[]> {
   return _cachedDates;
 }
 
+// Resolve an approximate date (e.g. 2026-10-28 from month picker) to the nearest
+// actual available date in the same month, falling back to the latest date before it.
+async function resolveDate(date: string): Promise<string | undefined> {
+  const dates = await getAvailableDates();
+  if (!dates.length) return undefined;
+  if (dates.includes(date)) return date;
+  const ym = date.slice(0, 7);
+  const inMonth = dates.filter(d => d.startsWith(ym));
+  if (inMonth.length) return inMonth.at(-1);
+  const before = dates.filter(d => d <= date);
+  return before.length ? before.at(-1) : dates.at(0);
+}
+
 export async function getHoldersForEmiten(code: string, date?: string): Promise<ShareholderRow[]> {
   const db = await openOwnershipDb();
-  const d = date ?? (await getAvailableDates()).at(-1);
+  const d = date ? await resolveDate(date) : (await getAvailableDates()).at(-1);
   if (!d) return [];
   return db.query<ShareholderRow>(
     `SELECT * FROM idx_shareholders WHERE share_code = ? AND date = ? ORDER BY pct DESC`,
@@ -210,7 +223,7 @@ export async function getHoldersForEmiten(code: string, date?: string): Promise<
 
 export async function getEmitenForInvestor(investorName: string, date?: string): Promise<ShareholderRow[]> {
   const db = await openOwnershipDb();
-  const d = date ?? (await getAvailableDates()).at(-1);
+  const d = date ? await resolveDate(date) : (await getAvailableDates()).at(-1);
   if (!d) return [];
   return db.query<ShareholderRow>(
     `SELECT * FROM idx_shareholders WHERE UPPER(investor_name) LIKE ? AND date = ? ORDER BY pct DESC`,
@@ -225,7 +238,7 @@ export async function getForeignOwnershipSummary(date?: string): Promise<{
   top_foreign_investor: string;
 }[]> {
   const db = await openOwnershipDb();
-  const d = date ?? (await getAvailableDates()).at(-1);
+  const d = date ? await resolveDate(date) : (await getAvailableDates()).at(-1);
   if (!d) return [];
   return db.query<{ share_code: string; issuer_name: string; foreign_pct: number; local_pct: number; top_foreign_investor: string }>(
     `SELECT
@@ -243,7 +256,7 @@ export async function getForeignOwnershipSummary(date?: string): Promise<{
 
 export async function getDeltaForEmiten(code: string, date?: string): Promise<DeltaRow[]> {
   const db = await openOwnershipDb();
-  const d = date ?? (await getAvailableDates()).at(-1);
+  const d = date ? await resolveDate(date) : (await getAvailableDates()).at(-1);
   if (!d) return [];
   return db.query<DeltaRow>(
     `SELECT * FROM ownership_delta WHERE share_code = ? AND date = ? ORDER BY ABS(COALESCE(delta_pct, 0)) DESC`,
@@ -259,7 +272,7 @@ export async function getAnomalies(date?: string, minDelta = 2.0): Promise<{
   pct_curr: number | null;
 }[]> {
   const db = await openOwnershipDb();
-  const d = date ?? (await getAvailableDates()).at(-1);
+  const d = date ? await resolveDate(date) : (await getAvailableDates()).at(-1);
   if (!d) return [];
   return db.query<{ date: string; share_code: string; investor_name: string; event: string; delta_pct: number | null; pct_curr: number | null }>(
     `SELECT date, share_code, investor_name, event, delta_pct, pct_curr
@@ -279,7 +292,7 @@ export async function getCrossHolderNetwork(date?: string, minEmiten = 2): Promi
   avg_pct: number;
 }[]> {
   const db = await openOwnershipDb();
-  const d = date ?? (await getAvailableDates()).at(-1);
+  const d = date ? await resolveDate(date) : (await getAvailableDates()).at(-1);
   if (!d) return [];
   return db.query<{ investor_name: string; local_foreign: string; nationality: string; emiten_count: number; codes: string; avg_pct: number }>(
     `SELECT
@@ -317,7 +330,7 @@ export async function getConcentrationRanking(date?: string, limit = 200): Promi
   flags: string;
 }[]> {
   const db = await openOwnershipDb();
-  const d = date ?? (await getAvailableDates()).at(-1);
+  const d = date ? await resolveDate(date) : (await getAvailableDates()).at(-1);
   if (!d) return [];
 
   const rows = db.query<{
@@ -360,7 +373,7 @@ export async function getStateHoldings(date?: string): Promise<{
   holdings: { share_code: string; issuer_name: string; pct: number }[];
 }[]> {
   const db = await openOwnershipDb();
-  const d = date ?? (await getAvailableDates()).at(-1);
+  const d = date ? await resolveDate(date) : (await getAvailableDates()).at(-1);
   if (!d) return [];
 
   const all = db.query<{ investor_name: string; investor_type: string; share_code: string; issuer_name: string; pct: number }>(
@@ -553,7 +566,7 @@ export async function getEntityGroups(date?: string): Promise<{
   total_pct: number;
 }[]> {
   const db = await openOwnershipDb();
-  const d = date ?? (await getAvailableDates()).at(-1);
+  const d = date ? await resolveDate(date) : (await getAvailableDates()).at(-1);
   if (!d) return [];
 
   const investors = db.query<{
@@ -839,7 +852,7 @@ export async function getInstitutionalHoldings(key: string, date?: string): Prom
   local_foreign: string;
 }[]> {
   const db = await openOwnershipDb();
-  const d = date ?? (await getAvailableDates()).at(-1);
+  const d = date ? await resolveDate(date) : (await getAvailableDates()).at(-1);
   if (!d) return [];
 
   const rows = db.query<{ investor_name: string; pct: number; share_code: string; issuer_name: string }>(
