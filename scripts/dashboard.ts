@@ -4337,7 +4337,98 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
       <h1 style="font-size:18px;font-weight:700">IDX Shareholder Intelligence</h1>
       <div style="color:var(--muted);font-size:11px;margin-top:2px">KSEI >1% holders · all IDX emiten · foreign/local split · cross-ownership network</div>
     </div>
-    <div id="db-stats" style="text-align:right;font-size:11px;color:var(--muted)">loading…</div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div id="db-stats" style="text-align:right;font-size:11px;color:var(--muted)">loading…</div>
+      <button onclick="toggleLegend()" style="background:rgba(88,166,255,.15);color:var(--accent);border:1px solid rgba(88,166,255,.3);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer">? Legenda</button>
+    </div>
+  </div>
+
+  <!-- Legend panel -->
+  <div id="legend-panel" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:12px;font-size:11px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <b style="font-size:13px">Legenda &amp; Kode</b>
+      <button onclick="toggleLegend()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
+
+      <div>
+        <div style="font-weight:600;color:var(--accent);margin-bottom:6px">Tipe Investor (KSEI)</div>
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">CP</td><td style="padding:1px 0">Perusahaan (Company/Corporation)</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">ID</td><td style="padding:1px 0">Individu (Individual Person)</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">IB</td><td style="padding:1px 0">Bank Investasi (Investment Bank)</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">IS</td><td style="padding:1px 0">Asuransi (Insurance Company)</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">FD</td><td style="padding:1px 0">Dana / Reksa Dana (Fund)</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">SE</td><td style="padding:1px 0">Sekuritas (Securities Firm)</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">PR</td><td style="padding:1px 0">Dana Pensiun (Pension Fund)</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">FI</td><td style="padding:1px 0">Lembaga Keuangan / Bank</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">VE</td><td style="padding:1px 0">Modal Ventura (Venture Capital / PE)</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">PA</td><td style="padding:1px 0">Manajer Pasif / Indeks (Passive/Index)</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">IN</td><td style="padding:1px 0">Internasional / Institusi Global</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">GV</td><td style="padding:1px 0">Pemerintah (Government Entity)</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">SO</td><td style="padding:1px 0">BUMN / Persero (State-Owned)</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">FN</td><td style="padding:1px 0">Yayasan (Foundation)</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">BR</td><td style="padding:1px 0">Broker / Kustodian</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">CO</td><td style="padding:1px 0">Koperasi / Yayasan Lain</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">PE</td><td style="padding:1px 0">Entitas Privat (Private Entity)</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">ST</td><td style="padding:1px 0">Kepercayaan Negara (State Trust)</td></tr>
+          <tr><td style="color:var(--muted);padding:1px 6px 1px 0;font-weight:600">OT</td><td style="padding:1px 0">Lainnya (Other)</td></tr>
+        </table>
+      </div>
+
+      <div>
+        <div style="font-weight:600;color:var(--accent);margin-bottom:6px">L/A — Local vs Asing</div>
+        <div style="margin-bottom:4px"><span style="background:rgba(63,185,80,.15);color:#3fb950;padding:1px 7px;border-radius:4px;font-weight:600">L</span> &nbsp;Lokal — investor WNI / perusahaan Indonesia</div>
+        <div style="margin-bottom:12px"><span style="background:rgba(88,166,255,.15);color:#58a6ff;padding:1px 7px;border-radius:4px;font-weight:600">A</span> &nbsp;Asing — investor asing / kustodian global</div>
+
+        <div style="font-weight:600;color:var(--accent);margin-bottom:6px">Event (Anomalies / Delta)</div>
+        <div style="margin-bottom:3px"><span style="background:rgba(63,185,80,.15);color:var(--green);padding:1px 7px;border-radius:4px;font-size:10px;font-weight:600">NEW</span> &nbsp;Investor baru melewati threshold 1%</div>
+        <div style="margin-bottom:3px"><span style="background:rgba(248,81,73,.15);color:var(--red);padding:1px 7px;border-radius:4px;font-size:10px;font-weight:600">EXIT</span> &nbsp;Investor turun di bawah threshold 1%</div>
+        <div style="margin-bottom:3px"><span style="background:rgba(88,166,255,.12);color:var(--accent);padding:1px 7px;border-radius:4px;font-size:10px;font-weight:600">INCREASE</span> &nbsp;Kepemilikan naik ≥ min delta %</div>
+        <div style="margin-bottom:12px"><span style="background:rgba(219,109,40,.12);color:var(--orange);padding:1px 7px;border-radius:4px;font-size:10px;font-weight:600">DECREASE</span> &nbsp;Kepemilikan turun ≥ min delta %</div>
+
+        <div style="font-weight:600;color:var(--accent);margin-bottom:6px">Concentration Flags</div>
+        <div style="margin-bottom:3px"><span style="background:#f8514922;color:#f85149;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:600">Single Owner</span> &nbsp;Top-1 pemegang ≥75% saham</div>
+        <div style="margin-bottom:3px"><span style="background:#a371f722;color:#a371f7;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:600">BUMN/Negara</span> &nbsp;Didominasi entitas BUMN/pemerintah</div>
+        <div style="margin-bottom:3px"><span style="background:#58a6ff22;color:#58a6ff;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:600">Foreign Bloc</span> &nbsp;Kepemilikan asing &gt;30% total</div>
+        <div style="margin-bottom:3px"><span style="background:#3fb95022;color:#3fb950;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:600">Tersebar</span> &nbsp;Kepemilikan terdistribusi merata (HHI rendah)</div>
+        <div style="margin-bottom:12px"></div>
+
+        <div style="font-weight:600;color:var(--accent);margin-bottom:6px">Wash Screener Flags</div>
+        <div style="margin-bottom:3px"><span class="badge badge-HIGH_CHURN">HIGH_CHURN</span> &nbsp;Turnover kepemilikan sangat tinggi (masuk-keluar cepat)</div>
+        <div style="margin-bottom:3px"><span class="badge badge-FAST_FLIP">FAST_FLIP</span> &nbsp;Entry–exit dalam satu periode pelaporan</div>
+        <div><span class="badge badge-COORD_ENTRY">COORD_ENTRY</span> &nbsp;Beberapa investor masuk bersamaan (koordinasi?)</div>
+      </div>
+
+      <div>
+        <div style="font-weight:600;color:var(--accent);margin-bottom:6px">Network Graph — Warna Node</div>
+        <div class="legend" style="flex-direction:column;gap:6px;margin-top:0">
+          <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>Asing custodian / bank / broker (SE, BR, IB)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#39c5cf"></div>Asing fund / institusi (FD, IS, PA, FI)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#bc8cff"></div>Asing individu (ID)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#e3721c"></div>Asing pemerintah (GV)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#a371f7"></div>BUMN / Negara (ASABRI, Danantara, Taspen, dll)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>Lokal lainnya (CP, FD, IS, dll)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#d29922"></div>Lokal individu (ID)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#8b949e"></div>Node emiten (kode saham IDX)</div>
+        </div>
+        <div style="margin-top:12px;font-weight:600;color:var(--accent);margin-bottom:6px">Network Graph — Ukuran Node</div>
+        <div style="color:var(--muted);line-height:1.6">
+          Investor: ukuran ∝ jumlah emiten dipegang (semakin besar = lebih banyak saham)<br>
+          Emiten: ukuran tetap kecil<br>
+          Klik investor → portofolio lengkap (By Investor tab)<br>
+          Klik emiten → detail pemegang saham (By Emiten tab)
+        </div>
+        <div style="margin-top:12px;font-weight:600;color:var(--accent);margin-bottom:6px">HHI — Herfindahl-Hirschman Index</div>
+        <div style="color:var(--muted);line-height:1.6">
+          Ukuran konsentrasi kepemilikan (0–1).<br>
+          &gt;0.50 = sangat terkonsentrasi (merah)<br>
+          0.25–0.50 = terkonsentrasi (oranye)<br>
+          &lt;0.25 = tersebar (abu-abu)
+        </div>
+      </div>
+
+    </div>
   </div>
 
   <div class="tabs">
@@ -4528,6 +4619,23 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
 </div>
 
 <script>
+// ── Legend ─────────────────────────────────────────────────────────────────────
+const INV_TYPE = {
+  CP:'Perusahaan (Company)', ID:'Individu (Individual)', IB:'Bank Investasi (Investment Bank)',
+  IS:'Asuransi (Insurance)', FD:'Dana / Reksa Dana (Fund)', SE:'Sekuritas (Securities Firm)',
+  PR:'Dana Pensiun (Pension Fund)', FI:'Lembaga Keuangan / Bank', VE:'Modal Ventura (Venture/PE)',
+  PA:'Manajer Pasif / Indeks', IN:'Institusi Internasional', GV:'Pemerintah (Government)',
+  SO:'BUMN / Persero (State-Owned)', FN:'Yayasan (Foundation)', BR:'Broker / Kustodian',
+  CO:'Koperasi / Yayasan Lain', PE:'Entitas Privat (Private Entity)', ST:'Kepercayaan Negara',
+  OT:'Lainnya (Other)', AS:'Asosiasi (Association)', DI:'Direksi / Insider',
+};
+const typeChip = code => \`<span class="chip" title="\${INV_TYPE[code] ?? code}">\${esc(code)}</span>\`;
+const localForeignBadge2 = lf => \`<span class="badge badge-\${lf}" title="\${lf==='A'?'Asing (Foreign investor / global custodian)':'Lokal (Investor WNI / perusahaan Indonesia)'}">\${lf==='A'?'Asing':'Lokal'}</span>\`;
+function toggleLegend() {
+  const p = document.getElementById('legend-panel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
 let sigmaInstance = null;
 let graphData = null;
 let washLoaded = false;
@@ -4627,8 +4735,8 @@ async function loadEmiten() {
             const ev = dl?.event ?? '';
             return \`<tr>
               <td><span style="font-weight:500;cursor:pointer;color:var(--accent)" data-inv="\${esc(h.investor_name)}" title="Porto \${esc(h.investor_name)}" onclick="gotoInvestor(this.dataset.inv)">\${esc(h.investor_name)}</span></td>
-              <td><span style="color:var(--muted)">\${esc(h.investor_type)}</span></td>
-              <td>\${localForeignBadge(h.local_foreign)}</td>
+              <td>\${typeChip(h.investor_type)}</td>
+              <td>\${localForeignBadge2(h.local_foreign)}</td>
               <td style="color:var(--muted)">\${esc(h.nationality)}</td>
               <td style="text-align:right;font-weight:600">\${h.pct.toFixed(2)}%
                 \${pctBar(h.pct, h.local_foreign === 'A' ? 'var(--asing)' : 'var(--lokal)' )}</td>
@@ -5153,7 +5261,7 @@ async function loadFlippers() {
         <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${esc(r.share_code)}';switchTab('emiten');loadEmiten()">\${esc(r.share_code)}</td>
         <td style="color:var(--muted)">\${esc(r.issuer_name)}</td>
         <td style="cursor:pointer;color:var(--accent)" data-inv="\${esc(r.investor_name)}" onclick="gotoInvestor(this.dataset.inv)">\${esc(r.investor_name)}</td>
-        <td><span class="chip">\${esc(r.investor_type)}</span></td>
+        <td>\${typeChip(r.investor_type)}</td>
         <td style="font-size:11px">\${r.entry_date.slice(0,7)}</td>
         <td style="font-size:11px;color:var(--red)">\${r.exit_date.slice(0,7)}</td>
         <td style="font-weight:600">\${r.pct_peak.toFixed(2)}%</td>
