@@ -4534,6 +4534,7 @@ let sigmaInstance = null;
 let graphData = null;
 let washLoaded = false;
 let instLoaded = false;
+let anomLoaded = false;
 let instChart = null;
 let kvdChart = null;
 
@@ -4544,6 +4545,7 @@ function switchTab(name) {
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'wash' && !washLoaded) { washLoaded = true; loadWashScreener(); }
   if (name === 'institutions' && !instLoaded) { instLoaded = true; loadInstitutions(); loadKnownVsDark(); }
+  if (name === 'anomalies' && !anomLoaded) { anomLoaded = true; autoLoadAnomalies(); }
 }
 
 // ── Utils ──────────────────────────────────────────────────────────────────────
@@ -4793,6 +4795,35 @@ async function loadForeignMovers(date) {
 }
 
 // ── Anomalies ──────────────────────────────────────────────────────────────────
+async function autoLoadAnomalies() {
+  // Load with no date — server picks latest available; then backfill the input from result
+  const minDelta = document.getElementById('anom-min-delta').value || '2';
+  const el = document.getElementById('anom-result');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const rows = await fetch('/api/ownership/anomalies?min_delta=' + minDelta).then(r => r.json());
+    if (!rows?.length) { el.innerHTML = '<div class="empty">Tidak ada anomali.</div>'; return; }
+    // Backfill date picker from first result
+    const firstDate = rows[0]?.date;
+    if (firstDate) {
+      document.getElementById('anom-date').value = firstDate.slice(0,7);
+    }
+    el.innerHTML = \`<div class="card">
+      <div style="margin-bottom:8px;font-size:11px;color:var(--muted)">\${rows.length} anomali · NEW/EXIT = >1% threshold cross · INCREASE/DECREASE ≥ \${minDelta}% · <b>\${firstDate ?? ''}</b></div>
+      <table>
+        <tr><th>Event</th><th>Emiten</th><th>Investor</th><th style="text-align:right">Curr %</th><th style="text-align:right">Delta</th></tr>
+        \${rows.map(r => \`<tr>
+          <td>\${badge(r.event, r.event)}</td>
+          <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${r.share_code}';switchTab('emiten');loadEmiten()">\${esc(r.share_code)}</td>
+          <td style="font-size:11px">\${esc(r.investor_name)}</td>
+          <td style="text-align:right">\${r.pct_curr != null ? r.pct_curr.toFixed(2) + '%' : '—'}</td>
+          <td style="text-align:right" class="\${r.delta_pct > 0 ? 'delta-pos' : r.delta_pct < 0 ? 'delta-neg' : ''}">\${r.delta_pct != null ? fmtPct(r.delta_pct) : '—'}</td>
+        </tr>\`).join('')}
+      </table>
+    </div>\`;
+  } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
+}
+
 async function loadAnomalies() {
   const date = document.getElementById('anom-date').value;
   const minDelta = document.getElementById('anom-min-delta').value || '2';
