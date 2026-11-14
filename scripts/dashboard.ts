@@ -4535,6 +4535,7 @@ let graphData = null;
 let washLoaded = false;
 let instLoaded = false;
 let anomLoaded = false;
+let networkLoaded = false;
 let instChart = null;
 let kvdChart = null;
 
@@ -4546,6 +4547,7 @@ function switchTab(name) {
   if (name === 'wash' && !washLoaded) { washLoaded = true; loadWashScreener(); }
   if (name === 'institutions' && !instLoaded) { instLoaded = true; loadInstitutions(); loadKnownVsDark(); }
   if (name === 'anomalies' && !anomLoaded) { anomLoaded = true; autoLoadAnomalies(); }
+  if (name === 'network' && !networkLoaded) { networkLoaded = true; loadNetwork(); }
 }
 
 // ── Utils ──────────────────────────────────────────────────────────────────────
@@ -4867,6 +4869,14 @@ async function loadNetwork() {
     if (!nodes?.length) {
       document.getElementById('graph-canvas').innerHTML = '<div class="empty">No data. Run sync first.</div>';
       return;
+    }
+    // Backfill date picker with latest available date
+    if (!date) {
+      try {
+        const sample = await fetch('/api/ownership/anomalies?min_delta=0.01').then(r => r.json());
+        const ld = sample[0]?.date;
+        if (ld) document.getElementById('net-date').value = ld.slice(0,7);
+      } catch {}
     }
 
     if (sigmaInstance) { sigmaInstance.kill(); sigmaInstance = null; }
