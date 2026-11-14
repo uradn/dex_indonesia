@@ -198,6 +198,83 @@ export async function fetchBiOfficialRate(): Promise<MacroDataPoint | null> {
   return null;
 }
 
+const SBN_DOMAINS = ['bloombergtechnoz.com', 'bisnis.com', 'kontan.co.id', 'cnbcindonesia.com', 'katadata.co.id'];
+const SBN_QUERY = 'kepemilikan asing SBN non residen persen DJPPR Kemenkeu';
+
+async function fetchSbnForeignOwnershipViaExa(): Promise<MacroDataPoint | null> {
+  const startDate = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+
+  const tryParse = (texts: string[]): number | null => {
+    for (const text of texts) {
+      if (!text) continue;
+      // Match "non residen" or "asing" near a percentage figure in range 5–50%
+      const pct = text.match(/(?:non[\s-]residen|asing)[^%\d]{0,60}(\d{1,2}[.,]\d{1,2})\s*%/i)
+        ?? text.match(/(\d{1,2}[.,]\d{1,2})\s*%[^%\d]{0,60}(?:non[\s-]residen|asing)/i);
+      if (pct) {
+        const v = parseFloat(pct[1].replace(',', '.'));
+        if (v >= 5 && v <= 50) return v;
+      }
+    }
+    return null;
+  };
+
+  const makePoint = (value: number): MacroDataPoint => ({
+    indicator: 'sbn_foreign_ownership_pct',
+    category: 'sovereign',
+    date: TODAY(),
+    value,
+    unit: '%',
+    source: 'exa_news',
+    fetchedAt: NOW(),
+  });
+
+  // Exa pass
+  if (process.env.EXASEARCH_API_KEY) {
+    try {
+      const { default: Exa } = await import('exa-js');
+      const exa = new Exa(process.env.EXASEARCH_API_KEY);
+      const r = await exa.search(SBN_QUERY, {
+        numResults: 5,
+        type: 'auto',
+        startPublishedDate: startDate,
+        includeDomains: SBN_DOMAINS,
+        contents: { text: { maxCharacters: 3000 } },
+      } as Parameters<typeof exa.search>[1]);
+      const texts = (r.results ?? []).map((x: { text?: string; title?: string | null }) => x.text ?? x.title ?? '');
+      const v = tryParse(texts);
+      if (v !== null) {
+        const pt = makePoint(v);
+        await upsertPoints([pt]);
+        return pt;
+      }
+    } catch { /* fall through */ }
+  }
+
+  // Tavily fallback
+  if (process.env.TAVILY_API_KEY) {
+    try {
+      const { TavilySearchAPIWrapper } = await import('@langchain/tavily');
+      const tavily = new TavilySearchAPIWrapper({ tavilyApiKey: process.env.TAVILY_API_KEY });
+      const response = await tavily.rawResults({
+        query: SBN_QUERY,
+        max_results: 5,
+        include_domains: SBN_DOMAINS,
+        include_raw_content: true,
+        time_range: 'month',
+      } as Parameters<typeof tavily.rawResults>[0]);
+      const texts = (response.results ?? []).map((r: { raw_content?: string | null; content?: string | null }) => r.raw_content ?? r.content ?? '');
+      const v = tryParse(texts);
+      if (v !== null) {
+        const pt = makePoint(v);
+        await upsertPoints([pt]);
+        return pt;
+      }
+    } catch { /* fall through */ }
+  }
+
+  return null;
+}
+
 /**
  * Fetch SBN foreign ownership from DJPPR PDF.
  * Returns percentage of total SBN (SUN+SBN) held by non-residents.
@@ -205,6 +282,7 @@ export async function fetchBiOfficialRate(): Promise<MacroDataPoint | null> {
  *
  * Method: Playwright → kepemilikan SBN page → first api-djppr media link → PDF →
  *   Section B "Dalam Persentase" → "Non Residen" row → last TOTAL% value (9th triplet).
+ * Fallback: Exa/Tavily media search for recent % figure.
  */
 export async function fetchSbnForeignOwnership(): Promise<MacroDataPoint | null> {
   // Env override — manual pin (DNDF pattern). Use when DJPPR TCP-blocks non-ID IPs.
@@ -232,11 +310,11 @@ export async function fetchSbnForeignOwnership(): Promise<MacroDataPoint | null>
     fetchHtmlWithBrowser(DJPPR_OWNERSHIP_URL),
     fetchRenderedTextWithBrowser(DJPPR_OWNERSHIP_URL),
   ]);
-  if (!html) return null;
+  if (!html) return fetchSbnForeignOwnershipViaExa();
 
   // Match only href links (not src/background images which appear first in HTML)
   const linkMatch = html.match(/href="(https:\/\/api-djppr\.kemenkeu\.go\.id\/web\/api\/v1\/media\/[A-F0-9-]+)"/i);
-  if (!linkMatch) return null;
+  if (!linkMatch) return fetchSbnForeignOwnershipViaExa();
   const pdfUrl = linkMatch[1];
 
   // Parse date from rendered text: "Data Harian s.d. 22 Mei 2026"
@@ -256,7 +334,7 @@ export async function fetchSbnForeignOwnership(): Promise<MacroDataPoint | null>
 
   // 2. Download + parse PDF
   const pdfText = await extractPdfText(pdfUrl);
-  if (!pdfText) return null;
+  if (!pdfText) return fetchSbnForeignOwnershipViaExa();
 
   // 3. Find "B. Dalam Persentase" section
   const secBIdx = pdfText.indexOf('B. Dalam Persentase');

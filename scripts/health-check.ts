@@ -83,6 +83,46 @@ if (missingRequired > 0) {
   console.log(color(`\n  ⚠ ${missingRequired} required env var(s) missing — core engine functionality degraded.`, 'red'));
 }
 
+// ── 1b. Pertalite price revalidation (Exa) ──
+// Only runs when PERTALITE_PRICE_IDR is unset (default Rp10,000 hardcoded in engine).
+// Searches for recent ESDM Kepmen BBM announcements; warns if price ≠ 10000 found.
+if (!env['PERTALITE_PRICE_IDR'] && env['EXASEARCH_API_KEY']) {
+  console.log('\n## Pertalite Price Revalidation (auto)\n');
+  try {
+    const { default: Exa } = await import('exa-js');
+    const exa = new Exa(env['EXASEARCH_API_KEY']!);
+    const startDate = new Date(Date.now() - 60 * 86_400_000).toISOString().slice(0, 10);
+    const r = await exa.search('harga Pertalite BBM subsidi ESDM Kepmen terbaru per liter', {
+      numResults: 5,
+      type: 'auto',
+      startPublishedDate: startDate,
+      includeDomains: ['esdm.go.id', 'pertamina.com', 'kontan.co.id', 'cnbcindonesia.com', 'bisnis.com', 'bloombergtechnoz.com'],
+      contents: { text: { maxCharacters: 2000 } },
+    } as never);
+    let foundPrice: number | null = null;
+    for (const result of ((r as { results?: Array<{ text?: string }> }).results ?? [])) {
+      const text = result.text ?? '';
+      // Match "Pertalite" near a price like "Rp 10.000" or "10000" or "Rp10.000/liter"
+      const m = text.match(/(?:pertalite)[^Rp\d]{0,40}Rp\s*([\d.]+)/i)
+        ?? text.match(/(?:pertalite)[^Rp\d]{0,40}(\d{4,6})\s*(?:per|\/)\s*liter/i);
+      if (m) {
+        const v = parseInt(m[1].replace(/\./g, ''), 10);
+        if (v >= 8000 && v <= 20000) { foundPrice = v; break; }
+      }
+    }
+    if (foundPrice !== null && foundPrice !== 10000) {
+      console.log(color(`  ⚠ WARN  Exa found Pertalite price Rp${foundPrice.toLocaleString()} — default is Rp10,000.`, 'orange'));
+      console.log(color(`         Set PERTALITE_PRICE_IDR=${foundPrice} in .env if confirmed.`, 'orange'));
+    } else if (foundPrice === 10000) {
+      console.log(color('  ✓ Pertalite default Rp10,000 confirmed by recent news.', 'green'));
+    } else {
+      console.log(color('  — No Pertalite price change found in last 60d (default Rp10,000 assumed OK).', 'muted'));
+    }
+  } catch (e) {
+    console.log(color('  — Pertalite Exa check skipped: ' + (e instanceof Error ? e.message : String(e)), 'muted'));
+  }
+}
+
 // ── 2. Data freshness ──
 console.log('\n## Data Freshness (vs source publication cadence)\n');
 const db = new Database('.dexter/macro/macro.db', { readonly: true });
