@@ -5145,7 +5145,7 @@ async function loadInstitutions() {
         <td>\${r.total_pct.toFixed(2)}%</td>
         <td>\${trendArrow(r.delta_pct)}</td>
         <td>\${r.emiten_count}</td>
-        <td style="font-size:10px;color:var(--muted);max-width:260px">\${r.names.slice(0,2).map(n=>esc(n)).join('<br>')}\${r.names.length>2?' <span style="color:var(--accent)">+\${r.names.length-2} more</span>':''}</td>
+        <td style="font-size:10px;color:var(--muted);max-width:260px">\${r.names.slice(0,2).map(n=>esc(n)).join('<br>')}\${r.names.length>2?\` <span style="color:var(--accent)">+\${r.names.length-2} more</span>\`:''}</td>
       </tr>\`).join('')}
       </tbody>
     </table>
