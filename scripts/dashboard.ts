@@ -4252,9 +4252,8 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IDX Shareholder Intelligence — Dexter</title>
-<script src="https://unpkg.com/sigma@3/build/sigma.min.js"></script>
-<script src="https://unpkg.com/graphology@0.25/dist/graphology.umd.min.js"></script>
-<script src="https://unpkg.com/graphology-layout-forceatlas2@0.10/dist/graphology-layout-forceatlas2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sigma@2.4.0/build/sigma.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/graphology@0.25.1/dist/graphology.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <style>
   :root {
@@ -4931,10 +4930,19 @@ async function loadNetwork() {
       }
     }
 
-    // ForceAtlas2 layout
-    if (typeof graphologyLayoutForceAtlas2 !== 'undefined') {
-      graphologyLayoutForceAtlas2.assign(graph, { iterations: 100, settings: { gravity: 1, scalingRatio: 10 } });
-    }
+    // Circular layout: investors on outer ring, emiten on inner ring
+    const invNodes = graph.nodes().filter(n => n.startsWith('inv_'));
+    const emNodes  = graph.nodes().filter(n => n.startsWith('em_'));
+    invNodes.forEach((n, i) => {
+      const angle = (2 * Math.PI * i) / Math.max(invNodes.length, 1);
+      graph.setNodeAttribute(n, 'x', Math.cos(angle) * 10);
+      graph.setNodeAttribute(n, 'y', Math.sin(angle) * 10);
+    });
+    emNodes.forEach((n, i) => {
+      const angle = (2 * Math.PI * i) / Math.max(emNodes.length, 1);
+      graph.setNodeAttribute(n, 'x', Math.cos(angle) * 4);
+      graph.setNodeAttribute(n, 'y', Math.sin(angle) * 4);
+    });
 
     // Render with Sigma.js
     const container = document.getElementById('graph-canvas');
