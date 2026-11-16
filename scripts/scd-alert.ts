@@ -88,22 +88,32 @@ async function main() {
     process.exit(0);
   }
 
-  // Compute weighted SCD score
+  // Use scd_composite (final amplified score saved by silent-crisis-detector) if available.
+  // Fallback: recompute from module scores (no cross-confirmation multiplier — may underestimate).
+  const compositeRecord = scores['scd_composite'];
   let scdScore = 0;
-  let totalWeight = 0;
   const redModules: string[] = [];
 
-  for (const [mod, baseWeight] of Object.entries(SCD_WEIGHTS)) {
-    const s = scores[mod];
-    if (!s) continue;
-    const weight = mod === 'political_risk'
-      ? (s.score >= 90 ? 0.12 : s.score >= 75 ? 0.09 : 0.05)
-      : baseWeight;
-    scdScore += s.score * weight;
-    totalWeight += weight;
-    if (s.alertLevel === 'red') redModules.push(`${mod}[${s.score}]`);
+  if (compositeRecord) {
+    scdScore = compositeRecord.score;
+  } else {
+    let totalWeight = 0;
+    for (const [mod, baseWeight] of Object.entries(SCD_WEIGHTS)) {
+      const s = scores[mod];
+      if (!s) continue;
+      const weight = mod === 'political_risk'
+        ? (s.score >= 90 ? 0.12 : s.score >= 75 ? 0.09 : 0.05)
+        : baseWeight;
+      scdScore += s.score * weight;
+      totalWeight += weight;
+    }
+    if (totalWeight > 0) scdScore = Math.round(scdScore / totalWeight * 100) / 100;
   }
-  if (totalWeight > 0) scdScore = Math.round(scdScore / totalWeight * 100) / 100;
+
+  for (const [mod] of Object.entries(SCD_WEIGHTS)) {
+    const s = scores[mod];
+    if (s?.alertLevel === 'red') redModules.push(`${mod}[${s.score}]`);
+  }
 
   const scdPct = Math.round(scdScore);
   const redCount = redModules.length;
