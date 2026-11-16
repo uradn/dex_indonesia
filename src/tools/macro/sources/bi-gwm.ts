@@ -109,7 +109,12 @@ function buildResult(
   // Find previous distinct GWM value (different from current)
   const prevEntry = [...history].reverse().find(p => Math.abs(p.value - gwmPct) > 0.01);
   const prevGwmPct = prevEntry?.value ?? null;
-  const changeDate = prevEntry ? history.at(-1)?.date ?? null : null;
+  // changeDate = first entry AFTER prevEntry (= when new rate was first recorded)
+  // history.at(-1) is wrong: returns today's date even if change happened weeks ago
+  const prevIdx = prevEntry ? history.lastIndexOf(prevEntry) : -1;
+  const changeDate = prevIdx >= 0 && prevIdx + 1 < history.length
+    ? history[prevIdx + 1]!.date
+    : null;
 
   // Direction + magnitude
   let direction: BiGwmData['direction'] = 'unknown';
