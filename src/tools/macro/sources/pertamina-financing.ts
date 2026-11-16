@@ -55,7 +55,7 @@ function parseFinancingText(text: string, url: string | null): { flag: boolean; 
   const amtM = text.match(/Rp\s*([\d,.]+)\s*(?:triliun|T\b)/i)
     ?? text.match(/([\d,.]+)\s*triliun/i);
   if (amtM) {
-    const v = parseFloat(amtM[1]!.replace(',', '.').replace('.', ''));
+    const v = parseFloat(amtM[1]!.replace(/\./g, '').replace(',', '.'));
     if (v >= 0.5 && v <= 200) amount_idr_t = v;
   }
 
