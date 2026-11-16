@@ -132,10 +132,15 @@ async function main() {
   console.log(`MSCI Post-SAIR Updater — ${today}`);
   console.log(`Current MSCI_SAIR_DATE: ${currentSairDate ?? '(not set)'}`);
 
-  // Already updated — no-op (null = not set = using code default 2026-11-12)
-  if (currentSairDate !== null && currentSairDate !== SAIR_OLD_DATE) {
-    console.log('✓ MSCI_SAIR_DATE already updated — nothing to do.');
+  // Already updated to correct target — no-op
+  // If set to wrong value (manual drift), fall through to fix it
+  if (currentSairDate === NEXT_SAIR_DATE) {
+    console.log(`✓ MSCI_SAIR_DATE already correct (${NEXT_SAIR_DATE}) — nothing to do.`);
     process.exit(0);
+  }
+  // Set to some other non-old value — could be manual drift, still apply correct target
+  if (currentSairDate !== null && currentSairDate !== SAIR_OLD_DATE && currentSairDate !== NEXT_SAIR_DATE) {
+    console.log(`⚠ MSCI_SAIR_DATE=${currentSairDate} differs from expected target ${NEXT_SAIR_DATE} — correcting.`);
   }
 
   // Not yet past SAIR date — wait
