@@ -279,7 +279,13 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
   // ── 4. Political Risk Index ────────────────────────────────────────────────
   // Base 10 + component sum + PolEcon adjustment + Tsebelis VPI (cap at 100)
   const vetoAdj = vetoData?.scoreAdj ?? 0;
-  const politicalRiskIndex = Math.min(100, 10 + unemploymentComponent + foodPressureComponent + socialUnrestComponent + stabilityComponent + polEconAdj + vetoAdj);
+  // VP_RESIGNATION_RISK env — set to 'active' when credible VP resignation signals appear
+  // (≥2 independent sources; e.g. CNBC Nov 11 "Gibran mundur" isu). Acemoglu-Robinson:
+  // principal-agent breakdown at top executive level = legitimacy crisis, faster than BI gov vacancy.
+  // Pattern: same as BI_GOVERNOR_VACANT (Destry episode, Aug 2026 — +10 score). Set to 'watch'
+  // for preliminary signals, 'active' only when confirmed by 2+ independent media.
+  const vpResignationAdj = process.env.VP_RESIGNATION_RISK === 'active' ? 10 : process.env.VP_RESIGNATION_RISK === 'watch' ? 4 : 0;
+  const politicalRiskIndex = Math.min(100, 10 + unemploymentComponent + foodPressureComponent + socialUnrestComponent + stabilityComponent + polEconAdj + vetoAdj + vpResignationAdj);
   const stressScore = politicalRiskIndex;
   const alert = alertFromScore(stressScore);
 
@@ -369,6 +375,15 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     if (vetoData.approvalTrend === 'falling' && vetoData.approvalPct !== null && vetoData.approvalPct < 65) {
       flags.push(`APPROVAL DECLINING: 3-month trend falling below 65% — presidential mandate weakening, reform capacity eroding`);
     }
+  }
+
+  if (vpResignationAdj > 0) {
+    const tier = process.env.VP_RESIGNATION_RISK === 'active' ? 'ACTIVE (+10 score)' : 'WATCH (+4 score)';
+    flags.push(
+      `VP RESIGNATION RISK ${tier}: credible signals of VP political instability detected. ` +
+      `Acemoglu-Robinson: principal-agent breakdown at top executive level = legitimacy crisis. ` +
+      `[Set VP_RESIGNATION_RISK=active when ≥2 independent sources confirm; =watch for preliminary signals]`,
+    );
   }
 
   if (!process.env.X_BEARER_TOKEN) {

@@ -24,6 +24,7 @@ import { upsertPoints, getLatestPoint, getLastN } from './time-series-db.js';
 import { alertFromScore, alertLabel, rollingZScore } from './scoring.js';
 import { fetchPihpsCommodities, fetchFoodInflationTe, PIHPS_COMMODITIES } from './sources/pihps.js';
 import { computeCostRecovery, computeSolarCostRecovery, bbmHikeAlert, icpHikeAlert, getFuelPricePoints, DOMESTIC_FUEL_PRICES, ICP_SAFETY_THRESHOLD, HORMUZ_WATCH_THRESHOLD } from './sources/pertamina.js';
+import { fetchIkk, scoreIkk } from './sources/ikk.js';
 import type { AlertLevel } from './types.js';
 
 export const DOMESTIC_PRESSURE_DESCRIPTION = `
@@ -90,10 +91,11 @@ export async function runDomesticPressureEngine(): Promise<DomesticPressureOutpu
   const today = new Date().toISOString().slice(0, 10);
   const flags: string[] = [];
 
-  // ── 1. Fetch and store commodity prices ────────────────────────────────────
-  const [freshCommodities, foodInflationPoint] = await Promise.allSettled([
+  // ── 1. Fetch and store commodity prices + IKK ─────────────────────────────
+  const [freshCommodities, foodInflationPoint, ikkResult] = await Promise.allSettled([
     fetchPihpsCommodities(),
     fetchFoodInflationTe(),
+    fetchIkk(),
   ]);
 
   if (freshCommodities.status === 'fulfilled' && freshCommodities.value.length > 0) {
@@ -254,6 +256,22 @@ export async function runDomesticPressureEngine(): Promise<DomesticPressureOutpu
     { indicator: 'solar_cost_recovery_idr_liter', category: 'pangan', date: today, value: solarCostRecovery, unit: 'IDR/liter', source: 'computed_mops_approx', fetchedAt: new Date().toISOString() },
     { indicator: 'solar_subsidy_gap_idr_liter', category: 'pangan', date: today, value: solarSubsidyGap, unit: 'IDR/liter', source: 'computed', fetchedAt: new Date().toISOString() },
   ]);
+
+  // IKK consumer confidence bonus — LPEM FEB UI: perceived growth gap (5.25% official vs 4.90%
+  // perceived) is transmitted via IKK low-income deterioration 1-2 months ahead of formal metrics.
+  // IKK < 105 (low-income) = social contract stress; <100 = pessimism zone (Reinhart-Rogoff cliff).
+  const ikk = ikkResult.status === 'fulfilled' ? ikkResult.value : null;
+  const ikkBonus = ikk?.overall !== undefined && ikk.overall !== null
+    ? scoreIkk(ikk.overall, ikk.lowIncome ?? null)
+    : 0;
+  if (ikkBonus > 0 && ikk?.overall !== null && ikk?.overall !== undefined) {
+    flags.push(
+      `IKK consumer confidence: ${ikk.overall.toFixed(1)}` +
+      (ikk.lowIncome !== null ? ` overall / ${ikk.lowIncome.toFixed(1)} low-income` : '') +
+      ` — ${ikk.overall < 100 ? 'PESSIMISM ZONE (<100): demand cliff risk (R&R)' : ikk.overall < 105 ? 'borderline; low-income stress' : 'mild concern'} (+${ikkBonus} score)`,
+    );
+  }
+  stressScore = Math.min(100, stressScore + Math.min(25, ikkBonus));
 
   // BBM/ICP pressure bonus — subsidy gap and oil price directly affect domestic purchasing power
   // and political stability; must contribute to score, not just flags.

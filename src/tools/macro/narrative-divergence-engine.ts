@@ -406,6 +406,51 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     }]);
   }
 
+  // 16. Kemenkeu commitment credibility decay — Suahasil "APBN on track" vs deficit trajectory
+  // Barro-Gordon time inconsistency: government announces fiscal discipline (3% ceiling commitment),
+  // then faces incentive to deviate under political cost (BBM hike avoidance, MBG spending, PHK relief).
+  // Signal: linear projection (YTD/months × 12) is what officials present; run-rate-aware
+  // projection (accounting for subsidi energi spike Nov-Dec) is what engine computes.
+  // Credibility decay fires when the two diverge beyond 0.5pp GDP — commitment under test.
+  {
+    const GDP_IDR_T = 25_714.2;                     // APBN 2026 GDP (UU No.17/2025)
+    const DEFICIT_CEILING_PCT = 3.0;                // constitutional ceiling (UU 17/2003)
+    const DEFICIT_TARGET_PCT = 2.68;                // APBN 2026 target
+    const deficitYtd = await getLatestPoint('apbn_deficit_ytd_idr_t');
+    if (deficitYtd) {
+      const ytdT = deficitYtd.value;                // e.g. 379.0T (Oct 2026)
+      const ytdDate = new Date(deficitYtd.date);
+      const monthElapsed = ytdDate.getMonth() + 1;  // Oct = month 10
+      // Linear projection: what officials present in konpers ("on track")
+      const linearProjectedPct = monthElapsed > 0
+        ? ((ytdT / monthElapsed) * 12 / GDP_IDR_T) * 100
+        : 0;
+      // Run-rate-aware: subsidi energi YTD 93% of full-year target by Oct → Nov-Dec backloaded
+      const subsidiYtd = await getLatestPoint('subsidi_energi_ytd_idr_t');
+      const subsidiFullYearEst = subsidiYtd
+        ? subsidiYtd.value * (12 / (monthElapsed || 10)) * 1.15  // +15% Nov-Dec seasonal uplift (Brent sustained)
+        : ytdT * 0.35;  // fallback: subsidi ~35% of deficit
+      const remainingSubsidiOverrun = Math.max(0, subsidiFullYearEst - (subsidiYtd?.value ?? 0));
+      const runRateProjectedT = ytdT + remainingSubsidiOverrun;
+      const runRateProjectedPct = (runRateProjectedT / GDP_IDR_T) * 100;
+      const commitmentGap = runRateProjectedPct - DEFICIT_TARGET_PCT;
+      const ceilingGap = runRateProjectedPct - DEFICIT_CEILING_PCT;
+      const divergenceScore =
+        ceilingGap > 1.5 ? 90 :
+        ceilingGap > 0.5 ? 70 :
+        commitmentGap > 1.0 ? 55 :
+        commitmentGap > 0.5 ? 35 : 10;
+      const flagged = commitmentGap > 0.5;
+      checks.push({
+        dimension: 'Kemenkeu Fiscal Commitment vs Deficit Trajectory (Barro-Gordon)',
+        officialClaim: `Suahasil: "APBN on track, defisit ${(ytdT / GDP_IDR_T * 100).toFixed(2)}% GDP per ${monthElapsed} bulan" — linear proj ${linearProjectedPct.toFixed(2)}% GDP vs target ${DEFICIT_TARGET_PCT}% (ceiling ${DEFICIT_CEILING_PCT}%).`,
+        marketSignal: `Run-rate proj: ${runRateProjectedPct.toFixed(2)}% GDP (+${commitmentGap.toFixed(2)}pp vs target${ceilingGap > 0 ? `, +${ceilingGap.toFixed(2)}pp ABOVE constitutional ceiling` : ''}) — subsidi energi Nov-Dec backlog est. +Rp${remainingSubsidiOverrun.toFixed(0)}T. Linear vs run-rate gap: ${(runRateProjectedPct - linearProjectedPct).toFixed(2)}pp GDP = Barro-Gordon deviation measure.`,
+        divergenceScore,
+        flagged,
+      });
+    }
+  }
+
   // Compute overall credibility score (inverted average divergence)
   const avgDivergence = checks.length > 0
     ? checks.reduce((s, c) => s + c.divergenceScore, 0) / checks.length

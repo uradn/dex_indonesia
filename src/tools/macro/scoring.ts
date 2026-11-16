@@ -1,13 +1,21 @@
 import type { AlertLevel, IndicatorSnapshot, MacroDataPoint } from './types.js';
 import { getLastN } from './time-series-db.js';
 
+// Z_CAP prevents degenerate extreme readings from narrow-range series (e.g. sbn_foreign_ownership_pct
+// 12.5–13.1% history → one Exa outlier produces z=19). Financial z>10 is data error or structural
+// break, not a gradated signal — cap preserves alertFromZScore semantics.
+// MIN_STD_RATIO: 1% of |mean| as floor prevents near-zero std amplifying noise into false RED.
+const Z_CAP = 10;
+const MIN_STD_RATIO = 0.01;
+
 export function rollingZScore(series: number[], current: number): number {
   if (series.length < 3) return 0;
   const mean = series.reduce((a, b) => a + b, 0) / series.length;
   const variance = series.reduce((sum, v) => sum + (v - mean) ** 2, 0) / series.length;
-  const std = Math.sqrt(variance);
-  if (std === 0) return 0;
-  return (current - mean) / std;
+  const rawStd = Math.sqrt(variance);
+  const std = Math.max(rawStd, Math.abs(mean) * MIN_STD_RATIO, 1e-9);
+  const z = (current - mean) / std;
+  return Math.max(-Z_CAP, Math.min(Z_CAP, z));
 }
 
 export function alertFromZScore(z: number): AlertLevel {

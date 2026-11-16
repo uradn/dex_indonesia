@@ -110,6 +110,11 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   // Published ~10th of following month. 35d fresh = covers monthly cadence.
   { name: 'apbn_deficit_ytd_idr_t',  module: 'M10', freshDays: 35, yellowDays: 55, redDays: 90 },
   { name: 'apbn_spending_ytd_idr_t', module: 'M10', freshDays: 35, yellowDays: 55, redDays: 90 },
+  // IKK — BI Survei Konsumen monthly (~10th of following month). 35d fresh = covers cadence.
+  // Source: Exa news fallback (BI press release coverage); env override IKK_OVERALL / IKK_LOW_INCOME.
+  // LPEM FEB UI uses ikk_low_income as "perceived growth" proxy (Q3 2026: 107.4).
+  { name: 'ikk_overall',    module: 'M11', freshDays: 35, yellowDays: 55, redDays: 90 },
+  { name: 'ikk_low_income', module: 'M11', freshDays: 35, yellowDays: 55, redDays: 90 },
 ];
 
 const SPEC_BY_NAME: Map<string, IndicatorFreshnessSpec> = new Map(INDICATORS.map(s => [s.name, s]));
