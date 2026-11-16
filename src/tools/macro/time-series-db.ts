@@ -301,16 +301,17 @@ function rowToThesis(r: ThesisRow): ThesisRecord {
 export async function saveThesis(t: Omit<ThesisRecord, 'id'>): Promise<number> {
   const db = await openDb();
   const now = new Date().toISOString();
+  const triggeredAt = t.status === 'triggered' ? now : null;
   db.query(
     `INSERT INTO macro_theses
       (thesis_date, primary_divergence, thesis_statement, trigger_indicator, trigger_threshold,
        trigger_direction, predicted_cds_bps, predicted_usdidr, predicted_sbn10y,
-       crisis_probability, ev_estimate, kill_conditions, status, created_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       crisis_probability, ev_estimate, kill_conditions, status, triggered_at, created_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
   ).run(
     t.thesisDate, t.primaryDivergence, t.thesisStatement, t.triggerIndicator, t.triggerThreshold,
     t.triggerDirection, t.predictedCdsBps ?? null, t.predictedUsdidr ?? null, t.predictedSbn10y ?? null,
-    t.crisisProbability ?? null, t.evEstimate ?? null, JSON.stringify(t.killConditions), t.status, now,
+    t.crisisProbability ?? null, t.evEstimate ?? null, JSON.stringify(t.killConditions), t.status, triggeredAt, now,
   );
   const row = db.query<{ id: number }>('SELECT last_insert_rowid() AS id').get();
   return row?.id ?? 0;
