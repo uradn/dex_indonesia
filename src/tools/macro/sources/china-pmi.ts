@@ -155,12 +155,14 @@ async function fetchViaTavily(): Promise<ChinaPmiData | null> {
  * Priority: env override → DB cache (35d) → Exa → Tavily.
  */
 export async function fetchChinaPmi(): Promise<ChinaPmiData | null> {
-  // Env override always wins
+  // Env override always wins — upsert so health-check tracks freshness
   if (process.env.CHINA_PMI_MANUFACTURING) {
     const val = parseFloat(process.env.CHINA_PMI_MANUFACTURING);
     if (!isNaN(val) && val >= 40 && val <= 65) {
       const today = new Date().toISOString().slice(0, 10);
-      return { value: val, date: today, source: 'env:CHINA_PMI_MANUFACTURING', fetchedAt: new Date().toISOString() };
+      const fetchedAt = new Date().toISOString();
+      await upsertPoints([{ indicator: 'china_pmi_manufacturing', category: 'commodity' as const, date: today, value: val, unit: 'index_50', source: 'env:CHINA_PMI_MANUFACTURING', fetchedAt }]);
+      return { value: val, date: today, source: 'env:CHINA_PMI_MANUFACTURING', fetchedAt };
     }
   }
 
