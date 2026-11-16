@@ -355,7 +355,9 @@ try {
     const currentCds  = sov.status === 'fulfilled' ? (sov.value.cds5y?.current  ?? null) : null;
     const currentIdr  = fx.status  === 'fulfilled' ? (fx.value.usdIdr?.current  ?? null) : null;
     const currentSbn  = sov.status === 'fulfilled' ? (sov.value.sbn10y?.current ?? null) : null;
-    const currentSbnFo = (await getLatestPoint('sbn_foreign_ownership_pct'))?.value ?? null;
+    const currentSbnFoRaw = (await getLatestPoint('sbn_foreign_ownership_pct'))?.value ?? null;
+    const currentSbnFo = process.env.SBN_FOREIGN_OWNERSHIP_PCT
+      ? parseFloat(process.env.SBN_FOREIGN_OWNERSHIP_PCT) : currentSbnFoRaw;
     const polScore = crisis.moduleScores.find(m => m.module === 'political_risk')?.score ?? 0;
 
     const trigVal = thesis.triggerIndicator === 'political_risk_score'

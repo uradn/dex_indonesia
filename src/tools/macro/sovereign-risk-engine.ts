@@ -152,7 +152,13 @@ export async function runSovereignRiskEngine(): Promise<SovereignOutput> {
   const currentEmbi = await getLatestPoint('embi_indonesia_spread_bps');
   const prevEmbi = (await getLastN('embi_indonesia_spread_bps', 30)).slice(-2)[0] ?? null;
 
-  const currentForeign = await getLatestPoint('sbn_foreign_ownership_pct');
+  const currentForeignRaw = await getLatestPoint('sbn_foreign_ownership_pct');
+  // Env override wins (parallel module run; M5 may not have upserted yet when M2 reads DB)
+  const currentForeign = process.env.SBN_FOREIGN_OWNERSHIP_PCT
+    ? { ...(currentForeignRaw ?? { indicator: 'sbn_foreign_ownership_pct', category: 'sovereign' as const, unit: '%', source: 'env_manual', fetchedAt: new Date().toISOString() }),
+        value: parseFloat(process.env.SBN_FOREIGN_OWNERSHIP_PCT),
+        date: new Date().toISOString().slice(0, 10) }
+    : currentForeignRaw;
   const prevForeign = (await getLastN('sbn_foreign_ownership_pct', 6)).slice(-2)[0] ?? null;
 
   const currentBiRate = await getLatestPoint('bi_rate_pct');
