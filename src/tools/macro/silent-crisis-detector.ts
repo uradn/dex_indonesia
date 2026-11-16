@@ -125,7 +125,7 @@ async function getModuleScores(): Promise<ModuleScore[]> {
     { module: 'sovereign_risk', run: async () => { const r = await runSovereignRiskEngine(); return { score: r.sovereignRiskScore, alertLevel: r.scoreCard.alertLevel, flags: r.scoreCard.flags }; } },
     { module: 'foreign_flow',   run: async () => { const r = await runForeignFlowEngine();  return { score: r.scoreCard.score, alertLevel: r.scoreCard.alertLevel, flags: r.scoreCard.flags }; } },
     { module: 'commodity',  run: async () => { const r = await runCommodityEngine();  return { score: r.scoreCard.score, alertLevel: r.scoreCard.alertLevel, flags: r.scoreCard.flags }; } },
-    { module: 'regime',     run: async () => { const r = await runRegimeEngine();     const s = r.currentRegime === 'Q3' ? 80 : r.currentRegime === 'Q4' ? 55 : r.currentRegime === 'Q2' ? 30 : 10; return { score: s, alertLevel: r.alertLevel }; } },
+    { module: 'regime',     run: async () => { const r = await runRegimeEngine();     const s = r.currentRegime === 'Q3' ? 80 : r.currentRegime === 'Q4' ? 55 : r.currentRegime === 'Q2' ? 35 : 10; return { score: s, alertLevel: r.alertLevel }; } },
     { module: 'narrative',  run: async () => { const r = await runNarrativeDivergenceEngine(); const s = 100 - r.adjustedCredibilityScore; return { score: s, alertLevel: alertFromScore(s), flags: r.flags }; } },
     { module: 'banking',            run: async () => { const r = await runBankingStressEngine(); return { score: r.stressScore, alertLevel: r.alert, flags: r.flags }; } },
     { module: 'market',             run: async () => { const r = await runMarketStressEngine(); return { score: r.stressScore, alertLevel: r.alert }; } },

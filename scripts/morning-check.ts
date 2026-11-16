@@ -68,7 +68,7 @@ if (sov.status       === 'fulfilled') addScore('sovereign_risk',   sov.value.sov
 if (flow.status      === 'fulfilled') addScore('foreign_flow',     flow.value.scoreCard.score,                  flow.value.scoreCard.alertLevel, flow.value.scoreCard.flags);     else addFailed('foreign_flow');
 if (commodity.status === 'fulfilled') addScore('commodity',        commodity.value.scoreCard.score,             commodity.value.scoreCard.alertLevel, commodity.value.scoreCard.flags); else addFailed('commodity');
 if (regime.status    === 'fulfilled') {
-  const s = regime.value.currentRegime === 'Q3' ? 80 : regime.value.currentRegime === 'Q4' ? 55 : regime.value.currentRegime === 'Q2' ? 30 : 10;
+  const s = regime.value.currentRegime === 'Q3' ? 80 : regime.value.currentRegime === 'Q4' ? 55 : regime.value.currentRegime === 'Q2' ? 35 : 10;
   addScore('regime', s, regime.value.alertLevel);
 } else addFailed('regime');
 if (narrative.status === 'fulfilled') { const ns = 100 - narrative.value.adjustedCredibilityScore; addScore('narrative', ns, alertFromScore(ns), narrative.value.flags); } else addFailed('narrative');
