@@ -33,19 +33,22 @@ const RED_MOD_THRESH   = parseInt(process.env.SCD_RED_MODULES_THRESHOLD   ?? '3'
 const COOLDOWN_H       = parseFloat(process.env.SCD_ALERT_COOLDOWN_H      ?? '24');
 const STATE_FILE       = dexterPath('scd-alert-state.json');
 
-// SCD weights — must match silent_crisis_detector in registry.ts
+// SCD weights — must match MODULE_WEIGHTS in silent-crisis-detector.ts
+// political_risk is dynamic: score<75→0.05, ≥75→0.09, ≥90→0.12 (applied per-module below)
 const SCD_WEIGHTS: Record<string, number> = {
-  fx_defense:      0.16,
-  bop:             0.10,
-  sovereign_risk:  0.10,
-  foreign_flow:    0.10,
-  commodity:       0.08,
-  fiscal:          0.10,
-  banking:         0.08,
-  market:          0.05,
-  domestic_pressure: 0.08,
-  political_risk:  0.10,
-  uln:             0.05,
+  fx_defense:        0.16,
+  uln:               0.09,
+  bop:               0.10,
+  sovereign_risk:    0.09,
+  foreign_flow:      0.09,
+  banking:           0.08,
+  commodity:         0.07,
+  fiscal:            0.09,
+  market:            0.05,
+  domestic_pressure: 0.06,
+  political_risk:    0.05,  // base; dynamically overridden per-score below
+  regime:            0.05,
+  narrative:         0.02,
 };
 
 interface AlertState {
@@ -90,9 +93,12 @@ async function main() {
   let totalWeight = 0;
   const redModules: string[] = [];
 
-  for (const [mod, weight] of Object.entries(SCD_WEIGHTS)) {
+  for (const [mod, baseWeight] of Object.entries(SCD_WEIGHTS)) {
     const s = scores[mod];
     if (!s) continue;
+    const weight = mod === 'political_risk'
+      ? (s.score >= 90 ? 0.12 : s.score >= 75 ? 0.09 : 0.05)
+      : baseWeight;
     scdScore += s.score * weight;
     totalWeight += weight;
     if (s.alertLevel === 'red') redModules.push(`${mod}[${s.score}]`);
