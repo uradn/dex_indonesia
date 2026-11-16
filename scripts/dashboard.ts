@@ -3024,7 +3024,7 @@ const CHAIN_META = {
 
 const STATUS_LABEL = { red: 'FIRED', orange: 'ACTIVATED', yellow: 'WARMING', green: 'DORMANT' };
 
-function renderGameTheory(thesis, snap) {
+function renderGameTheory(thesis, snap, dbRecord?) {
   const ind = snap?.indicators ?? {};
   const ms  = snap?.moduleScores ?? {};
 
@@ -3209,7 +3209,7 @@ function renderGameTheory(thesis, snap) {
     <div style="background:\${eqBg};border:1px solid var(--\${eqCls});border-radius:6px;padding:10px 12px;margin-bottom:12px">
       <div style="display:flex;align-items:baseline;gap:8px">
         <span class="\${eqCls}" style="font-size:15px;font-weight:700;letter-spacing:.04em">\${eqLabel}</span>
-        <span style="font-size:9px;color:var(--muted)">\${firedCount}/7 nodes · Thesis #14 TRIGGERED d\${daysSinceBryant + 23}</span>
+        <span style="font-size:9px;color:var(--muted)">\${firedCount}/7 nodes · \${(() => { const tb = dbRecord?.triggeredAt ?? dbRecord?.thesisDate; const d = tb ? Math.round((Date.now() - new Date(tb).getTime()) / 864e5) : null; return dbRecord?.id ? 'Thesis #' + dbRecord.id + (dbRecord.status === 'triggered' ? ' TRIGGERED' : ' ARMED') + (d !== null ? ' d' + d : '') : 'No active thesis'; })()}</span>
       </div>
       <div style="font-size:10px;color:var(--muted);margin-top:3px">\${eqDesc}</div>
     </div>
@@ -4230,7 +4230,7 @@ async function loadData() {
     document.getElementById('panel-divs').innerHTML = renderDivs(thesis);
     document.getElementById('panel-trigger').innerHTML = renderTrigger(thesis);
     document.getElementById('panel-chain').innerHTML = renderChain(thesis);
-    document.getElementById('panel-gt').innerHTML = renderGameTheory(thesis, snap);
+    document.getElementById('panel-gt').innerHTML = renderGameTheory(thesis, snap, activeArmed);
     document.getElementById('panel-timeline').innerHTML = renderTimeline(thesis, activeArmed);
     document.getElementById('panel-kill').innerHTML = renderKill(thesis, activeArmed, snap);
     document.getElementById('panel-idx-flow').innerHTML = renderIdxFlowBs(flow);
