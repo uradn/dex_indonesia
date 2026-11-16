@@ -202,6 +202,14 @@ const SBN_DOMAINS = ['bloombergtechnoz.com', 'bisnis.com', 'kontan.co.id', 'cnbc
 const SBN_QUERY = 'kepemilikan asing SBN non residen persen DJPPR Kemenkeu';
 
 async function fetchSbnForeignOwnershipViaExa(): Promise<MacroDataPoint | null> {
+  // Skip if DJPPR already wrote fresh data (within 5 days) — prevents parallel-run race where
+  // Exa fires concurrently with a successful DJPPR fetch and overwrites authoritative PDF data.
+  const existing = await getLatestPoint('sbn_foreign_ownership_pct');
+  if (existing) {
+    const ageDays = (Date.now() - new Date(existing.date).getTime()) / 86_400_000;
+    if (ageDays <= 5 && existing.source !== 'exa_news') return existing;
+  }
+
   const startDate = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
 
   const tryParse = (texts: string[]): number | null => {
