@@ -56,7 +56,10 @@ async function main() {
   const idrActual    = idrPoint?.value ?? null;
   const sbnActual    = sbnPoint?.value ?? null;
   const ustActual    = ustPoint?.value ?? null;
-  const sbnOwnActual = sbnOwnPoint?.value ?? null;
+  // Env override always wins (mirrors M5 engine pattern; prevents stale scrape from triggering KS#3)
+  const sbnOwnActual = process.env.SBN_FOREIGN_OWNERSHIP_PCT
+    ? parseFloat(process.env.SBN_FOREIGN_OWNERSHIP_PCT)
+    : (sbnOwnPoint?.value ?? null);
 
   // Kill switch #1: political_risk module score < 55 for last 14d
   const polLast14 = polScores.filter(p => {
@@ -200,10 +203,11 @@ async function main() {
     }
 
     // #3 — SBN foreign ownership return
+    const sbnOwnSrc = process.env.SBN_FOREIGN_OWNERSHIP_PCT ? ' [env]' : '';
     if (killSwitch3) {
-      console.log(`  ✅ #3 FIRED: SBN foreign ownership ${sbnOwnActual?.toFixed(1)}% > 15% → capital return confirmed, auto-killing`);
+      console.log(`  ✅ #3 FIRED: SBN foreign ownership ${sbnOwnActual?.toFixed(1)}%${sbnOwnSrc} > 15% → capital return confirmed, auto-killing`);
     } else {
-      console.log(`  ❌ #3 clear: SBN foreign ownership ${sbnOwnActual?.toFixed(1) ?? '—'}% (need >15% for capital return signal)`);
+      console.log(`  ❌ #3 clear: SBN foreign ownership ${sbnOwnActual?.toFixed(1) ?? '—'}%${sbnOwnSrc} (need >15% for capital return signal)`);
     }
 
     // #4 — 3-signal weighted market-benign check (thesis invalidated only when majority-weight confirms)
