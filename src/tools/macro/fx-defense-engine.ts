@@ -526,7 +526,7 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   if (policyLevel === 'partial_coordination') {
     score = Math.max(0, score - 4);
     alertLevel = alertFromScore(score);
-    const instruments = policySignals.map(s => s.instrument).join('+');
+    const instruments = policySignals.length > 0 ? policySignals.map(s => s.instrument).join('+') : 'multi-instrument (cached)';
     flags.push(
       `COORDINATED RESPONSE (PARTIAL): ${instruments} detected within 72h window — SCD M3 −4pts. ` +
       (msciStandalone ? 'MSCI Standalone caveat: cannot sterilize mandate-exit selling (compliance execution).' : 'KS#2 candidate — verify package scope before kill.'),
@@ -534,7 +534,7 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
   } else if (policyLevel === 'full_package') {
     score = Math.max(0, score - 8);
     alertLevel = alertFromScore(score);
-    const instruments = policySignals.map(s => s.instrument).join('+');
+    const instruments = policySignals.length > 0 ? policySignals.map(s => s.instrument).join('+') : 'multi-instrument (cached)';
     const windowStr = policyResponse.coordinationWindowHours != null
       ? `${policyResponse.coordinationWindowHours.toFixed(0)}h window`
       : '72h window';
