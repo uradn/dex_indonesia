@@ -28,6 +28,7 @@ import { fetchBiodieselStatus } from './sources/biodiesel.js';
 import { fetchTkdRealisasi, fetchBpdEquityProxy } from './sources/djpk.js';
 import { fetchFiscalRhetoricExa, fetchFiscalRhetoricTavily } from './sources/fiscal-rhetoric.js';
 import type { FiscalRhetoricResult } from './sources/fiscal-rhetoric.js';
+import { fetchPertaminaFinancing, scorePertaminaFinancing } from './sources/pertamina-financing.js';
 import type { AlertLevel } from './types.js';
 
 export const FISCAL_DESCRIPTION = `
@@ -679,6 +680,15 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     stressScore = Math.min(100, stressScore + msi.m10Bump);
   }
 
+  // ── Pertamina Quasi-Fiscal (Gap #5 — Calvo 1988) ─────────────────────────
+  // When APBN subsidi transfer is delayed, Pertamina bridges via CP/bond issuance.
+  // Off-balance-sheet fiscal obligation — real deficit > headline APBN figures.
+  const pertaminaFinancing = await fetchPertaminaFinancing().catch(() => null);
+  const pertaminaScore = scorePertaminaFinancing(pertaminaFinancing);
+  if (pertaminaScore.score > 0) {
+    stressScore = Math.min(100, stressScore + pertaminaScore.score);
+  }
+
   const alert = alertFromScore(stressScore) as AlertLevel;
 
   // Persist projected deficit % GDP so dashboard can chart trajectory over time
@@ -839,6 +849,11 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
     if (msi.minskyMomentRisk) {
       flags.push(`MINSKY MOMENT PRECONDITION: 2+ sectors in Ponzi regime — debt-cycle deterioration ahead of equilibrium triggers. M10 bump: +${msi.m10Bump}`);
     }
+  }
+
+  // Pertamina quasi-fiscal flags
+  if (pertaminaScore.flag) {
+    flags.push(pertaminaScore.flag);
   }
 
   // 7. Narrative

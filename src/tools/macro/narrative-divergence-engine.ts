@@ -451,6 +451,36 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
     }
   }
 
+  // 17. Official vs Perceived Growth Gap (LPEM FEB UI proxy)
+  // Official narrative: BPS quarterly GDP growth (5.25% 2026 target). Perceived:
+  // IKK trend + PHK cumulative stress + real income deflator deviation.
+  // LPEM methodology: perceived growth = official − ikk_adjustment − labor_adjustment
+  // ikk_adjustment: each 1pt IKK decline from 115 neutral → -0.05pp perceived GDP
+  // labor_adjustment: each 10k PHK YTD → -0.03pp perceived GDP (Acemoglu-Robinson social contract)
+  // Divergence fires when perceived < official by >0.3pp — gap = what households experience vs headline.
+  {
+    const gdpPoint = await getLatestPoint('gdp_growth_pct');
+    const ikkPoint = await getLatestPoint('ikk_overall');
+    const phkYtdPoint = await getLatestPoint('phk_ytd_kemnaker');
+    if (gdpPoint && ikkPoint) {
+      const IKK_NEUTRAL = 115.0;
+      const ikkAdj = Math.max(0, (IKK_NEUTRAL - ikkPoint.value) * 0.05);
+      const phkYtdWorkers = phkYtdPoint?.value ?? 0;
+      const laborAdj = (phkYtdWorkers / 10_000) * 0.03;
+      const perceivedGrowth = Math.max(0, gdpPoint.value - ikkAdj - laborAdj);
+      const growthGap = gdpPoint.value - perceivedGrowth;
+      const flagged = growthGap > 0.3;
+      const divergenceScore = growthGap > 1.5 ? 80 : growthGap > 0.8 ? 55 : growthGap > 0.3 ? 35 : 10;
+      checks.push({
+        dimension: 'Official vs Perceived Growth Gap (LPEM FEB UI proxy)',
+        officialClaim: `BPS GDP growth ${gdpPoint.value.toFixed(2)}% — official narrative: "ekonomi resilient, pertumbuhan 5% di atas regional peers."`,
+        marketSignal: `Perceived growth ${perceivedGrowth.toFixed(2)}% [official ${gdpPoint.value.toFixed(2)}% − IKK adj ${ikkAdj.toFixed(2)}pp (IKK ${ikkPoint.value.toFixed(1)} vs neutral 115) − labor adj ${laborAdj.toFixed(2)}pp (PHK YTD ${phkYtdWorkers.toLocaleString('id')} workers)]. Gap ${growthGap.toFixed(2)}pp = what households perceive vs headline. LPEM: "perceived growth" divergence is leading indicator of social contract stress.`,
+        divergenceScore,
+        flagged,
+      });
+    }
+  }
+
   // Compute overall credibility score (inverted average divergence)
   const avgDivergence = checks.length > 0
     ? checks.reduce((s, c) => s + c.divergenceScore, 0) / checks.length

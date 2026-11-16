@@ -49,6 +49,7 @@ import {
 import { fetchXSocialSentiment, type XSentimentResult } from './sources/x-social.js';
 import { fetchPhkRelokasi, fetchPhkYtdKemnaker, type PhkRelokasiData } from './sources/phk-relokasi.js';
 import { fetchVetoPlayerFriction, type VetoPlayerData } from './sources/veto-player.js';
+import { fetchSakernas, scoreSakernas } from './sources/sakernas.js';
 import type { AlertLevel } from './types.js';
 
 export const POLITICAL_RISK_DESCRIPTION = `
@@ -136,7 +137,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     tavilyFoodResult, tavilyUnrestResult, tavilyStabilityResult, tavilyGeopoliticalResult,
     xResult, phkResult, phkYtdResult,
     breakingFoodResult, breakingUnrestResult,
-    vetoResult,
+    vetoResult, sakernasResult,
   ] = await Promise.allSettled([
     searchNewsSentiment('food_pressure'),
     searchNewsSentiment('social_unrest'),
@@ -152,6 +153,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
     searchBreakingNewsSentiment('food_pressure'),
     searchBreakingNewsSentiment('social_unrest'),
     fetchVetoPlayerFriction(),
+    fetchSakernas(),
   ]);
 
   const foodSentiment        = foodResult.status              === 'fulfilled' ? foodResult.value              : null;
@@ -168,6 +170,7 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
   const breakingFood         = breakingFoodResult.status      === 'fulfilled' ? breakingFoodResult.value      : null;
   const breakingUnrest       = breakingUnrestResult.status    === 'fulfilled' ? breakingUnrestResult.value    : null;
   const vetoData             = vetoResult.status              === 'fulfilled' ? vetoResult.value               : null;
+  const sakernasData         = sakernasResult.status          === 'fulfilled' ? sakernasResult.value           : null;
 
   // Blended unrest score: best of Exa + Tavily + 48h breaking scan
   const liveUnrestScore = Math.max(
@@ -285,7 +288,13 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
   // Pattern: same as BI_GOVERNOR_VACANT (Destry episode, Aug 2026 — +10 score). Set to 'watch'
   // for preliminary signals, 'active' only when confirmed by 2+ independent media.
   const vpResignationAdj = process.env.VP_RESIGNATION_RISK === 'active' ? 10 : process.env.VP_RESIGNATION_RISK === 'watch' ? 4 : 0;
-  const politicalRiskIndex = Math.min(100, 10 + unemploymentComponent + foodPressureComponent + socialUnrestComponent + stabilityComponent + polEconAdj + vetoAdj + vpResignationAdj);
+
+  // ── Sakernas informal employment (Gap #9 — BPS bi-annual) ─────────────────
+  // Rising informal sector = formal job destruction → social contract stress → protest risk.
+  // Additive to M12 (capped at 12pts via scoreSakernas). Bi-annual cadence (Feb/Aug).
+  const sakernasScore = sakernasData !== null ? await scoreSakernas(sakernasData.value).catch(() => ({ score: 0, flag: null })) : { score: 0, flag: null };
+
+  const politicalRiskIndex = Math.min(100, 10 + unemploymentComponent + foodPressureComponent + socialUnrestComponent + stabilityComponent + polEconAdj + vetoAdj + vpResignationAdj + sakernasScore.score);
   const stressScore = politicalRiskIndex;
   const alert = alertFromScore(stressScore);
 
@@ -384,6 +393,10 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
       `Acemoglu-Robinson: principal-agent breakdown at top executive level = legitimacy crisis. ` +
       `[Set VP_RESIGNATION_RISK=active when ≥2 independent sources confirm; =watch for preliminary signals]`,
     );
+  }
+
+  if (sakernasScore.flag) {
+    flags.push(sakernasScore.flag);
   }
 
   if (!process.env.X_BEARER_TOKEN) {

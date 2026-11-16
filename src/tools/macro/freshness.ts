@@ -115,6 +115,19 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   // LPEM FEB UI uses ikk_low_income as "perceived growth" proxy (Q3 2026: 107.4).
   { name: 'ikk_overall',    module: 'M11', freshDays: 35, yellowDays: 55, redDays: 90 },
   { name: 'ikk_low_income', module: 'M11', freshDays: 35, yellowDays: 55, redDays: 90 },
+  // BBRI bellwether — quarterly earnings (NIM/NPL/loan growth/provisions). 95d = quarterly + 45d lag buffer.
+  // Source: Exa/Tavily — BBRI IR press release + IDX announcement. Env: BBRI_NIM_PCT / BBRI_NPL_PCT.
+  { name: 'bbri_nim_pct',         module: 'M8',  freshDays: 95,  yellowDays: 120, redDays: 160 },
+  { name: 'bbri_npl_pct',         module: 'M8',  freshDays: 95,  yellowDays: 120, redDays: 160 },
+  { name: 'bbri_loan_growth_pct', module: 'M8',  freshDays: 95,  yellowDays: 120, redDays: 160 },
+  { name: 'bbri_provisions_pct',  module: 'M8',  freshDays: 95,  yellowDays: 120, redDays: 160 },
+  // BPS Sakernas — bi-annual (Feb/Aug) informal employment %. 180d = 6-month window before stale.
+  // Source: BPS WebAPI + Exa media fallback. Env: INFORMAL_EMPLOYMENT_PCT.
+  { name: 'informal_employment_pct', module: 'M12', freshDays: 180, yellowDays: 240, redDays: 365 },
+  // Pertamina quasi-fiscal — bond/CP issuance flag (monthly gate). 30d = APBN transfer calendar.
+  // Source: Exa/Tavily — Pertamina IR + media. Env: PERTAMINA_SUBSIDI_DELAY_FLAG.
+  { name: 'pertamina_subsidi_delay_flag', module: 'M10', freshDays: 30, yellowDays: 45, redDays: 60 },
+  { name: 'pertamina_bond_issuance_idr_t', module: 'M10', freshDays: 30, yellowDays: 45, redDays: 60 },
 ];
 
 const SPEC_BY_NAME: Map<string, IndicatorFreshnessSpec> = new Map(INDICATORS.map(s => [s.name, s]));

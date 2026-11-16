@@ -18,6 +18,7 @@ import { fetchKbmiContagion, type KbmiContagionResult } from './sources/kbmi-con
 import { fetchIndoniaBiDirect } from './sources/bi.js';
 import { fetchBiGwm, scoreGwmLevel, scoreGwmDirection, GWM_NORMAL_ANCHOR_PCT, GWM_LDR_SENSITIVITY, type BiGwmData } from './sources/bi-gwm.js';
 import { computeMinskyStressIndex, formatMinskySection } from './sources/minsky-stress-index.js';
+import { fetchBbriEarnings, scoreBbriEarnings } from './sources/bank-earnings.js';
 
 export const BANKING_STRESS_DESCRIPTION = `
 MACRO INTELLIGENCE — Banking Stress Engine (Module 8)
@@ -377,7 +378,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   }
 
   // 1c. Frequently-updated indicators + KBMI basket + BI IndONIA direct (all parallel)
-  const [indoniaPoint, extDebtPoint, ihprPoint, m2Point, kbmiResult, indoniaDirectResult, gwmResult] = await Promise.allSettled([
+  const [indoniaPoint, extDebtPoint, ihprPoint, m2Point, kbmiResult, indoniaDirectResult, gwmResult, bbriResult] = await Promise.allSettled([
     fetchIndoniaRateTe(),
     fetchExternalDebtTe(),
     fetchIhprTe(),
@@ -385,6 +386,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     fetchKbmiContagion(),
     fetchIndoniaBiDirect(),
     fetchBiGwm(),
+    fetchBbriEarnings(),
   ]);
   const indonia = indoniaPoint.status === 'fulfilled' ? indoniaPoint.value : null;
   const extDebt = extDebtPoint.status === 'fulfilled' ? extDebtPoint.value : null;
@@ -393,6 +395,7 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   const kbmiContagion = kbmiResult.status === 'fulfilled' ? kbmiResult.value : null;
   const indoniaDirectFetch = indoniaDirectResult.status === 'fulfilled' ? indoniaDirectResult.value : null;
   const gwmData = gwmResult.status === 'fulfilled' ? gwmResult.value : null;
+  const bbriEarnings = bbriResult.status === 'fulfilled' ? bbriResult.value : null;
   if (m2 === null) {
     // Tier 2: World Bank annual M2 (no Playwright, free API, 1-year lag)
     m2 = await fetchM2WorldBank();
@@ -720,6 +723,14 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     stressScore = Math.min(100, stressScore + msi.m8Bump);
   }
 
+  // ── BBRI Bellwether (Gap #8) — quarterly earnings lead OJK SPI by 30-45d ─
+  let bbriBump = 0;
+  const bbriScore = bbriEarnings !== null ? scoreBbriEarnings(bbriEarnings) : null;
+  if (bbriScore !== null && bbriScore.score > 0) {
+    bbriBump = Math.min(15, bbriScore.score);  // cap M8 contribution at 15pts
+    stressScore = Math.min(100, stressScore + bbriBump);
+  }
+
   // 5. Alert level: high stressScore = more stress = higher alert
   const alert = alertFromScore(stressScore) as AlertLevel;
 
@@ -920,6 +931,11 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     } else if (msi.overallRegime !== 'systemic_hedge') {
       flags.push(`Minsky FIH ${msi.overallRegime.replace(/_/g, ' ').toUpperCase()} (${msi.compositeScore}/100) — balance sheet deterioration ahead of equilibrium triggers. M8 bump: +${msi.m8Bump}`);
     }
+  }
+
+  // BBRI bellwether flags
+  if (bbriScore !== null && bbriScore.flags.length > 0) {
+    for (const f of bbriScore.flags) flags.push(f);
   }
 
   // Brunnermeier-Pedersen spiral flags
