@@ -375,14 +375,17 @@ try {
     const subsidyFired = subsidyRunRatePct !== null && subsidyRunRatePct >= 135;
     const fired = primaryFired || subsidyFired;
 
-    const daysSince = Math.round((Date.now() - new Date(thesis.createdAt).getTime()) / 86400000);
-    const armedDate  = thesis.createdAt.slice(0, 10);
-    const t90  = new Date(new Date(thesis.createdAt).getTime() +  90 * 86400000).toISOString().slice(0, 10);
-    const t180 = new Date(new Date(thesis.createdAt).getTime() + 180 * 86400000).toISOString().slice(0, 10);
+    const triggerBase  = thesis.triggeredAt ? new Date(thesis.triggeredAt) : new Date(thesis.createdAt);
+    const daysSince = Math.round((Date.now() - triggerBase.getTime()) / 86400000);
+    const armedDate  = thesis.thesisDate ?? thesis.createdAt.slice(0, 10);
+    const t90  = new Date(triggerBase.getTime() +  90 * 86400000).toISOString().slice(0, 10);
+    const t180 = new Date(triggerBase.getTime() + 180 * 86400000).toISOString().slice(0, 10);
+    const t365 = new Date(triggerBase.getTime() + 365 * 86400000).toISOString().slice(0, 10);
     const ev   = thesis.evEstimate != null
       ? `${thesis.evEstimate > 0 ? '+' : ''}${thesis.evEstimate.toFixed(1)}%` : '—';
 
-    console.log(`\n## Thesis Monitor — ID ${thesis.id} [${thesis.status.toUpperCase()}] (${daysSince}d)`);
+    const dayLabel = thesis.triggeredAt ? `${daysSince}d since trigger` : `${daysSince}d`;
+    console.log(`\n## Thesis Monitor — ID ${thesis.id} [${thesis.status.toUpperCase()}] (${dayLabel})`);
     console.log(`  Armed: ${armedDate}  |  Divergence: ${thesis.primaryDivergence.replace(/_/g, ' ')}`);
 
     // ── Thesis statement (word-wrapped at 80 cols) ────────────────────────
@@ -467,7 +470,7 @@ try {
     }
 
     // ── Timeline ──────────────────────────────────────────────────────────
-    console.log(`\n  TIMELINE: T+0=${armedDate}  |  T+90=${t90}  |  T+180=${t180}`);
+    console.log(`\n  TIMELINE: T+0=${armedDate}  |  T+90=${t90}  |  T+180=${t180}  |  T+365=${t365}`);
 
     console.log(`\n${BAR}\n`);
   }
