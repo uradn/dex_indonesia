@@ -633,10 +633,21 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     source: at1Secondary.sourceUrl ?? 'exa_search',
     fetchedAt: at1Secondary.fetchedAt,
   }]);
-  if (at1Secondary) {
-    if (at1Secondary.pricePct < 80) {
+  // AT1 effective price: env override > live Exa fetch (env wins for emergency pinning).
+  // Apply uniformly to both standard AT1 bump and B-P spiral so env pin is complete.
+  const himbaraAt1Env = process.env.HIMBARA_AT1_SECONDARY_PCT;
+  const at1PctEffective = himbaraAt1Env ? parseFloat(himbaraAt1Env) : (at1Secondary?.pricePct ?? null);
+  // Upsert env override so DB stays in sync (health-check freshness + B-P spiral history)
+  if (himbaraAt1Env) {
+    const v = parseFloat(himbaraAt1Env);
+    if (!isNaN(v) && v > 0 && v <= 200) {
+      await upsertPoints([{ indicator: 'himbara_at1_secondary_pct', category: 'banking' as const, date: new Date().toISOString().slice(0, 10), value: v, unit: 'pct_par', source: 'env_manual', fetchedAt: new Date().toISOString() }]);
+    }
+  }
+  if (at1PctEffective !== null) {
+    if (at1PctEffective < 80) {
       stressScore = Math.min(100, stressScore + 15);
-    } else if (at1Secondary.pricePct < 90) {
+    } else if (at1PctEffective < 90) {
       stressScore = Math.min(100, stressScore + 8);
     }
   }
@@ -650,9 +661,6 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
     const std = Math.sqrt(vals.reduce((s, v) => s + (v - mean) ** 2, 0) / vals.length);
     return std > 0 ? parseFloat(((sbn10yPct - mean) / std).toFixed(2)) : null;
   })();
-  // AT1 effective price: env override > live Exa fetch (env wins for emergency pinning)
-  const himbaraAt1Env = process.env.HIMBARA_AT1_SECONDARY_PCT;
-  const at1PctEffective = himbaraAt1Env ? parseFloat(himbaraAt1Env) : (at1Secondary?.pricePct ?? null);
   const aseanPeDiscountPct = dbAseanPeDiscount?.value ?? null;
   const liquiditySpiral = computeLiquiditySpiral(at1PctEffective, sbnZScore, aseanPeDiscountPct);
   stressScore = Math.min(100, stressScore + liquiditySpiral.scoreBump);
