@@ -3599,25 +3599,32 @@ function renderChain(t) {
   \`;
 }
 
-function renderTimeline(t) {
+function renderTimeline(t, dbRecord?) {
   if (!t) return '—';
   const now = new Date().toISOString().slice(0,10);
-  const t3 = new Date(Date.now() + 90*864e5).toISOString().slice(0,7);
-  const t6 = new Date(Date.now() + 180*864e5).toISOString().slice(0,7);
-  const t12 = new Date(Date.now() + 365*864e5).toISOString().slice(0,7);
+  // Anchor to DB triggeredAt/thesisDate — prevents date drift as days pass
+  const base = new Date(dbRecord?.triggeredAt ?? dbRecord?.thesisDate ?? t.thesisDate ?? Date.now()).getTime();
+  const t3  = new Date(base + 90*864e5).toISOString().slice(0,10);
+  const t6  = new Date(base + 180*864e5).toISOString().slice(0,10);
+  const t12 = new Date(base + 365*864e5).toISOString().slice(0,10);
+  const daysSince = Math.round((Date.now() - base) / 864e5);
+  // Use actual thesis targets in milestone text
+  const cds130 = t.predictedCdsBps ? Math.round(t.predictedCdsBps * 0.68) : 130;
+  const idrEarly = t.predictedUsdidr ? Math.round(t.predictedUsdidr * 0.90).toLocaleString('id') : '18,500';
+  const idrFull = t.predictedUsdidr ? Math.round(t.predictedUsdidr).toLocaleString('id') : '—';
   return \`<div class="timeline">
     <div class="tl-row">
       <div class="tl-dot now"></div>
       <div class="tl-content">
-        <div class="tl-label">T+0 — NOW (\${now})</div>
-        <div class="tl-text">Political risk \${t.transmissionChain?.[0]?.score ?? '—'}/100 \${(() => { const s = t.transmissionChain?.[0]?.score ?? 0; return s > 60 ? 'RED' : s > 40 ? 'ORANGE' : s > 25 ? 'YELLOW' : 'GREEN'; })()}. Financial avg ~\${fmt(t.divergences?.[0]?.gap > 0 ? t.transmissionChain?.[0]?.score - t.divergences?.[0]?.gap : 0, 0)}/100. Crisis prob \${t.crisisProbability}%. Thesis \${t.triggerFired ? 'TRIGGERED' : 'ARMED'}.</div>
+        <div class="tl-label">T+0 — \${dbRecord?.thesisDate ?? now} · day \${daysSince}</div>
+        <div class="tl-text">Political risk \${t.transmissionChain?.[0]?.score ?? '—'}/100 \${(() => { const s = t.transmissionChain?.[0]?.score ?? 0; return s > 60 ? 'RED' : s > 40 ? 'ORANGE' : s > 25 ? 'YELLOW' : 'GREEN'; })()}. Crisis prob \${t.crisisProbability}%. Thesis \${t.triggerFired ? 'TRIGGERED' : 'ARMED'}.</div>
       </div>
     </div>
     <div class="tl-row">
       <div class="tl-dot future"></div>
       <div class="tl-content">
         <div class="tl-label">T+3 — Early Warning (\${t3})</div>
-        <div class="tl-text">Watch: SBN foreign ownership &lt;11%, CDS &gt;130bps, IDR &gt;18,500, M10 Fiscal &gt;70/100. Any 2 of 4 = stress confirmation.</div>
+        <div class="tl-text">Watch: SBN foreign ownership &lt;11%, CDS &gt;\${cds130}bps, IDR &gt;\${idrEarly}, M10 Fiscal &gt;70/100. Any 2 of 4 = stress confirmation.</div>
       </div>
     </div>
     <div class="tl-row">
@@ -3631,7 +3638,7 @@ function renderTimeline(t) {
       <div class="tl-dot future"></div>
       <div class="tl-content">
         <div class="tl-label">T+12 — Payoff Zone (\${t12})</div>
-        <div class="tl-text">Terminal: CDS \${fmt(t.predictedCdsBps,0)}bps, IDR \${t.predictedUsdidr ? Math.round(t.predictedUsdidr).toLocaleString('id') : '—'}, SBN 10Y \${fmt(t.predictedSbn10y,2)}%. Full PnL ~+25% blended portfolio.</div>
+        <div class="tl-text">Terminal: CDS \${fmt(t.predictedCdsBps,0)}bps, IDR \${idrFull}, SBN 10Y \${fmt(t.predictedSbn10y,2)}%. Full PnL ~+\${fmt(t.evEstimate,1)}% blended portfolio.</div>
       </div>
     </div>
   </div>\`;
@@ -4217,7 +4224,7 @@ async function loadData() {
     document.getElementById('panel-trigger').innerHTML = renderTrigger(thesis);
     document.getElementById('panel-chain').innerHTML = renderChain(thesis);
     document.getElementById('panel-gt').innerHTML = renderGameTheory(thesis, snap);
-    document.getElementById('panel-timeline').innerHTML = renderTimeline(thesis);
+    document.getElementById('panel-timeline').innerHTML = renderTimeline(thesis, activeArmed);
     document.getElementById('panel-kill').innerHTML = renderKill(thesis, activeArmed, snap);
     document.getElementById('panel-idx-flow').innerHTML = renderIdxFlowBs(flow);
     document.getElementById('panel-haye').innerHTML = renderHaye(snap);
