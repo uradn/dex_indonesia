@@ -265,6 +265,7 @@ function buildSnapshot() {
       circuitBreakerDate: process.env.IDX_LAST_CIRCUIT_BREAKER_DATE ?? null,
       shortSellVol: process.env.IDX_SHORT_SELL_VOLUME_IDR_BN ? parseFloat(process.env.IDX_SHORT_SELL_VOLUME_IDR_BN) : null,
       sairDate: process.env.MSCI_SAIR_DATE ?? '2026-11-12',
+      sbnForeignOwnershipPct: process.env.SBN_FOREIGN_OWNERSHIP_PCT ? parseFloat(process.env.SBN_FOREIGN_OWNERSHIP_PCT) : null,
     };
     // Read latest module scores from DB (written by SCD / morning-check)
     const moduleScores: Record<string, { score: number; alertLevel: string; computedAt: string; flags: string[] }> = {};
@@ -3608,10 +3609,14 @@ function renderTimeline(t, dbRecord?) {
   const t6  = new Date(base + 180*864e5).toISOString().slice(0,10);
   const t12 = new Date(base + 365*864e5).toISOString().slice(0,10);
   const daysSince = Math.round((Date.now() - base) / 864e5);
-  // Use actual thesis targets in milestone text
-  const cds130 = t.predictedCdsBps ? Math.round(t.predictedCdsBps * 0.68) : 130;
-  const idrEarly = t.predictedUsdidr ? Math.round(t.predictedUsdidr * 0.90).toLocaleString('id') : '18,500';
-  const idrFull = t.predictedUsdidr ? Math.round(t.predictedUsdidr).toLocaleString('id') : '—';
+  // Use locked-in DB targets when available (live-computed targets drift with market prices)
+  const targetCds  = dbRecord?.predictedCdsBps  ?? t.predictedCdsBps;
+  const targetIdr  = dbRecord?.predictedUsdidr  ?? t.predictedUsdidr;
+  const targetSbn  = dbRecord?.predictedSbn10y  ?? t.predictedSbn10y;
+  const targetEv   = dbRecord?.evEstimate       ?? t.evEstimate;
+  const cds130  = targetCds ? Math.round(targetCds * 0.68) : 130;
+  const idrEarly = targetIdr ? Math.round(targetIdr * 0.90).toLocaleString('id') : '18,500';
+  const idrFull  = targetIdr ? Math.round(targetIdr).toLocaleString('id') : '—';
   return \`<div class="timeline">
     <div class="tl-row">
       <div class="tl-dot now"></div>
@@ -3638,7 +3643,7 @@ function renderTimeline(t, dbRecord?) {
       <div class="tl-dot future"></div>
       <div class="tl-content">
         <div class="tl-label">T+12 — Payoff Zone (\${t12})</div>
-        <div class="tl-text">Terminal: CDS \${fmt(t.predictedCdsBps,0)}bps, IDR \${idrFull}, SBN 10Y \${fmt(t.predictedSbn10y,2)}%. Full PnL ~+\${fmt(t.evEstimate,1)}% blended portfolio.</div>
+        <div class="tl-text">Terminal: CDS \${fmt(targetCds,0)}bps, IDR \${idrFull}, SBN 10Y \${fmt(targetSbn,2)}%. Full PnL ~+\${fmt(targetEv,1)}% blended portfolio.</div>
       </div>
     </div>
   </div>\`;
@@ -3649,7 +3654,9 @@ function renderKill(t, armed, snap) {
   const ind = snap?.indicators ?? {};
   // Live checks — #1 from transmission chain, #3/#4 from snapshot indicators
   const polScore  = t.transmissionChain?.[0]?.score ?? 999;
-  const sbnOwn    = ind['sbn_foreign_ownership_pct']?.value ?? null;
+  // SBN_FOREIGN_OWNERSHIP_PCT env always wins (mirrors M5 engine + check-thesis pattern)
+  const sbnOwnEnv = snap?.envFlags?.sbnForeignOwnershipPct ?? null;
+  const sbnOwn    = sbnOwnEnv ?? ind['sbn_foreign_ownership_pct']?.value ?? null;
   const cds       = ind['indonesia_cds_5y_bps']?.value ?? null;
   const sbnYield  = ind['sbn_10y_yield_pct']?.value ?? null;
   const ustYield  = ind['ust_10y_yield_pct']?.value ?? null;
