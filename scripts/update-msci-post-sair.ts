@@ -194,7 +194,7 @@ async function main() {
   if (scenario !== 'A') {
     console.log(`\n⚠ Scenario ${scenario} — VERIFY manually:`);
     if (scenario === 'B') console.log('  Check MSCI press release language before keeping under_review + 0.20 override');
-    if (scenario === 'C') console.log('  Confirm MSCI explicitly stated EM status retained — then kill Thesis #14 KS#2');
+    if (scenario === 'C') console.log('  Confirm MSCI explicitly stated EM status retained — then kill active thesis via KS#2 (MSCI downgrade narrative reversed)');
   }
 
   console.log('\nNext: run morning check to see updated M5 score:');

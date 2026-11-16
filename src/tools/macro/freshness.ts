@@ -142,6 +142,14 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   // OJK monthly fintech lending stats (~45d after month-end)
   { name: 'fintech_lending_outstanding_idr_t',  module: 'M8', freshDays: 50, yellowDays: 70, redDays: 120 },
   { name: 'fintech_lending_growth_yoy_pct',     module: 'M8', freshDays: 50, yellowDays: 70, redDays: 120 },
+  // BPS monthly CPI (~1st week of following month); regime + banking engines
+  { name: 'inflation_cpi_pct',           module: 'M0',  freshDays: 35,  yellowDays: 55,  redDays: 90  },
+  // S&P Global Indonesia manufacturing PMI monthly (~1st business day); regime engine
+  { name: 'indonesia_pmi_manufacturing', module: 'M0',  freshDays: 35,  yellowDays: 55,  redDays: 75  },
+  // World Bank Pink Sheet CPO monthly; commodity + domestic pressure engines
+  { name: 'cpo_price_myr',               module: 'M4',  freshDays: 35,  yellowDays: 55,  redDays: 90  },
+  // ULN/GDP derived ratio — recomputed by ULN engine from BI SULNI quarterly
+  { name: 'uln_gdp_ratio_pct',           module: 'M13', freshDays: 100, yellowDays: 140, redDays: 200 },
 ];
 
 const SPEC_BY_NAME: Map<string, IndicatorFreshnessSpec> = new Map(INDICATORS.map(s => [s.name, s]));
