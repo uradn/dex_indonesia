@@ -19,6 +19,7 @@ import { runPoliticalRiskEngine } from '../src/tools/macro/political-risk-engine
 import { runUlnEngine } from '../src/tools/macro/uln-engine.js';
 import { computeSilentCrisis, type ModuleScore } from '../src/tools/macro/silent-crisis-detector.js';
 import { getLatestThesis, getLatestPoint, updateThesisStatus, saveModuleScore } from '../src/tools/macro/time-series-db.js';
+import { alertFromScore } from '../src/tools/macro/scoring.js';
 import type { AlertLevel } from '../src/tools/macro/types.js';
 
 const DATE = new Date().toISOString().slice(0, 10);
@@ -70,7 +71,7 @@ if (regime.status    === 'fulfilled') {
   const s = regime.value.currentRegime === 'Q3' ? 80 : regime.value.currentRegime === 'Q4' ? 55 : regime.value.currentRegime === 'Q2' ? 30 : 10;
   addScore('regime', s, regime.value.alertLevel);
 } else addFailed('regime');
-if (narrative.status === 'fulfilled') addScore('narrative',        100 - narrative.value.narrativeCredibilityScore, narrative.value.alertLevel, narrative.value.flags);           else addFailed('narrative');
+if (narrative.status === 'fulfilled') { const ns = 100 - narrative.value.adjustedCredibilityScore; addScore('narrative', ns, alertFromScore(ns), narrative.value.flags); } else addFailed('narrative');
 if (banking.status   === 'fulfilled') addScore('banking',          banking.value.stressScore,                   banking.value.alert,             banking.value.flags);            else addFailed('banking');
 if (market.status    === 'fulfilled') addScore('market',           market.value.stressScore,                    market.value.alert,              market.value.flags);             else addFailed('market');
 if (fiscal.status    === 'fulfilled') addScore('fiscal',           fiscal.value.stressScore,                    fiscal.value.alert,              fiscal.value.flags);             else addFailed('fiscal');
@@ -233,9 +234,10 @@ if (aseanRv.status === 'fulfilled') {
 // Display stress score = 100 − credibility, consistent with all other modules.
 if (narrative.status === 'fulfilled') {
   const r = narrative.value;
-  const narrativeStress = 100 - r.narrativeCredibilityScore;
-  console.log(`\n### 8. Narrative Credibility  ${emoji(r.alertLevel)} ${narrativeStress}/100`);
-  console.log(`  Credibility index: ${r.narrativeCredibilityScore}/100`);
+  const narrativeStress = 100 - r.adjustedCredibilityScore;
+  const narrativeAlert = alertFromScore(narrativeStress);
+  console.log(`\n### 8. Narrative Credibility  ${emoji(narrativeAlert)} ${narrativeStress}/100`);
+  console.log(`  Credibility index: ${r.narrativeCredibilityScore}/100 (Bayesian adj: ${r.bayesianAdj >= 0 ? '+' : ''}${r.bayesianAdj} → ${r.adjustedCredibilityScore}/100)`);
   for (const f of r.flags.slice(0, 2)) console.log(`  ⚠️  ${f}`);
 } else {
   console.log(`\n### 8. Narrative  ❌ ${String(narrative.reason).slice(0, 80)}`);
