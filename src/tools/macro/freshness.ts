@@ -127,7 +127,7 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   // Pertamina quasi-fiscal — bond/CP issuance flag (monthly gate). 30d = APBN transfer calendar.
   // Source: Exa/Tavily — Pertamina IR + media. Env: PERTAMINA_SUBSIDI_DELAY_FLAG.
   { name: 'pertamina_subsidi_delay_flag', module: 'M10', freshDays: 30, yellowDays: 45, redDays: 60 },
-  { name: 'pertamina_bond_issuance_idr_t', module: 'M10', freshDays: 30, yellowDays: 45, redDays: 60 },
+  // pertamina_bond_issuance_idr_t: display-only; scoring uses flag above. Excluded from health-check.
 ];
 
 const SPEC_BY_NAME: Map<string, IndicatorFreshnessSpec> = new Map(INDICATORS.map(s => [s.name, s]));
