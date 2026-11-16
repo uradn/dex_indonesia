@@ -26,6 +26,7 @@ import { runForeignFlowEngine } from '../src/tools/macro/foreign-flow-engine.js'
 import { runCommodityEngine } from '../src/tools/macro/commodity-engine.js';
 import { runRegimeEngine } from '../src/tools/macro/regime-engine.js';
 import { runNarrativeDivergenceEngine } from '../src/tools/macro/narrative-divergence-engine.js';
+import { alertFromScore } from '../src/tools/macro/scoring.js';
 import { runBankingStressEngine } from '../src/tools/macro/banking-stress-engine.js';
 import { runMarketStressEngine } from '../src/tools/macro/market-stress-engine.js';
 import { runFiscalEngine } from '../src/tools/macro/fiscal-engine.js';
@@ -450,7 +451,7 @@ const scoresBefore: Record<string, number> = {
   fiscal:           fiscal.status    === 'fulfilled' ? fiscal.value.stressScore             : 20,
   domestic_pressure: domestic.status === 'fulfilled' ? domestic.value.stressScore           : 20,
   political_risk:   political.status === 'fulfilled' ? political.value.stressScore          : 20,
-  narrative:        narrative.status === 'fulfilled' ? (100 - narrative.value.narrativeCredibilityScore) : 30,
+  narrative:        narrative.status === 'fulfilled' ? (100 - narrative.value.adjustedCredibilityScore) : 30,
   regime:           regime.status    === 'fulfilled'
     ? (['Q3'].includes(regime.value.currentRegime) ? 65 : ['Q4'].includes(regime.value.currentRegime) ? 50 : ['Q2'].includes(regime.value.currentRegime) ? 35 : 15)
     : 20,

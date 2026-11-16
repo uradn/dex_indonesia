@@ -107,6 +107,7 @@ process.env.DEXTER_STRESS_FOOD = JSON.stringify(overrides);
 import { runDomesticPressureEngine } from '../src/tools/macro/domestic-pressure-engine.js';
 import { runFiscalEngine } from '../src/tools/macro/fiscal-engine.js';
 import { runNarrativeDivergenceEngine } from '../src/tools/macro/narrative-divergence-engine.js';
+import { alertFromScore } from '../src/tools/macro/scoring.js';
 import { runPoliticalRiskEngine } from '../src/tools/macro/political-risk-engine.js';
 
 function emoji(level: string) {
@@ -171,7 +172,9 @@ console.log('');
 
 if (narrative.status === 'fulfilled') {
   const r = narrative.value;
-  console.log(`  ${emoji(r.alertLevel)} narrative           ${String(Math.round(100 - r.narrativeCredibilityScore)).padStart(3)}/100  ${r.alertLevel.toUpperCase()}`);
+  const ns = 100 - r.adjustedCredibilityScore;
+  const nal = alertFromScore(ns);
+  console.log(`  ${emoji(nal)} narrative           ${String(Math.round(ns)).padStart(3)}/100  ${nal.toUpperCase()}`);
   if (r.flags?.length) for (const f of r.flags.slice(0, 3)) console.log(`     ⚠️  ${f}`);
 }
 
