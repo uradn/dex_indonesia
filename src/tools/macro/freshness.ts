@@ -128,6 +128,20 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   // Source: Exa/Tavily — Pertamina IR + media. Env: PERTAMINA_SUBSIDI_DELAY_FLAG.
   { name: 'pertamina_subsidi_delay_flag', module: 'M10', freshDays: 30, yellowDays: 45, redDays: 60 },
   // pertamina_bond_issuance_idr_t: display-only; scoring uses flag above. Excluded from health-check.
+  // BI GWM — env override BI_GWM_PCT always wins; DB updated by bi-gwm.ts at each banking engine run
+  // BI announces at RDG (monthly); held unchanged for long periods — 45d fresh covers 1 missed RDG
+  { name: 'bi_gwm_pct',                    module: 'M8',  freshDays: 45,  yellowDays: 60,  redDays: 90  },
+  // BI SEKI monthly (~10th of following month): M2 broad money, M1/M2 ratio, savings/deposito ratio
+  { name: 'm2_money_supply_idr_bn',         module: 'M8',  freshDays: 35,  yellowDays: 55,  redDays: 90  },
+  { name: 'm1_m2_ratio_pct',                module: 'M8',  freshDays: 35,  yellowDays: 55,  redDays: 90  },
+  { name: 'bank_savings_deposito_ratio_pct',module: 'M8',  freshDays: 50,  yellowDays: 70,  redDays: 120 },
+  // APBN KiTa pressconf + GDP: deficit % GDP annual-ish; 100d covers quarterly APBN + GDP lag
+  { name: 'apbn_deficit_pct_gdp',           module: 'M8',  freshDays: 100, yellowDays: 140, redDays: 200 },
+  // BIS quarterly IHPR house price index; 100d fresh = quarterly + 10d publication lag
+  { name: 'indonesia_ihpr_yoy_pct',         module: 'M8',  freshDays: 100, yellowDays: 130, redDays: 200 },
+  // OJK monthly fintech lending stats (~45d after month-end)
+  { name: 'fintech_lending_outstanding_idr_t',  module: 'M8', freshDays: 50, yellowDays: 70, redDays: 120 },
+  { name: 'fintech_lending_growth_yoy_pct',     module: 'M8', freshDays: 50, yellowDays: 70, redDays: 120 },
 ];
 
 const SPEC_BY_NAME: Map<string, IndicatorFreshnessSpec> = new Map(INDICATORS.map(s => [s.name, s]));
