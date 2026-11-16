@@ -101,6 +101,8 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   { name: 'prabowo_approval_pct', module: 'M12', freshDays: 30, yellowDays: 45, redDays: 60 },
   // LPS deposit coverage — quarterly press release; 90d freshness
   { name: 'lps_deposit_coverage_value_pct', module: 'M8', freshDays: 90, yellowDays: 120, redDays: 180 },
+  // LPS fund adequacy — annual, LPS Laporan Tahunan ~Apr each year; env LPS_FUND_ADEQUACY_PCT
+  { name: 'lps_fund_adequacy_pct', module: 'M8', freshDays: 365, yellowDays: 420, redDays: 500 },
   // Policy response coordination — KS#2 feed; 24h cache per policy-response.ts
   { name: 'policy_response_level', module: 'M3', freshDays: 1, yellowDays: 2, redDays: 5 },
   // IndONIA compounded 30d — BI direct daily (bi.go.id 19:30 WIB); env override BI_INDONIA_COMPOUNDED_30D_PCT

@@ -461,9 +461,16 @@ export async function runBankingStressEngine(): Promise<BankingStressOutput> {
   const ldrPct = dbLdr?.value ?? null;
   const carPct = dbCar?.value ?? null;
   const apbnDeficitPctGdp = dbDeficitPct?.value ?? null;
-  // Gap D long-term: LPS fund adequacy from env override (annual, LPS Laporan Tahunan ~Apr each year)
+  // Gap D long-term: LPS fund adequacy (annual, LPS Laporan Tahunan ~Apr each year)
+  // Env always wins; upsert so health-check tracks annual freshness.
   const lpsEnv = process.env.LPS_FUND_ADEQUACY_PCT;
-  const lpsAdequacyPct = lpsEnv ? (parseFloat(lpsEnv) || null) : null;
+  if (lpsEnv) {
+    const v = parseFloat(lpsEnv);
+    if (!isNaN(v) && v > 0 && v < 20) {
+      await upsertPoints([{ indicator: 'lps_fund_adequacy_pct', category: 'banking' as const, date: new Date().toISOString().slice(0, 10), value: v, unit: '%', source: 'env_manual', fetchedAt: new Date().toISOString() }]);
+    }
+  }
+  const lpsAdequacyPct = lpsEnv ? (parseFloat(lpsEnv) || null) : ((await getLatestPoint('lps_fund_adequacy_pct'))?.value ?? null);
   const uninsuredDepositSharePct = lpsDepositCoverage?.uninsuredSharePct ?? null;
   // Prefer BI direct (compounded 30d, < 1d fresh) over TE proxy (3M term, ~4-week lag).
   // Live fetch result takes priority when DB hasn't caught up yet.
