@@ -47,6 +47,12 @@ async function main() {
 
   console.log(`IDX Closing Check — ${today} 16:05 WIB`);
 
+  // Fetch DB prev close BEFORE upsert — after upsert getLatestPoint returns today's value,
+  // making the DB fallback impossible (date guard would fail).
+  const dbPrevClose = await getLatestPoint('ihsg_close_daily')
+    .then(p => (p && p.date < today ? p.value : null))
+    .catch(() => null);
+
   // --- IHSG close ---
   let ihsgClose: number | null = null;
   let ihsgVolume: number | null = null;
@@ -107,12 +113,8 @@ async function main() {
 
   // --- Alerts ---
   if (ihsgClose !== null) {
-    // Use Yahoo prev close if available, else fetch from DB
-    let prevClose = ihsgPrevClose;
-    if (prevClose === null) {
-      const prev = await getLatestPoint('ihsg_close_daily');
-      if (prev && prev.date < today) prevClose = prev.value;
-    }
+    // Use Yahoo prev close if available, else pre-fetched DB value (fetched before today's upsert)
+    const prevClose = ihsgPrevClose ?? dbPrevClose;
 
     if (prevClose !== null && prevClose > 0) {
       const pct = ((ihsgClose - prevClose) / prevClose) * 100;

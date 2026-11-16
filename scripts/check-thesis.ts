@@ -79,8 +79,8 @@ async function main() {
   //   s1 — CDS 5Y persist < 75bps (last 3 consecutive readings, latest ≤10d fresh)   w=1
   //   s2 — SBN-UST 10Y spread < 366bps (below historical pre-crisis quiet-zone median) w=2
   //   s3 — IDR realized vol 30d ann < 5% (below 2018 EM quiet baseline)               w=3
-  // Kill fires if sum(weights_passed) > 3 (of 6 max). Equivalent to: any 2 of {s2, s3}
-  // OR all three. Prevents kill on CDS+SBN benign only (both distortable by intervention).
+  // Kill fires ONLY if sum(weights_passed) == 6 (all three signals must confirm benign).
+  // s2+s3 alone = 5 (not enough) — prevents single/dual intervention-distortable signals killing.
   const CDS_KILL_THRESHOLD_BPS = 75;
   const CDS_MAX_AGE_DAYS = 10;
   const SBN_SPREAD_THRESHOLD_BPS = 366;   // calibrated: 80% × median-of-p75 across 6 crises (real UST fix applied)
