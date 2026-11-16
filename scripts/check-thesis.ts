@@ -127,17 +127,31 @@ async function main() {
   for (const thesis of active) {
     const createdAt = new Date(thesis.createdAt);
     const daysSince = Math.round((today.getTime() - createdAt.getTime()) / 86400000);
+    // Use triggeredAt for day count if available (thesis may arm before trigger fires)
+    const triggerBase = thesis.triggeredAt ? new Date(thesis.triggeredAt) : createdAt;
+    const daysSinceTrigger = Math.round((today.getTime() - triggerBase.getTime()) / 86400000);
+    const dayLabel = thesis.triggeredAt ? `${daysSinceTrigger}d since trigger` : `${daysSince}d since creation`;
+
     console.log(`${BAR}`);
-    console.log(`Thesis ID ${thesis.id} — ${thesis.thesisDate} [${thesis.status.toUpperCase()}] (${daysSince}d since creation)`);
+    console.log(`Thesis ID ${thesis.id} — ${thesis.thesisDate} [${thesis.status.toUpperCase()}] (${dayLabel})`);
     console.log(`Divergence: ${thesis.primaryDivergence.replace(/_/g,' ')}`);
     console.log(`EV: ${thesis.evEstimate != null ? (thesis.evEstimate > 0 ? '+' : '') + thesis.evEstimate.toFixed(1) + '%' : '—'} | P(crisis): ${thesis.crisisProbability ?? '—'}%`);
+
+    // Upcoming milestones (when not currently at one)
+    const upcomingMs = MILESTONES.filter(ms => ms.days > daysSinceTrigger + WINDOW)
+      .map(ms => {
+        const msDate = new Date(triggerBase.getTime() + ms.days * 86400000);
+        const daysUntil = ms.days - daysSinceTrigger;
+        return `${ms.label}: ${msDate.toISOString().slice(0, 10)} (${daysUntil}d)`;
+      });
+    if (upcomingMs.length > 0) console.log(`  Milestones: ${upcomingMs.join(' · ')}`);
 
     // ── Milestone check ───────────────────────────────────────────────────
     const milestoneNotes: string[] = [];
     for (const ms of MILESTONES) {
-      const diff = Math.abs(daysSince - ms.days);
+      const diff = Math.abs(daysSinceTrigger - ms.days);
       if (diff <= WINDOW) {
-        console.log(`\n  ★ AT MILESTONE: ${ms.label} (${daysSince}d)`);
+        console.log(`\n  ★ AT MILESTONE: ${ms.label} (${daysSinceTrigger}d since trigger)`);
         const lines: string[] = [`[${ms.label} check ${today.toISOString().slice(0,10)}]`];
 
         if (cdsActual != null && thesis.predictedCdsBps != null) {
