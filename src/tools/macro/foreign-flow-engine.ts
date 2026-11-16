@@ -7,7 +7,7 @@ import { fetchEidoProxy, fetchEidoSharesOutstanding } from './sources/yahoo-macr
 import { fetchSbnForeignOwnership } from './sources/bi.js';
 import { fetchIdxForeignNetFlow } from './sources/idx.js';
 import { fetchMsciClassification } from './sources/msci-classification.js';
-import type { AlertLevel, IndicatorSnapshot, ModuleScoreCard } from './types.js';
+import type { AlertLevel, IndicatorSnapshot, MacroDataPoint, ModuleScoreCard } from './types.js';
 import { getFreshPoint, stalenessFlag } from './freshness.js';
 
 export const FOREIGN_FLOW_DESCRIPTION = `
@@ -209,12 +209,28 @@ export async function runForeignFlowEngine(): Promise<ForeignFlowOutput> {
   // 2. EIDO shares outstanding — net creation/redemption (50k shares = 1 creation unit)
   // 3. Foreign SBN ownership
   // 4. IDX daily foreign net flow (direct equity flow signal)
-  const [eidoHistory, eidoShares, sbnOwnership, idxFlowPoint] = await Promise.all([
+  const [eidoHistory, eidoShares, sbnOwnershipRaw, idxFlowPoint] = await Promise.all([
     fetchEidoProxy(180),
     fetchEidoSharesOutstanding(),
     fetchSbnForeignOwnership(),
     fetchIdxForeignNetFlow(),
   ]);
+  // Env override always wins — mirrors BI_DNDF pattern. Upsert corrected value so DB stays accurate.
+  const sbnEnvPct = process.env.SBN_FOREIGN_OWNERSHIP_PCT ? parseFloat(process.env.SBN_FOREIGN_OWNERSHIP_PCT) : null;
+  const sbnOwnership: MacroDataPoint | null = sbnEnvPct !== null
+    ? {
+        ...(sbnOwnershipRaw ?? {
+          indicator: 'sbn_foreign_ownership_pct',
+          category: 'sovereign' as const,
+          unit: '%',
+          source: 'env_manual',
+          fetchedAt: new Date().toISOString(),
+        }),
+        value: sbnEnvPct,
+        date: new Date().toISOString().slice(0, 10),
+        source: 'env_manual',
+      }
+    : sbnOwnershipRaw;
   if (eidoHistory.length > 0) await upsertPoints(eidoHistory);
   if (eidoShares) await upsertPoints([eidoShares]);
   if (sbnOwnership) await upsertPoints([sbnOwnership]);
