@@ -175,6 +175,22 @@ export interface FintechLendingData {
 }
 
 export async function fetchFintechLendingOjkIknb(): Promise<FintechLendingData | null> {
+  // Env override always wins — must check BEFORE cache (DNDF pattern).
+  // ojk.go.id blocks all direct requests (F5 BIG-IP WAF); update manually from OJK SPI press release.
+  const envNpl = process.env.FINTECH_NPL_PCT;
+  if (envNpl) {
+    const v = parseFloat(envNpl);
+    if (!isNaN(v) && v > 0 && v < 100) {
+      const date = new Date().toISOString().slice(0, 10);
+      const fetchedAt = new Date().toISOString();
+      await upsertPoints([{
+        indicator: 'fintech_npl_pct', category: 'banking',
+        date, value: v, unit: '%', source: 'env_manual', fetchedAt,
+      }]);
+      return { fintechNplPct: v, outstandingIdrT: null, growthYoyPct: null };
+    }
+  }
+
   // 30-day freshness gate — OJK IKNB releases monthly, ~6-week lag
   const cached = await getLatestPoint('fintech_npl_pct');
   if (cached) {
@@ -189,22 +205,6 @@ export async function fetchFintechLendingOjkIknb(): Promise<FintechLendingData |
         outstandingIdrT: cachedOutstanding?.value ?? null,
         growthYoyPct: cachedGrowth?.value ?? null,
       };
-    }
-  }
-
-  // Tier 0: env override — wins over all auto-fetch (DNDF pattern)
-  // ojk.go.id blocks all direct requests (F5 BIG-IP WAF); update manually from OJK SPI press release.
-  const envNpl = process.env.FINTECH_NPL_PCT;
-  if (envNpl) {
-    const v = parseFloat(envNpl);
-    if (!isNaN(v) && v > 0 && v < 100) {
-      const date = new Date().toISOString().slice(0, 10);
-      const fetchedAt = new Date().toISOString();
-      await upsertPoints([{
-        indicator: 'fintech_npl_pct', category: 'banking',
-        date, value: v, unit: '%', source: 'env_manual', fetchedAt,
-      }]);
-      return { fintechNplPct: v, outstandingIdrT: null, growthYoyPct: null };
     }
   }
 
