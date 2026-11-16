@@ -452,19 +452,25 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
   }
 
   // 17. Official vs Perceived Growth Gap (LPEM FEB UI proxy)
-  // Official narrative: BPS quarterly GDP growth (5.25% 2026 target). Perceived:
-  // IKK trend + PHK cumulative stress + real income deflator deviation.
-  // LPEM methodology: perceived growth = official − ikk_adjustment − labor_adjustment
-  // ikk_adjustment: each 1pt IKK decline from 115 neutral → -0.05pp perceived GDP
-  // labor_adjustment: each 10k PHK YTD → -0.03pp perceived GDP (Acemoglu-Robinson social contract)
-  // Divergence fires when perceived < official by >0.3pp — gap = what households experience vs headline.
+  // LPEM FEB UI uses ikk_low_income as "perceived growth" proxy because low-income households
+  // (<Rp2.5jt/month, ~60% of workforce) drive consumption-led GDP and are insulated from
+  // asset-price gains that inflate ikk_overall. When ikk_low_income diverges from what a
+  // 5-6% GDP growth economy implies (~115 historically), the gap = unpriced social contract stress.
+  // Formula: perceived = official − ikkAdj − laborAdj
+  //   ikkAdj: use ikk_low_income if available (LPEM primary), else ikk_overall; neutral=115
+  //   laborAdj: each 10k PHK YTD → −0.03pp (Acemoglu-Robinson social contract channel)
+  // Benchmark: LPEM Q3 2026 found perceived 4.90% vs official 5.25% = 0.35pp gap.
   {
     const gdpPoint = await getLatestPoint('gdp_growth_pct');
-    const ikkPoint = await getLatestPoint('ikk_overall');
+    const ikkOverallPoint = await getLatestPoint('ikk_overall');
+    const ikkLowPoint = await getLatestPoint('ikk_low_income');
     const phkYtdPoint = await getLatestPoint('phk_ytd_kemnaker');
-    if (gdpPoint && ikkPoint) {
-      const IKK_NEUTRAL = 115.0;
-      const ikkAdj = Math.max(0, (IKK_NEUTRAL - ikkPoint.value) * 0.05);
+    if (gdpPoint && (ikkOverallPoint || ikkLowPoint)) {
+      const IKK_NEUTRAL = 115.0;  // BI historical: 5-6% GDP growth → IKK ~115-120
+      // Prefer low-income (LPEM primary signal); fall back to overall
+      const ikkSignal = ikkLowPoint ?? ikkOverallPoint!;
+      const ikkLabel = ikkLowPoint ? `IKK low-income ${ikkSignal.value.toFixed(1)}` : `IKK overall ${ikkSignal.value.toFixed(1)}`;
+      const ikkAdj = Math.max(0, (IKK_NEUTRAL - ikkSignal.value) * 0.05);
       const phkYtdWorkers = phkYtdPoint?.value ?? 0;
       const laborAdj = (phkYtdWorkers / 10_000) * 0.03;
       const perceivedGrowth = Math.max(0, gdpPoint.value - ikkAdj - laborAdj);
@@ -474,7 +480,7 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
       checks.push({
         dimension: 'Official vs Perceived Growth Gap (LPEM FEB UI proxy)',
         officialClaim: `BPS GDP growth ${gdpPoint.value.toFixed(2)}% — official narrative: "ekonomi resilient, pertumbuhan 5% di atas regional peers."`,
-        marketSignal: `Perceived growth ${perceivedGrowth.toFixed(2)}% [official ${gdpPoint.value.toFixed(2)}% − IKK adj ${ikkAdj.toFixed(2)}pp (IKK ${ikkPoint.value.toFixed(1)} vs neutral 115) − labor adj ${laborAdj.toFixed(2)}pp (PHK YTD ${phkYtdWorkers.toLocaleString('id')} workers)]. Gap ${growthGap.toFixed(2)}pp = what households perceive vs headline. LPEM: "perceived growth" divergence is leading indicator of social contract stress.`,
+        marketSignal: `Perceived growth ${perceivedGrowth.toFixed(2)}% [official ${gdpPoint.value.toFixed(2)}% − IKK adj ${ikkAdj.toFixed(2)}pp (${ikkLabel} vs neutral ${IKK_NEUTRAL}) − labor adj ${laborAdj.toFixed(2)}pp (PHK YTD ${phkYtdWorkers.toLocaleString('id')} workers)]. Gap ${growthGap.toFixed(2)}pp. LPEM Q3 2026 benchmark: 0.35pp. ${ikkLowPoint ? 'Using low-income IKK (LPEM primary proxy — non-asset-owning majority).' : 'ikk_low_income not yet seeded; set IKK_LOW_INCOME env or await Exa fetch.'}`,
         divergenceScore,
         flagged,
       });

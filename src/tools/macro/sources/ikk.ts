@@ -165,7 +165,12 @@ export async function fetchIkk(): Promise<IkkData | null> {
   if (cachedOverall) {
     const ageDays = (Date.now() - new Date(cachedOverall.date).getTime()) / 86_400_000;
     if (ageDays < FRESHNESS_DAYS) {
-      const cachedLow = await getLatestPoint('ikk_low_income');
+      let cachedLow = await getLatestPoint('ikk_low_income');
+      // Seed ikk_low_income from env override when Exa never found it
+      if (cachedLow === null && envLow !== null && !isNaN(envLow) && envLow >= 60 && envLow <= 160) {
+        await upsertPoints([{ indicator: 'ikk_low_income', category: 'pangan', date: cachedOverall.date, value: envLow, unit: 'index_100', source: 'env_manual', fetchedAt }]);
+        cachedLow = { indicator: 'ikk_low_income', category: 'pangan', date: cachedOverall.date, value: envLow, unit: 'index_100', source: 'env_manual', fetchedAt };
+      }
       return { overall: cachedOverall.value, lowIncome: cachedLow?.value ?? null, date: cachedOverall.date, source: cachedOverall.source };
     }
   }
@@ -175,15 +180,24 @@ export async function fetchIkk(): Promise<IkkData | null> {
     const pts = [
       { indicator: 'ikk_overall', category: 'pangan' as const, date: result.date, value: result.overall!, unit: 'index_100', source: result.source, fetchedAt },
     ];
-    if (result.lowIncome !== null) {
-      pts.push({ indicator: 'ikk_low_income', category: 'pangan' as const, date: result.date, value: result.lowIncome, unit: 'index_100', source: result.source, fetchedAt });
+    // Prefer Exa low-income if found; fall back to env IKK_LOW_INCOME override.
+    // IKK_LOW_INCOME env can be set independently of IKK_OVERALL (e.g. LPEM quarterly report
+    // discloses low-income breakout that BI media articles don't include).
+    const lowIncomeVal = result.lowIncome ?? (envLow !== null && !isNaN(envLow) && envLow >= 60 && envLow <= 160 ? envLow : null);
+    if (lowIncomeVal !== null) {
+      pts.push({ indicator: 'ikk_low_income', category: 'pangan' as const, date: result.date, value: lowIncomeVal, unit: 'index_100', source: result.lowIncome !== null ? result.source : 'env_manual', fetchedAt });
     }
     await upsertPoints(pts);
-    return result;
+    return { ...result, lowIncome: lowIncomeVal };
   }
 
   if (cachedOverall) {
     const cachedLow = await getLatestPoint('ikk_low_income');
+    // Seed ikk_low_income from env if DB still empty (Exa never found it)
+    if (cachedLow === null && envLow !== null && !isNaN(envLow) && envLow >= 60 && envLow <= 160) {
+      await upsertPoints([{ indicator: 'ikk_low_income', category: 'pangan', date: cachedOverall.date, value: envLow, unit: 'index_100', source: 'env_manual', fetchedAt }]);
+      return { overall: cachedOverall.value, lowIncome: envLow, date: cachedOverall.date, source: cachedOverall.source };
+    }
     return { overall: cachedOverall.value, lowIncome: cachedLow?.value ?? null, date: cachedOverall.date, source: cachedOverall.source + ':stale' };
   }
   return null;
