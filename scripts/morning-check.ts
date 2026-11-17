@@ -80,7 +80,7 @@ if (political.status === 'fulfilled') addScore('political_risk',   political.val
 if (uln.status       === 'fulfilled') addScore('uln',              uln.value.stressScore,                       uln.value.alert,                 uln.value.flags);                else addFailed('uln');
 if (aseanRv.status   === 'fulfilled') {
   const s = Math.min(100, Math.round(Math.abs(aseanRv.value.idiosyncraticComponent ?? 0) * 10) + aseanRv.value.peDiscountScore);
-  addScore('asean_rv', s, aseanRv.value.alertLevel, aseanRv.value.flags);
+  addScore('asean_rv', s, alertFromScore(s), aseanRv.value.flags);
 } else addFailed('asean_rv');
 // Sort consistent with SCD order
 const SCD_ORDER = ['fx_defense', 'uln', 'bop', 'sovereign_risk', 'foreign_flow', 'banking', 'commodity', 'fiscal', 'market', 'domestic_pressure', 'political_risk', 'regime', 'narrative'];
