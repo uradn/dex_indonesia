@@ -215,7 +215,7 @@ export async function fetchBankingRatiosSjkPublic(): Promise<{
       pt.source === 'ojk_sjkpublic' &&
       (Date.now() - new Date(pt.fetchedAt).getTime()) / 86_400_000 < FRESHNESS_DAYS;
 
-    if (isFresh(cachedCar) && isFresh(cachedLdr) && isFresh(cachedDpk)) return empty;
+    if (isFresh(cachedCar) && isFresh(cachedLdr) && isFresh(cachedDpk)) return { car: cachedCar, ldr: cachedLdr };
 
     const xmlaList = await captureXmlaFromDataset338();
     if (xmlaList.length === 0) return empty;
