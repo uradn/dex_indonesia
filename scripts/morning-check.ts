@@ -219,7 +219,7 @@ if (aseanRv.status === 'fulfilled') {
   const peLine = r.peIndonesia !== null
     ? `P/E: IHSG ${r.peIndonesia.toFixed(1)}x | TH ${r.peThailand?.toFixed(1) ?? 'n/a'}x (−${r.peDiscountVsTh?.toFixed(1) ?? 'n/a'}%) | EM med ${r.peEmMedian?.toFixed(1) ?? 'n/a'}x | SG gap ${r.sgPremiumGap?.toFixed(2) ?? 'n/a'}×`
     : '';
-  console.log(`\n### 7. ASEAN Relative Value  ${emoji(r.alertLevel)} ${m7Score}/100`);
+  console.log(`\n### 7. ASEAN Relative Value  ${emoji(alertFromScore(m7Score))} ${m7Score}/100`);
   console.log(`  ${jpyLine}`);
   if (carryLine) console.log(`  ${carryLine}`);
   if (idioLine) console.log(`  ${idioLine}`);

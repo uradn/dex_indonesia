@@ -1731,7 +1731,7 @@ function renderBoP(d) {
   const dndf     = ind['bi_dndf_outstanding_bn']?.value ?? null;
   const effRes   = reserves !== null && dndf !== null ? +(reserves - dndf).toFixed(1) : reserves;
   const ms = d.moduleScores?.['bop'];
-  const scoreLine = ms ? kv('M1 BoP Score', ms.score + '/100', ms.alertLevel === 'RED' ? 'red' : ms.alertLevel === 'ORANGE' ? 'orange' : ms.alertLevel === 'YELLOW' ? 'yellow' : 'green') : '';
+  const scoreLine = ms ? kv('M1 BoP Score', ms.score + '/100', ms.score >= 70 ? 'red' : ms.score >= 50 ? 'orange' : ms.score >= 33 ? 'yellow' : 'green') : '';
 
   // Cross-check consistency: if exports - imports ≠ trade_balance ± $2bn, flag it
   const teInconsistent = exports_ !== null && imports_ !== null && trade !== null &&
@@ -1791,7 +1791,7 @@ function renderCommodity(d) {
   const chinaPmi  = ind['china_pmi_manufacturing']?.value ?? null;
   const pmiDate   = ind['china_pmi_manufacturing']?.date ?? null;
   const ms = d.moduleScores?.['commodity'];
-  const scoreLine = ms ? kv('M4 Commodity Score', ms.score + '/100', ms.alertLevel === 'RED' ? 'red' : ms.alertLevel === 'ORANGE' ? 'orange' : ms.alertLevel === 'YELLOW' ? 'yellow' : 'green') : '';
+  const scoreLine = ms ? kv('M4 Commodity Score', ms.score + '/100', ms.score >= 70 ? 'red' : ms.score >= 50 ? 'orange' : ms.score >= 33 ? 'yellow' : 'green') : '';
   return [
     scoreLine,
     brent !== null ? kv('Brent', '$' + fmtNum(brent,1) + '/bbl', brent > 100 ? 'red' : brent > 90 ? 'orange' : brent > 80 ? 'yellow' : 'green') : '',
@@ -1810,7 +1810,7 @@ function renderNarrative(d) {
   const cv     = ind['narrative_ms_cv_pct']?.value ?? null;
   const cvDate = ind['narrative_ms_cv_pct']?.date ?? null;
   const ms = d.moduleScores?.['narrative'];
-  const scoreLine = ms ? kv('M6 Narrative Score', ms.score + '/100', ms.alertLevel === 'RED' ? 'red' : ms.alertLevel === 'ORANGE' ? 'orange' : ms.alertLevel === 'YELLOW' ? 'yellow' : 'green') : '';
+  const scoreLine = ms ? kv('M6 Narrative Score', ms.score + '/100', ms.score >= 70 ? 'red' : ms.score >= 50 ? 'orange' : ms.score >= 33 ? 'yellow' : 'green') : '';
   const flags = ms?.flags ?? [];
   const flagHtml = flags.length
     ? flags.slice(0,3).map(f => \`<div style="font-size:9px;color:var(--orange);margin-top:3px">⚑ \${f}</div>\`).join('')
@@ -1837,7 +1837,7 @@ function renderMarket(d) {
   const cbAge  = cbDate ? Math.round((Date.now() - new Date(cbDate).getTime()) / 86400000) : null;
   const cbActive = cbAge !== null && cbAge <= 30;
   const ms = d.moduleScores?.['market'];
-  const scoreLine = ms ? kv('M9 Market Score', ms.score + '/100', ms.alertLevel === 'RED' ? 'red' : ms.alertLevel === 'ORANGE' ? 'orange' : ms.alertLevel === 'YELLOW' ? 'yellow' : 'green') : '';
+  const scoreLine = ms ? kv('M9 Market Score', ms.score + '/100', ms.score >= 70 ? 'red' : ms.score >= 50 ? 'orange' : ms.score >= 33 ? 'yellow' : 'green') : '';
   return [
     scoreLine,
     ihsg !== null ? kv('IHSG', ihsg.toLocaleString('id') + stale(ihsgDate,3)) : '',
@@ -1861,7 +1861,7 @@ function renderUln(d) {
   const gdpRatio  = ind['uln_gdp_ratio_pct']?.value ?? null;
   const yoy       = ind['uln_yoy_growth_pct']?.value ?? null;
   const ms = d.moduleScores?.['uln'];
-  const scoreLine = ms ? kv('M13 ULN Score', ms.score + '/100', ms.alertLevel === 'RED' ? 'red' : ms.alertLevel === 'ORANGE' ? 'orange' : ms.alertLevel === 'YELLOW' ? 'yellow' : 'green') : '';
+  const scoreLine = ms ? kv('M13 ULN Score', ms.score + '/100', ms.score >= 70 ? 'red' : ms.score >= 50 ? 'orange' : ms.score >= 33 ? 'yellow' : 'green') : '';
   const flags = ms?.flags ?? [];
   const flagHtml = flags.filter(f => f.startsWith('LOW CONFIDENCE')).length
     ? \`<div class="tag red" style="display:block;padding:4px 6px;font-size:9px;margin-bottom:4px">⚠ \${flags.find(f => f.startsWith('LOW CONFIDENCE'))}</div>\`
