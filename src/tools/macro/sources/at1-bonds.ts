@@ -237,11 +237,17 @@ async function estimateAt1FromCds(): Promise<At1BondData | null> {
  *   it always wins and is the authoritative source (synthetic estimate is a floor only).
  */
 export async function fetchAt1Secondary(): Promise<At1BondData | null> {
-  // Env always wins
+  // Env always wins — upsert to DB so health-check freshness gate passes (DNDF pattern)
   if (process.env.HIMBARA_AT1_SECONDARY_PCT) {
     const pct = parseFloat(process.env.HIMBARA_AT1_SECONDARY_PCT);
     if (pct >= 50 && pct <= 110) {
-      return { pricePct: pct, yieldPct: null, issuer: null, sourceUrl: null, fetchedAt: NOW() };
+      const fetchedAt = NOW();
+      await upsertPoints([{
+        indicator: 'himbara_at1_secondary_pct', category: 'banking' as const,
+        date: fetchedAt.slice(0, 10), value: pct, unit: 'pct_par',
+        source: 'env_manual', fetchedAt,
+      }]);
+      return { pricePct: pct, yieldPct: null, issuer: null, sourceUrl: null, fetchedAt };
     }
   }
 
