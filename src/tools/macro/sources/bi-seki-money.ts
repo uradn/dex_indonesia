@@ -51,6 +51,7 @@ const MONTH_MAP: Record<string, string> = {
 
 interface MonthRow {
   date: string;   // YYYY-MM-DD (last day of month)
+  m2: number;          // M2 broad money (0 if not found directly — computed as fallback)
   uangKartal: number;  // currency in circulation (0 if not found in sheet)
   giro: number;
   deposito: number;
@@ -69,12 +70,15 @@ function parseSheet(rows: unknown[][]): MonthRow[] {
   const r4 = rows[4] as (string | number)[];  // month headers
 
   // Find row indices by label matching — check cols 0, 1, 2 for robustness
-  let rowKartal = -1, rowGiro = -1, rowDeposito = -1, rowTabungan = -1, rowGiroVa = -1;
+  // I.1 sheet labels are in col 2; older sheets in col 0/1 — scan all three.
+  // Note: "Uang Kartal" label in I.1 is "Uang Kartal di Luar Bank Umum dan BPR" (prefix match required).
+  let rowM2 = -1, rowKartal = -1, rowGiro = -1, rowDeposito = -1, rowTabungan = -1, rowGiroVa = -1;
   for (let i = 2; i < Math.min(30, rows.length); i++) {
     const row = rows[i] as (string | number)[];
     for (let c = 0; c <= 2; c++) {
       const ket = String(row[c] ?? '').toLowerCase().trim().replace(/^[a-z]\.\s*/, '');
-      if (rowKartal  < 0 && ket === 'uang kartal') rowKartal = i;
+      if (rowM2      < 0 && (ket.startsWith('uang beredar luas') || (ket.startsWith('uang beredar') && ket.includes('m2')))) rowM2 = i;
+      if (rowKartal  < 0 && ket.startsWith('uang kartal')) rowKartal = i;
       if (rowGiro    < 0 && ket === 'giro rupiah') rowGiro = i;
       if (rowDeposito < 0 && ket.startsWith('simpanan berjangka')) rowDeposito = i;
       if (rowTabungan < 0 && ket.startsWith('tabungan lainnya')) rowTabungan = i;
@@ -100,6 +104,7 @@ function parseSheet(rows: unknown[][]): MonthRow[] {
     const giroRp    = cellNum(rows[rowGiro]     as (string | number)[], col);
     const giroVa    = rowGiroVa >= 0 ? cellNum(rows[rowGiroVa] as (string | number)[], col) : 0;
     const kartal    = rowKartal >= 0 ? cellNum(rows[rowKartal] as (string | number)[], col) : 0;
+    const m2Direct  = rowM2     >= 0 ? cellNum(rows[rowM2]     as (string | number)[], col) : 0;
 
     if (isNaN(deposito) || isNaN(tabungan) || isNaN(giroRp)) continue;
     if (deposito <= 0 || tabungan <= 0) continue;
@@ -109,6 +114,7 @@ function parseSheet(rows: unknown[][]): MonthRow[] {
 
     results.push({
       date,
+      m2: (m2Direct > 0 && !isNaN(m2Direct)) ? m2Direct : 0,
       uangKartal: isNaN(kartal) ? 0 : kartal,
       giro: giroRp + (isNaN(giroVa) ? 0 : giroVa),
       deposito,
@@ -145,13 +151,18 @@ export async function fetchBankingDpkBiSeki(): Promise<{
   tabungan: MacroDataPoint | null;
   dpk: MacroDataPoint | null;
   savingsDepositoRatio: MacroDataPoint | null;
+  m2: MacroDataPoint | null;
   m1: MacroDataPoint | null;
   m1m2Ratio: MacroDataPoint | null;
   uangKartal: MacroDataPoint | null;
 } | null> {
-  // Freshness gate: skip if recent data exists
-  const cached = await getLatestPoint('bank_deposito_idr_bn');
-  if (cached && cached.source === 'bi_seki') {
+  // Freshness gate: skip if recent data exists AND M2 is populated.
+  // Gate on M2 presence too — older runs may have saved deposito but not M2 (pre-fix).
+  const [cached, cachedM2] = await Promise.all([
+    getLatestPoint('bank_deposito_idr_bn'),
+    getLatestPoint('m2_money_supply_idr_bn'),
+  ]);
+  if (cached && cached.source === 'bi_seki' && cachedM2 && cachedM2.source === 'bi_seki') {
     const ageDays = (Date.now() - new Date(cached.fetchedAt).getTime()) / 86_400_000;
     if (ageDays < FRESHNESS_DAYS) {
       const [dpkPt, ratioPt, tabPt, m1Pt, m1m2Pt, kartalPt] = await Promise.all([
@@ -167,6 +178,7 @@ export async function fetchBankingDpkBiSeki(): Promise<{
         tabungan: tabPt,
         dpk: dpkPt,
         savingsDepositoRatio: ratioPt,
+        m2: cachedM2,
         m1: m1Pt,
         m1m2Ratio: m1m2Pt,
         uangKartal: kartalPt,
@@ -204,17 +216,23 @@ export async function fetchBankingDpkBiSeki(): Promise<{
   for (const r of unique) {
     const dpkTotal  = r.giro + r.tabungan + r.deposito;
     const m1        = r.uangKartal + r.giro;
-    const m2        = m1 + r.tabungan + r.deposito;
+    // Use direct M2 row when available (most accurate); fall back to component sum.
+    // m2Direct = 0 when rowM2 not found in sheet (older sheets lack the row).
+    const m2        = r.m2 > 0 ? r.m2 : m1 + r.tabungan + r.deposito;
     const depositoShare = dpkTotal > 0 ? parseFloat(((r.deposito / dpkTotal) * 100).toFixed(1)) : null;
     const savingsRatio  = (r.deposito + r.tabungan) > 0
       ? parseFloat(((r.deposito / (r.deposito + r.tabungan)) * 100).toFixed(1))
       : null;
-    const m1m2Ratio = m2 > 0 ? parseFloat(((m1 / m2) * 100).toFixed(1)) : null;
+    const m1m2Ratio = m2 > 0 && r.uangKartal > 0 ? parseFloat(((m1 / m2) * 100).toFixed(1)) : null;
 
     points.push({ ...base, indicator: 'bank_deposito_idr_bn',  date: r.date, value: parseFloat(r.deposito.toFixed(0)),  unit: 'bn_IDR' });
     points.push({ ...base, indicator: 'bank_tabungan_idr_bn',  date: r.date, value: parseFloat(r.tabungan.toFixed(0)),  unit: 'bn_IDR' });
     points.push({ ...base, indicator: 'bank_giro_idr_bn',      date: r.date, value: parseFloat(r.giro.toFixed(0)),      unit: 'bn_IDR' });
     points.push({ ...base, indicator: 'bank_dpk_idr_bn',       date: r.date, value: parseFloat(dpkTotal.toFixed(0)),    unit: 'bn_IDR' });
+    // M2 from direct sheet row (rowM2) when available; else computed — both save to DB.
+    if (m2 > 0) {
+      points.push({ ...base, indicator: 'm2_money_supply_idr_bn', date: r.date, value: parseFloat(m2.toFixed(0)), unit: 'bn_IDR' });
+    }
     if (r.uangKartal > 0) {
       points.push({ ...base, indicator: 'bank_uang_kartal_idr_bn', date: r.date, value: parseFloat(r.uangKartal.toFixed(0)), unit: 'bn_IDR' });
       points.push({ ...base, indicator: 'm1_money_supply_idr_bn',  date: r.date, value: parseFloat(m1.toFixed(0)),           unit: 'bn_IDR' });
@@ -225,7 +243,7 @@ export async function fetchBankingDpkBiSeki(): Promise<{
     if (savingsRatio !== null) {
       points.push({ ...base, indicator: 'bank_savings_deposito_ratio_pct', date: r.date, value: savingsRatio,  unit: '%' });
     }
-    if (m1m2Ratio !== null && r.uangKartal > 0) {
+    if (m1m2Ratio !== null) {
       points.push({ ...base, indicator: 'm1_m2_ratio_pct', date: r.date, value: m1m2Ratio, unit: '%' });
     }
   }
@@ -236,15 +254,16 @@ export async function fetchBankingDpkBiSeki(): Promise<{
   const latest   = unique[unique.length - 1]!;
   const dpkTotal = latest.giro + latest.tabungan + latest.deposito;
   const m1Latest = latest.uangKartal + latest.giro;
-  const m2Latest = m1Latest + latest.tabungan + latest.deposito;
+  const m2Latest = latest.m2 > 0 ? latest.m2 : m1Latest + latest.tabungan + latest.deposito;
   const savingsRatio  = parseFloat(((latest.deposito / (latest.deposito + latest.tabungan)) * 100).toFixed(1));
-  const m1m2RatioLat  = m2Latest > 0 ? parseFloat(((m1Latest / m2Latest) * 100).toFixed(1)) : null;
+  const m1m2RatioLat  = m2Latest > 0 && latest.uangKartal > 0 ? parseFloat(((m1Latest / m2Latest) * 100).toFixed(1)) : null;
 
   return {
     deposito: { ...base, indicator: 'bank_deposito_idr_bn', date: latest.date, value: parseFloat(latest.deposito.toFixed(0)), unit: 'bn_IDR' },
     tabungan: { ...base, indicator: 'bank_tabungan_idr_bn', date: latest.date, value: parseFloat(latest.tabungan.toFixed(0)), unit: 'bn_IDR' },
     dpk:      { ...base, indicator: 'bank_dpk_idr_bn',      date: latest.date, value: parseFloat(dpkTotal.toFixed(0)),        unit: 'bn_IDR' },
     savingsDepositoRatio: { ...base, indicator: 'bank_savings_deposito_ratio_pct', date: latest.date, value: savingsRatio, unit: '%' },
+    m2:        m2Latest > 0 ? { ...base, indicator: 'm2_money_supply_idr_bn', date: latest.date, value: parseFloat(m2Latest.toFixed(0)), unit: 'bn_IDR' } : null,
     uangKartal: latest.uangKartal > 0 ? { ...base, indicator: 'bank_uang_kartal_idr_bn', date: latest.date, value: parseFloat(latest.uangKartal.toFixed(0)), unit: 'bn_IDR' } : null,
     m1:         latest.uangKartal > 0 ? { ...base, indicator: 'm1_money_supply_idr_bn',  date: latest.date, value: parseFloat(m1Latest.toFixed(0)),           unit: 'bn_IDR' } : null,
     m1m2Ratio:  m1m2RatioLat !== null  ? { ...base, indicator: 'm1_m2_ratio_pct',         date: latest.date, value: m1m2RatioLat,                             unit: '%'      } : null,
