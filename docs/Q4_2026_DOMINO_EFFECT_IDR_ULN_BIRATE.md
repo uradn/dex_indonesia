@@ -1,7 +1,7 @@
 # Efek Domino: IDR Lemah + ULN $458.9B + BI Rate 6%
 ## Simulasi Transmisi ke Ekonomi Menengah-Bawah — Q4 2026
 
-**Disusun:** 19 November 2026 (revisi: +shrinking middle class + tepung terigu + SULNI TabI.7 Q3 2026)
+**Disusun:** 19 November 2026 (revisi 2: +SULNI auto-fetch live + WB DSR direvisi dari 24.69%→16.64% + SCD 79% RED + Thesis #15 triggered)
 **Pemicu utama:** RDG BI 17-18 Nov 2026 (BI Rate +25bps → 6.00%) + SULNI Q3 2026 ($458.9B) + IDR rekor Rp18.264 (17 Nov 2026)
 **Sumber:** BI Siaran Pers No.28/254/DKom (BI Rate) + No.28/251/DKom (SULNI Q3) + Mandiri Institute Feb 2026 (BPS data) + Exa media synthesis
 
@@ -18,8 +18,8 @@
 | **Beban IDR ULN** | Rp8.375,8T (kurs Nov 18) vs Rp8.203,6T (kurs Sep 30) | — | **+Rp172T dalam 7 minggu** |
 | **Pajak shortfall** | Rp514T (Oct 2026 YTD 76.2% target) | 100% | -23.8% |
 | **SBN 10Y** | 7.607% | 6.9% (APBN) | **+71bps** |
-| **DSR (WB/IMF basis)** | 24.69% (Q4 2024 est.) | 25% (IMF threshold) | **margin 31bps** |
-| **DSR Tier-1 Annualized** | 13.31% Q3 2026 (SULNI TabI.7) | — | basis: current account receipts ≠ IMF exports basis |
+| **DSR (WB basis)** | 16.64% (WB 2025, latest published) | 25% (IMF threshold) | margin 8.36pp — revised dari 24.69% (Q4 2024 stale); WB publikasi lag 12–18 bulan |
+| **DSR Tier-1 Annualized** | 13.31% Q3 2026 (SULNI TabI.7, auto-fetch ★) | 19.5% (threshold kalibrasi = 25%/1.27) | basis: current account receipts; ★ auto-fetched by Dexter sulni-dsr.ts sejak Nov 2026 |
 | **ST Debt / Cadangan Devisa** | 49.36% Q3 2026 (original maturity) | <30%=aman, 30-50%=watch | **WATCH ZONE 🟡** |
 | **ST Debt / Total ULN** | 15.74% Q3 2026 (original maturity) | — | ↑ dari 14.32% Q4 2025 (rollover risk naik) |
 
@@ -286,7 +286,9 @@ Subsidi Pertalite gap Rp7.059/liter. Subsidi Solar B50 gap Rp13.501/liter. APBN 
 
 ## 7. SULNI Q3 2026: Lampu Kuning yang Tersembunyi
 
-Data TabI.7 SULNI November 2026 (Excel resmi BI, bukan hanya press release) mengungkap dua sinyal yang tidak disebut di siaran pers:
+Data TabI.7 SULNI November 2026 (Excel resmi BI, bukan hanya press release) mengungkap dua sinyal yang tidak disebut di siaran pers.
+
+> **Update Nov 2026:** Data TabI.7 kini di-*auto-fetch* langsung oleh Dexter (`src/tools/macro/sources/sulni-dsr.ts`) — ZIP diunduh dari BI, diekstrak, dan di-parse otomatis setiap 90 hari. DSR Tier-1 Annualized = data *live*, bukan pin statis. Threshold kalibrasi SULNI: 19.5% (= WB threshold 25% ÷ 1.27 faktor metodologi). DSR WB yang digunakan sebelumnya (24.69%, Q4 2024 stale) telah **direvisi** ke 16.64% (WB 2025, latest published). Margin dari threshold WB kini 8.36pp — jauh lebih besar dari "31bps" yang tertulis di dokumen versi sebelumnya.
 
 | Indikator SULNI TabI.7 | Q4 2024 | Q2 2026 | **Q3 2026** | Interpretasi |
 |------------------------|---------|---------|-------------|--------------|
@@ -344,7 +346,7 @@ Tidak semua skenario terburuk. Ada beberapa bantalan:
 |--------|---------|--------------|
 | Cadangan devisa $146.8B | 5.4× import cover (cukup) | DNDF $8B contingent; SRBI sterilization 36% caddev |
 | CAR perbankan 26.5% | Jauh di atas minimum 8% | Erosi potensial 1.3pp dari SBN duration mismatch |
-| DSR 24.69% | 31bps dari threshold 25% | Buffer tipis; ekspornya perlu stabil |
+| DSR WB 16.64% (★ SULNI Tier-1 13.31%) | Margin WB: 8.36pp; SULNI: 6.19pp | WB 2025 revised dari 24.69% stale; SULNI auto-fetched; threshold kalibrasi SULNI 19.5% |
 | GDP growth 5.47% | Di atas neutral rate | Momentum belum pasti bertahan jika kredit tight |
 | B50 biodiesel mandate | Kurangi impor minyak mentah | Tambah beban BPDPKS; risiko CPO shortage domestik |
 | Bansos/PKH masih berjalan | Rp556T perlindungan sosial 2026 | Target efisiensi pertama jika APBN squeeze |
@@ -380,4 +382,4 @@ Triple shock ini tidak hanya memengaruhi satu kuartal — ia menekan fondasi yan
 - Beritatren: "ULN Tembus $458.9M, Rupiah Lemah Bikin Beban Membengkak Rp172T" (19 Nov 2026)
 - Jakarta Globe: "Rupiah Slide Exposes Hidden Risks in Indonesia's $458.9B Debt" (17 Nov 2026)
 - Kompas.com: "BI Rate Naik Jadi 6 Persen, Siap-siap Cicilan KPR Floating Bengkak" (18 Nov 2026)
-- Dexter SCD Engine: 81% RED, Thesis #15 TRIGGERED (19 Nov 2026)
+- Dexter SCD Engine: 79% RED, Thesis #15 TRIGGERED hari ke-3 (19 Nov 2026)
