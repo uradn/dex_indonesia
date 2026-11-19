@@ -50,6 +50,8 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   { name: 'bank_ldr_pct',                module: 'M8',  freshDays: 60, yellowDays: 120, redDays: 240 },
   // ULN quarterly + annual WB / IMF series
   { name: 'indonesia_external_debt_bn',  module: 'M13', freshDays: 140,yellowDays: 165, redDays: 200 },
+  // SULNI Tier-1 DSR — quarterly ZIP, published ~6-7 wks after quarter end. 90d fresh covers 1 quarter.
+  { name: 'uln_dsr_tier1_ann_pct',       module: 'M13', freshDays: 90, yellowDays: 120, redDays: 180 },
   { name: 'uln_dsr_pct',                 module: 'M13', freshDays: 400,yellowDays: 540, redDays: 730 },
   { name: 'uln_shortterm_pct',           module: 'M13', freshDays: 400,yellowDays: 540, redDays: 730 },
   { name: 'indonesia_debt_gdp_pct',      module: 'M2',  freshDays: 400,yellowDays: 540, redDays: 730 },

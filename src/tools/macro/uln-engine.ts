@@ -30,6 +30,13 @@ import { fetchExternalDebtTe } from './sources/sovereign-scraper.js';
 import { fetchUlnDsrWorldBank, fetchUlnShorttermPctWorldBank } from './sources/sovereign-scraper.js';
 import { fetchHedgingComplianceBi } from './sources/bi.js';
 import { fetchHedgingComplianceNews } from './sources/hedging-news.js';
+import {
+  fetchUlnDsrSulni,
+  SULNI_DSR_TIER1_THRESHOLD_GREEN,
+  SULNI_DSR_TIER1_THRESHOLD_YELLOW,
+  SULNI_DSR_TIER1_THRESHOLD_ORANGE,
+  SULNI_DSR_TIER1_THRESHOLD_RED,
+} from './sources/sulni-dsr.js';
 import type { AlertLevel, MacroDataPoint } from './types.js';
 
 export const ULN_DESCRIPTION = `
@@ -89,11 +96,28 @@ function scoreUlnGdp(ratio: number): number {
 }
 
 function scoreDsr(dsr: number): number {
+  // World Bank basis (DT.TDS.DECT.EX.ZS): exports+GNI denominator. IMF stress threshold = 25%.
   if (dsr < 20) return 0;
   if (dsr < 25) return Math.round((dsr - 20) / 5 * 35);
   if (dsr < 30) return Math.round(35 + (dsr - 25) / 5 * 30);
   if (dsr < 35) return Math.round(65 + (dsr - 30) / 5 * 20);
   return Math.min(100, Math.round(85 + (dsr - 35) / 5 * 15));
+}
+
+function scoreDsrSulni(dsr: number): number {
+  // SULNI Tier-1 Annualized basis (current account receipts): calibrated thresholds = WB / 1.27.
+  // GREEN <14%, YELLOW 14-19.5%, ORANGE 19.5-23.6%, RED >23.6%
+  if (dsr < SULNI_DSR_TIER1_THRESHOLD_GREEN) return 0;
+  if (dsr < SULNI_DSR_TIER1_THRESHOLD_YELLOW) return Math.round(
+    (dsr - SULNI_DSR_TIER1_THRESHOLD_GREEN) / (SULNI_DSR_TIER1_THRESHOLD_YELLOW - SULNI_DSR_TIER1_THRESHOLD_GREEN) * 35,
+  );
+  if (dsr < SULNI_DSR_TIER1_THRESHOLD_ORANGE) return Math.round(
+    35 + (dsr - SULNI_DSR_TIER1_THRESHOLD_YELLOW) / (SULNI_DSR_TIER1_THRESHOLD_ORANGE - SULNI_DSR_TIER1_THRESHOLD_YELLOW) * 30,
+  );
+  if (dsr < SULNI_DSR_TIER1_THRESHOLD_RED) return Math.round(
+    65 + (dsr - SULNI_DSR_TIER1_THRESHOLD_ORANGE) / (SULNI_DSR_TIER1_THRESHOLD_RED - SULNI_DSR_TIER1_THRESHOLD_ORANGE) * 20,
+  );
+  return Math.min(100, Math.round(85 + (dsr - SULNI_DSR_TIER1_THRESHOLD_RED) / 5 * 15));
 }
 
 function scoreGg(gg: number): number {
@@ -128,7 +152,9 @@ interface UlnEngineOutput {
   ulnTotalBn: number | null;
   ulnGdpRatioPct: number | null;
   ulnShorttermPct: number | null;
-  ulnDsrPct: number | null;
+  ulnDsrPct: number | null;        // World Bank basis (ULN_DSR_PCT env / WB API); threshold 25%
+  ulnDsrTier1Pct: number | null;   // SULNI Tier-1 Annualized; threshold 19.5% (calibrated)
+  dsrSource: 'sulni_tier1' | 'world_bank' | 'env_wb'; // which series drove DSR scoring
   dsrSlopePpPerYear: number | null; // annualized pp/year change; SOUL.md: slope is the risk, not level
   ulnYoyGrowthPct: number | null;
   greenspanGuidotti: number | null;
@@ -156,38 +182,50 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
     if (ulnPoint) await upsertPoints([ulnPoint]);
   }
 
-  // 2. World Bank annual indicators — env override wins (like BI_HEDGING_COMPLIANCE_PCT pattern).
-  //    ULN_DSR_PCT + ULN_SHORTTERM_PCT: pin from BI SULNI quarterly press release when WB auto-fetch stale.
-  //    World Bank publishes Indonesia DSR/ST% annually (often 12–18m lag) — env override is primary fix.
+  // 2a. SULNI Tier-1 DSR — primary source (quarterly, calibrated threshold 19.5%).
+  //   fetchUlnDsrSulni() handles its own cache (90d) + env override SULNI_DSR_TIER1_PCT.
+  //   Runs in parallel with WB fetch below; result stored to DB as uln_dsr_tier1_ann_pct.
+  //   On failure returns null → engine falls back to WB series (uln_dsr_pct).
+
+  // 2b. World Bank annual indicators — env override wins (like BI_HEDGING_COMPLIANCE_PCT pattern).
+  //   ULN_DSR_PCT default: 16.64 (WB 2025 — set when env unset and WB API stale).
+  //   ULN_SHORTTERM_PCT: pin from BI SULNI quarterly press release.
   const dsrEnv = process.env.ULN_DSR_PCT;
   const stEnv  = process.env.ULN_SHORTTERM_PCT;
   const today  = new Date().toISOString().slice(0, 10);
-  if (dsrEnv) {
-    const v = parseFloat(dsrEnv);
-    if (!isNaN(v) && v >= 0 && v <= 100) {
-      await upsertPoints([{ indicator: 'uln_dsr_pct', category: 'uln', date: today, value: v, unit: '%', source: 'env_manual', fetchedAt: new Date().toISOString() }]);
-    }
-  }
-  if (stEnv) {
-    const v = parseFloat(stEnv);
-    if (!isNaN(v) && v >= 0 && v <= 100) {
-      await upsertPoints([{ indicator: 'uln_shortterm_pct', category: 'uln', date: today, value: v, unit: '%', source: 'env_manual', fetchedAt: new Date().toISOString() }]);
-    }
-  }
-  if (!dsrEnv || !stEnv) {
-    const [cachedDsr, cachedSt] = await Promise.all([
-      getLatestPoint('uln_dsr_pct'),
-      getLatestPoint('uln_shortterm_pct'),
-    ]);
-    if (!isFresh(cachedDsr) || !isFresh(cachedSt)) {
-      const [dsrPoint, stPoint] = await Promise.all([
-        dsrEnv ? null : fetchUlnDsrWorldBank().catch(() => null),
-        stEnv  ? null : fetchUlnShorttermPctWorldBank().catch(() => null),
-      ]);
-      const wbPoints = [dsrPoint, stPoint].filter((p): p is NonNullable<typeof p> => p !== null);
-      if (wbPoints.length > 0) await upsertPoints(wbPoints);
-    }
-  }
+
+  // Run SULNI fetch + WB fallback in parallel to minimize latency
+  const [sulniDsrPoint] = await Promise.all([
+    fetchUlnDsrSulni().catch(() => null),
+    (async () => {
+      if (dsrEnv) {
+        const v = parseFloat(dsrEnv);
+        if (!isNaN(v) && v >= 0 && v <= 100) {
+          await upsertPoints([{ indicator: 'uln_dsr_pct', category: 'uln', date: today, value: v, unit: '%', source: 'env_manual', fetchedAt: new Date().toISOString() }]);
+        }
+      }
+      if (stEnv) {
+        const v = parseFloat(stEnv);
+        if (!isNaN(v) && v >= 0 && v <= 100) {
+          await upsertPoints([{ indicator: 'uln_shortterm_pct', category: 'uln', date: today, value: v, unit: '%', source: 'env_manual', fetchedAt: new Date().toISOString() }]);
+        }
+      }
+      if (!dsrEnv || !stEnv) {
+        const [cachedDsr, cachedSt] = await Promise.all([
+          getLatestPoint('uln_dsr_pct'),
+          getLatestPoint('uln_shortterm_pct'),
+        ]);
+        if (!isFresh(cachedDsr) || !isFresh(cachedSt)) {
+          const [dsrPoint, stPoint] = await Promise.all([
+            dsrEnv ? null : fetchUlnDsrWorldBank().catch(() => null),
+            stEnv  ? null : fetchUlnShorttermPctWorldBank().catch(() => null),
+          ]);
+          const wbPoints = [dsrPoint, stPoint].filter((p): p is NonNullable<typeof p> => p !== null);
+          if (wbPoints.length > 0) await upsertPoints(wbPoints);
+        }
+      }
+    })(),
+  ]);
 
   // 3. Hedging compliance — tier order: env override → BI SULNI Playwright → Exa/Tavily news.
   //    SULNI page often blocks Playwright in CI; news scrape catches the same number
@@ -227,8 +265,12 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
   const dsrPoint = freshDsr.point;
   const stPoint = freshSt.point;
 
-  // DSR slope: annualized pp/year change from last 2 stored data points (getLastN DESC order: [0]=newest)
-  const dsrHistory = await getLastN('uln_dsr_pct', 2);
+  // DSR slope: prefer SULNI Tier-1 history (quarterly, more current); fall back to WB
+  const [dsrHistorySulni, dsrHistoryWb] = await Promise.all([
+    getLastN('uln_dsr_tier1_ann_pct', 2),
+    getLastN('uln_dsr_pct', 2),
+  ]);
+  const dsrHistory = dsrHistorySulni.length >= 2 ? dsrHistorySulni : dsrHistoryWb;
   let dsrSlopePpPerYear: number | null = null;
   if (dsrHistory.length === 2) {
     const days = (Date.parse(dsrHistory[0]!.date) - Date.parse(dsrHistory[1]!.date)) / 86_400_000;
@@ -241,7 +283,8 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
   const ulnHistory = await getLastN('indonesia_external_debt_bn', 8);
 
   const ulnTotal = ulnPoint?.value ?? null;
-  const ulnDsr = dsrPoint?.value ?? null;
+  const ulnDsrWb = dsrPoint?.value ?? null;   // World Bank basis (uln_dsr_pct); threshold 25%
+  const ulnDsrT1 = sulniDsrPoint?.value ?? null; // SULNI Tier-1 (uln_dsr_tier1_ann_pct); threshold 19.5%
   const ulnSt = stPoint?.value ?? null;
   const hedging = hedgingPoint?.value ?? hedgingFromDb?.value ?? null;
   const reserves = fxReserves?.value ?? null;
@@ -296,11 +339,17 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
   }
   if (derivedPoints.length > 0) await upsertPoints(derivedPoints);
 
-  // 8. Composite score
+  // 8. Composite score — dual-track DSR: SULNI Tier-1 preferred; WB fallback
   const subscores: Array<{ score: number; weight: number; label: string }> = [];
-
+  // DSR: SULNI Tier-1 (threshold 19.5%) beats WB (threshold 25%) in freshness + precision
+  let dsrScoreSource: 'sulni_tier1' | 'world_bank' | 'env_wb' = 'env_wb';
+  const activeDsr = ulnDsrT1 ?? ulnDsrWb;
+  if (activeDsr !== null) {
+    const dsrScore = ulnDsrT1 !== null ? scoreDsrSulni(ulnDsrT1) : scoreDsr(ulnDsrWb!);
+    dsrScoreSource = ulnDsrT1 !== null ? 'sulni_tier1' : (process.env.ULN_DSR_PCT ? 'env_wb' : 'world_bank');
+    subscores.push({ score: dsrScore, weight: 0.25, label: `DSR (${dsrScoreSource})` });
+  }
   if (ulnGdpRatio !== null) subscores.push({ score: scoreUlnGdp(ulnGdpRatio), weight: 0.30, label: 'ULN/GDP' });
-  if (ulnDsr !== null)       subscores.push({ score: scoreDsr(ulnDsr),          weight: 0.25, label: 'DSR' });
   if (greenspanGuidotti !== null) subscores.push({ score: scoreGg(greenspanGuidotti), weight: 0.30, label: 'GG ratio' });
   if (yoyGrowth !== null)    subscores.push({ score: scoreGrowth(yoyGrowth),     weight: 0.15, label: 'YoY growth' });
 
@@ -348,12 +397,17 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
   }
 
   if (dsrSlopePpPerYear !== null && dsrSlopePpPerYear > 5) {
-    flags.push(`DSR SLOPE CRITICAL: +${dsrSlopePpPerYear.toFixed(1)}pp/yr — trajectory breaches IMF 25% threshold before next annual publication. Level may look safe; slope is the risk. [SOUL.md Persona V]`);
+    flags.push(`DSR SLOPE CRITICAL: +${dsrSlopePpPerYear.toFixed(1)}pp/yr — trajectory breaches threshold before next publication. Level may look safe; slope is the risk. [SOUL.md Persona V]`);
   } else if (dsrSlopePpPerYear !== null && dsrSlopePpPerYear > 3) {
-    flags.push(`DSR SLOPE ELEVATED: +${dsrSlopePpPerYear.toFixed(1)}pp/yr — at this pace, threshold breach within 12–18 months. SULNI Q3 2026 data will confirm.`);
+    flags.push(`DSR SLOPE ELEVATED: +${dsrSlopePpPerYear.toFixed(1)}pp/yr — at this pace, threshold breach within 12–18 months`);
   }
-  if (ulnDsr !== null && ulnDsr > 30) {
-    flags.push(`DSR ELEVATED: ${ulnDsr}% — above IMF stress threshold (25%), export earnings under debt service pressure`);
+  // DSR level flags — use whichever series is active, with appropriate threshold
+  if (ulnDsrT1 !== null && ulnDsrT1 > SULNI_DSR_TIER1_THRESHOLD_ORANGE) {
+    flags.push(`SULNI DSR TIER-1 ELEVATED: ${ulnDsrT1}% — above calibrated ORANGE threshold (${SULNI_DSR_TIER1_THRESHOLD_ORANGE}% = IMF 30%/1.27 adj). Current account receipts under pressure`);
+  } else if (ulnDsrT1 !== null && ulnDsrT1 > SULNI_DSR_TIER1_THRESHOLD_YELLOW) {
+    flags.push(`SULNI DSR TIER-1 WATCH: ${ulnDsrT1}% — approaching calibrated ORANGE (${SULNI_DSR_TIER1_THRESHOLD_ORANGE}%); WB-equivalent ~${(ulnDsrT1 * 1.27).toFixed(1)}%`);
+  } else if (ulnDsrT1 === null && ulnDsrWb !== null && ulnDsrWb > 30) {
+    flags.push(`DSR ELEVATED (WB basis): ${ulnDsrWb}% — above IMF stress threshold (25%), export earnings under debt service pressure`);
   }
 
   if (hedging !== null && hedging < 70) {
@@ -385,7 +439,10 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
   return {
     alert, stressScore, ulnTotalBn: ulnTotal,
     ulnGdpRatioPct: ulnGdpRatio, ulnShorttermPct: ulnSt,
-    ulnDsrPct: ulnDsr, dsrSlopePpPerYear, ulnYoyGrowthPct: yoyGrowth,
+    ulnDsrPct: ulnDsrWb,         // World Bank basis — kept for backward compat / display
+    ulnDsrTier1Pct: ulnDsrT1,   // SULNI Tier-1 Annualized (primary scoring source when available)
+    dsrSource: dsrScoreSource,
+    dsrSlopePpPerYear, ulnYoyGrowthPct: yoyGrowth,
     greenspanGuidotti, hedgingCompliancePct: hedging,
     rg, rgLabel, sbn10yPct: sbn10y, gdpGrowthPct: gdpGrowth,
     totalDebtGdpPct: totalDebtGdp, primarySurplusRequiredPct: primarySurplusRequired,
@@ -412,7 +469,9 @@ function formatUlnOutput(o: UlnEngineOutput): string {
     `| ULN/GDP | ${pct(o.ulnGdpRatioPct)} | YELLOW >35%, ORANGE >40%, RED >45% |`,
     `| Short-term ULN | ${o.ulnShorttermPct !== null && o.ulnTotalBn !== null ? `$${shortTermBn}bn (${pct(o.ulnShorttermPct, 0)} of total)` : 'N/A'} | — |`,
     `| Greenspan-Guidotti | ${ratio(o.greenspanGuidotti)} | ORANGE <1.5, RED <1.0 |`,
-    `| DSR (% exports) | ${pct(o.ulnDsrPct)} | IMF stress >25%, ORANGE >30% |`,
+    `| DSR Tier-1 (SULNI) | ${o.ulnDsrTier1Pct !== null ? `${pct(o.ulnDsrTier1Pct)} ★` : 'N/A'} | calibrated: YELLOW >19.5%, ORANGE >23.6%, RED >27.6% |`,
+    `| DSR (WB basis) | ${pct(o.ulnDsrPct)} | IMF stress >25%, ORANGE >30% |`,
+    `| DSR scoring source | ${o.dsrSource === 'sulni_tier1' ? 'SULNI Tier-1 ★ (primary)' : o.dsrSource === 'world_bank' ? 'World Bank API' : 'env ULN_DSR_PCT'} | — |`,
     `| ULN YoY growth | ${pct(o.ulnYoyGrowthPct)} | YELLOW >6%, ORANGE >10%, RED >15% |`,
     `| Hedging compliance | ${pct(o.hedgingCompliancePct)} | YELLOW <85%, ORANGE <70%, RED <55% |`,
     '',

@@ -227,8 +227,12 @@ BI_DNDF_OUTSTANDING_BN     # USD billion — effectiveReserves = cadev − DNDF 
 # M13 ULN manual pin — from BI SULNI quarterly press release (~6 wk after quarter end)
 # World Bank API lags 12-18 months for Indonesia — env override is primary fresh source.
 # Update when BI publishes SULNI quarterly (Q1→Jun, Q2→Sep, Q3→Dec, Q4→Mar).
-ULN_DSR_PCT                # debt service ratio % of exports; IMF threshold 25%; current 24.69 (SULNI Q4 2024)
-ULN_SHORTTERM_PCT          # short-term debt as % of total ULN; current 15.47 (SULNI Q4 2024)
+ULN_DSR_PCT                # World Bank basis (DT.TDS.DECT.EX.ZS, exports+GNI denominator); threshold 25%; current 16.64 (WB 2025 — latest published)
+                           # NOTE: ULN engine now prefers SULNI Tier-1 auto-fetch (sulni-dsr.ts). Set ULN_DSR_PCT only as WB-basis emergency pin.
+                           # SULNI Tier-1 Q3-2026 = 13.31% — auto-fetched via ZIP; threshold 19.5% (calibrated = 25%/1.27).
+ULN_SHORTTERM_PCT          # short-term debt as % of total ULN; current 15.74 (SULNI Q3 2026 Nov 16)
+SULNI_DSR_TIER1_PCT        # EMERGENCY: SULNI TabI.7 DSR Tier-1 Annualized (%; calibrated threshold 19.5%); env-always-wins over ZIP auto-fetch
+                           # Use ONLY when sulni-dsr.ts ZIP download fails (BI network block, ZIP format change). Normal path: auto-fetch.
 
 # M5 MSCI classification manual pin — env ALWAYS WINS when set (DNDF pattern)
 # Default (no env set): downgrade_risk — Standalone consultation launched Oct 15 2026.
