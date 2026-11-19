@@ -551,7 +551,21 @@ function parseIhprFromText(text: string, source: string): MacroDataPoint | null 
     if (!isNaN(val) && Math.abs(val) < 50) return { indicator: 'indonesia_ihpr_yoy_pct', category: 'banking', date: TODAY(), value: parseFloat(val.toFixed(2)), unit: '%_yoy', source, fetchedAt: NOW() };
   }
 
-  // Pattern 3: any number 0-10 near "House Price" / "IHPR" / "SHPR" / "properti residensial"
+  // Pattern 3: Indonesian media format with comma decimal — "IHPR tumbuh 0,69% (yoy)"
+  for (const re of [
+    /\bIHPR\b[^0-9-]{0,60}([-\d]{1,2}[,\.]\d{1,2})\s*%\s*(?:secara\s+tahunan|\(yoy\)|year.on.year|yoy)/i,
+    /\bSHPR\b[^0-9-]{0,60}([-\d]{1,2}[,\.]\d{1,2})\s*%\s*(?:secara\s+tahunan|\(yoy\)|year.on.year|yoy)/i,
+    /harga properti residensial[^0-9-]{0,80}([-\d]{1,2}[,\.]\d{1,2})\s*%\s*(?:secara\s+tahunan|\(yoy\)|year.on.year|yoy)/i,
+    /indeks harga properti[^0-9-]{0,80}([-\d]{1,2}[,\.]\d{1,2})\s*%\s*(?:secara\s+tahunan|\(yoy\)|year.on.year|yoy)/i,
+  ]) {
+    const m = text.match(re);
+    if (m) {
+      const val = parseFloat(m[1]!.replace(',', '.'));
+      if (!isNaN(val) && Math.abs(val) < 20) return { indicator: 'indonesia_ihpr_yoy_pct', category: 'banking', date: TODAY(), value: parseFloat(val.toFixed(2)), unit: '%_yoy', source, fetchedAt: NOW() };
+    }
+  }
+
+  // Pattern 4: any number near "House Price" / "IHPR" / "SHPR" (English dot-decimal)
   for (const re of [
     /House Price[^0-9-]{0,30}([-\d]{1,2}\.\d{1,2})/i,
     /\bIHPR\b[^0-9-]{0,20}([-\d]{1,2}\.\d{1,2})/i,
@@ -568,16 +582,98 @@ function parseIhprFromText(text: string, source: string): MacroDataPoint | null 
   return null;
 }
 
+/**
+ * Fetch IHPR from BIS Selected Residential Property Prices SDMX API.
+ * Series: Q.ID.N.628 — Indonesia, nominal, quarterly index (2010=100).
+ * Computes YoY = (Q_t − Q_{t-4}) / Q_{t-4} × 100.
+ * No auth required. Updates quarterly, ~1 quarter lag (matches BI SHPR cadence).
+ */
+async function fetchIhprBis(): Promise<MacroDataPoint | null> {
+  try {
+    const res = await fetch(
+      'https://stats.bis.org/api/v1/data/BIS,WS_SPP,1.0/Q.ID.N.628?lastNObservations=8',
+      { headers: { Accept: 'text/csv' }, signal: AbortSignal.timeout(12_000) },
+    );
+    if (!res.ok) return null;
+    const xml = await res.text();
+
+    // Parse: Obs TIME_PERIOD="YYYY-Qn" OBS_VALUE="xxx"
+    const obs: Array<{ period: string; value: number }> = [];
+    for (const m of xml.matchAll(/Obs TIME_PERIOD="(\d{4}-Q\d)" OBS_VALUE="([\d.]+)"/g)) {
+      obs.push({ period: m[1]!, value: parseFloat(m[2]!) });
+    }
+    if (obs.length < 5) return null;
+
+    // Most recent obs and 4 quarters prior
+    const latest = obs[obs.length - 1]!;
+    const prior = obs[obs.length - 5];
+    if (!prior) return null;
+
+    const yoy = parseFloat(((latest.value - prior.value) / prior.value * 100).toFixed(2));
+    if (isNaN(yoy) || Math.abs(yoy) > 30) return null;
+
+    // Quarter → last day of quarter
+    const [yr, q] = latest.period.split('-Q').map(Number) as [number, number];
+    const lastMonthOfQ = q * 3;
+    const lastDay = new Date(yr, lastMonthOfQ, 0).getDate();
+    const dateStr = `${yr}-${String(lastMonthOfQ).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    return { indicator: 'indonesia_ihpr_yoy_pct', category: 'banking', date: dateStr, value: yoy, unit: '%_yoy', source: 'bis_sdmx_api', fetchedAt: NOW() };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch IHPR from Exa search — BI SHPR quarterly press release coverage.
+ * Covers kontan/cnbcindonesia/bisnis.com reports of BI SHPR quarterly results.
+ */
+async function fetchIhprExa(): Promise<MacroDataPoint | null> {
+  if (!process.env.EXASEARCH_API_KEY) return null;
+  try {
+    const { default: Exa } = await import('exa-js');
+    const exa = new Exa(process.env.EXASEARCH_API_KEY);
+    const startDate = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10);
+
+    const response = await exa.search(
+      'SHPR Bank Indonesia IHPR triwulan 2026 YoY indeks harga properti residensial',
+      {
+        numResults: 4,
+        type: 'auto',
+        startPublishedDate: startDate,
+        includeDomains: ['bi.go.id', 'kontan.co.id', 'cnbcindonesia.com', 'bisnis.com'],
+        contents: { text: { maxCharacters: 2000 } },
+      } as Parameters<typeof exa.search>[1],
+    );
+
+    for (const r of (response.results ?? [])) {
+      const text = ((r as { text?: string }).text ?? r.title ?? '');
+      const result = parseIhprFromText(text, 'bi_shpr_exa');
+      if (result) return result;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchIhprTe(): Promise<MacroDataPoint | null> {
-  // Try Trading Economics first
+  // Tier 1: BIS SDMX API — free, no Playwright, quarterly, most reliable
+  const bisResult = await fetchIhprBis();
+  if (bisResult) return bisResult;
+
+  // Tier 2: Exa search — BI SHPR quarterly press release media coverage
+  const exaResult = await fetchIhprExa();
+  if (exaResult) return exaResult;
+
+  // Tier 3: Trading Economics Playwright scrape
   const teText = await fetchRenderedTextWithBrowser('https://tradingeconomics.com/indonesia/house-price-index');
   if (teText) {
     const result = parseIhprFromText(teText, 'trading_economics_scrape');
     if (result) return result;
   }
 
-  // Fallback: BI SHPR page (Survei Harga Properti Residensial)
-  // BI page is ASP.NET, may need cookies — try plain fetch first
+  // Tier 4: BI SHPR page (ASP.NET, may need cookies)
   try {
     const res = await fetch('https://www.bi.go.id/id/statistik/ekonomi-keuangan/indeks-harga-properti-residensial/Default.aspx', {
       headers: { 'User-Agent': TE_HEADERS['User-Agent'], Accept: 'text/html' },
