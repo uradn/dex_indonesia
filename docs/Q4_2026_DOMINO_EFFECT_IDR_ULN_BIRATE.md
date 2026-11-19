@@ -1,7 +1,7 @@
 # Efek Domino: IDR Lemah + ULN $458.9B + BI Rate 6%
 ## Simulasi Transmisi ke Ekonomi Menengah-Bawah — Q4 2026
 
-**Disusun:** 19 November 2026 (revisi: +shrinking middle class simulation)
+**Disusun:** 19 November 2026 (revisi: +shrinking middle class + tepung terigu + SULNI TabI.7 Q3 2026)
 **Pemicu utama:** RDG BI 17-18 Nov 2026 (BI Rate +25bps → 6.00%) + SULNI Q3 2026 ($458.9B) + IDR rekor Rp18.264 (17 Nov 2026)
 **Sumber:** BI Siaran Pers No.28/254/DKom (BI Rate) + No.28/251/DKom (SULNI Q3) + Mandiri Institute Feb 2026 (BPS data) + Exa media synthesis
 
@@ -18,7 +18,10 @@
 | **Beban IDR ULN** | Rp8.375,8T (kurs Nov 18) vs Rp8.203,6T (kurs Sep 30) | — | **+Rp172T dalam 7 minggu** |
 | **Pajak shortfall** | Rp514T (Oct 2026 YTD 76.2% target) | 100% | -23.8% |
 | **SBN 10Y** | 7.607% | 6.9% (APBN) | **+71bps** |
-| **DSR** | 24.69% | 25% (IMF threshold) | **margin 31bps** |
+| **DSR (WB/IMF basis)** | 24.69% (Q4 2024 est.) | 25% (IMF threshold) | **margin 31bps** |
+| **DSR Tier-1 Annualized** | 13.31% Q3 2026 (SULNI TabI.7) | — | basis: current account receipts ≠ IMF exports basis |
+| **ST Debt / Cadangan Devisa** | 49.36% Q3 2026 (original maturity) | <30%=aman, 30-50%=watch | **WATCH ZONE 🟡** |
+| **ST Debt / Total ULN** | 15.74% Q3 2026 (original maturity) | — | ↑ dari 14.32% Q4 2025 (rollover risk naik) |
 
 > **Kata kunci Rahma Gafmi (Guru Besar UNAIR, Nov 17):** "Dengan rupiah di kisaran Rp18.200-18.300, biaya konversi rupiah ke mata uang asing untuk membayar pokok dan bunga ULN menjadi jauh lebih berat."
 > **Kata kunci David Sumual (Chief Economist BCA, Nov 17):** "Memaksakan [belanja] di era suku bunga global tinggi berbanding lurus dengan kenaikan beban bunga — dapat menyandera posisi fiskal jangka panjang Indonesia."
@@ -92,7 +95,11 @@
 
 - **Thin buffer:** Kelas menengah Indonesia terkonsentrasi di *lower-middle* (Rp2,1M–Rp4M/kapita). Simpanan rata-rata hanya 1-2 bulan pengeluaran.
 - **High leverage:** 65%+ KPR menggunakan floating rate. Ketika BI Rate naik 25bps, cicilan langsung naik — tidak ada perlindungan fixed jangka panjang.
-- **Import-dependent consumption:** Protein (kedelai, tahu-tempe dari AS), gula, elektronik, tekstil — mayoritas impor. IDR lemah langsung mengurangi daya beli riil.
+- **Import-dependent consumption:** Empat komoditas LANGSUNG memengaruhi meja makan kelas bawah:
+  - **Tepung terigu/gandum:** Indonesia impor **7–8 juta ton/tahun** (100% — tidak ada produksi domestik signifikan). Sumber: Australia ~50%, Ukraina/Rusia ~30%, Brazil/lain ~20%. Produk hilir: **mie instan** (>10 miliar bungkus/tahun; Rp3.000–4.500/bungkus = "protein anchor" keluarga bawah), roti, biskuit, bakso, mie ayam. IDR −10,7% → landed cost gandum naik proporsional → mie instan naik Rp300–700/bungkus = **+10-18%**.
+  - **Kedelai:** 2,5–3 juta ton/tahun impor (90%+ dari AS). Tahu-tempe = sumber protein utama bagi 60%+ keluarga bawah. IDR −10,7% → kedelai naik → tahu-tempe **+8–15%** dalam 1-2 bulan.
+  - **Gula:** 4–5 juta ton/tahun impor. IDR lemah → harga gula pasir naik **+8–12%**.
+  - **Susu bubuk:** Impor tinggi (NZ, Australia). Langsung memengaruhi biaya MPASI dan gizi anak balita keluarga kelas bawah.
 - **Formal employment fragile:** PHK YTD 2026: 90.000 pekerja. Manufaktur dan tekstil paling terekspos terhadap kombinasi biaya modal naik + bahan baku impor mahal.
 - **Dr. Wisnu (UGM, Feb 2026):** "Kelas menengah Indonesia relatif tipis, terkonsentrasi di lower-middle. Bahkan guncangan kecil dapat mendorong keluarga turun. Ekspansi AMC menggambarkan betapa banyak keluarga berdiri di tepi ketidakpastian."
 - **Krungsri Research (Jul 2026):** "Indonesia's forgotten middle child" — terjepit antara kebijakan publik yang lemah, pasar tenaga kerja struktural, impor murah dari China, dan harga energi yang naik. Konsumsi swasta = 55,8% GDP.
@@ -261,7 +268,9 @@ Subsidi Pertalite gap Rp7.059/liter. Subsidi Solar B50 gap Rp13.501/liter. APBN 
 | 1 | **Cicilan KPR floating naik** | 1–3 bulan | Bank adjust lending rate pasca BI Rate hike | +Rp62.500–Rp200.000/bulan (tgt KPR Rp300M–Rp800M) |
 | 2 | **Cicilan KKB (motor/mobil) naik** | 1–3 bulan | Leasing/bank adjust floating rate | +Rp30.000–Rp100.000/bulan |
 | 3 | **Kredit UKM/modal kerja mahal** | 1–3 bulan | Lending rate +50-100bps | +Rp3.000–Rp10.000/bulan per Rp10M pinjaman |
-| 4 | **Harga bahan baku impor naik** | 1–3 bulan | IDR +10.7% → kedelai/gula/tekstil impor | Tahu-tempe +8-15%, gula +8-12% |
+| 4 | **Mie instan & tepung terigu naik** | **2–6 minggu** *(tercepat)* | Gandum 100% impor (7-8 juta ton/tahun); IDR +10.7% → landed cost langsung naik | +Rp300–700/bungkus mie (+10-18%); mie instan = protein anchor kelas bawah |
+| 4b | **Tahu-tempe naik** | 1–2 bulan | Kedelai 90% impor dari AS; IDR depreciation pass-through 1-2 bulan | Tahu-tempe +8-15%; dampak ke 60%+ keluarga bawah |
+| 4c | **Gula & susu bubuk naik** | 1–3 bulan | Gula 4-5 juta ton/tahun impor; susu bubuk dari NZ/Australia | Gula +8-12%; susu bubuk +10-15% (MPASI anak balita) |
 | 5 | **Inflasi core naik** | 2–4 bulan | Cost-push dari 1-4 di atas + ekspektasi | CPI estimasi naik +0.3-0.8pp |
 | 6 | **Harga BBM Pertalite** | 3–12 bulan *(tgt politik)* | APBN squeeze → pilih hike atau defisit | +Rp2.000–Rp4.000/L jika hike (20-40%) |
 | 7 | **Tarif ojek/angkutan naik** | Segera setelah BBM hike | Pass-through ~2-4 minggu | +10-25% transport cost |
@@ -275,7 +284,25 @@ Subsidi Pertalite gap Rp7.059/liter. Subsidi Solar B50 gap Rp13.501/liter. APBN 
 
 ---
 
-## 7. Analisis Khusus: Rp172 Triliun = Apa Artinya?
+## 7. SULNI Q3 2026: Lampu Kuning yang Tersembunyi
+
+Data TabI.7 SULNI November 2026 (Excel resmi BI, bukan hanya press release) mengungkap dua sinyal yang tidak disebut di siaran pers:
+
+| Indikator SULNI TabI.7 | Q4 2024 | Q2 2026 | **Q3 2026** | Interpretasi |
+|------------------------|---------|---------|-------------|--------------|
+| ST Debt / Total ULN (original) | 14.60% | 16.45% | **15.74%** | ↓ dari peak Q2, tapi ↑ vs Q4 2024 → rollover risk naik YoY |
+| ST Debt / Cadangan Devisa | 39.87% | 51.46% | **49.36%** | WATCH ZONE — Q2 sempat masuk 50%+ |
+| DSR Tier-1 Annualized | 18.58% | 14.39% | **13.31%** | Membaik — tapi ini basis current account receipts (denominator lebih lebar dari IMF exports basis) |
+| Debt/Export Ratio | 129.24% | 126.89% | **125.36%** | Stabil — tidak memburuk YoY |
+| Debt/GDP | 30.44% | 30.77% | **30.86%** | Merayap naik; Calvo trap mechanics mulai terlihat |
+
+**Lampu kuning #1:** ST Debt/Caddev 49.36% = hampir menyentuh 50%. Jika IDR terus melemah (Q4 2026 → Rp18.500+), cadangan efektif ($138.8B setelah DNDF) turun → rasio ini bisa menembus 50% di Q4 2026.
+
+**Lampu kuning #2:** Debt/GDP 30.86% merayap naik setiap kuartal (29.67% → 30.77% → 30.86%). Ini sebelum dampak BI Rate 6% dan IDR 18.264 dikorporasikan. Calvo trap (r−g = +2.14pp) akan mempercepat ini secara mekanis tanpa primary surplus.
+
+---
+
+## 8. Analisis Khusus: Rp172 Triliun = Apa Artinya?
 
 Pelemahan Rupiah dari Rp17.877 (JISDOR 30 Sep) ke Rp18.252 (JISDOR 18 Nov) — **hanya dalam 7 minggu** — menambah beban ULN dalam Rupiah **Rp172 Triliun tanpa satu dolar pun utang baru**.
 
@@ -291,7 +318,7 @@ Tambahan beban dari Sep 30 baseline: (19.000 − 17.877) × $458.9B = $458.9B ×
 
 ---
 
-## 8. Risiko Non-Linear: Kapan Domino Jadi Avalanche?
+## 9. Risiko Non-Linear: Kapan Domino Jadi Avalanche?
 
 Tiga kondisi yang bisa mengakselerasi semua timeline di atas:
 
@@ -309,7 +336,7 @@ Erosi kelas menengah bisa mencapai **–6 hingga –8 juta** dalam 4 kuartal —
 
 ---
 
-## 9. Penyangga yang Ada (Buffer)
+## 10. Penyangga yang Ada (Buffer)
 
 Tidak semua skenario terburuk. Ada beberapa bantalan:
 
@@ -324,7 +351,7 @@ Tidak semua skenario terburuk. Ada beberapa bantalan:
 
 ---
 
-## 10. Bottom Line untuk Menengah-Bawah
+## 11. Bottom Line untuk Menengah-Bawah
 
 **Yang paling cepat terasa (1-3 bulan):**
 Cicilan KPR/KKB floating, harga tahu-tempe, kredit UKM mahal. Ini **sudah berjalan** — bukan forecast, melainkan mekanisme yang sedang bergerak sejak BI Rate naik Nov 18.
@@ -347,6 +374,8 @@ Triple shock ini tidak hanya memengaruhi satu kuartal — ia menekan fondasi yan
 - Kompas.id: "10 Juta Kelas Menengah Hilang 2019–2025" (Oct 2026)
 - Krungsri Research: "Indonesia's Forgotten Middle Child" (Jul 2026)
 - BPS: Garis Kemiskinan Maret 2025 = Rp609.160/kapita/bulan
+- BI SULNI TabI.7 (Excel): SULNI-November-2026.zip — External Debt Indicators Q3 2026 (konfirmasi DSR Tier-1 Annualized 13.31%, ST Debt/Caddev 49.36%, Debt/Export 125.36%)
+- BPS Impor: gandum 7-8 juta ton/tahun; kedelai 2.5-3 juta ton; gula 4-5 juta ton (impor 90-100%)
 - Dr. Wisnu Tri Nugroho (UGM): kutipan via Exa media synthesis (Feb 2026)
 - Beritatren: "ULN Tembus $458.9M, Rupiah Lemah Bikin Beban Membengkak Rp172T" (19 Nov 2026)
 - Jakarta Globe: "Rupiah Slide Exposes Hidden Risks in Indonesia's $458.9B Debt" (17 Nov 2026)
