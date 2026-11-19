@@ -70,11 +70,11 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   { name: 'eido_shares_outstanding',     module: 'M5',  freshDays: 4,  yellowDays: 7,   redDays: 14 },
   { name: 'usdidr_ndf_1m_rate',          module: 'M3',  freshDays: 3,  yellowDays: 7,   redDays: 14 },
   { name: 'himbara_at1_secondary_pct',   module: 'M8',  freshDays: 7,  yellowDays: 14,  redDays: 30 },
-  // IDX short sell: feature launched Oct 1 2026; only 5 stocks; 50 initial investors; idx.co.id CF-blocked;
-  // media coverage thin; data cadence effectively weekly-to-monthly — 21d RED too tight for new feature
-  { name: 'idx_short_sell_volume_idr_bn',module: 'M9',  freshDays: 7,  yellowDays: 21,  redDays: 35 },
-  // OJK SPI PDN published ~45-60d after month-end — 60d fresh gate prevents false-stale alert
-  { name: 'bank_pdnl_pct',              module: 'M8',  freshDays: 60, yellowDays: 80,  redDays: 120 },
+  // IDX short sell: CF-blocked; thin media coverage; FRESHNESS_DAYS=14 in scraper (weekly effective cadence).
+  // During BEI suspension (ongoing Oct 2026+): value=0 confirmed weekly. 14d matches scraper gate.
+  { name: 'idx_short_sell_volume_idr_bn',module: 'M9',  freshDays: 14, yellowDays: 30,  redDays: 45 },
+  // OJK SPI PDN published ~60-75d after month-end — 75d fresh gate matches publication cadence
+  { name: 'bank_pdnl_pct',              module: 'M8',  freshDays: 75, yellowDays: 95,  redDays: 130 },
   // DNDF — env_manual annual update from BI LKT
   { name: 'bi_dndf_outstanding_bn',      module: 'M3',  freshDays: 100,yellowDays: 200, redDays: 400 },
   { name: 'uln_hedging_compliance_pct',  module: 'M13', freshDays: 120,yellowDays: 200, redDays: 365 },
@@ -104,7 +104,8 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   // LPS fund adequacy — annual, LPS Laporan Tahunan ~Apr each year; env LPS_FUND_ADEQUACY_PCT
   { name: 'lps_fund_adequacy_pct', module: 'M8', freshDays: 365, yellowDays: 420, redDays: 500 },
   // Policy response coordination — KS#2 feed; 24h cache per policy-response.ts
-  { name: 'policy_response_level', module: 'M3', freshDays: 1, yellowDays: 2, redDays: 5 },
+  // Mon-Fri morning-check only → weekend gap = 2d natural. freshDays 2d prevents false-stale on Sat/Sun.
+  { name: 'policy_response_level', module: 'M3', freshDays: 2, yellowDays: 4, redDays: 7 },
   // IndONIA compounded 30d — BI direct daily (bi.go.id 19:30 WIB); env override BI_INDONIA_COMPOUNDED_30D_PCT
   // 2d fresh (BI publishes daily; allow 1 missed day), 7d yellow (weekend + delay), 14d red
   { name: 'indonia_compounded_30d_pct', module: 'M8', freshDays: 2, yellowDays: 7, redDays: 14 },
@@ -133,14 +134,16 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   // BI GWM — env override BI_GWM_PCT always wins; DB updated by bi-gwm.ts at each banking engine run
   // BI announces at RDG (monthly); held unchanged for long periods — 45d fresh covers 1 missed RDG
   { name: 'bi_gwm_pct',                    module: 'M8',  freshDays: 45,  yellowDays: 60,  redDays: 90  },
-  // BI SEKI monthly (~10th of following month): M2 broad money, M1/M2 ratio, savings/deposito ratio
-  { name: 'm2_money_supply_idr_bn',         module: 'M8',  freshDays: 35,  yellowDays: 55,  redDays: 90  },
-  { name: 'm1_m2_ratio_pct',                module: 'M8',  freshDays: 35,  yellowDays: 55,  redDays: 90  },
+  // BI SEKI monthly (~45d after month-end): M2 broad money, M1/M2 ratio, savings/deposito ratio
+  // 45d publication lag means Sep data arrives ~Nov 15. freshDays 55 matches publication cadence.
+  { name: 'm2_money_supply_idr_bn',         module: 'M8',  freshDays: 55,  yellowDays: 75,  redDays: 105 },
+  { name: 'm1_m2_ratio_pct',                module: 'M8',  freshDays: 55,  yellowDays: 75,  redDays: 105 },
   { name: 'bank_savings_deposito_ratio_pct',module: 'M8',  freshDays: 50,  yellowDays: 70,  redDays: 120 },
   // APBN KiTa pressconf + GDP: deficit % GDP annual-ish; 100d covers quarterly APBN + GDP lag
   { name: 'apbn_deficit_pct_gdp',           module: 'M8',  freshDays: 100, yellowDays: 140, redDays: 200 },
-  // BIS quarterly IHPR house price index; 100d fresh = quarterly + 10d publication lag
-  { name: 'indonesia_ihpr_yoy_pct',         module: 'M8',  freshDays: 100, yellowDays: 130, redDays: 200 },
+  // BIS quarterly IHPR house price index; Q3 (Sep) published Dec → 150d from Sep 30.
+  // freshDays 155 = quarterly (90d) + BIS publication lag (~60d); prevents false-stale Q2→Q3 gap.
+  { name: 'indonesia_ihpr_yoy_pct',         module: 'M8',  freshDays: 155, yellowDays: 185, redDays: 220 },
   // OJK monthly fintech lending stats (~45d after month-end)
   { name: 'fintech_lending_outstanding_idr_t',  module: 'M8', freshDays: 50, yellowDays: 70, redDays: 120 },
   { name: 'fintech_lending_growth_yoy_pct',     module: 'M8', freshDays: 50, yellowDays: 70, redDays: 120 },
@@ -148,8 +151,9 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   { name: 'inflation_cpi_pct',           module: 'M0',  freshDays: 35,  yellowDays: 55,  redDays: 90  },
   // S&P Global Indonesia manufacturing PMI monthly (~1st business day); regime engine
   { name: 'indonesia_pmi_manufacturing', module: 'M0',  freshDays: 35,  yellowDays: 55,  redDays: 75  },
-  // World Bank Pink Sheet CPO monthly; commodity + domestic pressure engines
-  { name: 'cpo_price_myr',               module: 'M4',  freshDays: 35,  yellowDays: 55,  redDays: 90  },
+  // World Bank Pink Sheet CPO monthly; ~45d publication lag (Oct data arrives ~Nov 15).
+  // freshDays 50 matches Pink Sheet cadence; real-time data not needed (monthly export price signal).
+  { name: 'cpo_price_myr',               module: 'M4',  freshDays: 50,  yellowDays: 70,  redDays: 100 },
   // ULN/GDP derived ratio — recomputed by ULN engine from BI SULNI quarterly
   { name: 'uln_gdp_ratio_pct',           module: 'M13', freshDays: 100, yellowDays: 140, redDays: 200 },
 ];

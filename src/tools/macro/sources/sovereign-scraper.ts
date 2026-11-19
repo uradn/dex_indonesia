@@ -487,11 +487,76 @@ export async function fetchIndoniaRateTe(): Promise<MacroDataPoint | null> {
 export const fetchJiborTe = fetchIndoniaRateTe;
 
 /**
- * Fetch Indonesia gross external debt from Trading Economics.
- * Source data: Bank Indonesia (quarterly, USD Million).
+ * Fetch Indonesia gross external debt.
+ * Tier 1: Exa search for BI SULNI quarterly press release (bi.go.id + media).
+ *   BI publishes within ~50d of quarter end. Pattern: "X,Y miliar dolar AS" + "triwulan I/II/III/IV YYYY".
+ * Tier 2: Trading Economics Playwright (fallback; often lags BI SULNI by days).
  * Returns total in bn USD.
  */
+async function fetchExternalDebtExa(): Promise<MacroDataPoint | null> {
+  if (!process.env.EXASEARCH_API_KEY) return null;
+  try {
+    const { default: Exa } = await import('exa-js');
+    const exa = new Exa(process.env.EXASEARCH_API_KEY);
+    const startDate = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10);
+
+    const r = await exa.search(
+      'utang luar negeri Indonesia triwulan 2026 SULNI miliar dolar AS Bank Indonesia siaran pers',
+      {
+        numResults: 5,
+        type: 'auto',
+        startPublishedDate: startDate,
+        includeDomains: ['bi.go.id', 'cnbcindonesia.com', 'kontan.co.id', 'bisnis.com'],
+        contents: { text: { maxCharacters: 3000 } },
+      } as Parameters<typeof exa.search>[1],
+    );
+
+    const quarterMap: Record<string, string> = {
+      i: '-03-31', '1': '-03-31',
+      ii: '-06-30', '2': '-06-30',
+      iii: '-09-30', '3': '-09-30',
+      iv: '-12-31', '4': '-12-31',
+    };
+
+    for (const res of (r.results ?? [])) {
+      const text = ((res as { text?: string }).text ?? res.title ?? '');
+      if (!text) continue;
+
+      // Value: "458,9 miliar dolar AS" or "USD 458.9 miliar" or "USD458,9 B"
+      const valMatch = text.match(/(\d{3}[,.]?\d*)\s*miliar\s*(?:dolar\s*AS|USD)/i)
+        ?? text.match(/ULN[^0-9]{0,40}(\d{3}[,.]?\d*)\s*miliar/i);
+      if (!valMatch) continue;
+      const val = parseFloat(valMatch[1]!.replace(',', '.'));
+      if (isNaN(val) || val < 200 || val > 700) continue;
+
+      // Quarter: "triwulan III 2026" or "kuartal III-2026" or "Q3-2026"
+      const qMatch = text.match(/(?:triwulan|kuartal|quarter)\s+([IViv]{1,3}|\d)\s*[-–]?\s*(\d{4})/i)
+        ?? text.match(/Q(\d)\s*[-–]?\s*(\d{4})/i);
+      if (!qMatch) continue;
+      const qNum = qMatch[1]!.toLowerCase();
+      const year = qMatch[2]!;
+      const suffix = quarterMap[qNum];
+      if (!suffix) continue;
+      const date = `${year}${suffix}`;
+
+      return {
+        indicator: 'indonesia_external_debt_bn', category: 'banking',
+        date, value: parseFloat(val.toFixed(1)), unit: 'bn_USD',
+        source: 'bi_sulni_exa', fetchedAt: NOW(),
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchExternalDebtTe(): Promise<MacroDataPoint | null> {
+  // Tier 1: Exa search for BI SULNI quarterly press release (faster than TE lag)
+  const exaResult = await fetchExternalDebtExa();
+  if (exaResult) return exaResult;
+
+  // Tier 2: Trading Economics Playwright
   const text = await fetchRenderedTextWithBrowser('https://tradingeconomics.com/indonesia/external-debt');
   if (!text) return null;
 
