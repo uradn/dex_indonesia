@@ -3028,7 +3028,7 @@ const CHAIN_META = {
 
 const STATUS_LABEL = { red: 'FIRED', orange: 'ACTIVATED', yellow: 'WARMING', green: 'DORMANT' };
 
-function renderGameTheory(thesis, snap, dbRecord?) {
+function renderGameTheory(thesis, snap, dbRecord) {
   const ind = snap?.indicators ?? {};
   const ms  = snap?.moduleScores ?? {};
 
@@ -3604,7 +3604,7 @@ function renderChain(t) {
   \`;
 }
 
-function renderTimeline(t, dbRecord?) {
+function renderTimeline(t, dbRecord) {
   if (!t) return '—';
   const now = new Date().toISOString().slice(0,10);
   // Anchor to DB triggeredAt/thesisDate — prevents date drift as days pass
