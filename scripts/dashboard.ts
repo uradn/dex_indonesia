@@ -2858,6 +2858,10 @@ const BS_HTML = `<!DOCTYPE html>
       <div class="card-title">Kill Switch Status</div>
       <div id="panel-kill">Loading…</div>
     </div>
+    <div class="card" style="border-left:3px solid var(--accent)">
+      <div class="card-title" style="color:var(--accent)">Velocity ETA — Thesis Targets</div>
+      <div id="panel-velocity">Loading…</div>
+    </div>
     <div class="card">
       <div class="card-title">IDX Flow Today — Foreign Net & IHSG Close</div>
       <div id="panel-idx-flow">Loading…</div>
@@ -4118,6 +4122,114 @@ async function killThesis(id) {
   } catch (e) { setMsg('Error: ' + e.message); }
 }
 
+function renderVelocity(vdata) {
+  if (!vdata || (!vdata.cds?.length && !vdata.sbn?.length && !vdata.usdidr?.length)) {
+    return '<span style="color:var(--muted);font-size:11px">Insufficient data — run morning-check first</span>';
+  }
+
+  function slope(pts, days) {
+    const cutoff = Date.now() - days * 86400000;
+    const f = (pts || []).filter(p => new Date(p.date).getTime() >= cutoff);
+    if (f.length < 2) return null;
+    const n = f.length;
+    const ys = f.map(p => +p.value);
+    const xs = f.map((p, i) => {
+      const d0 = new Date(f[0].date).getTime();
+      return (new Date(p.date).getTime() - d0) / 86400000;
+    });
+    const mx = xs.reduce((a, b) => a + b, 0) / n;
+    const my = ys.reduce((a, b) => a + b, 0) / n;
+    const num = xs.reduce((s, x, i) => s + (x - mx) * (ys[i] - my), 0);
+    const den = xs.reduce((s, x) => s + (x - mx) ** 2, 0);
+    return den === 0 ? null : num / den;
+  }
+
+  function etaStr(current, target, slopePerDay) {
+    if (slopePerDay === null || slopePerDay === 0) return '—';
+    const rem = target - current;
+    if ((rem > 0 && slopePerDay <= 0) || (rem < 0 && slopePerDay >= 0)) return 'div';
+    const d = rem / slopePerDay;
+    if (d < 0) return '—';
+    if (d < 7) return '<1wk';
+    if (d < 30) return Math.round(d / 7) + 'wk';
+    if (d < 365) return Math.round(d / 30) + 'mo';
+    return (d / 365).toFixed(1) + 'yr';
+  }
+
+  function etaCls(current, target, slopePerDay) {
+    if (!slopePerDay) return 'muted';
+    const rem = target - current;
+    if ((rem > 0 && slopePerDay <= 0) || (rem < 0 && slopePerDay >= 0)) return 'muted';
+    const d = rem / slopePerDay;
+    return d < 90 ? 'red' : d < 180 ? 'orange' : d < 365 ? 'yellow' : 'muted';
+  }
+
+  const t = vdata.targets;
+  const rows = [
+    {
+      label: 'CDS 5Y', pts: vdata.cds, target: t?.cds,
+      fmt: v => v != null ? (+v).toFixed(1) : '—', unit: 'bps',
+      velFmt: v => v === null ? '—' : (v >= 0 ? '+' : '') + (v * 7).toFixed(2) + '/wk',
+      tgtFmt: v => v + 'bps',
+    },
+    {
+      label: 'SBN 10Y', pts: vdata.sbn, target: t?.sbn,
+      fmt: v => v != null ? (+v).toFixed(3) : '—', unit: '%',
+      velFmt: v => v === null ? '—' : (v >= 0 ? '+' : '') + (v * 7 * 100).toFixed(1) + 'bp/wk',
+      tgtFmt: v => v + '%',
+    },
+    {
+      label: 'USDIDR', pts: vdata.usdidr, target: t?.usdidr,
+      fmt: v => v != null ? Math.round(+v).toLocaleString('id-ID') : '—', unit: '',
+      velFmt: v => v === null ? '—' : (v >= 0 ? '+' : '') + Math.round(v * 7).toLocaleString('id-ID') + '/wk',
+      tgtFmt: v => Math.round(v).toLocaleString('id-ID'),
+    },
+  ];
+
+  const rowsHtml = rows.map(r => {
+    const pts = r.pts || [];
+    const latest = pts.length ? +pts[pts.length - 1].value : null;
+    const s7 = slope(pts, 7);
+    const s30 = slope(pts, 30);
+    const tgt = r.target;
+    const eta7 = tgt != null && latest != null ? etaStr(latest, tgt, s7) : '—';
+    const eta30 = tgt != null && latest != null ? etaStr(latest, tgt, s30) : '—';
+    const ec7 = tgt != null && latest != null ? etaCls(latest, tgt, s7) : 'muted';
+    const ec30 = tgt != null && latest != null ? etaCls(latest, tgt, s30) : 'muted';
+    const vc7 = s7 !== null && tgt != null && latest != null && ((tgt > latest && s7 > 0) || (tgt < latest && s7 < 0)) ? 'orange' : 'muted';
+    const tgtStr = tgt != null ? r.tgtFmt(tgt) : '—';
+    return \`<tr>
+      <td style="font-size:10px;padding:3px 4px;white-space:nowrap">\${esc(r.label)}</td>
+      <td style="font-size:10px;padding:3px 4px;text-align:right">\${r.fmt(latest)}\${r.unit ? '<span style="font-size:8px;color:var(--muted)"> '+r.unit+'</span>' : ''}</td>
+      <td style="font-size:9px;padding:3px 4px;text-align:right;color:var(--muted);\${r.unit ? '' : ''}">\${esc(tgtStr)}</td>
+      <td style="font-size:9px;padding:3px 4px;text-align:right;color:var(--\${vc7})">\${r.velFmt(s7)}</td>
+      <td style="font-size:9px;padding:3px 4px;text-align:right;color:var(--muted)">\${r.velFmt(s30)}</td>
+      <td style="font-size:10px;padding:3px 4px;text-align:right;font-weight:600;color:var(--\${ec7})">\${eta7}</td>
+      <td style="font-size:10px;padding:3px 4px;text-align:right;color:var(--\${ec30})">\${eta30}</td>
+    </tr>\`;
+  }).join('');
+
+  const thesisLabel = t ? \`#\${t.thesisId} · \${t.thesisDate}\` : 'No active thesis';
+  return \`
+    <div style="font-size:9px;color:var(--muted);margin-bottom:5px">\${esc(thesisLabel)} — linear slope, 35d window</div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border)">
+          <th style="font-size:8px;color:var(--muted);font-weight:400;padding:2px 4px;text-align:left"></th>
+          <th style="font-size:8px;color:var(--muted);font-weight:400;padding:2px 4px;text-align:right">Now</th>
+          <th style="font-size:8px;color:var(--muted);font-weight:400;padding:2px 4px;text-align:right">Target</th>
+          <th style="font-size:8px;color:var(--muted);font-weight:400;padding:2px 4px;text-align:right">7d</th>
+          <th style="font-size:8px;color:var(--muted);font-weight:400;padding:2px 4px;text-align:right">30d</th>
+          <th style="font-size:8px;color:var(--muted);font-weight:400;padding:2px 4px;text-align:right">ETA@7d</th>
+          <th style="font-size:8px;color:var(--muted);font-weight:400;padding:2px 4px;text-align:right">ETA@30d</th>
+        </tr>
+      </thead>
+      <tbody>\${rowsHtml}</tbody>
+    </table>
+    <div style="margin-top:4px;font-size:8px;color:var(--muted)">ETA: 🔴 &lt;90d · 🟠 &lt;180d · 🟡 &lt;1yr · ⚪ longer. "div" = diverging from target.</div>
+  \`;
+}
+
 function renderIdxFlowBs(flow) {
   if (!flow || !flow.history || !flow.history.length) return '<div style="color:var(--muted);font-size:11px">Data tidak tersedia — jalankan idx-closing-check.ts</div>';
   const latest = flow.history[0];
@@ -4195,11 +4307,12 @@ async function loadInstPositioning() {
 
 async function loadData() {
   try {
-    const [thesis, archive, snap, flow] = await Promise.all([
+    const [thesis, archive, snap, flow, velData] = await Promise.all([
       fetch('/api/thesis/compute').then(x => x.json()),
       fetch('/api/thesis/all').then(x => x.json()),
       fetch('/api/snapshot').then(x => x.json()),
       fetch('/api/idx-flow').then(x => x.json()).catch(() => null),
+      fetch('/api/velocity').then(x => x.json()).catch(() => null),
     ]);
     currentThesis = thesis;
     activeArmed = archive.find(t => t.status === 'armed' || t.status === 'triggered') ?? null;
@@ -4233,6 +4346,7 @@ async function loadData() {
     document.getElementById('panel-gt').innerHTML = renderGameTheory(thesis, snap, activeArmed);
     document.getElementById('panel-timeline').innerHTML = renderTimeline(thesis, activeArmed);
     document.getElementById('panel-kill').innerHTML = renderKill(thesis, activeArmed, snap);
+    document.getElementById('panel-velocity').innerHTML = renderVelocity(velData);
     document.getElementById('panel-idx-flow').innerHTML = renderIdxFlowBs(flow);
     document.getElementById('panel-haye').innerHTML = renderHaye(snap);
     document.getElementById('panel-mkt').innerHTML = renderMkt(thesis, snap);
@@ -5589,6 +5703,36 @@ const server = Bun.serve({
       } catch (e) {
         return Response.json({ error: String(e) }, { status: 500 });
       }
+    }
+
+    if (url.pathname === '/api/velocity') {
+      const db = openDb();
+      try {
+        const cutoff = new Date(Date.now() - 35 * 86400000).toISOString().slice(0, 10);
+        const qSeries = db.query<{ date: string; value: number }>(
+          `SELECT date, AVG(value) as value FROM macro_series WHERE indicator = ? AND date >= ? GROUP BY date ORDER BY date ASC`
+        );
+        const thesis = db.query<{
+          id: number; predicted_cds_bps: number; predicted_usdidr: number;
+          predicted_sbn10y: number; thesis_date: string;
+        }>(
+          `SELECT id, predicted_cds_bps, predicted_usdidr, predicted_sbn10y, thesis_date FROM macro_theses WHERE status IN ('armed','triggered') ORDER BY id DESC LIMIT 1`
+        ).get();
+        return Response.json({
+          cds: qSeries.all('indonesia_cds_5y_bps', cutoff),
+          sbn: qSeries.all('sbn_10y_yield_pct', cutoff),
+          usdidr: qSeries.all('usdidr_spot', cutoff),
+          targets: thesis ? {
+            thesisId: thesis.id,
+            thesisDate: thesis.thesis_date,
+            cds: thesis.predicted_cds_bps,
+            sbn: thesis.predicted_sbn10y,
+            usdidr: thesis.predicted_usdidr,
+          } : null,
+        });
+      } catch (e) {
+        return Response.json({ error: String(e) }, { status: 500 });
+      } finally { db.close(); }
     }
 
     if (url.pathname.startsWith('/api/series/')) {
