@@ -311,6 +311,8 @@ Thesis #15 hari ke-7: 103.1→192bps / 18,158→20,327 / 7.711→9.11% | T+90=Fe
 
 > ### 💡 MSCI CEO Discussed Avoiding Indonesia Downgrade — Dalio-Brokered Nov 10 Call
 >
+> <img width="420" alt="Bloomberg: MSCI Discussed Avoiding Indonesia Downgrade With Prabowo, Dalio — Ray Dalio (Photographer: Ore Huiying/Bloomberg)" src="docs/assets/bloomberg-dalio-nov23.jpg" />
+>
 > **Bloomberg News, 23 November 2026** (Alastair Marsh, Faris Mokhtar, Anders Melin): MSCI CEO **Henry Fernandez** dan **Presiden Prabowo** berbicara lebih dari satu jam dalam conference call **10 November 2026** yang di-broker oleh **Ray Dalio** (Bridgewater). Turut hadir: **Rosan Roeslani** (CEO Danantara) dan beberapa staf/aide.
 >
 > **Fernandez:** MSCI *"did not necessarily intend to downgrade Indonesia"* — willing to consider alternatives to two-step downgrade. MSCI akan terus memberi advisory pada langkah-langkah yang diperlukan.
