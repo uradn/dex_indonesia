@@ -266,6 +266,11 @@ function buildSnapshot() {
       shortSellVol: process.env.IDX_SHORT_SELL_VOLUME_IDR_BN ? parseFloat(process.env.IDX_SHORT_SELL_VOLUME_IDR_BN) : null,
       sairDate: process.env.MSCI_SAIR_DATE ?? '2026-11-12',
       sbnForeignOwnershipPct: process.env.SBN_FOREIGN_OWNERSHIP_PCT ? parseFloat(process.env.SBN_FOREIGN_OWNERSHIP_PCT) : null,
+      msciReformOjkBoard:      process.env.MSCI_REFORM_OJK_BOARD      ?? 'pending',
+      msciReformInvestorComms: process.env.MSCI_REFORM_INVESTOR_COMMS  ?? 'pending',
+      msciReformHscRules:      process.env.MSCI_REFORM_HSC_RULES       ?? 'pending',
+      msciReformLq45:          process.env.MSCI_REFORM_LQ45            ?? 'pending',
+      msciReformCriminal:      process.env.MSCI_REFORM_CRIMINAL        ?? 'pending',
     };
     // Read latest module scores from DB (written by SCD / morning-check)
     const moduleScores: Record<string, { score: number; alertLevel: string; computedAt: string; flags: string[] }> = {};
@@ -2280,9 +2285,9 @@ function renderRR(d) {
 
 function renderMsciReforms(d) {
   const ind = d.indicators ?? {};
+  const env = d.envFlags ?? {};
   const status = ind['msci_classification_numeric']?.value;
 
-  // Standalone consultation timeline
   const BRYANT_EVENT    = new Date('2026-10-15');
   const CONSULT_END     = new Date('2027-04-30');
   const DECISION_DATE   = new Date('2027-06-30');
@@ -2290,7 +2295,43 @@ function renderMsciReforms(d) {
   const daysToDecision  = Math.round((DECISION_DATE.getTime() - Date.now()) / 86400000);
   const consultTotal    = Math.round((CONSULT_END.getTime() - BRYANT_EVENT.getTime()) / 86400000);
   const consultPct      = Math.min(100, Math.round(daysSinceBryant / consultTotal * 100));
-  const pDowngrade      = Math.round((0.85 + 0.10 * consultPct / 100) * 100);
+
+  // 5 reform conditions — 4 from Fernandez (Nov 10 call) + 1 enforcement (Mirae/Prabowo pledge)
+  const conditions = [
+    { key: 'msciReformOjkBoard',
+      label: 'OJK Board Political Affiliates Removed',
+      src: 'Fernandez direct',
+      detail: 'Remove people with political affiliations from DK OJK. MSCI: OJK "conflicted and should be taking more robust action."',
+      watch: 'Keppres reshuffle DK OJK — monitor BPKN/Presiden announcement; check if Dewan Komisioner new composition published' },
+    { key: 'msciReformInvestorComms',
+      label: 'Investor Communication Improved',
+      src: 'Fernandez direct',
+      detail: 'Clearer, timely communication with foreign institutional investors on market integrity progress and reform timeline.',
+      watch: 'OJK press releases; IDX/Danantara investor roundtables; MSCI consultation response (due Apr 30 2027)' },
+    { key: 'msciReformHscRules',
+      label: 'HSC Disclosure Rules Clearer',
+      src: 'Fernandez direct',
+      detail: 'Clearer rules for High Shareholding Concentration (HSC) list — OJK POJK beneficial ownership enforcement. Cross-ref: /ownership Concentration tab.',
+      watch: 'OJK enforcement bulletin HSC cases; watch /ownership Concentration tab for threshold/criteria changes' },
+    { key: 'msciReformLq45',
+      label: 'LQ45 Criteria / Timing Transparent',
+      src: 'Fernandez direct',
+      detail: 'Transparent, documented criteria and timing for LQ45 constituent changes — no undisclosed discretionary adjustments. Context: Dian Swastatika/Supra probe.',
+      watch: 'BEI LQ45 methodology publication; audit trail for index changes (Kontan/CNBC BEI announcements)' },
+    { key: 'msciReformCriminal',
+      label: 'Criminal Cases — Beyond Largest Names',
+      src: 'Mirae + Prabowo pledge',
+      detail: 'Criminal referrals to Kejagung for coordinated trading beyond top targets. Mirae: "criminal cases beyond the largest names." Prabowo: "pledged greater enforcement."',
+      watch: 'OJK enforcement → Kejagung referrals; Kontan/CNBC criminal indictments; Trimegah: "game changer if execution good"' },
+  ];
+
+  const condMet     = conditions.filter(function(c){ return (env[c.key] ?? 'pending') === 'met'; }).length;
+  const condPartial = conditions.filter(function(c){ return (env[c.key] ?? 'pending') === 'partial'; }).length;
+
+  // P(reversal): base calendar + per-condition uplift + Fernandez Nov10 confirmed (+5pp)
+  const baseRev   = Math.max(5, Math.round((1 - (0.85 + 0.10 * consultPct / 100)) * 100));
+  const pReversal = Math.min(55, baseRev + condMet * 7 + condPartial * 3 + 5);
+  const pDowngrade = 100 - pReversal;
 
   const bryantPhase = daysSinceBryant <= 4  ? 'FAST MONEY (T+0–4d)'
     : daysSinceBryant <= 30 ? 'ETF MECHANICS (T+5–30d)'
@@ -2298,33 +2339,31 @@ function renderMsciReforms(d) {
     : 'STRUCTURED EXIT (T+90d+)';
   const bryantCls = daysSinceBryant <= 4 ? 'red' : daysSinceBryant <= 30 ? 'orange' : 'yellow';
 
-  const statusLabel = status === 2 ? 'STANDALONE CONSULTATION' : status === 1 ? 'UNDER REVIEW' : 'EM CONFIRMED (Jun 23 2026)';
+  const statusLabel = status === 2 ? 'STANDALONE CONSULTATION' : status === 1 ? 'UNDER REVIEW' : 'EM CONFIRMED';
   const statusCls   = status === 2 ? 'red' : status === 1 ? 'orange' : 'green';
+  const pRevCls     = pReversal < 10 ? 'red' : pReversal < 20 ? 'orange' : pReversal < 35 ? 'yellow' : 'green';
 
-  // Cross-ref M5 live state
-  const m5Score = d.moduleScores?.['foreign_flow']?.score;
-  const m5Alert = d.moduleScores?.['foreign_flow']?.alertLevel;
-  const m5Cls   = m5Alert === 'red' ? 'red' : m5Alert === 'orange' ? 'orange' : m5Alert === 'yellow' ? 'yellow' : 'green';
+  const m5Score   = d.moduleScores?.['foreign_flow']?.score;
+  const m5Alert   = d.moduleScores?.['foreign_flow']?.alertLevel;
+  const m5Cls     = m5Alert === 'red' ? 'red' : m5Alert === 'orange' ? 'orange' : m5Alert === 'yellow' ? 'yellow' : 'green';
   const m5Display = m5Score != null ? m5Score + '/100 ' + (m5Alert || '').toUpperCase() : '—';
 
-  // 3 issues MSCI cited for Standalone consultation (Oct 15 2026 announcement)
-  const issues = [
-    { name: 'Opaque Shareholding Structures',
-      detail: 'Beneficial-owner disclosure inadequate; concentrated ownership obscures real control. MSCI: information flow → NEGATIVE (Jun 18).',
-      watch: 'OJK POJK beneficial ownership registry, related-party disclosure depth, HSC reporting compliance' },
-    { name: 'Suspected Coordinated Trading',
-      detail: 'MSCI flagged patterns consistent with coordinated price manipulation across multiple counters. No criminal referrals seen.',
-      watch: 'OJK enforcement bulletin, BEI suspension counts, criminal referrals to Kejagung' },
-    { name: 'Lack of Enforcement',
-      detail: 'Reforms announced (1% disclosure, HSC reporting, 15% free float roadmap) but MSCI: "no evidence of sustained impact." BEI Bangkok roundtable Oct 13 — MSCI already decided before meeting.',
-      watch: 'OJK enforcement actions, MSCI consultation response submissions (due Apr 30 2027)' },
-  ];
+  const statusChip = function(s) {
+    return s === 'met'     ? '<span style="color:var(--green);font-weight:700;font-size:11px">✓ MET</span>'
+         : s === 'partial' ? '<span style="color:var(--orange);font-weight:700;font-size:11px">◑ PARTIAL</span>'
+         :                   '<span style="color:var(--red);font-weight:700;font-size:11px">● PENDING</span>';
+  };
 
-  const issueRows = issues.map(function(t) {
+  const condRows = conditions.map(function(c) {
+    const st = env[c.key] ?? 'pending';
     return '<div style="border-bottom:1px solid var(--border);padding:8px 0">'
-      + '<div style="font-weight:600;margin-bottom:3px">' + t.name + '</div>'
-      + '<div style="font-size:10px;margin-bottom:2px">' + t.detail + '</div>'
-      + '<div style="font-size:10px;color:var(--muted)"><b>Watch:</b> ' + t.watch + '</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">'
+      + statusChip(st)
+      + '<span style="font-weight:600">' + c.label + '</span>'
+      + '<span style="font-size:9px;color:var(--muted);margin-left:auto">' + c.src + '</span>'
+      + '</div>'
+      + '<div style="font-size:10px;margin-bottom:2px">' + c.detail + '</div>'
+      + '<div style="font-size:10px;color:var(--muted)"><b>Watch:</b> ' + c.watch + '</div>'
       + '</div>';
   }).join('');
 
@@ -2332,15 +2371,26 @@ function renderMsciReforms(d) {
     + '<div class="big-num ' + statusCls + '">' + statusLabel + '</div>'
     + '<div style="font-size:11px;color:var(--muted)">Oct 15 2026 — EM→Standalone (bypass Frontier)</div>'
     + '</div>'
+    // Fernandez Nov 10 callout — confirmed fact (Bloomberg, Nov 23 2026)
+    + '<div style="background:rgba(188,140,255,0.08);border:1px solid rgba(188,140,255,0.3);border-radius:6px;padding:10px;margin-bottom:10px;font-size:11px">'
+    + '<div style="font-weight:700;color:var(--accent);margin-bottom:5px">🤝 Nov 10 2026 — Fernandez + Prabowo Direct Call (brokered by Dalio)</div>'
+    + '<div style="margin-bottom:3px"><b>Participants:</b> MSCI CEO Henry Fernandez · President Prabowo · Ray Dalio (Bridgewater) · Rosan Roeslani (Danantara CEO) · minders/aides</div>'
+    + '<div style="margin-bottom:3px"><b>Fernandez:</b> MSCI <i style="color:var(--accent)">"did not necessarily intend to downgrade Indonesia"</i> — willing to consider alternatives to two-step downgrade.</div>'
+    + '<div style="margin-bottom:3px"><b>Dalio:</b> Spoke on behalf of JPMorgan, Goldman Sachs, Jane Street. Views MSCI move as <i>"overreaction."</i></div>'
+    + '<div style="color:var(--muted)">Market reveal (Nov 23): IHSG −1.6% → <b style="color:var(--green)">+1.9%</b> · IDR → <b style="color:var(--green)">18,200</b> · '
+    + '<a href="https://www.bloomberg.com/news/articles/2026-11-23/msci-discussed-avoiding-indonesia-downgrade-with-prabowo-dalio" target="_blank" style="color:var(--accent);text-decoration:none">Bloomberg Nov 23 ↗</a></div>'
+    + '</div>'
     + kv('Bryant Phase', bryantPhase + ' (T+' + daysSinceBryant + 'd)', bryantCls)
-    + kv('P(Downgrade)', pDowngrade + '% [Thread 23 — rises as consultation progresses]', 'red')
+    + kv('P(Downgrade)', pDowngrade + '% [calendar ' + (100-baseRev) + '% − conditions/uplift]', 'red')
+    + kv('P(Reversal)', pReversal + '% [base ' + baseRev + '% + ' + (condMet*7+condPartial*3) + 'pp conditions + 5pp Fernandez Nov10]', pRevCls)
     + kv('Consultation Progress', consultPct + '% of 197d window (ends Apr 30 2027)', consultPct > 50 ? 'red' : 'orange')
     + kv('Decision Date', daysToDecision + 'd (Jun 30 2027) → impl Sep–Dec 2027', 'orange')
     + kv('Outflow at Risk', '$3–15B ($3B Mirae / $7.8–13B Goldman Sachs)', 'red')
     + kv('M5 Foreign Flow', m5Display, m5Cls)
-    + '<div class="section-title">3 Issues Cited by MSCI</div>'
-    + issueRows
-    + '<div class="hist-note">Standalone = di bawah Frontier. Tidak masuk index MSCI manapun — zero passive AUM tracking. MSCI bypass Frontier langsung: "reclassification to Frontier would not properly recognize the depth of the market problems." Precedents: Russia 2022 (geopolitik), Argentina 2021 (capital controls). Indonesia = satu-satunya EM→Standalone karena governance/market integrity.</div>';
+    + '<div class="section-title" style="margin-top:10px">5 Reform Conditions (Fernandez Nov 10 2026)</div>'
+    + '<div style="font-size:10px;color:var(--muted);margin-bottom:6px">' + condMet + '/5 MET · ' + condPartial + ' PARTIAL · P(reversal) uplift: +' + (condMet*7+condPartial*3) + 'pp conditions + 5pp Fernandez</div>'
+    + condRows
+    + '<div class="hist-note" style="margin-top:8px">Mirae base case remains standalone ($11B at risk) — revisit only if OJK board reformed <b>AND</b> criminal cases beyond largest names (Mirae, Nov 23). Trimegah: <i>"game changer if execution good."</i><br>Standalone = di bawah Frontier — tidak masuk MSCI index manapun. Precedents: Russia 2022 (geopolitik), Argentina 2021 (capital controls). Indonesia = satu-satunya EM→Standalone karena governance/market integrity.</div>';
 }
 
 function renderRG(d) {

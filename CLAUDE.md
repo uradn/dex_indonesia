@@ -250,6 +250,18 @@ MSCI_REVERSAL_PROBABILITY_OVERRIDE  # decimal 0.00–1.00; env-always-wins over 
                                     # Leave UNSET for auto. Set post-SAIR if language diverges from formula trajectory:
                                     #   SAIR confirms definitive timeline → 0.06–0.08 (faster decline)
                                     #   SAIR softens unexpectedly → 0.18–0.25 + set MSCI_CLASSIFICATION_STATUS=under_review
+                                    # NOTE: dashboard P(reversal) now uses condition-based formula (see below); this override affects M5 engine only.
+
+# M5 MSCI Reform Conditions — 5 conditions from Fernandez Nov 10 2026 Prabowo call (Bloomberg Nov 23 2026)
+# Values: 'pending' | 'partial' | 'met' — env always wins; shown as status chips in /bs MSCI panel.
+# P(reversal) dashboard formula: base(calendar) + met×7pp + partial×3pp + 5pp(Fernandez Nov10 confirmed)
+# Update immediately when OJK/Presiden/MSCI announce concrete action on each condition.
+# Default: all 'pending' — none confirmed as of Nov 23 2026.
+MSCI_REFORM_OJK_BOARD      # Remove political affiliates from DK OJK (Fernandez direct condition)
+MSCI_REFORM_INVESTOR_COMMS # Improve investor communication with foreign institutions (Fernandez direct)
+MSCI_REFORM_HSC_RULES      # Clearer HSC disclosure rules (Fernandez direct)
+MSCI_REFORM_LQ45           # Transparent LQ45 criteria/timing (Fernandez direct)
+MSCI_REFORM_CRIMINAL       # Criminal cases beyond largest names (Mirae + Prabowo enforcement pledge)
 
 # M5 SBN foreign ownership — DJPPR TCP-blocks non-Indonesian IPs intermittently (geo-IP / govt firewall).
 # Source: DJPPR daily page https://djppr.kemenkeu.go.id/kepemilikansbndomestikyangdapatdiperdagangkan

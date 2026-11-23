@@ -307,6 +307,45 @@ RED: M10 fiscal 100 · M12 polrisk 93 · M4 cmdy 79 | ORANGE: M3 FX 64 (ATTACK Z
 ⚠ **CASCADE APPROACH** (IHSG→5,000 psych floor) | CDS breakout dari Oct stagnation | Calvo +2.14pp | PHK 90k CRITICAL
 Thesis #15 hari ke-7: 103.1→192bps / 18,158→20,327 / 7.711→9.11% | T+90=Feb 14 2027 | all KS inactive
 
+- **🤝 FERNANDEZ + PRABOWO DIRECT CALL — MSCI SOFTENING (Nov 23, Bloomberg Investigasi)**
+
+> ### 💡 MSCI CEO Discussed Avoiding Indonesia Downgrade — Dalio-Brokered Nov 10 Call
+>
+> **Bloomberg News, 23 November 2026** (Alastair Marsh, Faris Mokhtar, Anders Melin): MSCI CEO **Henry Fernandez** dan **Presiden Prabowo** berbicara lebih dari satu jam dalam conference call **10 November 2026** yang di-broker oleh **Ray Dalio** (Bridgewater). Turut hadir: **Rosan Roeslani** (CEO Danantara) dan beberapa staf/aide.
+>
+> **Fernandez:** MSCI *"did not necessarily intend to downgrade Indonesia"* — willing to consider alternatives to two-step downgrade. MSCI akan terus memberi advisory pada langkah-langkah yang diperlukan.
+>
+> **Dalio:** berbicara atas nama **JPMorgan Chase, Goldman Sachs, dan Jane Street** — menganggap MSCI move sebagai *"overreaction."* Dalio adalah longtime acquaintance Fernandez; informal adviser Danantara sejak awal 2025, penerima **Bintang Jasa Utama** (Sep 2026).
+>
+> **5 Reform Conditions (dari Fernandez — verbatim Bloomberg):**
+> | # | Kondisi | Status |
+> |---|---------|--------|
+> | 1 | Remove political affiliates from DK OJK ("conflicted, should take more robust action") | 🔴 PENDING |
+> | 2 | Improve investor communication | 🔴 PENDING |
+> | 3 | Clearer rules for HSC list | 🔴 PENDING |
+> | 4 | Clearer criteria and timing for LQ45 changes | 🔴 PENDING |
+> | 5 | Criminal enforcement beyond largest names (Mirae + Prabowo pledge) | 🔴 PENDING |
+>
+> **Prabowo:** *"pledged greater enforcement."* Tiga minggu sebelumnya di pidato televisi: Indonesia *"tidak mau diintimidasi"* MSCI — pivot signifikan dalam postur komunikasi.
+>
+> **Market reaction (Nov 23, saat artikel terbit):**
+> IHSG: −1.6% pagi → **+1.9%** siang (balik total, reversal penuh)
+> IDR: 18,158 → **18,200** (penguatan terkuat dalam hampir 3 minggu per BI Exec Director Erwin Hutapea)
+>
+> **Mirae** (base case tetap standalone): *"Would revisit position if Financial Services Authority board changes are carried out and if HSC cases produce criminal cases beyond the largest names."*
+> **Trimegah** (Aldo Perkasa): *"If the execution is good, I think this would be game changer for Indonesia."*
+> **Kiwoom** (Liza Camelia): *"The ball is now in the president's court."*
+>
+> **M5 — Foreign Flow / MSCI Path:** Fernandez softening = prior shift besar. P(reversal) dashboard naik dari ~6% → ~17% (formula conditions-based, belum ada condition MET). Setiap condition yang ter-confirm = +7pp tambahan. Watch `/bs` → MSCI panel untuk live tracker.
+>
+> **M6 — Narrative Credibility:** Pivot dari retorika *"tidak mau diintimidasi"* ke direct engagement = narrowing rhetoric-action gap. Tapi kondisi konkret (OJK board, criminal cases) belum terpenuhi — Mirae masih standalone base case.
+>
+> **M12 — Political Risk:** Dalio sebagai broker = level pressure yang tidak ada precedent. JPMorgan + Goldman + Jane Street explicit → ini bukan sinyal pasar biasa, ini institutional investor coalition aktif. Prabowo engagement langsung = positive credibility signal, tapi eksekusi 5 kondisi = ujian sesungguhnya.
+>
+> **Thesis #15:** Softening ini BUKAN kill switch trigger — P(reversal) naik tapi KS conditions (CDS <75bps, SBN-UST <366bps, IDR vol <5%) masih jauh. Treat sebagai **disconfirmation candidate**, bukan konfirmasi kill. Monitor 5 conditions; jika 3+ MET dalam 60d → reassess.
+>
+> Sumber: [Bloomberg](https://www.bloomberg.com/news/articles/2026-11-23/msci-discussed-avoiding-indonesia-downgrade-with-prabowo-dalio) · [Mirae Research Note Nov 23] · [Trimegah Research Note Nov 23] · [Kiwoom Research Note Nov 23]
+
 ### BBM Subsidy Monitoring (Module 11)
 
 Module 11 (Domestic Pressure) tracks domestic fuel prices against cost recovery, computing the subsidy gap that drives fiscal stress and political risk.
