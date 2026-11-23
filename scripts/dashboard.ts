@@ -4424,7 +4424,7 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
   .badge-DECREASE { background: rgba(219,109,40,.12); color: var(--orange); }
   .pct-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 3px; }
   .pct-bar-fill { height: 100%; border-radius: 2px; }
-  #graph-container { width: 100%; height: 520px; border-radius: 8px; background: var(--bg); position: relative; overflow: hidden; }
+  #graph-container { width: 100%; height: calc(100vh - 280px); min-height: 520px; border-radius: 8px; background: var(--bg); position: relative; overflow: hidden; }
   #graph-canvas { width: 100%; height: 100%; }
   .tabs { display: flex; gap: 2px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
   .tab { padding: 8px 16px; cursor: pointer; color: var(--muted); font-size: 12px; border-bottom: 2px solid transparent; }
