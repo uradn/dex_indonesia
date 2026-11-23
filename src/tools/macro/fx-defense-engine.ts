@@ -504,7 +504,7 @@ export async function runFxDefenseEngine(forceRefresh = false): Promise<FxDefens
 
   // ── Obstfeld (1994, 1996) Escape Clause ───────────────────────────────────────
   // Compute SRBI annual cost from already-fetched data: currentSrbi + biRatePoint
-  const biRatePctM3 = biRatePoint?.value ?? 5.75;
+  const biRatePctM3 = biRatePoint?.value ?? 6.00; // RDG Nov 17-18 2026
   const srbiCostTrnM3 = currentSrbi !== null
     ? parseFloat((currentSrbi.value * (biRatePctM3 / 100)).toFixed(1))
     : null;

@@ -65,7 +65,7 @@ export async function computeMinskyStressIndex(): Promise<MinskyStressIndex> {
 
   // Derive IndONIA spread from available data
   const indoniaPct = indoniaBi?.value ?? indoniaTe?.value ?? null;
-  const biRatePct = biRate?.value ?? 5.75;
+  const biRatePct = biRate?.value ?? 6.00; // RDG Nov 17-18 2026
   const puabSpreadBps = indoniaPct !== null ? Math.round((indoniaPct - biRatePct) * 100) : null;
 
   const assessments: MinskySectorAssessment[] = [];

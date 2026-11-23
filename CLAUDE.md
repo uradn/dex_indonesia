@@ -146,7 +146,7 @@ Dexter = CLI autonomous finance research agent. Runtime **Bun**. UI use `@marioz
 
 Quick map: M1 BoP · M2 Sovereign Risk · M3 FX Defense · M4 Commodity · M5 Foreign Flow · M6 Narrative Divergence · M7 ASEAN RV · M8 Banking · M9 Market Stress · M10 Fiscal · M11 Domestic Pressure · M12 Political Risk · M13 ULN. **Silent Crisis Detector** (`silent_crisis_detector`) aggregates 13, weights sum 1.00 (fx_defense 0.16 heaviest). Top: `src/tools/macro/{module}-engine.ts`, registered in `registry.ts`.
 
-**APBN 2026 macro constants** (UU No.17/2025): USDIDR 16,500 | ICP $70/bbl | GDP growth 5.4% | CPI 2.5% | SBN 10Y 6.9% | Revenue 3,153.6T | Spending 3,842.7T | Deficit 2.68% GDP | Post-efisiensi spending ~3,534.7T | GDP 25,714.2T. BI Rate (hike ~Jul 2026): 5.75% (+25bps dari 5.50%), DFR 4.75%, LF 6.50%. Dipertahankan Jul & Agu 2026 RDG. Term premium ~1.21% (SBN 6.96% − BI Rate 5.75%).
+**APBN 2026 macro constants** (UU No.17/2025): USDIDR 16,500 | ICP $70/bbl | GDP growth 5.4% | CPI 2.5% | SBN 10Y 6.9% | Revenue 3,153.6T | Spending 3,842.7T | Deficit 2.68% GDP | Post-efisiensi spending ~3,534.7T | GDP 25,714.2T. BI Rate: 6.00% (Jul 2026: 5.50%→5.75%; Nov 17-18 2026 RDG: 5.75%→6.00% +25bps). DFR 5.25%, LF 6.75%. Term premium ~0.90% (APBN SBN 6.9% − BI Rate 6.00%); market ~1.71% (SBN 7.712% − 6.00%).
 
 ## Backtest System
 

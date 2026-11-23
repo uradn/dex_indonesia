@@ -302,6 +302,11 @@ Thesis #15 hari ke-3: 100.0→192bps / 18,263→20,327 / 7.607→9.11% | KS#3=13
 ⚠ **CONFIDENCE GATE ATTACK ZONE** (M3 FX) | **NEW: Velocity ETA panel** added to /bs | ES/NQ Sun open +0.45%/+0.5% (relief rally) | M9 mkt 40 🟡
 Thesis #15 hari ke-6: 99.6→192bps / 18,158→20,327 / 7.607→9.11% | all KS inactive
 
+**📅 Nov 24 2026** | SCD **74% 🔴** (↓18pp) | 6/13 | IHSG **5,216** | CDS **103.1bps** | SBN 10Y **7.712%** | USDIDR **18,158** | Brent **$86.7/bbl** | Reserves **$146.8bn** (eff $138.8bn)
+RED: M10 fiscal 100 · M12 polrisk 93 · M11 dom 79 · M4 cmdy 78 | ORANGE: M3 FX 64 (ATTACK ZONE) · M6 narr 50 | YELLOW: M8 bank 43 · M2 sov 35 | GREEN: M5 flow 28 · M1 BoP 25 · M9 mkt 8
+⚠ BI Rate **6.00%** confirmed RDG Nov 17-18 (DFR 5.25% / LF 6.75%; fallbacks updated) | Calvo +2.24pp | PHK 90k YTD
+Thesis #15 hari ke-8: 103.1→192bps / 18,158→20,327 / 7.712→9.11% | T+90=Feb 14 2027 | all KS inactive
+
 **📅 Nov 23 2026** | SCD **92% 🔴** (+3pp) | 8/13 | IHSG **5,079** (−1.3%) | A/D **0.10 PANIC** | CDS **103.1bps** (+3.5 breakout) | SBN 10Y **7.711%** | USDIDR **18,158** | Brent **$89.5/bbl** | Reserves **$146.8bn**
 RED: M10 fiscal 100 · M12 polrisk 93 · M4 cmdy 79 | ORANGE: M3 FX 64 (ATTACK ZONE) · M11 dom 64 · M6 narr 51 · M5 flow 50 · M9 mkt 50
 ⚠ **CASCADE APPROACH** (IHSG→5,000 psych floor) | CDS breakout dari Oct stagnation | Calvo +2.14pp | PHK 90k CRITICAL
