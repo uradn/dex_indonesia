@@ -4383,7 +4383,7 @@ async function loadInstPositioning() {
           <span class="\${darkCls}" style="font-size:18px;font-weight:700">\${latest.dark_ratio.toFixed(1)}%</span>
           <span style="font-size:10px;color:var(--muted)">anonymous \${darkChange != null ? '(MoM '+(+darkChange > 0 ? '+' : '')+darkChange+'pp)' : ''}</span>
         </div>
-        <div style="font-size:10px;color:var(--muted);margin-top:3px">of \${latest.total_foreign_pct.toFixed(0)}% total foreign holdings untraceable · <a href="/ownership" style="color:var(--accent);text-decoration:none">drill-down →</a></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px">of \${latest.total_foreign_pct.toFixed(0)}% total foreign holdings untraceable · <a href="/ownership?tab=institutions#kvd" style="color:var(--accent);text-decoration:none">drill-down →</a></div>
       </div>\`;
   } catch {
     if (el) el.innerHTML = \`<span style="color:var(--muted);font-size:11px">KSEI data unavailable</span>\`;
@@ -4910,30 +4910,89 @@ function priceChip(pct, event) {
   return '<span style="color:var(--muted)">' + label + '</span>';
 }
 
+// ── Anomaly sort + filter state ────────────────────────────────────────────────
+var _anomRows = null;
+var _anomPriceMap = null;
+var _anomLabel = '';
+var _anomMinDelta = '2';
+var _anomSortCol = null;  // 'pct_curr' | 'delta_pct' | 'price_30d'
+var _anomSortDir = -1;    // -1 = desc (biggest first)
+var _anomFlagsOnly = false;
+
+function sortArrow(col) {
+  if (_anomSortCol !== col) return '<span style="color:var(--muted);font-size:9px"> ⇅</span>';
+  return (_anomSortDir === 1 ? ' ↑' : ' ↓');
+}
+
+function sortAnom(col) {
+  if (_anomSortCol === col) { _anomSortDir *= -1; }
+  else { _anomSortCol = col; _anomSortDir = -1; }
+  document.getElementById('anom-result').innerHTML = renderAnomalyTable(_anomRows, _anomPriceMap, _anomLabel, _anomMinDelta);
+}
+
+function toggleAnomalyFlags() {
+  _anomFlagsOnly = !_anomFlagsOnly;
+  document.getElementById('anom-result').innerHTML = renderAnomalyTable(_anomRows, _anomPriceMap, _anomLabel, _anomMinDelta);
+}
+
 function renderAnomalyTable(rows, priceMap, label, minDelta) {
+  if (!rows) return '<div class="empty">No data</div>';
+
+  // Count flags on full set
   var flags = rows.filter(function(r) {
     return priceMap && priceMap[r.share_code] != null && priceMap[r.share_code] > 50
         && (r.event === 'NEW' || r.event === 'INCREASE');
   }).length;
+
+  // Filter
+  var display = _anomFlagsOnly
+    ? rows.filter(function(r) { return priceMap && priceMap[r.share_code] != null && priceMap[r.share_code] > 50 && (r.event === 'NEW' || r.event === 'INCREASE'); })
+    : rows.slice();
+
+  // Sort
+  if (_anomSortCol) {
+    display.sort(function(a, b) {
+      var av, bv;
+      if (_anomSortCol === 'price_30d') {
+        av = (priceMap && priceMap[a.share_code] != null) ? priceMap[a.share_code] : -Infinity;
+        bv = (priceMap && priceMap[b.share_code] != null) ? priceMap[b.share_code] : -Infinity;
+      } else {
+        av = a[_anomSortCol] != null ? a[_anomSortCol] : -Infinity;
+        bv = b[_anomSortCol] != null ? b[_anomSortCol] : -Infinity;
+      }
+      return (av - bv) * _anomSortDir;
+    });
+  }
+
   var flagBadge = flags > 0
-    ? ' <span style="color:#f85149;font-weight:700">⚠ ' + flags + ' manipulation flag' + (flags > 1 ? 's' : '') + '</span>'
+    ? ' <span onclick="toggleAnomalyFlags()" style="cursor:pointer;text-decoration:underline;font-weight:700;color:' + (_anomFlagsOnly ? '#3fb950' : '#f85149') + '">'
+      + (_anomFlagsOnly ? '✓ ' + display.length + '/' + rows.length + ' flagged (click to reset)' : '⚠ ' + flags + ' manipulation flag' + (flags > 1 ? 's' : '') + ' (click to filter)')
+      + '</span>'
     : '';
+
+  var thStyle = 'style="text-align:right;cursor:pointer;user-select:none"';
   return '<div class="card">'
     + '<div style="margin-bottom:8px;font-size:11px;color:var(--muted)">'
     + rows.length + ' anomali · NEW/EXIT = >1% threshold cross · INCREASE/DECREASE ≥ ' + minDelta + '% · <b>' + esc(label) + '</b>' + flagBadge
     + '</div>'
     + '<table>'
-    + '<tr><th>Event</th><th>Emiten</th><th>Investor</th><th style="text-align:right">Curr %</th><th style="text-align:right">Delta</th><th style="text-align:right">Price 30d</th></tr>'
-    + rows.map(function(r) {
+    + '<tr>'
+    + '<th>Event</th><th>Emiten</th><th>Investor</th>'
+    + '<th ' + thStyle + ' data-col="pct_curr" onclick="sortAnom(this.dataset.col)">Curr %' + sortArrow('pct_curr') + '</th>'
+    + '<th ' + thStyle + ' data-col="delta_pct" onclick="sortAnom(this.dataset.col)">Delta' + sortArrow('delta_pct') + '</th>'
+    + '<th ' + thStyle + ' data-col="price_30d" onclick="sortAnom(this.dataset.col)">Price 30d' + sortArrow('price_30d') + '</th>'
+    + '</tr>'
+    + (display.length ? display.map(function(r) {
         return '<tr>'
           + '<td>' + badge(r.event, r.event) + '</td>'
           + '<td style="font-weight:600;cursor:pointer;color:var(--accent)" data-code="' + esc(r.share_code) + '" onclick="gotoEmiten(this.dataset.code)">' + esc(r.share_code) + '</td>'
           + '<td style="font-size:11px;cursor:pointer;color:var(--accent)" data-inv="' + esc(r.investor_name) + '" onclick="gotoInvestor(this.dataset.inv)">' + esc(r.investor_name) + '</td>'
           + '<td style="text-align:right">' + (r.pct_curr != null ? r.pct_curr.toFixed(2) + '%' : '—') + '</td>'
           + '<td style="text-align:right" class="' + (r.delta_pct > 0 ? 'delta-pos' : r.delta_pct < 0 ? 'delta-neg' : '') + '">' + (r.delta_pct != null ? fmtPct(r.delta_pct) : '—') + '</td>'
-          + '<td style="text-align:right">' + (priceMap ? priceChip(priceMap[r.share_code] ?? null, r.event) : '<span style="color:var(--muted)">…</span>') + '</td>'
+          + '<td style="text-align:right">' + (priceMap ? priceChip(priceMap[r.share_code] != null ? priceMap[r.share_code] : null, r.event) : '<span style="color:var(--muted)">…</span>') + '</td>'
           + '</tr>';
       }).join('')
+      : '<tr><td colspan="6" style="text-align:center;padding:12px;color:var(--muted)">No flagged rows</td></tr>')
     + '</table>'
     + '</div>';
 }
@@ -5177,14 +5236,17 @@ async function autoLoadAnomalies() {
   const minDelta = document.getElementById('anom-min-delta').value || '2';
   const el = document.getElementById('anom-result');
   el.innerHTML = '<div class="empty">Loading…</div>';
+  _anomSortCol = null; _anomSortDir = -1; _anomFlagsOnly = false;
   try {
     const rows = await fetch('/api/ownership/anomalies?min_delta=' + minDelta).then(r => r.json());
     if (!rows?.length) { el.innerHTML = '<div class="empty">Tidak ada anomali.</div>'; return; }
     const firstDate = rows[0]?.date ?? '';
     if (firstDate) document.getElementById('anom-date').value = firstDate.slice(0,7);
+    _anomRows = rows; _anomLabel = firstDate; _anomMinDelta = minDelta;
     el.innerHTML = renderAnomalyTable(rows, null, firstDate, minDelta);
     const codes = [...new Set(rows.map(r => r.share_code))].join(',');
     const pm = await fetch('/api/ownership/price-impact?codes=' + encodeURIComponent(codes) + '&date=' + encodeURIComponent(firstDate)).then(r => r.json());
+    _anomPriceMap = pm;
     el.innerHTML = renderAnomalyTable(rows, pm, firstDate, minDelta);
   } catch (e) { el.innerHTML = '<div class="empty">Error: ' + e.message + '</div>'; }
 }
@@ -5196,13 +5258,16 @@ async function loadAnomalies() {
   if (date) qs.set('date', date + '-28');
   const el = document.getElementById('anom-result');
   el.innerHTML = '<div class="empty">Loading…</div>';
+  _anomSortCol = null; _anomSortDir = -1; _anomFlagsOnly = false;
   try {
     const rows = await fetch('/api/ownership/anomalies?' + qs).then(r => r.json());
     if (!rows?.length) { el.innerHTML = '<div class="empty">Tidak ada anomali.</div>'; return; }
     const snapshotDate = rows[0]?.date ?? (date ? date + '-28' : '');
+    _anomRows = rows; _anomLabel = snapshotDate; _anomMinDelta = minDelta;
     el.innerHTML = renderAnomalyTable(rows, null, snapshotDate, minDelta);
     const codes = [...new Set(rows.map(r => r.share_code))].join(',');
     const pm = await fetch('/api/ownership/price-impact?codes=' + encodeURIComponent(codes) + '&date=' + encodeURIComponent(snapshotDate)).then(r => r.json());
+    _anomPriceMap = pm;
     el.innerHTML = renderAnomalyTable(rows, pm, snapshotDate, minDelta);
   } catch (e) { el.innerHTML = '<div class="empty">Error: ' + e.message + '</div>'; }
 }
@@ -5677,6 +5742,17 @@ async function loadKnownVsDark() {
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 loadStats();
+// Deep-link: /ownership?tab=institutions#kvd
+(function() {
+  const t = new URLSearchParams(location.search).get('tab');
+  if (t) switchTab(t);
+  if (location.hash) {
+    setTimeout(function() {
+      const el = document.getElementById(location.hash.slice(1));
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 400);
+  }
+})();
 </script>
 </body>
 </html>`;
