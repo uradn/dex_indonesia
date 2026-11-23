@@ -6,6 +6,7 @@
 import { Database } from 'bun:sqlite';
 import { join, dirname } from 'node:path';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import YahooFinance from 'yahoo-finance2';
 import { silentCrisisDetector } from '../src/tools/macro/silent-crisis-detector.ts';
 import {
   saveThesis, updateThesisStatus, getLatestThesis, getAllTheses,
@@ -117,6 +118,40 @@ function triggerScd(): void {
     .catch((e: Error) => {
       scdState = { status: 'error', error: String(e), startedAt: scdState.startedAt, completedAt: new Date().toISOString() };
     });
+}
+
+// ── Price impact cache (Yahoo Finance, 7d TTL) ────────────────────────────────
+
+const _yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
+const _priceCache = new Map<string, { pct: number | null; fetchedAt: number }>();
+const PRICE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function fetchPriceImpact(codes: string[], snapshotDate: string): Promise<Record<string, number | null>> {
+  const out: Record<string, number | null> = {};
+  const dateMs = new Date(snapshotDate).getTime();
+  const period1 = new Date(dateMs - 35 * 86400_000);
+  const period2 = new Date(Math.min(dateMs + 2 * 86400_000, Date.now()));
+
+  await Promise.allSettled(codes.map(async (code) => {
+    const key = code + '|' + snapshotDate;
+    const cached = _priceCache.get(key);
+    if (cached && Date.now() - cached.fetchedAt < PRICE_CACHE_TTL_MS) { out[code] = cached.pct; return; }
+    try {
+      const chart = await _yf.chart(code + '.JK', { period1, period2, interval: '1d' });
+      const quotes = (chart.quotes ?? []).filter(q => q.close != null);
+      if (quotes.length < 2) { out[code] = null; _priceCache.set(key, { pct: null, fetchedAt: Date.now() }); return; }
+      const first = quotes[0].close!;
+      const last = quotes[quotes.length - 1].close!;
+      const pct = first === 0 ? null : Math.round((last / first - 1) * 1000) / 10;
+      out[code] = pct;
+      _priceCache.set(key, { pct, fetchedAt: Date.now() });
+    } catch {
+      out[code] = null;
+      _priceCache.set(key, { pct: null, fetchedAt: Date.now() });
+    }
+  }));
+
+  return out;
 }
 
 // ── DB helpers ────────────────────────────────────────────────────────────────
@@ -4857,6 +4892,52 @@ function gotoInvestor(name) {
   loadInvestor();
 }
 
+function gotoEmiten(code) {
+  document.getElementById('emiten-code').value = code;
+  switchTab('emiten');
+  loadEmiten();
+}
+
+function priceChip(pct, event) {
+  if (pct == null) return '<span style="color:var(--muted)">…</span>';
+  var sign = pct >= 0 ? '+' : '';
+  var label = sign + pct.toFixed(1) + '%';
+  if (pct > 100) return '<b style="color:#f85149">⚠ ' + label + '</b>';
+  if (pct > 50 && (event === 'NEW' || event === 'INCREASE')) return '<span style="color:#e3b341">⚠ ' + label + '</span>';
+  if (pct > 30) return '<span style="color:#e3b341">' + label + '</span>';
+  if (pct >= 5) return '<span style="color:#3fb950">' + label + '</span>';
+  if (pct <= -5) return '<span style="color:#f85149">' + label + '</span>';
+  return '<span style="color:var(--muted)">' + label + '</span>';
+}
+
+function renderAnomalyTable(rows, priceMap, label, minDelta) {
+  var flags = rows.filter(function(r) {
+    return priceMap && priceMap[r.share_code] != null && priceMap[r.share_code] > 50
+        && (r.event === 'NEW' || r.event === 'INCREASE');
+  }).length;
+  var flagBadge = flags > 0
+    ? ' <span style="color:#f85149;font-weight:700">⚠ ' + flags + ' manipulation flag' + (flags > 1 ? 's' : '') + '</span>'
+    : '';
+  return '<div class="card">'
+    + '<div style="margin-bottom:8px;font-size:11px;color:var(--muted)">'
+    + rows.length + ' anomali · NEW/EXIT = >1% threshold cross · INCREASE/DECREASE ≥ ' + minDelta + '% · <b>' + esc(label) + '</b>' + flagBadge
+    + '</div>'
+    + '<table>'
+    + '<tr><th>Event</th><th>Emiten</th><th>Investor</th><th style="text-align:right">Curr %</th><th style="text-align:right">Delta</th><th style="text-align:right">Price 30d</th></tr>'
+    + rows.map(function(r) {
+        return '<tr>'
+          + '<td>' + badge(r.event, r.event) + '</td>'
+          + '<td style="font-weight:600;cursor:pointer;color:var(--accent)" data-code="' + esc(r.share_code) + '" onclick="gotoEmiten(this.dataset.code)">' + esc(r.share_code) + '</td>'
+          + '<td style="font-size:11px;cursor:pointer;color:var(--accent)" data-inv="' + esc(r.investor_name) + '" onclick="gotoInvestor(this.dataset.inv)">' + esc(r.investor_name) + '</td>'
+          + '<td style="text-align:right">' + (r.pct_curr != null ? r.pct_curr.toFixed(2) + '%' : '—') + '</td>'
+          + '<td style="text-align:right" class="' + (r.delta_pct > 0 ? 'delta-pos' : r.delta_pct < 0 ? 'delta-neg' : '') + '">' + (r.delta_pct != null ? fmtPct(r.delta_pct) : '—') + '</td>'
+          + '<td style="text-align:right">' + (priceMap ? priceChip(priceMap[r.share_code] ?? null, r.event) : '<span style="color:var(--muted)">…</span>') + '</td>'
+          + '</tr>';
+      }).join('')
+    + '</table>'
+    + '</div>';
+}
+
 function pctBar(pct, color) {
   return \`<div class="pct-bar"><div class="pct-bar-fill" style="width:\${Math.min(pct,100)}%;background:\${color}"></div></div>\`;
 }
@@ -5093,32 +5174,19 @@ async function loadForeignMovers(date) {
 
 // ── Anomalies ──────────────────────────────────────────────────────────────────
 async function autoLoadAnomalies() {
-  // Load with no date — server picks latest available; then backfill the input from result
   const minDelta = document.getElementById('anom-min-delta').value || '2';
   const el = document.getElementById('anom-result');
   el.innerHTML = '<div class="empty">Loading…</div>';
   try {
     const rows = await fetch('/api/ownership/anomalies?min_delta=' + minDelta).then(r => r.json());
     if (!rows?.length) { el.innerHTML = '<div class="empty">Tidak ada anomali.</div>'; return; }
-    // Backfill date picker from first result
-    const firstDate = rows[0]?.date;
-    if (firstDate) {
-      document.getElementById('anom-date').value = firstDate.slice(0,7);
-    }
-    el.innerHTML = \`<div class="card">
-      <div style="margin-bottom:8px;font-size:11px;color:var(--muted)">\${rows.length} anomali · NEW/EXIT = >1% threshold cross · INCREASE/DECREASE ≥ \${minDelta}% · <b>\${firstDate ?? ''}</b></div>
-      <table>
-        <tr><th>Event</th><th>Emiten</th><th>Investor</th><th style="text-align:right">Curr %</th><th style="text-align:right">Delta</th></tr>
-        \${rows.map(r => \`<tr>
-          <td>\${badge(r.event, r.event)}</td>
-          <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${r.share_code}';switchTab('emiten');loadEmiten()">\${esc(r.share_code)}</td>
-          <td style="font-size:11px;cursor:pointer;color:var(--accent)" data-inv="\${esc(r.investor_name)}" onclick="gotoInvestor(this.dataset.inv)">\${esc(r.investor_name)}</td>
-          <td style="text-align:right">\${r.pct_curr != null ? r.pct_curr.toFixed(2) + '%' : '—'}</td>
-          <td style="text-align:right" class="\${r.delta_pct > 0 ? 'delta-pos' : r.delta_pct < 0 ? 'delta-neg' : ''}">\${r.delta_pct != null ? fmtPct(r.delta_pct) : '—'}</td>
-        </tr>\`).join('')}
-      </table>
-    </div>\`;
-  } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
+    const firstDate = rows[0]?.date ?? '';
+    if (firstDate) document.getElementById('anom-date').value = firstDate.slice(0,7);
+    el.innerHTML = renderAnomalyTable(rows, null, firstDate, minDelta);
+    const codes = [...new Set(rows.map(r => r.share_code))].join(',');
+    const pm = await fetch('/api/ownership/price-impact?codes=' + encodeURIComponent(codes) + '&date=' + encodeURIComponent(firstDate)).then(r => r.json());
+    el.innerHTML = renderAnomalyTable(rows, pm, firstDate, minDelta);
+  } catch (e) { el.innerHTML = '<div class="empty">Error: ' + e.message + '</div>'; }
 }
 
 async function loadAnomalies() {
@@ -5128,25 +5196,15 @@ async function loadAnomalies() {
   if (date) qs.set('date', date + '-28');
   const el = document.getElementById('anom-result');
   el.innerHTML = '<div class="empty">Loading…</div>';
-
   try {
     const rows = await fetch('/api/ownership/anomalies?' + qs).then(r => r.json());
     if (!rows?.length) { el.innerHTML = '<div class="empty">Tidak ada anomali.</div>'; return; }
-
-    el.innerHTML = \`<div class="card">
-      <div style="margin-bottom:8px;font-size:11px;color:var(--muted)">\${rows.length} anomali · NEW/EXIT = >1% threshold cross · INCREASE/DECREASE ≥ \${minDelta}%</div>
-      <table>
-        <tr><th>Event</th><th>Emiten</th><th>Investor</th><th style="text-align:right">Curr %</th><th style="text-align:right">Delta</th></tr>
-        \${rows.map(r => \`<tr>
-          <td>\${badge(r.event, r.event)}</td>
-          <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${r.share_code}';switchTab('emiten');loadEmiten()">\${esc(r.share_code)}</td>
-          <td style="font-size:11px;cursor:pointer;color:var(--accent)" data-inv="\${esc(r.investor_name)}" onclick="gotoInvestor(this.dataset.inv)">\${esc(r.investor_name)}</td>
-          <td style="text-align:right">\${r.pct_curr != null ? r.pct_curr.toFixed(2) + '%' : '—'}</td>
-          <td style="text-align:right" class="\${r.delta_pct > 0 ? 'delta-pos' : r.delta_pct < 0 ? 'delta-neg' : ''}">\${r.delta_pct != null ? fmtPct(r.delta_pct) : '—'}</td>
-        </tr>\`).join('')}
-      </table>
-    </div>\`;
-  } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
+    const snapshotDate = rows[0]?.date ?? (date ? date + '-28' : '');
+    el.innerHTML = renderAnomalyTable(rows, null, snapshotDate, minDelta);
+    const codes = [...new Set(rows.map(r => r.share_code))].join(',');
+    const pm = await fetch('/api/ownership/price-impact?codes=' + encodeURIComponent(codes) + '&date=' + encodeURIComponent(snapshotDate)).then(r => r.json());
+    el.innerHTML = renderAnomalyTable(rows, pm, snapshotDate, minDelta);
+  } catch (e) { el.innerHTML = '<div class="empty">Error: ' + e.message + '</div>'; }
 }
 
 // ── Network graph (Sigma.js v3 + Graphology) ───────────────────────────────────
@@ -5958,6 +6016,15 @@ const server = Bun.serve({
 
     if (url.pathname === '/api/ownership/institutional-flow-signal') {
       try { return Response.json(await getInstitutionalFlowSignal()); }
+      catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
+    }
+
+    if (url.pathname === '/api/ownership/price-impact') {
+      const codesRaw = url.searchParams.get('codes') ?? '';
+      const date = url.searchParams.get('date') ?? new Date().toISOString().slice(0, 10);
+      const codes = codesRaw.split(',').map(s => s.trim()).filter(Boolean);
+      if (!codes.length) return Response.json({});
+      try { return Response.json(await fetchPriceImpact(codes, date)); }
       catch (e) { return Response.json({ error: String(e) }, { status: 500 }); }
     }
 
