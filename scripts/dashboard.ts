@@ -3144,7 +3144,7 @@ function renderGameTheory(thesis, snap, dbRecord) {
   const L3 = brent, L4 = dubai !== null ? dubai + 20 : null;
   let cvPct = null;
   if (L3 !== null && L4 !== null) {
-    const vals = [70, 80, L3, L4];
+    const vals = [70, 83, L3, L4];  // L1=APBN UU, L2=Lapsem operational
     const mean = vals.reduce((a, b) => a + b, 0) / 4;
     const std  = Math.sqrt(vals.reduce((s, v) => s + (v - mean) ** 2, 0) / 4);
     cvPct = (std / mean * 100).toFixed(1);
@@ -3342,7 +3342,7 @@ function renderGameTheory(thesis, snap, dbRecord) {
       <div style="border:1px solid var(--\${cvCls});border-radius:4px;padding:7px 8px">
         <div style="font-size:8px;color:var(--muted);text-transform:uppercase">Belief Dispersion</div>
         <div class="\${cvCls}" style="font-size:12px;font-weight:700;margin-top:3px">\${cvPct !== null ? cvPct + '%' : '—'} CV</div>
-        <div style="font-size:8px;color:var(--muted);margin-top:2px">L1=$70 L2=$80 L3=$\${L3 != null ? L3.toFixed(0) : '—'} L4=$\${L4 != null ? L4.toFixed(0) : '—'}</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px">L1=$70 L2=$83 L3=$\${L3 != null ? L3.toFixed(0) : '—'} L4=$\${L4 != null ? L4.toFixed(0) : '—'}</div>
       </div>
     </div>
 
