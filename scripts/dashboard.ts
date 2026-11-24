@@ -4495,19 +4495,19 @@ const OWNERSHIP_HTML = `<!DOCTYPE html>
   .search-bar input, .search-bar select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 12px; flex: 1; }
   .search-bar button { background: var(--accent); color: #000; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
   .search-bar button:hover { opacity: .85; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; font-weight: 500; }
-  td { padding: 5px 8px; border-bottom: 1px solid #21262d; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; word-break: normal; }
+  th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; font-weight: 500; white-space: nowrap; }
+  td { padding: 5px 8px; border-bottom: 1px solid #21262d; white-space: nowrap; }
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: #1c2128; }
-  .badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; white-space: nowrap; }
   .badge-A { background: rgba(88,166,255,.15); color: var(--asing); }
   .badge-L { background: rgba(63,185,80,.15); color: var(--lokal); }
   .badge-NEW { background: rgba(63,185,80,.15); color: var(--green); }
   .badge-EXIT { background: rgba(248,81,73,.15); color: var(--red); }
   .badge-INCREASE { background: rgba(88,166,255,.12); color: var(--accent); }
   .badge-DECREASE { background: rgba(219,109,40,.12); color: var(--orange); }
-  .pct-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 3px; }
+  .pct-bar { height: 4px; background: var(--border); border-radius: 2px; display: inline-block; width: 44px; vertical-align: middle; margin-left: 4px; }
   .pct-bar-fill { height: 100%; border-radius: 2px; }
   #graph-container { width: 100%; height: calc(100vh - 280px); min-height: 520px; border-radius: 8px; background: var(--bg); position: relative; overflow: hidden; }
   #graph-canvas { width: 100%; height: 100%; }
@@ -5063,12 +5063,11 @@ async function loadEmiten() {
             const delta = dl?.delta_pct;
             const ev = dl?.event ?? '';
             return \`<tr>
-              <td><span style="font-weight:500;cursor:pointer;color:var(--accent)" data-inv="\${esc(h.investor_name)}" title="Porto \${esc(h.investor_name)}" onclick="gotoInvestor(this.dataset.inv)">\${esc(h.investor_name)}</span></td>
+              <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="font-weight:500;cursor:pointer;color:var(--accent)" data-inv="\${esc(h.investor_name)}" title="\${esc(h.investor_name)}" onclick="gotoInvestor(this.dataset.inv)">\${esc(h.investor_name)}</span></td>
               <td>\${typeChip(h.investor_type)}</td>
               <td>\${localForeignBadge2(h.local_foreign)}</td>
               <td style="color:var(--muted)">\${esc(h.nationality)}</td>
-              <td style="text-align:right;font-weight:600">\${h.pct.toFixed(2)}%
-                \${pctBar(h.pct, h.local_foreign === 'A' ? 'var(--asing)' : 'var(--lokal)' )}</td>
+              <td style="text-align:right;font-weight:600">\${h.pct.toFixed(2)}%\${pctBar(h.pct, h.local_foreign === 'A' ? 'var(--asing)' : 'var(--lokal)' )}</td>
               <td style="text-align:right" class="\${delta > 0 ? 'delta-pos' : delta < 0 ? 'delta-neg' : ''}">\${delta != null ? fmtPct(delta) : '—'}</td>
               <td>\${ev ? badge(ev, ev) : ''}</td>
             </tr>\`;
@@ -5104,9 +5103,8 @@ async function loadInvestor() {
         <tr><th>Emiten</th><th>Perusahaan</th><th style="text-align:right">%</th></tr>
         \${rows.map(r => \`<tr>
           <td style="font-weight:600;cursor:pointer;color:var(--accent)" onclick="document.getElementById('emiten-code').value='\${r.share_code}';switchTab('emiten');loadEmiten()">\${esc(r.share_code)}</td>
-          <td style="color:var(--muted)">\${esc(r.issuer_name)}</td>
-          <td style="text-align:right">\${r.pct.toFixed(2)}%
-            \${pctBar(r.pct, r.local_foreign === 'A' ? 'var(--asing)' : 'var(--lokal)')}</td>
+          <td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis">\${esc(r.issuer_name)}</td>
+          <td style="text-align:right">\${r.pct.toFixed(2)}%\${pctBar(r.pct, r.local_foreign === 'A' ? 'var(--asing)' : 'var(--lokal)')}</td>
         </tr>\`).join('')}
       </table>
     </div>\`;
