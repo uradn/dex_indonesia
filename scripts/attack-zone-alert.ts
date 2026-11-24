@@ -24,7 +24,6 @@ import 'dotenv/config';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { dexterPath } from '../src/utils/paths.js';
-import Database from 'better-sqlite3';
 import { resolve as resolvePath } from 'node:path';
 
 const COOLDOWN_H  = parseFloat(process.env.ATTACK_ZONE_COOLDOWN_H ?? '12');
@@ -58,16 +57,17 @@ function notify(title: string, body: string): void {
   }
 }
 
-function getGateFromDb(): { zone: string | null; net: number | null; score: number | null } {
-  const dbPath = resolvePath('.dexter', 'macro.db');
+async function getGateFromDb(): Promise<{ zone: string | null; net: number | null; score: number | null }> {
+  const dbPath = resolvePath('.dexter', 'macro', 'macro.db');
   if (!existsSync(dbPath)) return { zone: null, net: null, score: null };
+  const { Database } = await import('bun:sqlite');
   const db = new Database(dbPath, { readonly: true });
   try {
-    const row = db.prepare(
+    const row = db.query<{ score: number; components: string }, []>(
       `SELECT score, components FROM macro_scores
        WHERE module = 'fx_defense'
        AND score_date = (SELECT MAX(score_date) FROM macro_scores WHERE module = 'fx_defense')`
-    ).get() as { score: number; components: string } | undefined;
+    ).get();
     if (!row) return { zone: null, net: null, score: null };
     let zone: string | null = null;
     let net: number | null = null;
@@ -84,7 +84,7 @@ function getGateFromDb(): { zone: string | null; net: number | null; score: numb
 
 async function main() {
   const now = new Date();
-  const { zone, net, score } = getGateFromDb();
+  const { zone, net, score } = await getGateFromDb();
   const state = loadState();
 
   console.log(`[attack-zone-alert] ${now.toISOString()} | gateZone=${zone ?? 'unknown'} net=${net ?? '?'} m3Score=${score ?? '?'}`);
