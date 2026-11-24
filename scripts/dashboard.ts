@@ -3781,7 +3781,7 @@ function renderHaye(snap) {
   const spread = ind['brent_dubai_spread_usd']?.value ?? null;
   const msCv   = ind['narrative_ms_cv_pct']?.value ?? null;
 
-  const L1 = 70, L2 = 80;
+  const L1 = 70, L2 = 83;  // L1=APBN UU legal, L2=Lapsem Jun 2026 operational
   const L3 = brent;
   // L4: Dubai+$20 structural floor. If Dubai data date > 5 days old, fallback to brent proxy (brent-1.50+20).
   const dubaiDateStr = ind['dubai_crude_spot_usd']?.date ?? null;
@@ -3828,31 +3828,38 @@ function renderHaye(snap) {
   return \`
     <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px">4-Level Belief Stack</div>
     \${brow('L1 — APBN Official', L1, null, 'green')}
-    \${brow('L2 — Stale Analyst Consensus', L2, null, 'yellow')}
+    \${brow('L2 — Lapsem ICP Anchor (Jun 2026 revised)', L2, null, 'yellow')}
     \${brow('L3 — ICP Actual (Brent proxy)', L3, bGap, bCls)}
     \${brow('L4 — Structural Floor' + (L4Stale ? ' ⚠ [STALE est, Brent proxy]' : '') + ' (Dubai+$20)', L4, dGap, dCls)}
     <div style="margin-top:10px;font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">Brent-Dubai Spread (Hormuz Proxy)</div>
     \${kv('B-D Spread', spread!=null?'$'+fmt(spread,1)+'/bbl':'—', spCls)}
     \${kv('Signal', spLabel, spCls)}
     <div style="font-size:9px;color:var(--muted);margin-bottom:8px">&lt;$3 normal · $3-7 elevated · $7-10 HIGH · &gt;$10 EXTREME</div>
-    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">BPS Impor Migas — H1 2026 (Jan–Jun)</div>
-    \${kv('Total H1 2026', '$22.0B (+38.7% YoY)', 'red')}
-    \${kv('Crude (73.4%)', '$16.16B', 'red')}
-    \${kv('Hasil Minyak (26.6%)', '$5.85B', 'orange')}
-    \${kv('H1 Annualized Run-Rate', '$44B (+34% vs 2025 $32.77B)', 'red')}
-    \${kv('Jun 2026 YoY', '+105.15% (migas bulanan — Hormuz spike)', 'red')}
-    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">⚠ Komposisi terbalik dari 2025 (crude 28→73%): Indonesia makin beli crude mentah langsung. Migas BPS tidak termasuk batubara. Sumber: BPS Agu 2026.</div>
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">ICP Aktual (Kepmen ESDM)</div>
+    \${kv('ICP Sep 2026 (Kepmen ESDM)', '$112.81/bbl', 'red')}
+    \${kv('ICP Oct 2026 (No.416.K/MG.03/MEM.M/2026)', '$117.24/bbl ← PEAK', 'red')}
+    \${kv('ICP Nov 2026 (proyeksi ESDM Nov 11)', '$103.94–108.94/bbl', 'orange')}
+    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">ICP = formula Dated Brent ± alpha. Oct peak Dated Brent $124.77/bbl. Nov melandai: pemulihan produksi Gulf Mexico + diplomasi global. Deviasi vs Lapsem $83: Oct +41.3%, Sep +35.9%.</div>
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">BPS Impor Migas — Jan–Sep 2026</div>
+    \${kv('Total Jan–Sep 2026', '$32.57B (+37.35% YoY)', 'red')}
+    \${kv('Sep 2026', '$3.27B (+23.94% YoY)', 'orange')}
+    \${kv('Aug 2026', '$3.53B (+30.73% YoY)', 'orange')}
+    \${kv('Q3 2026 (Jul–Sep)', '$10.57B', 'orange')}
+    \${kv('H1 2026 (Jan–Jun) incl crude 73.4%', '$22.0B — crude $16.16B / produk $5.85B', 'red')}
+    \${kv('Migas Deficit Jan–Sep', '$23.60B (BoP drain)', 'red')}
+    \${kv('Full-Year Annualized (Jan–Sep×12/9)', '~$43.4B (+32% vs 2025 $32.77B)', 'red')}
+    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">⚠ Komposisi H1: crude 28→73% (terbalik dari 2025) — Indonesia beli crude mentah langsung (G2G Russia, Saudi). Q3 melandai seiring Brent relief. Migas BPS tidak termasuk batubara. Sumber: BPS Nov 2 2026.</div>
     <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">Subsidi BBM+LPG Realisasi 2026</div>
-    \${kv('APBN Pagu (full-year subsidi+kompensasi)', '~Rp 447.5T', 'green')}
-    \${kv('Realisasi Semester I (Jan–Jun)', 'Rp 233T (+44.4% YoY, 52.1% pagu)', 'red')}
-    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">H1 = 52.1% pagu dalam 6 bulan → annualized run rate ~104% APBN. Price shock Hormuz → subsidi blow-through → fiscal constraint binding. Sumber: APBN KiTa Jul 2026.</div>
+    \${kv('APBN Pagu Lapsem (subsidi+kompensasi energi)', 'Rp500T (direvisi dari Rp338T UU)', 'yellow')}
+    \${kv('Realisasi YTD Oktober 2026 (APBN KiTa Nov)', 'Rp415.8T (83.2% pagu)', 'orange')}
+    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">ICP Oct $117.24 (peak) → run rate melandai di Nov. YTD Oct 83.2% pagu — masih dalam batas tapi ICP Oct spike potensi dorong realisasi Nov melewati 95%+ pagu. Fiskal pilihan: hike BBM atau blow deficit. Sumber: APBN KiTa Nov 13-14 2026.</div>
     <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px">BBM Cost Recovery per Produk (Live)</div>
     \${(() => {
       // Live-computed cost recovery gaps using env BBM prices + Brent/USDIDR live
       // Pertalite: MOPS Petrol proxy = Brent × 0.92 × (USDIDR/159) + margin
       // Solar B50: 50% MOPS Gasoil + 50% FAME (CPO-based); FAME ≈ CPO × 1.2 / 800 × USDIDR
       const brentVal = brent ?? 98.5;
-      const usdIdr = ind['usdidr_spot']?.value ?? 17635;
+      const usdIdr = ind['usdidr_spot']?.value ?? 17_500;  // Lapsem fallback
       const cpoUsdMt = ind['cpo_price_myr']?.value ?? 1117; // USD/MT from monthly refresh
 
       // MOPS Gasoil proxy (Rp/L): Brent USD × 0.95 × USDIDR / 159 + distribusi Rp1200
