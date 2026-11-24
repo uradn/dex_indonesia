@@ -364,18 +364,20 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
   // 15. Morris-Shin Signal Precision Index
   // Four oil price beliefs float simultaneously in public discourse, creating dispersion:
   //   L1: $70 APBN official (UU No.17/2025) — state-anchored public signal
-  //   L2: $80 analyst/media focal point (EIA Mar 10 $79 → Kemenkeu Apr 6 → INDEF sensitivity)
-  //   L3: ICP actual (live Brent proxy — CNBC Jun 9: Jan-May 2026 avg = $91.86)
+  //   L2: $83 Lapsem Jun 2026 operational ICP anchor (Laporan Semester I, revised from UU $70)
+  //   L3: ICP actual (live Brent proxy — Oct actual $117.24, Nov proj $103-109)
   //   L4: Full delivered cost = Dubai spot + MOPS/LPG/freight ~$20/bbl premium (BPS-verified)
   // CV = σ/μ across 4 levels. High CV → low public signal precision (τ_z) → Morris-Shin (2002):
   //   when τ_z < threshold, coordination attack self-fulfilling regardless of fundamentals.
   // "Sudden revelation" events (Pertamina loss disclosure, APBN Kita quarterly release)
   //   collapse dispersion instantly → discontinuous CDS jump. CDS velocity (M2) = observable proxy.
+  // Note: l1=$70 intentionally kept UU legal benchmark (M6 measures divergence from legislative
+  //   commitment, not Lapsem — Lapsem = acknowledgment, not revised commitment).
   {
-    const l1 = APBN_ASSUMPTIONS.oilPrice;                            // $70 official
-    const l2 = 80;                                                    // $80 stale consensus
+    const l1 = APBN_ASSUMPTIONS.oilPrice;                            // $70 UU legal benchmark
+    const l2 = 83;                                                    // $83 Lapsem Jun 2026 operational anchor
     const brentLive = (await getLatestPoint('brent_price_usd'))?.value ?? null;
-    const l3 = brentLive ?? 91.86;                                    // ICP actual (Brent proxy)
+    const l3 = brentLive ?? 91.86;                                    // ICP actual (Brent proxy; Oct $117.24)
     const l4 = (dubaiData?.dubaiPriceUsd ?? l3 - 1.5) + 20;         // Dubai + MOPS+freight
     const levels = [l1, l2, l3, l4];
     const mean = levels.reduce((s, v) => s + v, 0) / levels.length;
@@ -389,8 +391,8 @@ export async function runNarrativeDivergenceEngine(): Promise<NarrativeDivergenc
                    'LOW — belief stack reasonably aligned';
     checks.push({
       dimension: 'Oil Price Belief Dispersion — Morris-Shin Signal Precision',
-      officialClaim: `APBN $${l1}/bbl official anchor. Media/analyst consensus ~$${l2} (EIA Mar 10, Kemenkeu Apr 6). Government: "APBN macro assumptions adequate."`,
-      marketSignal: `4-level belief stack: $${l1} APBN | $${l2} analyst | $${l3.toFixed(1)} ICP actual | $${l4.toFixed(1)} full-cost (Dubai+MOPS+freight). CV=${cvPct.toFixed(1)}% → precision index ${Math.max(0, 100 - Math.round(cvPct * 4))}/100. ${fragility}. Revelation risk: Pertamina loss or APBN Kita data → dispersion collapse → CDS jump.`,
+      officialClaim: `APBN UU $${l1}/bbl legal benchmark. Lapsem Jun 2026 operational anchor $${l2}/bbl (Laporan Semester I, disampaikan ke DPR, bukan UU/APBN-P baru). ICP Oct 2026 realisasi $117.24/bbl (Kepmen ESDM No.416.K). Government: Lapsem = operational revision, formal UU target remains $70.`,
+      marketSignal: `4-level belief stack: $${l1} APBN UU | $${l2} Lapsem operational | $${l3.toFixed(1)} ICP actual | $${l4.toFixed(1)} full-cost (Dubai+MOPS+freight). CV=${cvPct.toFixed(1)}% → precision index ${Math.max(0, 100 - Math.round(cvPct * 4))}/100. ${fragility}. Lapsem $83 acknowledged reduces UU-market gap; but ICP Oct $117.24 means Lapsem itself now $34 below realisasi. New revelation risk: subsidi blow-through Rp500T pagu in Nov-Dec.`,
       divergenceScore,
       flagged: cvPct > 12,
     });

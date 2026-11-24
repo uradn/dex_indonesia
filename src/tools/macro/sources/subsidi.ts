@@ -14,8 +14,8 @@
  *   Subsidi BBM+LPG (energi, subsidi line only): ~Rp87T
  *   Subsidi pupuk:                                ~Rp46.8T
  *   Kompensasi energi (BBM+listrik):              ~Rp313T (est.)
- *   COMBINED subsidi+kompensasi all categories:   ~Rp447T (Kemenkeu APBN KiTa confirmed)
- *   → Oct YTD 2026: Rp415.8T = 93% of Rp447T (source: Kemenkeu APBN KiTa Nov 13 2026)
+ *   COMBINED subsidi+kompensasi all categories:   ~Rp500T (Lapsem Jun 2026 revised; UU orig Rp338T)
+ *   → Oct YTD 2026: Rp415.8T = 83.2% of Rp500T (source: Kemenkeu APBN KiTa Nov 13 2026)
  *   → 2025 Oct YTD was Rp315T → YoY +32%
  *
  * OFFICIAL SOURCE: Kemenkeu APBN KiTa — apbnkita.kemenkeu.go.id (JS SPA, not directly scrapeable)

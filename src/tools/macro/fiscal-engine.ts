@@ -85,9 +85,10 @@ const APBN_2026 = {
   // Subsidi realisasi targets (UU No.17/2025)
   subsidiBbmLpgTrn: 87.0,              // Subsidi BBM + LPG energi (subsidi line only)
   subsidiPupukTrn: 46.8,               // Subsidi pupuk annual target
-  // Combined subsidi+kompensasi all categories — official APBN KiTa view (Kemenkeu monthly press conf)
-  // Oct YTD 2026: Rp415.8T = 93% | 2025 Oct YTD: Rp315T → YoY +32%
-  subsidiKompenasasiCombinedTrn: 447.0,
+  // Combined subsidi+kompensasi all categories — Lapsem Jun 2026 revised pagu (official APBN KiTa)
+  // Oct YTD 2026: Rp415.8T = 83.2% of Rp500T | 2025 Oct YTD: Rp315T → YoY +32%
+  // Note: original UU No.17/2025 pagu = Rp338T; Lapsem revised to Rp500T (not an APBN-P)
+  subsidiKompenasasiCombinedTrn: 500.0,
 };
 
 // TKD disbursement expected pace (% of annual pagu) by month — historical 2020-2025 avg
@@ -328,7 +329,7 @@ interface FiscalOutput {
   subsidiKompensasiCombinedYtdTrn: number | null;
   subsidiBbmLpgRunRatePct: number | null;         // annualized YTD / APBN subsidi-line target (Rp87T)
   subsidiPupukRunRatePct: number | null;
-  subsidiKompensasiCombinedRunRatePct: number | null; // annualized YTD / APBN KiTa combined (Rp447T)
+  subsidiKompensasiCombinedRunRatePct: number | null; // annualized YTD / APBN KiTa combined (Rp500T Lapsem)
   subsidiDataDate: string | null;
   // MBG (Makan Bergizi Gratis) — 8.7% of APBN spending
   mbgRealisasiYtdTrn: number | null;
@@ -556,7 +557,7 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
   const subsidiPupukRunRatePct = subsidiPupukYtdTrn !== null && monthsElapsed > 0
     ? parseFloat(((subsidiPupukYtdTrn / monthsElapsed * 12) / APBN_2026.subsidiPupukTrn * 100).toFixed(1))
     : null;
-  // Combined view — official APBN KiTa denominator (Rp447T). Oct 2026 confirmed: 93%.
+  // Combined view — Lapsem Jun 2026 pagu (Rp500T, revised from UU Rp338T). Oct 2026: 83.2%.
   const subsidiKompensasiCombinedRunRatePct = subsidiKompensasiCombinedYtdTrn !== null && monthsElapsed > 0
     ? parseFloat(((subsidiKompensasiCombinedYtdTrn / monthsElapsed * 12) / APBN_2026.subsidiKompenasasiCombinedTrn * 100).toFixed(1))
     : null;
@@ -748,7 +749,7 @@ export async function runFiscalEngine(): Promise<FiscalOutput> {
 
   // Subsidi run-rate flags
   // Two views: (1) subsidi line only vs Rp87T pagu — signals political pressure on hike decision
-  //            (2) combined subsidi+kompensasi vs Rp447T (official APBN KiTa) — signals budget ceiling
+  //            (2) combined subsidi+kompensasi vs Rp500T (Lapsem Jun 2026 revised) — signals budget ceiling
   if (subsidiBbmLpgRunRatePct !== null) {
     const combinedNote = subsidiKompensasiCombinedRunRatePct !== null
       ? `; combined subsidi+kompensasi (APBN KiTa): ${subsidiKompensasiCombinedRunRatePct.toFixed(0)}% of Rp${APBN_2026.subsidiKompenasasiCombinedTrn}T`
