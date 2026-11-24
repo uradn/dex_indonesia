@@ -765,7 +765,7 @@ const HTML = `<!DOCTYPE html>
   .kv:last-child { border-bottom: none; }
   .kv-label { color: var(--muted); font-size: 11px; flex: 1; min-width: 0; overflow-wrap: break-word; line-height: 1.4; }
   .kv-val { font-size: 12px; font-weight: 600; flex-shrink: 0; text-align: right; max-width: 55%; overflow-wrap: break-word; }
-  .tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 700; }
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 700; white-space: nowrap; }
   .green { color: var(--green); } .yellow { color: var(--yellow); } .orange { color: var(--orange); } .red { color: var(--red); }
   .tag.green { background: var(--green-bg); color: var(--green); }
   .tag.yellow { background: var(--yellow-bg); color: var(--yellow); }
@@ -2050,7 +2050,7 @@ const RR_HTML = `<!DOCTYPE html>
   .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px; overflow-wrap:break-word; word-break:break-word; min-width:0; }
   .card-title { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:600; padding-bottom:8px; border-bottom:1px solid rgba(48,54,61,.5); margin-bottom:14px; }
   .big-num { font-size:36px; font-weight:700; line-height:1; letter-spacing:-.02em; }
-  .tag { font-size:10px; padding:2px 7px; border-radius:3px; font-weight:600; text-transform:uppercase; }
+  .tag { font-size:10px; padding:2px 7px; border-radius:3px; font-weight:600; text-transform:uppercase; white-space:nowrap; }
   .green { color:var(--green); } .yellow { color:var(--yellow); } .orange { color:var(--orange); } .red { color:var(--red); }
   .tag.green { background:rgba(63,185,80,.12); } .tag.yellow { background:rgba(210,153,34,.12); }
   .tag.orange { background:rgba(227,114,28,.12); } .tag.red { background:rgba(248,81,73,.12); }
@@ -2060,7 +2060,7 @@ const RR_HTML = `<!DOCTYPE html>
   .kv-val { font-weight:600; text-align:right; flex-shrink:0; max-width:55%; overflow-wrap:break-word; line-height:1.45; }
   .section-title { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:10px 0 6px; border-top:1px solid var(--border); padding-top:8px; }
   .fw-table { width:100%; border-collapse:collapse; margin-top:4px; }
-  .fw-table th { font-size:9px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); text-align:left; padding:4px 6px; border-bottom:1px solid var(--border); font-weight:400; }
+  .fw-table th { font-size:9px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); text-align:left; padding:4px 6px; border-bottom:1px solid var(--border); font-weight:400; white-space:nowrap; }
   .fw-table td { padding:5px 6px; border-bottom:1px solid rgba(48,54,61,.5); font-size:11px; vertical-align:middle; }
   .fw-table tr:last-child td { border-bottom:none; }
   .fw-theory { font-size:9px; color:var(--muted); font-style:italic; display:block; margin-top:1px; }
@@ -2250,49 +2250,49 @@ function renderRR(d) {
       theory: 'Uncovered Interest Parity — carry tipis → unwind risk',
       signal: carry != null ? (carry > 0 ? '+' : '')+fmtNum(carry,2)+'% (BI '+fmtNum(bi,2)+'% − UST '+fmtNum(ust,3)+'%)' : '—',
       cls: carryCls,
-      label: carry != null ? (carry < 0.5 ? 'KRITIS' : carry < 1.0 ? 'Tipis' : carry < 1.5 ? 'Watch' : 'Aman') : '—',
+      label: carry != null ? (carry < 0.5 ? 'CRITICAL' : carry < 1.0 ? 'THIN' : carry < 1.5 ? 'WATCH' : 'OK') : '—',
     },
     {
       fw: 'PPP Misalignment',
       theory: 'Purchasing Power Parity — IDR vs APBN 16,500 proxy',
       signal: pppDev != null ? (pppDev > 0 ? '+' : '')+fmtNum(pppDev,1)+'% (IDR '+Math.round(usdidr).toLocaleString('id')+')' : '—',
       cls: pppCls,
-      label: pppDev != null ? (pppDev > 15 ? 'Sangat Lemah' : pppDev > 9 ? 'Lemah' : pppDev > 5 ? 'Watch' : 'Wajar') : '—',
+      label: pppDev != null ? (pppDev > 15 ? 'VERY WEAK' : pppDev > 9 ? 'WEAK' : pppDev > 5 ? 'WATCH' : 'OK') : '—',
     },
     {
       fw: 'r − g Debt Dynamics',
       theory: 'r > g → debt/GDP naik otomatis (Blanchard, R&R Ch.13)',
       signal: rg != null ? (rg > 0 ? '+' : '')+fmtNum(rg,2)+'% (r='+fmtNum(sbn,2)+'% g='+fmtNum(gdp,1)+'%)' : '—',
       cls: rgCls,
-      label: rg != null ? (rg > 2 ? 'Snowball' : rg > 1 ? 'Watch' : rg > 0 ? 'Borderline' : 'Favorable') : '—',
+      label: rg != null ? (rg > 2 ? 'SNOWBALL' : rg > 1 ? 'WATCH' : rg > 0 ? 'BORDERLINE' : 'FAVORABLE') : '—',
     },
     {
-      fw: 'Trilemma / Sterilisasi',
-      theory: 'SRBI = biaya sterilisasi — makin besar = trilemma makin ketat',
+      fw: 'Trilemma / Sterilisation',
+      theory: 'SRBI = sterilisation cost — higher = trilemma tightening',
       signal: srbi != null ? fmtNum(srbi,0)+'T IDR outstanding' : '—',
       cls: srnCls,
-      label: srbi != null ? (srbi > 1200 ? 'Tinggi' : srbi > 800 ? 'Watch' : 'Normal') : '—',
+      label: srbi != null ? (srbi > 1200 ? 'HIGH' : srbi > 800 ? 'WATCH' : 'NORMAL') : '—',
     },
     {
       fw: 'Sudden Stop (SSVI)',
-      theory: 'SBN foreign ownership turun = sudden stop risk (R&R Ch.6)',
-      signal: sbnOwn != null ? fmtNum(sbnOwn,2)+'% kepemilikan asing (warning <12%)' : '—',
+      theory: 'SBN foreign ownership falling = sudden stop risk (R&R Ch.6)',
+      signal: sbnOwn != null ? fmtNum(sbnOwn,2)+'% foreign ownership (warning <12%)' : '—',
       cls: ssCls,
-      label: sbnOwn != null ? (sbnOwn < 10 ? 'KRITIS' : sbnOwn < 12 ? 'Watch' : sbnOwn < 14 ? 'Monitor' : 'Aman') : '—',
+      label: sbnOwn != null ? (sbnOwn < 10 ? 'CRITICAL' : sbnOwn < 12 ? 'WATCH' : sbnOwn < 14 ? 'MONITOR' : 'OK') : '—',
     },
     {
       fw: '1st-Gen Shadow Rate',
-      theory: 'CDS velocity = pasar pricing default sebelum BI intervensi',
+      theory: 'CDS velocity = market pricing default before BI intervenes',
       signal: cdsVelo != null ? (cdsVelo > 0 ? '+' : '')+fmtNum(cdsVelo,1)+' bps/wk (CDS '+fmtNum(cds,1)+'bps)' : '—',
       cls: cdsCls,
-      label: cdsVelo != null ? (cdsVelo > 7 ? 'AKSELERASI' : cdsVelo > 3 ? 'Melebar' : cdsVelo > 0 ? 'Watch' : 'Stabil') : '—',
+      label: cdsVelo != null ? (cdsVelo > 7 ? 'ACCEL' : cdsVelo > 3 ? 'WIDENING' : cdsVelo > 0 ? 'WATCH' : 'STABLE') : '—',
     },
     {
       fw: 'Dornbusch Overshoot',
-      theory: 'IDR vol tinggi = overshooting — reverts ke fundamental',
+      theory: 'IDR vol high = overshooting — reverts to fundamental',
       signal: idrVol != null ? fmtNum(idrVol,1)+'% annualized 30d realized vol' : '—',
       cls: volCls,
-      label: idrVol != null ? (idrVol > 15 ? 'Overshoot' : idrVol > 10 ? 'Elevated' : idrVol > 7 ? 'Watch' : 'Normal') : '—',
+      label: idrVol != null ? (idrVol > 15 ? 'OVERSHOOT' : idrVol > 10 ? 'ELEVATED' : idrVol > 7 ? 'WATCH' : 'NORMAL') : '—',
     },
   ];
 
@@ -2402,9 +2402,10 @@ function renderMsciReforms(d) {
       + '</div>';
   }).join('');
 
-  return '<div style="display:flex;gap:12px;align-items:baseline;margin-bottom:8px">'
-    + '<div class="big-num ' + statusCls + '">' + statusLabel + '</div>'
-    + '<div style="font-size:11px;color:var(--muted)">Oct 15 2026 — EM→Standalone (bypass Frontier)</div>'
+  const statusColor = statusCls === 'red' ? 'var(--red)' : statusCls === 'orange' ? 'var(--orange)' : 'var(--green)';
+  return '<div style="margin-bottom:10px">'
+    + '<div style="font-size:18px;font-weight:700;line-height:1.15;letter-spacing:-.01em;color:' + statusColor + '">' + statusLabel + '</div>'
+    + '<div style="font-size:10px;color:var(--muted);margin-top:3px">Oct 15 2026 — EM→Standalone (bypass Frontier)</div>'
     + '</div>'
     // Fernandez Nov 10 callout — confirmed fact (Bloomberg, Nov 23 2026)
     + '<div style="background:rgba(188,140,255,0.08);border:1px solid rgba(188,140,255,0.3);border-radius:6px;padding:10px;margin-bottom:10px;font-size:11px">'
@@ -2415,12 +2416,12 @@ function renderMsciReforms(d) {
     + '<div style="color:var(--muted)">Market reveal (Nov 23): IHSG −1.6% → <b style="color:var(--green)">+1.9%</b> · IDR → <b style="color:var(--green)">18,200</b> · '
     + '<a href="https://www.bloomberg.com/news/articles/2026-11-23/msci-discussed-avoiding-indonesia-downgrade-with-prabowo-dalio" target="_blank" style="color:var(--accent);text-decoration:none">Bloomberg Nov 23 ↗</a></div>'
     + '</div>'
-    + kv('Bryant Phase', bryantPhase + ' (T+' + daysSinceBryant + 'd)', bryantCls)
-    + kv('P(Downgrade)', pDowngrade + '% [calendar ' + (100-baseRev) + '% − conditions/uplift]', 'red')
-    + kv('P(Reversal)', pReversal + '% [base ' + baseRev + '% + ' + (condMet*7+condPartial*3) + 'pp conditions + 5pp Fernandez Nov10]', pRevCls)
-    + kv('Consultation Progress', consultPct + '% of 197d window (ends Apr 30 2027)', consultPct > 50 ? 'red' : 'orange')
-    + kv('Decision Date', daysToDecision + 'd (Jun 30 2027) → impl Sep–Dec 2027', 'orange')
-    + kv('Outflow at Risk', '$3–15B ($3B Mirae / $7.8–13B Goldman Sachs)', 'red')
+    + kv('Bryant Phase · T+' + daysSinceBryant + 'd', bryantPhase, bryantCls)
+    + kv('P(Downgrade)', pDowngrade + '% [cal ' + (100-baseRev) + '% − uplift]', 'red')
+    + kv('P(Reversal)', pReversal + '% [base ' + baseRev + '% +' + (condMet*7+condPartial*3) + 'pp cond +5pp Nov10]', pRevCls)
+    + kv('Consultation', consultPct + '% of 197d (ends Apr 30 2027)', consultPct > 50 ? 'red' : 'orange')
+    + kv('Decision Date', daysToDecision + 'd — Jun 30 2027 → impl Sep–Dec 2027', 'orange')
+    + kv('Outflow at Risk', '$3–15B (Mirae $3B / GS $7.8–13B)', 'red')
     + kv('M5 Foreign Flow', m5Display, m5Cls)
     + '<div class="section-title" style="margin-top:10px">5 Reform Conditions (Fernandez Nov 10 2026)</div>'
     + '<div style="font-size:10px;color:var(--muted);margin-bottom:6px">' + condMet + '/5 MET · ' + condPartial + ' PARTIAL · P(reversal) uplift: +' + (condMet*7+condPartial*3) + 'pp conditions + 5pp Fernandez</div>'
@@ -2782,7 +2783,7 @@ const BS_HTML = `<!DOCTYPE html>
   .col { display:flex; flex-direction:column; gap:10px; min-width:0; }
   .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px; overflow-wrap:break-word; word-break:break-word; min-width:0; }
   .card-title { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:600; padding-bottom:8px; border-bottom:1px solid rgba(48,54,61,.5); margin-bottom:12px; }
-  .tag { font-size:10px; padding:2px 7px; border-radius:3px; font-weight:600; text-transform:uppercase; }
+  .tag { font-size:10px; padding:2px 7px; border-radius:3px; font-weight:600; text-transform:uppercase; white-space:nowrap; }
   .green { color:var(--green); } .yellow { color:var(--yellow); } .orange { color:var(--orange); } .red { color:var(--red); }
   .tag.green { background:rgba(63,185,80,.12); } .tag.yellow { background:rgba(210,153,34,.12); }
   .tag.orange { background:rgba(227,114,28,.12); } .tag.red { background:rgba(248,81,73,.12); }
