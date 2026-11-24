@@ -230,7 +230,7 @@ DOOM LOOP TERRITORY: CAR erosion 3.26pp (threshold >1.5pp)
 >
 > **Bryant (1980) common knowledge — EVENT TERJADI:** Oct 15 announcement = threshold common knowledge yang kita monitor sejak T-45d. Setiap EM fund manager sekarang tahu, dan tahu bahwa yang lain tahu. Rational equilibrium = sell now. Ini bukan panik; ini koordinasi rasional.
 
-- **APBN per September 2026** (APBN KiTa, Oct 9): Pendapatan **Rp2.341,5T** (74.2% target) · Belanja **Rp2.660,5T** (69.2% pagu) · **Defisit Rp319T = 1.24% PDB** (9-bulan aktual) · Keseimbangan Primer **+Rp125.5T** (positif). **Subsidi+Kompensasi Energi YTD**: Rp376.8T per Sep (subsidi 222.5T + kompensasi 154.4T); **Rp333.9T per 30 Oct energi only** (Suahasil KSSK Nov 3) vs target subsidi energi original Rp87T → run-rate **~460%** 🔴; **target direvisi Rp500T** (dari Rp338T awal, Lapsem). ICP Oktober rata-rata **$93/bbl** (Suahasil KSSK). **Outlook full-year: defisit 4.23% GDP** (engine projection, melampaui 3% constitutional limit)
+- **APBN per September 2026** (APBN KiTa, Oct 9): Pendapatan **Rp2.341,5T** (74.2% target) · Belanja **Rp2.660,5T** (69.2% pagu) · **Defisit Rp319T = 1.24% PDB** (9-bulan aktual) · Keseimbangan Primer **+Rp125.5T** (positif). **Subsidi+Kompensasi Energi YTD**: Rp376.8T per Sep (subsidi 222.5T + kompensasi 154.4T); **Rp333.9T per 30 Oct energi only** (Suahasil KSSK Nov 3) vs target subsidi energi original Rp87T → run-rate **~460%** 🔴; **target direvisi Rp500T** (dari Rp338T awal, Lapsem). ICP Oktober rata-rata **$93/bbl** (Suahasil KSSK). **Outlook full-year: defisit 4.23% GDP** (engine projection, melampaui 3% constitutional limit). **ICP Oktober resmi $117.24/bbl** (Kepmen ESDM No.416.K, publik Nov 2026) — lebih tinggi dari KSSK Nov 3 estimate ($93 = YTD rata-rata, bukan Oktober monthly)
 - Term premium: **~1.71%** (SBN 10Y 7.712% − BI Rate 6.00%) — 29bps dari ORANGE threshold 2.0% [BI Rate hike compressed spread; SBN tidak spike lebih jauh = sinyal pasar sudah pricing-in hike]
 - S&P interest/revenue ratio: **~20.5%** — 5.5pp above S&P 15% negative-watch threshold 🔴
 - USDIDR spot: **18,264** (JISDOR Nov 17, **rekor terlemah** — +10.7% vs APBN Rp16,500); cadev **$146.8B**; DNDF contingent $8B → effective **$138.8B** | **ULN SULNI Q3 2026: $458.9B** (BI SP 28/251/DKom Nov 16); beban IDR **Rp8.375,8T** = **+Rp172T** dalam 7 minggu vs Sep 30 | short-term 15.70% (update dari 15.47% Q4 2024)
@@ -537,6 +537,7 @@ Bahlil bilang $77 (April) → ICP $107 live (Sep 15). APBN pasang $70. Empat ang
 | **Nov 10 2026** | Brent **$91.6/bbl** — pullback dari peak $112; ICP margin ke threshold $100 kembali ada ($8.4/bbl). Tanker transits Hormuz masih <5/hari; supply disruption belum selesai. |
 | **Nov 12 2026** | **ASEAN Joint Oil Stockpile**: Indonesia (PT Interport Mandiri Utama) + Thailand = storage hubs; diprakarsai ERIA (Japan METI). **IRONI**: Dirut Pertamina minta maaf DPR — BBM langka **11 provinsi** (14:23 WIB) di hari yang sama dengan pengumuman ASEAN hub (16:20 WIB). Root cause: Solar B50 gap Rp13,629/L → Pertamina volume overrun. Full analysis: `docs/ASEAN_OIL_STOCKPILE_NOV12_2026.md`. |
 | **Nov 14 2026** | PNOC-EC (Filipina) MOU signing di **ASEAN Summit Manila** — Indonesia + Thailand + Filipina = tripartite ASEAN oil stockpile framework; operasional target early 2027. |
+| **Nov 16–24 2026** | Brent pullback berlanjut ke **$87.2/bbl** (Nov 24); ICP Oktober resmi **$117.24/bbl** (Kepmen ESDM No.416.K) — rata-rata bulanan TERTINGGI sepanjang krisis, retroactively confirm peak tekanan fiskal Oct-Nov. Hormuz masih disrupted: IRGC patrols aktif, transit **<5 kapal/hari**; Hormuz deal unresolved. Subsidi energi YTD Oktober: **Rp415.8T (83.2% pagu Rp500T)**. ASEAN oil stockpile implementation in progress. |
 
 **Dampak global:**
 
@@ -557,16 +558,17 @@ Sebelum krisis: **25% seaborne oil** + **20% LNG dunia** melewati Hormuz. Kapasi
 | Skenario | Brent | ICP Proxy | Subsidy Gap/Liter | ICP Alert | Action |
 |----------|-------|-----------|-------------------|-----------|--------|
 | Baseline APBN | $70 | $70 | ~IDR 0 | 🟢 GREEN | Tidak ada |
-| Saat ini (Oct 30) | **$112.0** | **$112.81** (Sep avg) | **IDR 7.899** | 🔴 RED | ICP Sep resmi $112.81 (ESDM Oct 12); Brent $112.0 spot; Pertalite gap Rp7,899/L; Solar B50 gap Rp15,485/L; SCD 87% RED; FOMC Oct 28 HOLD |
+| Saat ini (Nov 25) | **$87.2** | **$117.24** (Oct avg) | **IDR 6,676** | 🔴 RED | ICP Oktober resmi $117.24 (Kepmen ESDM No.416.K) — tertinggi selama krisis; Brent $87.2 spot (pullback dari peak ~$115); Pertalite gap Rp6,676/L 🟠; Solar B50 gap Rp13,347/L 🔴; SCD 65% ORANGE (dari 87% Oct 30 peak); Hormuz <5 kapal/hari |
 | Threshold Bahlil | $100 | $100 | ~IDR 7.200 | 🔴 RED | Komitmen gugur |
 | Peak Mar 2026 | $126 | $126 | ~IDR 12.800 | 🔴 RED | Hike wajib fiskal |
 | Eskalasi baru | $110+ | $110+ | ~IDR 9.000+ | 🔴 RED | Hike + social unrest |
 
-**⚠️ UPDATE — Oct 19 2026:** Hormuz krisis memasuki fase baru. ICP September resmi **$112.81/bbl** (ESDM, Oct 12) — rata-rata bulanan tertinggi sejak Mar 2026 peak. Tanker attacks surge to wartime high (11 kapal/minggu ended Oct 4). Dua kapal kena ranjau lagi minggu Oct 13–17; Oct 19 tanker terbakar (IRGC claim). Transit Hormuz **2 kapal/hari** (Oct 11). Iran proposal 7-hari buka kembali Hormuz masih on table tapi US belum terima — Hormuz deal unresolved.
+**📊 Status Terkini (Nov 25 2026):**
+Brent **$87.2/bbl** (pullback dari peak ~$115 Nov 2026); ICP Oktober resmi **$117.24/bbl** (Kepmen ESDM No.416.K) — rata-rata bulanan TERTINGGI sepanjang krisis, retroactively confirm peak tekanan fiskal. Hormuz masih disrupted: IRGC patrols aktif, tanker transit **<5 kapal/hari**; deal unresolved. ASEAN Joint Oil Stockpile (Nov 12 + 14): Indonesia–Thailand–Filipina framework, operasional early 2027.
 
-BBM: Bahlil **reaffirm** subsidi tidak naik 31 Des (Oct 13) meski ICP $112.81 — subsidi energi YTD Rp331.4T = 457% run-rate target APBN. BBM langka Bali memburuk: Prabowo panggil Bahlil (Oct 14), Aksi Kamisan gedor Kantor Gubernur Bali (Oct 15). Defisit outlook 4.23% GDP (melampaui 3% batas konstitusi).
+BBM: Bahlil commitment **Pertalite + Solar tidak naik berlaku sampai 31 Des 2026** — Pertalite gap Rp6,676/L 🟠, Solar B50 gap Rp13,347/L 🔴. Hike risk kembali aktif Jan 2027 jika Brent kembali ke $100+. Subsidi energi YTD Oktober: **Rp415.8T (83.2% pagu Rp500T)**, run-rate masih 419%.
 
-Market: IHSG circuit breaker Oct 16 (−10.41%); IHSG sub-5,000 Oct 19 (4,918 intraday); MSCI Standalone consultation launched Oct 15 → Bryant event fired → USDIDR 18,049; SCD **63% ORANGE** (dari 39% Sep 23 → 63% Oct 19). Risiko residual: eskalasi ke $115–120 (Saudi pipeline masih offline + Houthi aktif + tanker mine attacks meningkat) → hike BBM paksa atau defisit meledak sebelum 31 Des.
+Macro: SCD **65% ORANGE** (dari peak 93% Oct 27); CDS 99.6bps; MSCI Standalone consultation aktif (keputusan Jun 30 2027); FOMC Dec hike odds **82.6%**; defisit outlook **4.23% GDP** — melampaui 3% batas konstitusi. Dua-layer diversifikasi pasokan aktif: Russia ESPO crude (phase 2 berjalan) + China/India refined Pertalite (implementasi bertahap).
 
 **Cost recovery formula:**
 ```
@@ -625,6 +627,7 @@ Sistem akan otomatis rekalkulasi subsidy gap, ICP alert, dan foreign flow risk s
 | **19 Okt 2026** | Brent $107.40; ESPO discount est. $10–15/bbl = net ~$92–97/bbl. Pertalite gap Rp7.056/L (at $107.40 + USDIDR 18,040) — deal hanya offset Rp485–975/L (~7–14%) |
 | **24–27 Okt 2026** | **Perpres 26/2026 direvisi** — scope diperluas dari G2G Russia ke impor minyak **berbagai negara** + BLU (Badan Layanan Umum) dilibatkan di samping Lemigas. Signal implicit: Russia single-source tidak cukup cover gap; kebutuhan legal basis untuk China/India refined product |
 | **Nov 2026** | Bloomberg: **[Batam island funnels $1.6B Russian oil](https://www.bloomberg.com/graphics/2026-indonesia-russia-oil-asia-hub/)** — Batam (dekat Singapura) sebagai shadow fleet + STS (ship-to-ship) transfer + blending hub sebelum masuk sistem Pertamina. Volume via Batam jauh melampaui 770k bbl "resmi" Lemigas. Mekanisme ini bypass Pertamina global bond obligation. **Implikasi**: skala akuisisi minyak Rusia aktual jauh di atas official acknowledgment |
+| **Nov 14 2026** | APBN KiTa konpers Suahasil Nazara — subsidi+kompensasi energi YTD Oktober **Rp415.8T (83.2% pagu Rp500T)**; ICP Oktober resmi **$117.24/bbl** (Kepmen ESDM No.416.K) = lebih tinggi dari estimasi KSSK Nov 3 ($93 = YTD average). Retroactively confirm: deal Russia offset ~7–13% per liter tapi tidak mencegah peak fiskal — subsidi Oktober per unit run-rate tertinggi selama krisis. Brent kini $87.2 (pullback), tapi fiskal gap akumulatif sudah terkunci di angka Oktober. |
 
 **Deal structure:**
 
@@ -686,6 +689,8 @@ Bersamaan dengan deal Russia yang masih dalam tahap realisasi, pemerintah membuk
 | **Status Nov 2026** | Phase 1 ✅ 770k bbl Jun 29. Phase 2 berjalan Sep 11. Perpres direvisi Oct 24–27. Bloomberg: $1.6B via Batam shadow route | Perpres 26/2026 (revisi) berlaku; Permen finalisasi; implementasi bertahap |
 
 Sumber: Dirjen Migas ESDM Laode Sulaeman — [CNN Indonesia 4 Nov 2026](https://www.cnnindonesia.com/ekonomi/20261104103155-92-1423088/indonesia-jajaki-impor-pertalite-dari-china-dan-india) · Kompas 3 Nov 2026.
+
+**Update Nov 25 2026:** Implementasi bertahap dalam proses. Perpres 26/2026 (revisi Oct 24–27) berlaku sebagai dasar hukum; Permen rinci masih finalisasi. Volume impor dari China/India belum dipublikasikan secara resmi. Tekanan berlanjut: ICP Oktober $117.24 (tertinggi cycle) → subsidi energi YTD Oktober Rp415.8T (83.2% pagu Rp500T) → pressure untuk layer 2 (finished fuel China/India) tetap tinggi. Bahlil deadline **31 Des 2026** → jika Brent kembali $100+ pasca-Des, Permen harga baru menjadi kritis.
 
 **Interpretasi dua layer diversifikasi:**
 - **Layer 1 (crude)**: Russia ESPO → kilang Balongan/Cilacap → produk BBM. Offset biaya crude ~Rp485–975/L dari formula.
