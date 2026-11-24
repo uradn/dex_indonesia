@@ -392,8 +392,8 @@ RED: M10 fiscal 100 · M12 polrisk 88 · M4 cmdy 78 · M11 dom 77 | ORANGE: M3 F
 Thesis #15 hari ke-8: 99.6→192bps / 18,131→20,327 / 7.712→9.11% | T+90=Feb 14 2027 | all KS inactive
 
 **📅 Nov 25 2026** | SCD **65% 🟠** | 5/13 | IHSG **5,242** | A/D **2.14** 🟢 | CDS **99.6bps** | SBN 10Y **7.712%** | USDIDR **18,131** | Brent **$88.3/bbl** | Reserves **$146.8bn** (eff $138.8bn)
-RED: M10 fiscal 100 · M12 polrisk 91 · M4 cmdy 79 · M11 dom 77 | ORANGE: M3 FX 57 (ATTACK ZONE) | YELLOW: M8 bank 43 · M6 narr 47 · M2 sov 34 | GREEN: M5 flow 28 · M1 BoP 25 · M9 mkt 0 · M13 ULN 5
-✅ README Session 2 complete (thematic restructure — 6 sub-headers Live Readings, Batubara/CPO/Nikel expand, TDL/PLN expand, 3 new ## sections) | MSCI SAIR Nov 12 DONE logged | MSCI_REVERSAL_PROBABILITY_OVERRIDE unset → auto ~18%
+RED: M10 fiscal 100 · M12 polrisk 91 · M4 cmdy 79 · M11 dom 77 | ORANGE: M3 FX 57 | YELLOW: M8 bank 43 · M6 narr 47 · M2 sov 34 | GREEN: M9 mkt 0 · M7 asean 17 · M5 flow 26 · M1 bop 25 · M13 uln 5
+🚨 **MORRIS-SHIN CONFIDENCE GATE ESKALASI: VULNERABILITY (DC+14) → ATTACK ZONE (DC+32)** — dominant strategy sekarang attack *regardless of coordination*; komunikasi/SRBI/BI rate tidak lagi cukup untuk deter; hanya perbaikan fundamental (cadev↑ / fiscal credible) yang bisa keluar dari zone ini | SRBI bid-cover 1.49x (di bawah 1.5x) | PMI 54.0 ↑ (Goldilocks) | 4 pangan spike (Nataru) | MSCI_REVERSAL_PROBABILITY_OVERRIDE unset → P(rev) 13% auto
 Thesis #15 hari ke-9: 99.6→192bps / 18,131→20,327 / 7.712→9.11% | T+90=Feb 14 2027 | all KS inactive | 5 reform conditions PENDING
 
 - **🤝 FERNANDEZ + PRABOWO DIRECT CALL — MSCI SOFTENING (Nov 23, Bloomberg Investigasi)**
