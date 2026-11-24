@@ -1234,14 +1234,14 @@ function renderFood(d) {
   for (let i = 0; i < foods.length; i += 2) {
     const a = foods[i], b = foods[i+1];
     const va = ind[a.key]?.value, vb = b ? ind[b.key]?.value : null;
-    rows.push(`<tr>
-      <td class="food-label">${a.label}</td>
-      <td class="food-val">${va ? a.fmt(va) : '—'}</td>
-      <td class="food-label">${b ? b.label : ''}</td>
-      <td class="food-val">${b && vb ? b.fmt(vb) : (b ? '—' : '')}</td>
-    </tr>`);
+    rows.push('<tr>' +
+      '<td class="food-label">' + a.label + '</td>' +
+      '<td class="food-val">' + (va ? a.fmt(va) : '—') + '</td>' +
+      '<td class="food-label">' + (b ? b.label : '') + '</td>' +
+      '<td class="food-val">' + (b && vb ? b.fmt(vb) : (b ? '—' : '')) + '</td>' +
+    '</tr>');
   }
-  return `<tbody>${rows.join('')}</tbody>`;
+  return '<tbody>' + rows.join('') + '</tbody>';
 }
 
 // SCD score computed from key indicators (simplified proxy — no engine run)
