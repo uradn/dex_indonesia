@@ -140,7 +140,8 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   // 45d publication lag means Sep data arrives ~Nov 15. freshDays 55 matches publication cadence.
   { name: 'm2_money_supply_idr_bn',         module: 'M8',  freshDays: 55,  yellowDays: 75,  redDays: 105 },
   { name: 'm1_m2_ratio_pct',                module: 'M8',  freshDays: 55,  yellowDays: 75,  redDays: 105 },
-  { name: 'bank_savings_deposito_ratio_pct',module: 'M8',  freshDays: 50,  yellowDays: 70,  redDays: 120 },
+  // BI SEKI structural lag ~45-55d: Sep data published ~Nov 15, Oct data ~Dec 15. freshDays 60 matches.
+  { name: 'bank_savings_deposito_ratio_pct',module: 'M8',  freshDays: 60,  yellowDays: 80,  redDays: 120 },
   // APBN KiTa pressconf + GDP: deficit % GDP annual-ish; 100d covers quarterly APBN + GDP lag
   { name: 'apbn_deficit_pct_gdp',           module: 'M8',  freshDays: 100, yellowDays: 140, redDays: 200 },
   // BIS quarterly IHPR house price index; Q3 (Sep) published Dec → 150d from Sep 30.
@@ -153,9 +154,9 @@ export const INDICATORS: IndicatorFreshnessSpec[] = [
   { name: 'inflation_cpi_pct',           module: 'M0',  freshDays: 35,  yellowDays: 55,  redDays: 90  },
   // S&P Global Indonesia manufacturing PMI monthly (~1st business day); regime engine
   { name: 'indonesia_pmi_manufacturing', module: 'M0',  freshDays: 35,  yellowDays: 55,  redDays: 75  },
-  // World Bank Pink Sheet CPO monthly; ~45d publication lag (Oct data arrives ~Nov 15).
-  // freshDays 50 matches Pink Sheet cadence; real-time data not needed (monthly export price signal).
-  { name: 'cpo_price_myr',               module: 'M4',  freshDays: 50,  yellowDays: 70,  redDays: 100 },
+  // World Bank Pink Sheet CPO monthly; data labeled YYYY-MM-01; Oct data (Oct 1) ages to 65d by Dec 1
+  // before Nov Pink Sheet publishes. freshDays 65 covers full inter-publish window without false-stale.
+  { name: 'cpo_price_myr',               module: 'M4',  freshDays: 65,  yellowDays: 90,  redDays: 120 },
   // ULN/GDP derived ratio — recomputed by ULN engine from BI SULNI quarterly
   { name: 'uln_gdp_ratio_pct',           module: 'M13', freshDays: 100, yellowDays: 140, redDays: 200 },
 ];

@@ -73,7 +73,10 @@ function parseSrbiText(text: string): Omit<SrbiAuctionData, 'date' | 'bidCoverAl
     /penawaran yang masuk[\s\S]{0,80}?Rp\s*([\d.,]+)\s*triliun/i,
     /total penawaran[\s\S]{0,60}?Rp\s*([\d.,]+)\s*triliun/i,
     /penawaran[\s\S]{0,40}?Rp\s*([\d.,]+)\s*triliun[^.]{0,30}SRBI/i,
-    /incoming bids?[\s\S]{0,60}?IDR\s*([\d.,]+)\s*(?:T|trillion)/i,
+    /incoming bids?[\s\S]{0,60}?IDR\s*([\d.,]+)\s*(?:T|tr|trillion)/i,
+    // Research note format: "incoming bids naik X% menjadi IDR59,7tr"
+    /incoming bids[\s\S]{0,80}?menjadi\s+IDR\s*([\d.,]+)\s*tr\b/i,
+    /bids[\s\S]{0,40}?IDR\s*([\d.,]+)\s*tr(?:iliun)?\b/i,
   );
 
   // Total allotment (what BI accepted). Note: "hanya" guard removed — BI sometimes accepts all bids.
@@ -83,7 +86,15 @@ function parseSrbiText(text: string): Omit<SrbiAuctionData, 'date' | 'bidCoverAl
     /penyerapan[\s\S]{0,40}?(?:menjadi|sebesar)\s+Rp\s*([\d.,]+)\s*triliun/i,
     /dialokasikan[\s\S]{0,60}?Rp\s*([\d.,]+)\s*triliun/i,
     /SRBI[\s\S]{0,50}?memenangkan[\s\S]{0,30}?Rp\s*([\d.,]+)\s*triliun/i,
-    /allotment[\s\S]{0,60}?IDR\s*([\d.,]+)\s*(?:T|trillion)/i,
+    /allotment[\s\S]{0,60}?IDR\s*([\d.,]+)\s*(?:T|tr|trillion)\b/i,
+    /total\s+pemenang[\s\S]{0,60}?Rp\s*([\d.,]+)\s*triliun/i,
+    /BI\s+(?:mengalokasikan|melepas|menerbitkan)[\s\S]{0,40}?Rp\s*([\d.,]+)\s*triliun/i,
+    /SRBI\s+(?:sebesar|senilai|sejumlah)[\s\S]{0,30}?Rp\s*([\d.,]+)\s*triliun/i,
+    /terpenuhi[\s\S]{0,40}?Rp\s*([\d.,]+)\s*triliun/i,
+    /diterima[\s\S]{0,60}?Rp\s*([\d.,]+)\s*triliun[^.]{0,50}?SRBI/i,
+    // Research note format: "total pemenang melonjak X% menjadi IDR40,0tr" (Mirae Asset)
+    /total\s+pemenang[\s\S]{0,80}?menjadi\s+IDR\s*([\d.,]+)\s*tr\b/i,
+    /pemenang[\s\S]{0,40}?IDR\s*([\d.,]+)\s*tr(?:iliun)?\b/i,
   );
 
   // SRBI outstanding total (sterilization stock)
@@ -168,8 +179,73 @@ function scoreBidCover(ratio: number | null): AlertLevel {
 
 // Financial news + BI official page. bi.go.id Hasil Lelang pages are Exa-indexed and
 // carry the most precise per-tenor figures (amounts in Miliar — parseSrbiText handles this).
-const SRBI_DOMAINS = ['bloombergtechnoz.com', 'bisnis.com', 'kontan.co.id', 'cnbcindonesia.com', 'bi.go.id'];
-const SRBI_QUERY   = 'total penawaran masuk SRBI lelang Bank Indonesia triliun dimenangkan';
+const SRBI_DOMAINS = ['bloombergtechnoz.com', 'bisnis.com', 'kontan.co.id', 'cnbcindonesia.com', 'bi.go.id', 'detik.com', 'tempo.co', 'investor.id'];
+const SRBI_QUERY   = 'total penawaran masuk SRBI lelang Bank Indonesia triliun dimenangkan pemenang';
+
+const MONTH_NAMES_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function ordinal(n: number): string {
+  const s = ['th','st','nd','rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0])!;
+}
+function biOfficialUrl(d: Date): string {
+  return 'https://www.bi.go.id/en/publikasi/lelang/operasi-moneter/Pages/'
+    + `Auction-Result-Announcement-of-Bank-Indonesia-Rupiah-Securities,`
+    + `-${MONTH_NAMES_EN[d.getMonth()]}-${ordinal(d.getDate())}-${d.getFullYear()}.aspx`;
+}
+
+/**
+ * Tier-0: Jina Reader fetch of static media articles for SRBI auction results.
+ * BI official pages (bi.go.id hasil-lelang) are JS-dynamic — data loads via AJAX, Jina gets nav shell.
+ * Targets media article listing pages (BloombergTechnoz, Bisnis) which ARE static.
+ * Runs only when Exa indexing lag is suspected (> 2 days since expected auction Friday).
+ */
+async function fetchViaJina(daysBack: number): Promise<SrbiAuctionData | null> {
+  try {
+    // Find most recent expected auction Friday
+    const candidates: Date[] = [];
+    const cutoff = new Date(Date.now() - daysBack * 86_400_000);
+    const d = new Date();
+    while (candidates.length < 2) {
+      d.setDate(d.getDate() - 1);
+      if (d < cutoff) break;
+      if (d.getDay() === 5) candidates.push(new Date(d)); // Friday = SRBI day
+    }
+    if (!candidates.length) return null;
+
+    // Try Jina on static media tag/search pages for the auction date
+    const tryMediaUrl = async (mediaUrl: string, auctionDate: Date): Promise<SrbiAuctionData | null> => {
+      const headers: Record<string, string> = { 'Accept': 'text/plain' };
+      if (process.env.JINA_API_KEY) headers['Authorization'] = `Bearer ${process.env.JINA_API_KEY}`;
+      const res = await fetch(`https://r.jina.ai/${mediaUrl}`, { headers, signal: AbortSignal.timeout(12_000) });
+      if (!res.ok) return null;
+      const text = await res.text();
+      if (!/SRBI|Sekuritas Rupiah Bank Indonesia/i.test(text)) return null;
+      const parsed = parseSrbiText(text);
+      if (parsed.bidCoverRatio === null && parsed.demandIdrT === null) return null;
+      const isoDate = auctionDate.toISOString().slice(0, 10);
+      return { ...parsed, date: isoDate, bidCoverAlert: scoreBidCover(parsed.bidCoverRatio), sourceUrl: mediaUrl, fetchedAt: new Date().toISOString() };
+    };
+
+    for (const date of candidates) {
+      const dd = String(date.getDate()).padStart(2, '0');
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const yyyy = date.getFullYear();
+      // BloombergTechnoz tag page for SRBI
+      const hit = await tryMediaUrl(
+        `https://www.bloombergtechnoz.com/detail/tag/srbi-${yyyy}${mm}${dd}`,
+        date,
+      ).catch(() => null) ?? await tryMediaUrl(
+        `https://www.bisnis.com/search?keywords=SRBI+lelang+${dd}+${MONTH_NAMES_EN[date.getMonth()]}+${yyyy}`,
+        date,
+      ).catch(() => null);
+      if (hit) return hit;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 async function fetchViaExa(daysBack: number): Promise<SrbiAuctionData | null> {
   if (!process.env.EXASEARCH_API_KEY) return null;
@@ -301,8 +377,11 @@ export async function fetchSrbiAuction(): Promise<SrbiAuctionData | null> {
     }
   }
 
-  const daysBack = 21; // cover 3 potential bi-weekly windows
-  const data = (await fetchViaExa(daysBack)) ?? (await fetchViaTavily(daysBack));
+  const daysBack = 28; // cover 4 potential bi-weekly windows (extra buffer for Exa indexing lag)
+  // Tier-0: Jina static media articles (BloombergTechnoz/Bisnis tag pages)
+  // Tier-1: Exa media + bi.go.id search
+  // Tier-2: Tavily fallback
+  const data = (await fetchViaJina(daysBack)) ?? (await fetchViaExa(daysBack)) ?? (await fetchViaTavily(daysBack));
   if (!data) return null;
 
   // Persist to DB
