@@ -147,6 +147,37 @@ Silent Crisis Probability: 24% 🟢 → 85% 🔴
 DOOM LOOP TERRITORY: CAR erosion 3.26pp (threshold >1.5pp)
 ```
 
+---
+
+## 📊 Situasi Terkini — Nov 25 2026
+
+> Run `bun scripts/morning-check.ts` untuk update. Scores dari morning-check **Nov 24 2026**.
+
+**SCD: 65% 🟠 ORANGE** | Thesis #15 hari ke-9 TRIGGERED | 5/13 cross-confirmed
+
+| Modul | Score | Status | Key Signal |
+|-------|-------|--------|------------|
+| M1 BoP | 25 | 🟢 GREEN | CAD Q2 −3.3% PDB 🟠; reserves $146.8B (eff $138.8B) |
+| M2 Sovereign Risk | 34 | 🟡 YELLOW | CDS 99.6bps · SBN 7.712% · term premium 1.71% |
+| M3 FX Defense | 57 | 🟠 ORANGE | Morris-Shin **ATTACK ZONE**; SRBI stale 21d; DNDF 1M zero bids Oct 27 |
+| M4 Commodity | 78 | 🔴 RED | ICP Oct $117.24 (Kepmen resmi); Brent $88.3; Coal DMO 50% |
+| M5 Foreign Flow | 28 | 🟢 GREEN | MSCI softening (Fernandez-Prabowo Nov 10 call); forced-sell execution phase berlanjut |
+| M6 Narrative | 48 | 🟡 YELLOW | BPS credibility flag; Lapsem $83 vs realisasi $117.24; elite rhetoric gap |
+| M7 ASEAN RV | — | — | IDR idiosyncratic; UIP carry −3.79pp (unattractive) |
+| M8 Banking | 43 | 🟡 YELLOW | CAR 24.1% · LDR 88.14% · GWM 7% (cut Oct 23 dari 9%); AT1 $1.45B |
+| M9 Market Stress | 0 | 🟢 GREEN | CASCADE CLEAR; IHSG 5,242 · A/D 2.14 · P/E 8.9x |
+| M10 Fiscal | 100 | 🔴 RED | Defisit 4.23% GDP; subsidi run-rate 419%; S&P ratio 20.5% |
+| M11 Domestic | 77 | 🔴 RED | Pertalite gap Rp6,676/L 🟠 · Solar B50 Rp13,347/L 🔴 |
+| M12 Political | 88 | 🔴 RED | Demo 61 titik Oct; PHK 90k YTD; approval ~63% |
+| M13 ULN | 5 | 🟢 GREEN | SULNI Q3 DSR 13.31% (thr 19.5%); ULN/GDP 31.2% |
+
+**Thesis #15:** CDS 99.6→192bps · IDR 18,131→20,327 · SBN 7.712→9.11% — T+90 = **Feb 14 2027**
+**Key watch:** 5 MSCI reform conditions (Fernandez Nov 10) · FOMC Dec hike odds 82.6% · Bahlil deadline 31 Des · Brent vs $100 threshold
+
+---
+
+## 💰 Fiskal [M10]
+
 ### APBN 2026 Baseline
 
 #### 3-Layer Architecture: UU → Lapsem → Realisasi
@@ -184,7 +215,9 @@ DOOM LOOP TERRITORY: CAR erosion 3.26pp (threshold >1.5pp)
 
 **UU No.17/2025 lainnya:** GDP growth 5.4% | CPI 2.5% | SBN 10Y 6.9% | Revenue 3,154T | Spending 3,843T | Deficit 2.68% GDP | Post-efisiensi spending ~3,534.7T | GDP 25,714.2T
 
-**Live deviations (Nov 24, 2026):**
+### 📊 Live Readings — Nov 24 2026
+
+> Bullets di bawah mencakup sinyal lintas-modul. Cross-ref: [Pasar Modal & FX](#pasar-modal--fx-m2m3m5m9) · [Energi & Komoditas](#energi--komoditas-m4--m11) · [Fiskal detail](#apbn-2026-baseline)
 
 - BI Rate: **6.00%** — **hike +25bps RDG Nov 17-18 2026** (IDR defense + imported inflation; first hike since Jul 2026); DFR **5.25%**, LF **6.75%** | sebelumnya: 5.75% ditahan Jun–Nov (5 bulan beruntun)
 - BI Gov: **Destry Damayanti** (dilantik 2 Sep 2026, Keppres 92/P/2026) — pro-stability + pro-growth; GWM rupiah **7%** (dipotong 23 Oct 2026 dari 9% — M8 signal active)
@@ -301,6 +334,10 @@ DOOM LOOP TERRITORY: CAR erosion 3.26pp (threshold >1.5pp)
 >
 > **Konteks keluarga:** Pandu = putra **Dr. Sjahrir** (almarhum — ekonom senior, anggota Wantimpres era Presiden SBY) dan **Nurmala Kartini Sjahrir** (antropolog, Dubes Indonesia untuk Argentina 2010–2014). Ibunya adalah **adik kandung Luhut Binsar Pandjaitan** — Ketua Dewan Ekonomi Nasional (DEN), arsitek utama pembentukan Danantara. Pandu = **keponakan langsung Luhut**. Ini bukan sekadar koneksi jaringan bisnis personal — ini jaringan keluarga yang menempatkan keponakan dari figur policy ekonomi paling konsisten dalam dua dekade terakhir sebagai CIO sovereign wealth fund Rp9.000T. Ketika sosok itu ternyata co-owns broker OJK-sanksi di tengah probe market integrity yang memicu MSCI Standalone consultation, pertanyaannya bukan hanya tentang konflik kepentingan individu — tapi **capture institusional di tingkat sovereign**.
 
+### 📅 Baselines Log — Okt–Nov 2026
+
+> Kronologi morning-check baselines. SCD + module scores + key market data per tanggal.
+
 **📅 Oct 30 2026** | SCD **87% 🔴** | 8/13 | A/D **0.85** (recovery) | CDS **103.0bps** (−16.3 technical relief) | USDIDR **18,150** | Brent **$112.0/bbl**
 RED: M12 polrisk 98 · M10 fiscal 72 | ORANGE: M4 cmdy 65 · M5 flow 64 · M11 dom 60 · M2 sov 54 · M3 FX 54 · M6 narr 53 | YELLOW: M8 bank 36 · M7 ASEAN 25 | GREEN: M9 mkt 17 · M1 BoP 25 · M13 ULN 12
 Thesis #14 hari ke-38 TRIGGERED: targets CDS 164bps / USDIDR 20,020 / SBN 8.62% | all KS inactive
@@ -384,7 +421,23 @@ Thesis #15 hari ke-8: 99.6→192bps / 18,131→20,327 / 7.712→9.11% | T+90=Feb
 >
 > Sumber: [Bloomberg](https://www.bloomberg.com/news/articles/2026-11-23/msci-discussed-avoiding-indonesia-downgrade-with-prabowo-dalio) · [Mirae Research Note Nov 23] · [Trimegah Research Note Nov 23] · [Kiwoom Research Note Nov 23]
 
-### BBM Subsidy Monitoring (Module 11)
+---
+
+## 📈 Pasar Modal & FX [M2+M3+M5+M9]
+
+> **Konten di atas (Live Readings + Baselines Log)** sudah mencakup sinyal M2/M3/M5/M9. Section ini akan diperluas di Session 2 dengan migrasi konten MSCI, IDX/IHSG, USDIDR/cadev, dan foreign flow ke sini sebagai sub-sections terstruktur.
+
+**Quick nav:**
+- **MSCI Standalone** → [🚨 MSCI block](#-msci-standalone-consultation--oct-15-2026-2040-gmt) + [Fernandez-Prabowo Nov 23](#-msci-reform-champion-owns-stake-in-ojk-sanctioned-broker--governance-credibility-bomb) di atas
+- **USDIDR/CDS/SBN** → Live Readings bullets di atas (JISDOR 18,264 rekor · CDS 99.6bps · SBN 7.712%)
+- **IHSG/IDX** → Live Readings (IHSG 5,242 · A/D 2.14 · P/E 8.9x · circuit breaker Oct 16)
+- **Foreign flow** → Live Readings (net sell YTD Rp97.92T · SBN asing 13.05%)
+
+---
+
+## 🛢️ Energi & Komoditas [M4+M11]
+
+### BBM & Subsidi (Module 11)
 
 Module 11 (Domestic Pressure) tracks domestic fuel prices against cost recovery, computing the subsidy gap that drives fiscal stress and political risk.
 
@@ -494,7 +547,7 @@ Bahlil bilang $77 (April) → ICP $107 live (Sep 15). APBN pasang $70. Empat ang
 
 ---
 
-**Hormuz 2026 — Situation Report (SitRep)**
+### Hormuz 2026 — Situation Report (SitRep) [M4+M10+M11+M12]
 
 *Sumber utama: [Wikipedia: 2026 Strait of Hormuz crisis](https://en.wikipedia.org/wiki/2026_Strait_of_Hormuz_crisis) | [CNBC: Iran vows to completely block Hormuz](https://www.cnbc.com/2026/06/01/iran-us-negotiations-strait-of-hormuz.html) | [Al Jazeera](https://www.aljazeera.com/news/2026/6/5/how-the-us-naval-blockade-has-bled-iran-of-nearly-6bn-in-oil-revenues) | [Britannica](https://www.britannica.com/event/2026-Iran-war)*
 
@@ -703,7 +756,32 @@ Sumber: Dirjen Migas ESDM Laode Sulaeman — [CNN Indonesia 4 Nov 2026](https://
 - **M5 Foreign Flow**: China sourcing bisa perkuat screen ESG/Western fund (selain Russia) — tapi magnitude lebih kecil karena finished product, bukan G2G crude.
 - **M11 cost recovery**: Jika harga impor Pertalite China/India berbeda dari formula Brent-based, engine perlu adjustment saat Permen rinci mekanisme harga baru.
 
+### Batubara / CPO / Nikel — Commodity Export Cushion [M4]
+
+> *Ekspansi konten: Session 2.* Quick ref:
+
+| Komoditas | Posisi Indonesia | Signal Dexter | Threshold |
+|-----------|-----------------|---------------|-----------|
+| **Batubara** | #1 exporter dunia (~$33B/yr) | Coal DMO compliance **50%** (HBA gap ~$55/ton); `coal_dmo_compliance_pct` M4 signal | DMO <70% = HBA gap melebar → PLN cost pressure → TDL hike risk |
+| **CPO** | #1 exporter dunia (~$28B/yr) | B50 mandate Jul 2026: divert CPO ekspor → FAME biodiesel; BPDPKS levy negatif jika CPO > MOPS Gasoil | BPDPKS negatif = subsidi biodiesel off-budget |
+| **Nikel** | #1 ore reserve dunia (HPAL) | Ore export ban aktif; HPAL energy-intensive → exposed coal/listrik cost; EV demand proxy | China PMI <49 sustained = nickel matte oversupply |
+
+*Expand Session 2: data historis, threshold analysis, BoP sensitivity per komoditas.*
+
+### TDL & PLN — Tarif Listrik + Coal DMO [M4+M10+M12]
+
+> *Konten baru: Session 2.* Quick ref:
+
+PLN = SOE terbesar Indonesia by assets. Tekanan TDL = **triple-module trigger**:
+- **M4** — Coal DMO compliance 50%; HBA gap ~$55/ton → PLN input cost subsidi semakin berat
+- **M10** — PLN quasi-fiskal loss → Kemenkeu tanggung atau PLN hutang → off-budget exposure; interaksi B50 cost
+- **M12** — TDL hike = political landmine setara BBM hike; jika naik → social unrest risk
+
+*Expand Session 2: HBA current vs DMO cap, PLN subsidi/kompensasi YTD, threshold hike analysis.*
+
 ---
+
+## 🧮 Analytical Frameworks
 
 ### Game Theory — Strategic Behavior Engine
 
@@ -878,6 +956,10 @@ Jun 2027  ████████████████████  ~100% (t
 **Yang tersisa (refinement only):**
 - **3rd-gen balance sheet** (`M8+M13+M3 unified`) — butuh SULNI quarterly FX-hedging ratio per korporasi. Proxy sudah ada via `uln_hedging_compliance_pct`. Full unification est. Jun 2027 (opsional).
 - **Bayesian M6 full calibration** — likelihood P(data|credible) vs P(data|not_credible) dari 6 krisis historis (backtest data sudah ada di `backtest/crisis-calendar.ts`). Currently heuristic prior. Est. Sep 2027.
+
+---
+
+## ⚙️ Teknis — Operasional
 
 ### Scripts Tambahan
 
