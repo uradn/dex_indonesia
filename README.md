@@ -219,6 +219,8 @@ DOOM LOOP TERRITORY: CAR erosion 3.26pp (threshold >1.5pp)
 
 > Bullets di bawah mencakup sinyal lintas-modul. Cross-ref: [Pasar Modal & FX](#pasar-modal--fx-m2m3m5m9) · [Energi & Komoditas](#energi--komoditas-m4--m11) · [Fiskal detail](#apbn-2026-baseline)
 
+#### 🏛️ Kebijakan Moneter
+
 - BI Rate: **6.00%** — **hike +25bps RDG Nov 17-18 2026** (IDR defense + imported inflation; first hike since Jul 2026); DFR **5.25%**, LF **6.75%** | sebelumnya: 5.75% ditahan Jun–Nov (5 bulan beruntun)
 - BI Gov: **Destry Damayanti** (dilantik 2 Sep 2026, Keppres 92/P/2026) — pro-stability + pro-growth; GWM rupiah **7%** (dipotong 23 Oct 2026 dari 9% — M8 signal active)
 - **Menkeu: Suahasil Nazara** (dilantik 14 Sep 2026, Keppres 97p/2026) — Menkeu ke-3 era Prabowo (SMI → Purbaya → Suahasil); prioritas: APBN kredibel, defisit <3% PDB, transparansi ALCo; rhetoric signal COMMITMENT (CI −6pts)
@@ -263,19 +265,29 @@ DOOM LOOP TERRITORY: CAR erosion 3.26pp (threshold >1.5pp)
 >
 > **Bryant (1980) common knowledge — EVENT TERJADI:** Oct 15 announcement = threshold common knowledge yang kita monitor sejak T-45d. Setiap EM fund manager sekarang tahu, dan tahu bahwa yang lain tahu. Rational equilibrium = sell now. Ini bukan panik; ini koordinasi rasional.
 
+#### 💰 Fiskal
+
 - **APBN per September 2026** (APBN KiTa, Oct 9): Pendapatan **Rp2.341,5T** (74.2% target) · Belanja **Rp2.660,5T** (69.2% pagu) · **Defisit Rp319T = 1.24% PDB** (9-bulan aktual) · Keseimbangan Primer **+Rp125.5T** (positif). **Subsidi+Kompensasi Energi YTD**: Rp376.8T per Sep (subsidi 222.5T + kompensasi 154.4T); **Rp333.9T per 30 Oct energi only** (Suahasil KSSK Nov 3) vs target subsidi energi original Rp87T → run-rate **~460%** 🔴; **target direvisi Rp500T** (dari Rp338T awal, Lapsem). ICP Oktober rata-rata **$93/bbl** (Suahasil KSSK). **Outlook full-year: defisit 4.23% GDP** (engine projection, melampaui 3% constitutional limit). **ICP Oktober resmi $117.24/bbl** (Kepmen ESDM No.416.K, publik Nov 2026) — lebih tinggi dari KSSK Nov 3 estimate ($93 = YTD rata-rata, bukan Oktober monthly)
+#### 💱 FX & Sovereign
+
 - Term premium: **~1.71%** (SBN 10Y 7.712% − BI Rate 6.00%) — 29bps dari ORANGE threshold 2.0% [BI Rate hike compressed spread; SBN tidak spike lebih jauh = sinyal pasar sudah pricing-in hike]
 - S&P interest/revenue ratio: **~20.5%** — 5.5pp above S&P 15% negative-watch threshold 🔴
 - USDIDR spot: **18,264** (JISDOR Nov 17, **rekor terlemah** — +10.7% vs APBN Rp16,500); cadev **$146.8B**; DNDF contingent $8B → effective **$138.8B** | **ULN SULNI Q3 2026: $458.9B** (BI SP 28/251/DKom Nov 16); beban IDR **Rp8.375,8T** = **+Rp172T** dalam 7 minggu vs Sep 30 | short-term 15.70% (update dari 15.47% Q4 2024)
 - **CAD Q2 2026: −$12.5B = −3.3% PDB** — melampaui R&R 3% danger zone
 - CDS 5Y: **99.6bps** (Nov 24 morning-check); SBN 10Y: **7.712%**; **SBN-UST spread 2.79pp 🟠**; UIP real carry **−3.79pp** (unattractive — IDR depreciation 6.58% annualized); BI abstain 10Y+ SBN purchases; FSAP CAR erosion **~1.4pp**; shadow rate implied IDR **19,623** (8mo ke floor)
 - **US CPI Sep 2026: 3.7% YoY** (+0.6% MoM, core 2.6%) — beat konsensus 3.6%; gasoline +9.1% (Hormuz effect); **FOMC Oct 28 ✅ HOLD 10-2** — Fed funds tetap 3.75–4.00%; dissenter Cook + Hammack mau hike; Dec 2026 hike odds **82.6%**; Fed funds rate **4.00%** (naik 25bps Sep 16); double-whammy aktif: MSCI domestic + Fed hawkish Des
+#### 🛢️ Energi & BBM
+
 - Brent: **$88.3/bbl** 🟡 ($18.3 di atas APBN $70, +26.1%; ICP Nov proj $103-109; turun dari Oct $112 peak); Pertalite gap **Rp6,676/L** 🟠; Solar B50 gap **Rp13,347/L** 🔴; subsidi energi run-rate **419% of APBN**; Coal DMO compliance 50% (HBA gap 45%)
 - BBM: Pertamax Rp15.950 | Pertamax Green Rp19.150 | **Pertalite Rp10,000 + Solar Rp6,800 TIDAK NAIK** (komitmen Bahlil — tapi fiskal sudah menanggung)
 - **LNG**: JKM spot $28+/MMBtu; Hormuz effectively closed; vessel transits single digit/hari
 - **Russia-Indonesia Energy Deal**: Framework MoU ~**150 juta barel** G2G crude oil via **Lemigas** + LPG (Apr–Sep 2026); ESPO API 34–36° = Minas-compatible; "jangan tanya harga" (Bahlil); ESPO discount vs Brent est. ~$10–15/bbl → engine override: `RUSSIA_CRUDE_DISCOUNT_USD` (default 0). Lihat [Russia-Indonesia Energy Deal](#russia-indonesia-energy-deal-2026)
+#### 📈 Pasar Modal
+
 - **Rezim: Q1 Goldilocks** (Growth↑ Inflation↓) — PMI 52.4; Growth ROC +9.93%; Inflation ROC −21.38%
 - **IHSG**: **5,242 pts** 🟢 (Nov 24 morning-check) | P/E **8.9x** | **A/D ratio 2.14** 🟢 (breadth recovery kuat) | CASCADE CLEAR (M9 0/100) | P/E discount **33.5%** vs Thailand (8.9x vs 13.4x); IHSG floor estimate **3,457** (−34%, PE reversion: P(downgrade)=94%×5.5x + P(rev)=6%×12x)
+#### ⚠️ Alerts & Transmisi
+
 - **⚠️ DNDF 1M ZERO BIDS Oct 27**: BI tawarkan forward Rp18,199/USD 1 bulan — **tidak ada pembeli**. NDF offshore 18,210. Artinya: pasar ekspektasi IDR >18,199 dalam 1 bulan. Forward anchor BI gagal. `USDIDR_NDF_1M_RATE=18210` diset.
 - **⚠️ Morris-Shin ALERT ACTIVE**: oil belief dispersion (CV>12%) + CDS velocity +4.4bps/wk + **DNDF 1M failure** → self-fulfilling attack window MELEBAR; confidence gate VULNERABILITY ZONE (net DC-AC +14); SRBI sterilization burden 38.7% cadev; catalyst watch: Pertamina loss disclosure, APBN Kita quarterly
 - **⚠️ SRBI DATA STALE 21d** — LOW CONFIDENCE on M3 score; sterilization stress signal degraded
@@ -425,13 +437,97 @@ Thesis #15 hari ke-8: 99.6→192bps / 18,131→20,327 / 7.712→9.11% | T+90=Feb
 
 ## 📈 Pasar Modal & FX [M2+M3+M5+M9]
 
-> **Konten di atas (Live Readings + Baselines Log)** sudah mencakup sinyal M2/M3/M5/M9. Section ini akan diperluas di Session 2 dengan migrasi konten MSCI, IDX/IHSG, USDIDR/cadev, dan foreign flow ke sini sebagai sub-sections terstruktur.
+> Event log kronologis (MSCI blockquote, Hashim, Pandu, Fernandez-Prabowo) ada di [Live Readings](#-live-readings--nov-24-2026) + [Baselines Log](#-baselines-log--okt-nov-2026) di atas. Section ini = analisis terstruktur per sub-topik.
 
-**Quick nav:**
-- **MSCI Standalone** → [🚨 MSCI block](#-msci-standalone-consultation--oct-15-2026-2040-gmt) + [Fernandez-Prabowo Nov 23](#-msci-reform-champion-owns-stake-in-ojk-sanctioned-broker--governance-credibility-bomb) di atas
-- **USDIDR/CDS/SBN** → Live Readings bullets di atas (JISDOR 18,264 rekor · CDS 99.6bps · SBN 7.712%)
-- **IHSG/IDX** → Live Readings (IHSG 5,242 · A/D 2.14 · P/E 8.9x · circuit breaker Oct 16)
-- **Foreign flow** → Live Readings (net sell YTD Rp97.92T · SBN asing 13.05%)
+### MSCI Standalone — EM → Standalone [M5]
+
+**Status: konsultasi aktif** (Oct 15 2026, out-of-cycle) → lihat full event record: [🚨 MSCI block di Live Readings](#-msci-standalone-consultation--oct-15-2026-2040-gmt) | [Fernandez-Prabowo Nov 10 call (Bloomberg Nov 23)](#-dalio-brokered-nov-10-call)
+
+| Parameter | Detail |
+|-----------|--------|
+| **Jenis** | EM → Standalone (bukan Frontier) — pertama di dunia karena governance, bukan geopolitik/capital controls |
+| **Timeline** | Consultation → **Apr 30 2027** · Keputusan → **Jun 30 2027** · Impl → **Sep-Dec 2027** |
+| **P(reversal)** | **~17%** (formula: base 5% + Fernandez Nov 10 call +5pp + per condition MET +7pp; saat ini 0 condition MET) |
+| **Capital at risk** | Goldman **$5.6B passive + >$8B active** · Samuel Sekuritas **$5.8–7.3B** · vs May rebalancing $1.8B = **3–4× lebih besar** |
+| **YTD net sell** | **Rp97.92T (~$5.4B)** per OJK/PiQ (YTD Nov 2) |
+| **Preseden** | Russia 2022 (geopolitik) · Argentina 2021 (capital controls). Indonesia = **satu-satunya karena governance** |
+
+**5 Reform Conditions (Fernandez → Prabowo, Nov 10 call):**
+
+| # | Kondisi | Status | Env override |
+|---|---------|--------|-------------|
+| 1 | Remove political affiliates dari DK OJK | 🔴 PENDING | `MSCI_REFORM_OJK_BOARD` |
+| 2 | Improve investor communication | 🔴 PENDING | `MSCI_REFORM_INVESTOR_COMMS` |
+| 3 | Clearer HSC disclosure rules | 🔴 PENDING | `MSCI_REFORM_HSC_RULES` |
+| 4 | Transparent LQ45 criteria/timing | 🔴 PENDING | `MSCI_REFORM_LQ45` |
+| 5 | Criminal enforcement beyond largest names | 🔴 PENDING | `MSCI_REFORM_CRIMINAL` |
+
+Update env ke `'partial'` atau `'met'` saat kondisi terpenuhi → P(reversal) auto-naik di dashboard `/bs`.
+
+**Bryant (1980) common knowledge:** Oct 15 = threshold event. Setiap EM fund manager kini tahu bahwa yang lain juga tahu → sell now = rational equilibrium. Bukan panik; koordinasi.
+
+---
+
+### IDX & IHSG [M9]
+
+| Metric | Nov 24 | Threshold | Status |
+|--------|--------|-----------|--------|
+| IHSG | **5,242 pts** | <5,000 = cascade risk | 🟢 above floor |
+| A/D ratio | **2.14** | <0.5 = panic territory | 🟢 recovery kuat |
+| P/E | **8.9x** | reversion target 5.5x (P(downgrade)=94%) | 🟡 deep discount |
+| P/E vs Thailand | **−33.5%** discount | convergence → rerating | 🟡 |
+| YTD return | **−41.52%** | worst major index globally | 🔴 |
+| IHSG floor estimate | **3,457** (−34%) | PE reversion: 94%×5.5x + 6%×12x | 🔴 tail risk |
+
+**Catalyst watch:**
+- Stop-loss cascade nodes: **5,000** → **4,800** → **4,500** pts (masing-masing +10pts M9 score)
+- MSCI Standalone impl Sep-Dec 2027 = zero passive AUM tracking → mechanical forced-sell berlanjut
+- IDX reforms: 80 saham high-concentration keluar indeks (efektif Nov 2); buyback tanpa RUPS → Jun 2027
+- Circuit breaker Oct 16: −11.25%, flag aktif 30d (expired ~Nov 15)
+
+---
+
+### USDIDR, Cadev & DNDF [M3]
+
+| Metric | Nilai | Konteks |
+|--------|-------|---------|
+| USDIDR spot | **18,131** (Nov 24) | +10.1% dari APBN Rp16,500 |
+| JISDOR | **18,264** (Nov 17) | Rekor terlemah sepanjang sejarah modern |
+| Cadev | **$146.8B** | BI Nov |
+| DNDF contingent | **$8B** | → effective cadev **$138.8B** |
+| Shadow rate implied IDR | **19,623** | 8 bulan ke floor |
+| Morris-Shin confidence gate | **VULNERABILITY ZONE** | net DC-AC +14; ATTACK zone >20 |
+| SRBI sterilization burden | **38.7% cadev** | quasi-fiscal drag BI |
+
+**⚠️ DNDF 1M Zero Bids Oct 27:** BI tawarkan forward Rp18,199/USD — tidak ada pembeli. NDF offshore 18,210. Forward anchor BI gagal → pasar ekspektasi IDR >18,199 dalam 1 bulan.
+
+Engine: 1st-gen Krugman-FG (shadow exchange rate + months-to-attack) | 2nd-gen Morris-Shin (confidence gate DC vs AC). Env pin: `BI_DNDF_OUTSTANDING_BN`.
+
+---
+
+### CDS & SBN [M2]
+
+| Metric | Nilai | Threshold | Status |
+|--------|-------|-----------|--------|
+| CDS 5Y | **99.6bps** | >100 = ORANGE | 🟡 −0.4bps |
+| SBN 10Y yield | **7.712%** | >7.5% = elevated | 🟠 |
+| SBN-UST spread | **2.79pp** | >2.0pp = ORANGE | 🟠 ORANGE |
+| Term premium | **1.71%** | >2.0% = ORANGE | 🟡 −29bps |
+| S&P interest/revenue | **~20.5%** | >15% = negative watch | 🔴 +5.5pp |
+| UIP real carry | **−3.79pp** | negative = outflow bias | 🔴 |
+| CAD Q2 | **−3.3% PDB** | >3% = R&R danger zone | 🔴 |
+
+BI abstain pembelian SBN 10Y+. FSAP implied CAR erosion **~1.4pp**. SBN asing ownership **13.05%** (KS#3 threshold: >15% → thesis kill).
+
+---
+
+### Foreign Flow [M5]
+
+- Net equity sell YTD Nov 2: **Rp97.92T (~$5.4B)** — SBN inflow offset sebagian (rotation, bukan exit total)
+- SBN asing ownership: **13.05%** (treshold KS#3 >15% = kill switch)
+- EIDO ETF: execution-phase forced-sell aktif; Calvo SSVI **4.11pp** (phase: elevated → imminent)
+- UIP real carry **−3.79pp** → foreign bond demand structurally muted
+- Bifurcation aktif: SBN inflow (carry hunters) vs equity net sell (mandated exit) = klasik pre-crisis rotation
 
 ---
 
@@ -758,26 +854,174 @@ Sumber: Dirjen Migas ESDM Laode Sulaeman — [CNN Indonesia 4 Nov 2026](https://
 
 ### Batubara / CPO / Nikel — Commodity Export Cushion [M4]
 
-> *Ekspansi konten: Session 2.* Quick ref:
+Ekspor komoditas = **bantalan BoP** Indonesia. Kalau ini menekan — BoP tergerus, IDR exposed, subsidi energi makin berat.
 
-| Komoditas | Posisi Indonesia | Signal Dexter | Threshold |
-|-----------|-----------------|---------------|-----------|
-| **Batubara** | #1 exporter dunia (~$33B/yr) | Coal DMO compliance **50%** (HBA gap ~$55/ton); `coal_dmo_compliance_pct` M4 signal | DMO <70% = HBA gap melebar → PLN cost pressure → TDL hike risk |
+| Komoditas | Posisi Indonesia | Signal M4 | Threshold |
+|-----------|-----------------|-----------|-----------|
+| **Batubara** | #1 exporter dunia (~$33B/yr) | Coal DMO compliance **50%** (HBA gap ~$55/ton) | DMO <70% = HBA gap melebar → PLN cost pressure → TDL hike risk |
 | **CPO** | #1 exporter dunia (~$28B/yr) | B50 mandate Jul 2026: divert CPO ekspor → FAME biodiesel; BPDPKS levy negatif jika CPO > MOPS Gasoil | BPDPKS negatif = subsidi biodiesel off-budget |
-| **Nikel** | #1 ore reserve dunia (HPAL) | Ore export ban aktif; HPAL energy-intensive → exposed coal/listrik cost; EV demand proxy | China PMI <49 sustained = nickel matte oversupply |
+| **Nikel** | #1 ore reserve dunia (HPAL) | Ore export ban aktif; HPAL energy-intensive → exposed coal/listrik cost | China PMI <49 sustained = nickel matte oversupply |
 
-*Expand Session 2: data historis, threshold analysis, BoP sensitivity per komoditas.*
+#### Batubara — HBA vs DMO
+
+**Harga Batubara Acuan (HBA)** = Indonesian coal price benchmark, ditetapkan Kementerian ESDM bulanan dari rata-rata 4 indeks internasional (Argus/McCloskey/Platts/globalCOAL).
+
+| Metric | Nov 2026 | Threshold M4 |
+|--------|----------|-------------|
+| HBA (blended) | **~$137/ton** | >$130 = severe PLN gap |
+| Coal DMO cap | **$70/ton** (Kepmen ESDM tetap) | DMO = 25% produksi wajib dijual ke PLN harga capped |
+| HBA−DMO gap | **~$67/ton** | >$50 = RED; >$70 = M4 max stress |
+| DMO compliance | **50%** | <70% = PLN tidak mendapat kuota penuh → beli pasar → biaya naik |
+
+**Mekanisme transmisi ke M10/M12:**
+- PLN beli coal di atas DMO cap → EBITDA PLN merah → Kemenkeu subsidi/kompensasi PLN off-plan → tambahan APBN Rp10-30T/kwartal → M10 fiscal stress naik
+- Jika PLN tidak dapat subsidi cukup → TDL hike → M12 political risk + M11 domestic pressure
+
+#### CPO & Biodiesel — B50 Interaction
+
+B50 mandate (Jul 1 2026): **50% FAME** dari CPO dicampur ke Solar Biosolar. Implikasinya:
+
+| Aspek | Detail |
+|-------|--------|
+| **Volume CPO terserap** | ~6-7 juta ton/tahun → berkurang dari ekspor (~2.5% ekspor CPO total) |
+| **FAME vs MOPS cost** | FAME dari CPO **lebih mahal** ~$150-200/MT vs MOPS Gasoil equivalen (tergantung CPO spot) |
+| **BPDPKS** | Dapat mengumpulkan levy ekspor CPO saat CPO tinggi; jika deficit (CPO rendah + FAME mahal) → pemerintah menanggung selisih |
+| **BoP effect** | Ekspor CPO turun (B50 divert) → CA sedikit tertekan; offset sebagian oleh impor minyak lebih rendah (Solar substitution) |
+
+**Signal engine:** `bpdpks_negative_flag` aktif jika (FAME premium > BPDPKS levy reserve). Lihat `src/tools/macro/commodity-engine.ts`.
+
+#### Nikel — EV Demand & China PMI Nexus
+
+Indonesia = **~40% global nickel ore reserve** (USGS). Ore export ban (2020) → dorong HPAL (High-Pressure Acid Leach) refinery domestik untuk nickel matte/MHP → EV battery supply chain.
+
+| Signal | Detail |
+|--------|--------|
+| **China PMI < 49** sustained | EV demand proxy; nickel matte oversupply → price collapse → royalti turun → PNBP Kemenkeu melemah |
+| **HPAL energy cost** | HPAL = energy-intensive; listrik dari batu bara. Jika HBA naik → HPAL cost naik → margin kompresi |
+| **LME nickel** | Volatile post-Russia sanctions + LME short-squeeze 2022; hati-hati hedge ratio |
+
+**BoP sensitivity (rough estimate):**
+- Batu bara −10% harga: BoP −$3.3B/yr
+- CPO −10% harga: BoP −$2.8B/yr
+- Nikel −10% harga: BoP −$0.7B/yr (nilai ekspor lebih kecil karena ore ban = refinery margin, bukan raw ore)
 
 ### TDL & PLN — Tarif Listrik + Coal DMO [M4+M10+M12]
 
-> *Konten baru: Session 2.* Quick ref:
+PLN = SOE terbesar Indonesia by assets (~Rp1.700T). **TDL hike = triple-module trigger** karena menyentuh fiskal (M10), political (M12), dan komoditas (M4) secara bersamaan.
 
-PLN = SOE terbesar Indonesia by assets. Tekanan TDL = **triple-module trigger**:
-- **M4** — Coal DMO compliance 50%; HBA gap ~$55/ton → PLN input cost subsidi semakin berat
-- **M10** — PLN quasi-fiskal loss → Kemenkeu tanggung atau PLN hutang → off-budget exposure; interaksi B50 cost
-- **M12** — TDL hike = political landmine setara BBM hike; jika naik → social unrest risk
+#### Status Nov 2026
 
-*Expand Session 2: HBA current vs DMO cap, PLN subsidi/kompensasi YTD, threshold hike analysis.*
+| Metric | Nilai | Status |
+|--------|-------|--------|
+| Tarif rumah tangga dasar | **Rp1.444/kWh** (non-subsidi, terakhir naik Jan 2023) | Frozen — belum ada hike sejak 2023 |
+| PLN subsidi/kompensasi YTD | **~Rp165T** (est. Jan-Oct; belum final) | Off-budget risked — Kemenkeu belum konfirmasi |
+| HBA coal input (avg blended) | **~$137/ton** | 96% di atas DMO cap $70 |
+| DMO compliance | **50%** | PLN dapat ~12.5% produksi nasional; beli sisa di pasar |
+| Coal cost share PLN | **~55-60% of COGS** | Sangat exposed ke HBA swing |
+
+#### Mekanisme Transmisi
+
+```
+HBA naik → PLN input cost → EBITDA PLN negatif
+         ↓                           ↓
+  DMO kurang →  beli pasar    → Kemenkeu subsidi/kompensasi PLN
+                                      ↓
+                               APBN deficit naik (M10 ↑)
+                                      ↓
+                               Jika tidak disubsidi → TDL hike request
+                                      ↓
+                               M12 ↑ (political risk) + M11 ↑ (domestic pressure)
+```
+
+#### Threshold Hike Analysis
+
+| Trigger | Probabilitas Hike | Dexter flag |
+|---------|------------------|-------------|
+| PLN EBITDA < 0 selama 2 kuartal berturut | **Tinggi** (Q2-Q3 2026 est. merah) | M10 quasi-fiscal flag |
+| Brent sustained >$100 (ICP >$110) | **Tinggi** — subsidi energi total >Rp600T | M4 Brent RED threshold |
+| APBN deficit outlook >4% GDP | **Moderate** — Kemenkeu prioritas potong subsidi non-produktif | M10 deficit projection |
+| Pemilu / periode politik panas | **Blokir hike** — Prabowo komitmen stabilitas BBM&TDL | M12 political cost dampener |
+
+**Key constraint:** Prabowo secara eksplisit komit *tidak ada kenaikan BBM dan TDL* di awal kepresidenan. Ini membuat TDL hike = **extraordinary event** yang butuh political capital besar — tapi juga berarti PLN quasi-fiskal loss ditanggung APBN. Jika APBN sudah tertekan (defisit >4.5%), kepentingan fiskal vs kepentingan politik akan berbenturan. **Conflict point ~Q1-Q2 2027** jika Brent sustained tinggi.
+
+#### B50 Interaction
+
+B50 mandate menggunakan CPO untuk FAME di Solar Biosolar, **bukan** untuk PLN. Namun interaksi tidak langsung: jika B50 meningkatkan biaya Solar subsidi → Kemenkeu alokasi subsidi energi berkurang untuk PLN → pressure TDL hike naik. Engine model ini via `subsidyBurdenScore` di M10 dan `fuelGapScore` di M11.
+
+---
+
+## 🏦 Banking [M8]
+
+### Status Nov 2026
+
+| Metric | Nilai | Threshold | Source |
+|--------|-------|-----------|--------|
+| CAR (Capital Adequacy) | **24.1%** | <8% = distress; >12% = OK | OJK SJKPublic Aug 2026 |
+| LDR (Loan-to-Deposit) | **88.14%** | >92% = tight liquidity | OJK SJKPublic Aug 2026 |
+| NPL gross | ~**2.5%** | >5% = RED | OJK / news fallback |
+| IndONIA compounded 30d | **~6.19%** | vs DFR 5.25% → corridor status | BI JIBOR page |
+| AT1 secondary (HIMBARA) | **~81.4%** par | <80% = stress threshold | Env pin |
+| GWM (reserve ratio) | **7.0%** | dipotong dari 9% Oct 23 2026 | BI press release |
+| Deposito share DPK | **~52.5%** | >55% = hot money dominant | BI SEKI TabXXII |
+| P2P NPL (fintech) | **5.0%** | >3% = elevated | OJK IKNB Jun 2026 |
+
+**Scoring active flags (Nov 2026):**
+- **Brunnermeier-Pedersen liquidity spiral ACTIVE 3/3**: AT1 <85% + SBN z>2.0 + IHSG disc >35% → +15 M8 score
+- **Diamond-Dybvig runCoordination**: elevated (tidak critical); LPS fund adequacy ~3.1% (threshold <2%)
+- **GWM cut Oct 23**: sinyal BI injeksi likuiditas — M8 direction flag = loosening (relief, bukan panic)
+- **HIMBARA AT1 $1.45B** (BNI $700M Apr + Mandiri $750M Sep 2026): FX mismatch on capital base; monitored M8
+
+**Key watch:**
+- OJK SJKPublic portal auto-fetch: CAR+LDR dari MetricID=338; DPK split dari MetricID=331 (Playwright XMLA intercept)
+- NPL stays news fallback (OJK API tidak ekspos NPL via XMLA)
+- PDN (Posisi Devisa Neto) env pin `BANK_PDN_PCT` — OJK WAF blocks scrape
+
+---
+
+## 🌐 External Debt & Sovereign [M2+M13]
+
+### ULN Nov 2026
+
+| Metric | Nilai | Threshold | Source |
+|--------|-------|-----------|--------|
+| ULN total | **$458.9B** (Q3 2026) | BI SULNI SP 28/251/DKom Nov 16 |
+| ULN/GDP (Lapsem basis) | **~31.2%** | >50% = IMF watch; Indonesia structural ~38-40% historical peak | GDP USD denominator Rp17,500 |
+| SULNI Tier-1 DSR | **13.31%** (Q3 2026) | >19.5% (calibrated threshold) | BI ZIP auto-fetch Nov 16 |
+| Short-term ULN | **15.70%** of total | >20% = rollover risk | SULNI Q3 Nov 16 |
+| Greenspan-Guidotti | cadev/ST ULN | threshold <1.0x = RED | M13 engine |
+| CAD Q2 2026 | **−3.3% GDP** | >3% = R&R danger zone 🔴 | BI data |
+
+**Engine:** Dual-track scoring — SULNI Tier-1 auto-fetch (sulni-dsr.ts ZIP download) **primary**; World Bank API fallback (12-18 month lag). Env pin `SULNI_DSR_TIER1_PCT` = emergency override when ZIP fails.
+
+**R-g dynamics** (Chatib Basri signal): r − g = 1.0% (BI Rate 6.0% − growth 5.0%) → interest payments compound faster than GDP growth when primary balance deteriorates. Lihat `/rr` page untuk full r-g framework.
+
+---
+
+## 👥 Tekanan Domestik & Politik [M11+M12]
+
+### Domestic Pressure — M11
+
+| Signal | Nilai Nov 2026 | Status |
+|--------|---------------|--------|
+| Pertalite gap | **Rp6,676/L** | 🟠 ORANGE |
+| Solar B50 gap | **Rp13,347/L** | 🔴 RED |
+| Subsidi energi run-rate | **419% of APBN baseline** | 🔴 RED |
+| ICP vs threshold | $88.3 vs $70 APBN | 🟠 +26% |
+| PIHPS food basket | 10 komoditas pangan; minyak goreng + cabai elevated | 🟡 |
+
+**B50 Solar cost mechanics:** FAME dari CPO lebih mahal ~Rp3,000-5,000/L vs MOPS Gasoil equivalen. Dengan B50, blended cost Solar = 50% × MOPS + 50% × FAME + distribusi → gap vs pump price Rp6,800 signifikan lebih lebar dari B40.
+
+### Political Risk — M12
+
+| Signal | Nilai Nov 2026 | Status |
+|--------|---------------|--------|
+| Prabowo approval | **~63%** (3-month rolling) | 🟡 (threshold <55% = ORANGE) |
+| Demo intensity | **61 titik Oct 29** (PHK + MSCI + karhutla) | 🟠 |
+| PHK YTD | **~90k pekerja** | 🟠 (threshold >100k = RED) |
+| Veto player score | **High** — Gerindra + Golkar + PKB blocking reform | 🟠 |
+| Elite narrative breakdown | **Hashim Rp22.000 warning (Oct 29)** | 🔴 signal |
+
+**Key dynamic:** M12 score 88/100 RED. Prabowo approval masih di atas threshold, tapi PHK + demo + MSCI shock terus menekan. Panda exposé + Hashim warning = **narrative credibility collapse** (M6 kreatif, M12 ikut). Jika approval turun ke <55% dan maintained 14 hari → KS#1 kill switch fires (tapi itu buat Thesis berakhir, bukan eskalasi).
 
 ---
 
