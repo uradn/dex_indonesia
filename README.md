@@ -292,9 +292,8 @@ DOOM LOOP TERRITORY: CAR erosion 3.26pp (threshold >1.5pp)
 - **⚠️ Morris-Shin ALERT ACTIVE**: oil belief dispersion (CV>12%) + CDS velocity +4.4bps/wk + **DNDF 1M failure** → self-fulfilling attack window MELEBAR; confidence gate VULNERABILITY ZONE (net DC-AC +14); SRBI sterilization burden 38.7% cadev; catalyst watch: Pertamina loss disclosure, APBN Kita quarterly
 - **⚠️ SRBI DATA STALE 21d** — LOW CONFIDENCE on M3 score; sterilization stress signal degraded
 - **⚠️ TRANSMISSION UNDERWAY (SSS=100/100)**: political stress **88/100 🔴** transmitting to financial markets (avg 41/100). Gap CLOSING — forced-sell and mandate-exit mechanics EXECUTION PHASE, not forecast. Silent phase over.
-- **⚠️ MSCI SAIR Nov 12 T-6d 🔴** — Semi-Annual Index Review: free-float exclusions + Standalone confirmation. Bryant ETF mechanics PEAK FORCED-SELL PERIOD.
+- **✅ MSCI SAIR Nov 12 DONE** — Standalone consultation confirmed; free-float exclusions executed; `MSCI_SAIR_DATE` → `2027-05-08`. Next stage-gate: consultation close **Apr 30 2027** → decision **Jun 30 2027**. P(reversal) auto-formula ~13% base + 5pp Fernandez Nov10 = **~18%** on `/bs`.
 - **⚠️ PHK**: 1.100 pekerja at risk 30d window (trend signal); 2 tahun Prabowo-Gibran berlangsung — public discontent spills to streets (ABC News)
-- **⚠️ IHSG Oct 16 CLOSE: 5,204 (−11.25%, −659pts)** — circuit breaker 08:58 WIB; **IDX circuit breaker flag active 21d** (fired Oct 16; flag active 30d — expires ~Nov 15)
 - **⚠️ Gelombang Demo Jakarta Oct 20–29**: (1) **Oct 20** — tuntutan lapangan kerja + karhutla; BBM langka Bali; 2th Prabowo (2) **Oct 28 (Hari Sumpah Pemuda)** — 53 elemen di Bundaran HI, Monas, DPR/MPR, Tugu Tani; BEM UI + Komite Sadar tema *"Tepati atau Pergi"*; three-finger salute; spanduk "Prabowo-Gibran Gagal Total" + "All Eyes on Karhutla" (3) **Oct 29** — 61 titik aksi (Polda Metro Jaya); BEM SI se-Jabodetabek, BEM UNJ, Trisakti, Federasi Serikat Pekerja Global, Gerakan Ojol Bersatu, UMKM; kawasan Monas, DPR/MPR, Istana Negara, kementerian
 - **⚠️ HASHIM DJOJOHADIKUSUMO — INNER CIRCLE IDR WARNING (Oct 29, Rapimnas Kadin 2026)**
 
@@ -391,6 +390,11 @@ Thesis #15 hari ke-7: 103.1→192bps / 18,158→20,327 / 7.711→9.11% | T+90=Fe
 RED: M10 fiscal 100 · M12 polrisk 88 · M4 cmdy 78 · M11 dom 77 | ORANGE: M3 FX 57 (ATTACK ZONE) | YELLOW: M8 bank 43 · M6 narr 48 · M2 sov 34 | GREEN: M5 flow 28 · M1 BoP 25 · M9 mkt 0 · M13 ULN 5
 ⚠ Brent $88.3 relief (dari $112 peak Oct) + IHSG breadth recovery (A/D 2.14) → SCD drop 92→63%; SRBI bid-cover 1.49x (early outflow signal) | Calvo +2.24pp | PHK 90k YTD | ULN/GDP **31.2%** (Lapsem 17,500 basis)
 Thesis #15 hari ke-8: 99.6→192bps / 18,131→20,327 / 7.712→9.11% | T+90=Feb 14 2027 | all KS inactive
+
+**📅 Nov 25 2026** | SCD **65% 🟠** | 5/13 | IHSG **5,242** | A/D **2.14** 🟢 | CDS **99.6bps** | SBN 10Y **7.712%** | USDIDR **18,131** | Brent **$88.3/bbl** | Reserves **$146.8bn** (eff $138.8bn)
+RED: M10 fiscal 100 · M12 polrisk 91 · M4 cmdy 79 · M11 dom 77 | ORANGE: M3 FX 57 (ATTACK ZONE) | YELLOW: M8 bank 43 · M6 narr 47 · M2 sov 34 | GREEN: M5 flow 28 · M1 BoP 25 · M9 mkt 0 · M13 ULN 5
+✅ README Session 2 complete (thematic restructure — 6 sub-headers Live Readings, Batubara/CPO/Nikel expand, TDL/PLN expand, 3 new ## sections) | MSCI SAIR Nov 12 DONE logged | MSCI_REVERSAL_PROBABILITY_OVERRIDE unset → auto ~18%
+Thesis #15 hari ke-9: 99.6→192bps / 18,131→20,327 / 7.712→9.11% | T+90=Feb 14 2027 | all KS inactive | 5 reform conditions PENDING
 
 - **🤝 FERNANDEZ + PRABOWO DIRECT CALL — MSCI SOFTENING (Nov 23, Bloomberg Investigasi)**
 
