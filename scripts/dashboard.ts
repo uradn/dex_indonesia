@@ -3172,8 +3172,8 @@ function renderGameTheory(thesis, snap, dbRecord) {
 
   // Morris-Shin confidence gate + signal precision — read actual zone from engine (via DB components)
   const m3Score   = ms['fx_defense']?.score ?? 0;
-  const rawGate   = (ms['fx_defense'] as Record<string, unknown> | undefined)?.gateZone as string | undefined ?? null;
-  const gateNet   = (ms['fx_defense'] as Record<string, unknown> | undefined)?.gateNet as number | undefined ?? null;
+  const rawGate   = ms['fx_defense']?.gateZone ?? null;
+  const gateNet   = ms['fx_defense']?.gateNet ?? null;
   const gateState = rawGate === 'attack'    ? 'ATTACK ZONE'
                   : rawGate === 'safe'      ? 'SAFE'
                   : rawGate === 'vulnerable' ? 'VULN. ZONE'
