@@ -406,8 +406,8 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
     const g = Math.abs(usdidrVsApbn);
     divs.push({
       id: 'idr_apbn_gap',
-      label: 'IDR vs APBN 16,500',
-      market: 'APBN assumes 16,500',
+      label: 'IDR vs APBN UU 16,500',
+      market: 'UU target 16,500 (Lapsem: 17,500)',
       structural: `Actual ${usdidr ? Math.round(usdidr).toLocaleString('id') : '—'} (+${g.toFixed(1)}%)`,
       gap: g,
       unit: '%',
@@ -479,7 +479,7 @@ function computeThesis(snap: ReturnType<typeof buildSnapshot>): ComputedThesis {
     triggerIndicator = 'political_risk_score'; triggerThreshold = 75; triggerDirection = 'above';
     triggerLabel = 'Political risk score stays >75 for 30d OR SBN foreign ownership <11%';
   } else if (primary.id === 'idr_apbn_gap') {
-    thesisStatement = `IDR trading ${usdidrVsApbn?.toFixed(1)}% above APBN 16,500 assumption. Fiscal math built on stale FX rate; each +1,000 IDR/USD adds ~IDR 4-5T to debt service. Convergence requires either fiscal rebase or IDR crash.`;
+    thesisStatement = `IDR trading ${usdidrVsApbn?.toFixed(1)}% above APBN UU 16,500 (${usdidrVsApbn !== null ? Math.max(0, usdidrVsApbn - ((17500 - 16500) / 16500 * 100)).toFixed(1) : '—'}% above Lapsem 17,500). Fiscal math built on stale FX rate; each +1,000 IDR/USD adds ~IDR 4-5T to debt service. Convergence requires either fiscal rebase or IDR crash.`;
     triggerIndicator = 'usdidr_spot'; triggerThreshold = 19000; triggerDirection = 'above';
     triggerLabel = 'USDIDR breaks above 19,000 (APBN +15.2%)';
   } else if (primary.id === 'cds_narrative_gap') {
@@ -999,7 +999,7 @@ function renderMonetary(d) {
 
   return [
     kv('USDIDR', fmtK(usdidr), usdidrCls),
-    kv('vs APBN 16,500', usdidrGap != null ? (usdidrGap > 0 ? '+' : '') + usdidrGap + '%' : '—', usdidrGap > 9 ? 'orange' : usdidrGap > 6 ? 'yellow' : 'green'),
+    kv('vs APBN UU 16,500', usdidrGap != null ? (usdidrGap > 0 ? '+' : '') + usdidrGap + '%' : '—', usdidrGap > 9 ? 'orange' : usdidrGap > 6 ? 'yellow' : 'green'),
     kv('BI Rate', bi ? fmtNum(bi, 2) + '%' : '—', bi >= 5.5 ? 'orange' : ''),
     kv('SBN 10Y', sbn ? fmtNum(sbn, 2) + '%' : '—', sbn >= 7.5 ? 'orange' : sbn >= 7.0 ? 'yellow' : ''),
     kv('Term Premium', tp != null ? fmtNum(tp, 2) + '%' : '—', tpCls),
@@ -2225,7 +2225,7 @@ function renderRR(d) {
   const ust      = ind['ust_10y_yield_pct']?.value ?? null;
   const carry    = (bi != null && ust != null) ? +(bi - ust).toFixed(2) : null;
   const usdidr   = ind['usdidr_spot']?.value ?? null;
-  const apbnRate = 16500;
+  const apbnRate = 17500; // Lapsem Jun 2026 operational anchor (R&R stress = deviation from active fiscal plan, not UU 16,500)
   const pppDev   = usdidr != null ? +(((usdidr - apbnRate) / apbnRate) * 100).toFixed(1) : null;
   const sbn      = ind['sbn_10y_yield_pct']?.value ?? null;
   const gdp      = ind['gdp_growth_pct']?.value ?? null;
@@ -2254,7 +2254,7 @@ function renderRR(d) {
     },
     {
       fw: 'PPP Misalignment',
-      theory: 'Purchasing Power Parity — IDR vs APBN 16,500 proxy',
+      theory: 'Purchasing Power Parity — IDR vs Lapsem 17,500 anchor (UU orig: 16,500)',
       signal: pppDev != null ? (pppDev > 0 ? '+' : '')+fmtNum(pppDev,1)+'% (IDR '+Math.round(usdidr).toLocaleString('id')+')' : '—',
       cls: pppCls,
       label: pppDev != null ? (pppDev > 15 ? 'VERY WEAK' : pppDev > 9 ? 'WEAK' : pppDev > 5 ? 'WATCH' : 'OK') : '—',
@@ -2543,7 +2543,7 @@ function renderTradeTrend(t, snap) {
   // Empirical: Δ$10/bbl Brent ≈ ±$1.5–2bn/month trade balance (BPS Apr 2026 = $4.6B/mo)
   // Oil import bill ~ brent × 15M bbl × 1.15 (refined premium) ÷ 1e9
   const OIL_VOL_MBL = 15;      // million barrels/month net import
-  const ICP_APBN    = 70;      // APBN 2026 ICP assumption USD/bbl
+  const ICP_APBN    = 70;      // APBN 2026 ICP assumption USD/bbl — UU No.17/2025 (legal benchmark); Lapsem Jun 2026 revised to $83/bbl. Oil bill gap shown vs UU $70 to reflect full fiscal deviation from original plan.
   const brent       = snap?.indicators?.['brent_price_usd']?.value ?? null;
   const usdidr      = snap?.indicators?.['usdidr_spot']?.value ?? null;
 

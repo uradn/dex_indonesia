@@ -254,8 +254,10 @@ export async function runPoliticalRiskEngine(): Promise<PoliticalRiskOutput> {
   //   Uses M12's own signals (not M12 score itself) to avoid circular dependency.
   const polEconPResist = blendedUnrestScore >= 70 ? 0.85 : blendedUnrestScore >= 45 ? 0.65 : 0.40;
 
-  // Brent-adjusted holdEV: fiscal drag worsens as ICP rises above APBN $70/bbl assumption.
-  // Brent >$100 = subsidi overrun >$5bn/yr → holdEV worsens to -28.
+  // Brent-adjusted holdEV: fiscal drag worsens as Brent rises above political thresholds.
+  // Thresholds: $90 (Hormuz risk zone) / $100 (Bahlil commitment ceiling, Apr 2026).
+  // Reference: APBN UU $70 / Lapsem $83 — both already breached; thresholds here are POLITICAL not APBN.
+  // Brent >$100 = Bahlil commitment broken, subsidi overrun >$5bn/yr → holdEV worsens to -28.
   const brentPt = await getLatestPoint('brent_price_usd');
   const brentUsd = brentPt?.value ?? 85;
   const polEconHoldEV = brentUsd > 100 ? -28 : brentUsd > 90 ? -22 : -18;

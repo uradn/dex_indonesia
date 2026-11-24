@@ -231,7 +231,7 @@ export async function runDomesticPressureEngine(): Promise<DomesticPressureOutpu
   const bbmPertalitePrice = DOMESTIC_FUEL_PRICES.pertalite_price_idr_liter;
   const bbmSolarPrice = DOMESTIC_FUEL_PRICES.solar_price_idr_liter;
   const brentUsd = brentPoint?.value ?? 70;
-  const usdIdr = usdIdrPoint?.value ?? 16_500;
+  const usdIdr = usdIdrPoint?.value ?? 17_500; // Lapsem Jun 2026 fallback (not UU 16,500 — avoids understating cost recovery when data unavailable)
 
   // Pertalite (RON 90) — cost basis: Brent proxy
   const bbmCostRecovery = computeCostRecovery(brentUsd, usdIdr);
