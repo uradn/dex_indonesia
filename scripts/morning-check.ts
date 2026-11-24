@@ -54,15 +54,18 @@ const [fx, bop, sov, flow, commodity, regime, aseanRv, narrative, banking, marke
 // Mirrors the scoring logic in silent-crisis-detector.ts getModuleScores() runners.
 // Saves each module to DB here so computeSilentCrisis receives pre-verified scores.
 const moduleScores: ModuleScore[] = [];
-function addScore(mod: string, score: number, alertLevel: AlertLevel, flags?: string[]) {
+function addScore(mod: string, score: number, alertLevel: AlertLevel, flags?: string[], extra?: Record<string, unknown>) {
   const s = Math.round(score);
   moduleScores.push({ module: mod, score: s, alertLevel, available: true });
-  saveModuleScore(mod, s, alertLevel, flags?.length ? { flags } : {}).catch(() => {});
+  const components: Record<string, unknown> = {};
+  if (flags?.length) components.flags = flags;
+  if (extra) Object.assign(components, extra);
+  saveModuleScore(mod, s, alertLevel, components).catch(() => {});
 }
 function addFailed(mod: string) {
   moduleScores.push({ module: mod, score: 0, alertLevel: 'green', available: false });
 }
-if (fx.status        === 'fulfilled') addScore('fx_defense',       fx.value.scoreCard.score,                    fx.value.scoreCard.alertLevel,   fx.value.scoreCard.flags);       else addFailed('fx_defense');
+if (fx.status        === 'fulfilled') addScore('fx_defense',       fx.value.scoreCard.score,                    fx.value.scoreCard.alertLevel,   fx.value.scoreCard.flags, { gateZone: fx.value.confidenceGate?.zone ?? 'vulnerable', gateNet: fx.value.confidenceGate?.netScore ?? 0, dcScore: fx.value.confidenceGate?.defenseCostIndex ?? 0, acScore: fx.value.confidenceGate?.abandonmentCostIndex ?? 0 }); else addFailed('fx_defense');
 if (bop.status       === 'fulfilled') addScore('bop',              bop.value.scoreCard.score,                   bop.value.scoreCard.alertLevel,  bop.value.scoreCard.flags);      else addFailed('bop');
 if (sov.status       === 'fulfilled') addScore('sovereign_risk',   sov.value.sovereignRiskScore,                sov.value.scoreCard.alertLevel,  sov.value.scoreCard.flags);      else addFailed('sovereign_risk');
 if (flow.status      === 'fulfilled') addScore('foreign_flow',     flow.value.scoreCard.score,                  flow.value.scoreCard.alertLevel, flow.value.scoreCard.flags);     else addFailed('foreign_flow');

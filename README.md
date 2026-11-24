@@ -290,7 +290,7 @@ DOOM LOOP TERRITORY: CAR erosion 3.26pp (threshold >1.5pp)
 
 - **⚠️ DNDF 1M ZERO BIDS Oct 27**: BI tawarkan forward Rp18,199/USD 1 bulan — **tidak ada pembeli**. NDF offshore 18,210. Artinya: pasar ekspektasi IDR >18,199 dalam 1 bulan. Forward anchor BI gagal. `USDIDR_NDF_1M_RATE=18210` diset.
 - **⚠️ Morris-Shin ALERT ACTIVE**: oil belief dispersion (CV>12%) + CDS velocity +4.4bps/wk + **DNDF 1M failure** → self-fulfilling attack window MELEBAR; confidence gate VULNERABILITY ZONE (net DC-AC +14); SRBI sterilization burden 38.7% cadev; catalyst watch: Pertamina loss disclosure, APBN Kita quarterly
-- **⚠️ SRBI DATA STALE 21d** — LOW CONFIDENCE on M3 score; sterilization stress signal degraded
+- **⚠️ SRBI TREND ALERT**: Nov 6 = **4.92x** (Rp36.9T/Rp7.5T, solid) → Nov 20 = **1.49x** (Rp59.7T/Rp40T) — bid-cover COLLAPSED 2 minggu pasca rate hike. BI naikkan allotment 5× (sterilisasi agresif); demand tidak ikut. Foreign inflow $1B+ via SRBI Nov 20 (CNBC). Next auction: **~Dec 4-5**.
 - **⚠️ TRANSMISSION UNDERWAY (SSS=100/100)**: political stress **88/100 🔴** transmitting to financial markets (avg 41/100). Gap CLOSING — forced-sell and mandate-exit mechanics EXECUTION PHASE, not forecast. Silent phase over.
 - **✅ MSCI SAIR Nov 12 DONE** — Standalone consultation confirmed; free-float exclusions executed; `MSCI_SAIR_DATE` → `2027-05-08`. Next stage-gate: consultation close **Apr 30 2027** → decision **Jun 30 2027**. P(reversal) auto-formula ~13% base + 5pp Fernandez Nov10 = **~18%** on `/bs`.
 - **⚠️ PHK**: 1.100 pekerja at risk 30d window (trend signal); 2 tahun Prabowo-Gibran berlangsung — public discontent spills to streets (ABC News)

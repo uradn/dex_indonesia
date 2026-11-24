@@ -119,8 +119,8 @@ const MODULE_WEIGHTS: Record<string, number> = {
 async function getModuleScores(): Promise<ModuleScore[]> {
   const scores: ModuleScore[] = [];
 
-  const runners: Array<{ module: string; run: () => Promise<{ score: number; alertLevel: AlertLevel; flags?: string[] }> }> = [
-    { module: 'fx_defense', run: async () => { const r = await runFxDefenseEngine(); return { score: r.scoreCard.score, alertLevel: r.scoreCard.alertLevel, flags: r.scoreCard.flags }; } },
+  const runners: Array<{ module: string; run: () => Promise<{ score: number; alertLevel: AlertLevel; flags?: string[]; extra?: Record<string, unknown> }> }> = [
+    { module: 'fx_defense', run: async () => { const r = await runFxDefenseEngine(); return { score: r.scoreCard.score, alertLevel: r.scoreCard.alertLevel, flags: r.scoreCard.flags, extra: { gateZone: r.confidenceGate?.zone ?? 'vulnerable', gateNet: r.confidenceGate?.netScore ?? 0, dcScore: r.confidenceGate?.defenseCostIndex ?? 0, acScore: r.confidenceGate?.abandonmentCostIndex ?? 0 } }; } },
     { module: 'bop',        run: async () => { const r = await runBoPEngine();       return { score: r.scoreCard.score, alertLevel: r.scoreCard.alertLevel, flags: r.scoreCard.flags }; } },
     { module: 'sovereign_risk', run: async () => { const r = await runSovereignRiskEngine(); return { score: r.sovereignRiskScore, alertLevel: r.scoreCard.alertLevel, flags: r.scoreCard.flags }; } },
     { module: 'foreign_flow',   run: async () => { const r = await runForeignFlowEngine();  return { score: r.scoreCard.score, alertLevel: r.scoreCard.alertLevel, flags: r.scoreCard.flags }; } },
@@ -143,7 +143,9 @@ async function getModuleScores(): Promise<ModuleScore[]> {
         const result = await run();
         const roundedScore = Math.round(result.score);
         scores.push({ module, score: roundedScore, alertLevel: result.alertLevel, available: true });
-        const components = result.flags && result.flags.length > 0 ? { flags: result.flags } : {};
+        const components: Record<string, unknown> = {};
+        if (result.flags && result.flags.length > 0) components.flags = result.flags;
+        if (result.extra) Object.assign(components, result.extra);
         saveModuleScore(module, roundedScore, result.alertLevel, components).catch(() => {});
       } catch {
         scores.push({ module, score: 0, alertLevel: 'green', available: false });

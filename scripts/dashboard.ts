@@ -306,6 +306,9 @@ function buildSnapshot() {
       msciReformHscRules:      process.env.MSCI_REFORM_HSC_RULES       ?? 'pending',
       msciReformLq45:          process.env.MSCI_REFORM_LQ45            ?? 'pending',
       msciReformCriminal:      process.env.MSCI_REFORM_CRIMINAL        ?? 'pending',
+      msciNov30RebalUsdMn:     process.env.MSCI_NOV2026_REBALANCING_OUTFLOW_USD_BN
+                                 ? Math.round(parseFloat(process.env.MSCI_NOV2026_REBALANCING_OUTFLOW_USD_BN) * 1000)
+                                 : 270,
     };
     // Read latest module scores from DB (written by SCD / morning-check)
     const moduleScores: Record<string, { score: number; alertLevel: string; computedAt: string; flags: string[] }> = {};
@@ -316,11 +319,14 @@ function buildSnapshot() {
       ).all();
       for (const r of rows) {
         let flags: string[] = [];
+        let extra: Record<string, unknown> = {};
         try {
           const comp = JSON.parse(r.components || '{}');
           if (Array.isArray(comp.flags)) flags = comp.flags;
+          const { flags: _f, ...rest } = comp;
+          extra = rest;
         } catch {}
-        moduleScores[r.module] = { score: r.score, alertLevel: r.alert_level, computedAt: r.computed_at, flags };
+        moduleScores[r.module] = { score: r.score, alertLevel: r.alert_level, computedAt: r.computed_at, flags, ...extra };
       }
     } catch {}
     return { indicators: data, derived: { termPremium, sbnUstSpread, usdidrVsApbn, cds }, aseanFx, envFlags, moduleScores, ts: new Date().toISOString() };
@@ -3164,10 +3170,16 @@ function renderGameTheory(thesis, snap, dbRecord) {
   const cvF   = cvPct !== null ? parseFloat(cvPct) : null;
   const cvCls = cvF !== null && cvF > 25 ? 'red' : cvF !== null && cvF > 15 ? 'orange' : 'yellow';
 
-  // Morris-Shin confidence gate + signal precision
-  const m3Score  = ms['fx_defense']?.score ?? 0;
-  const gateState = m3Score >= 50 ? 'VULN. ZONE' : m3Score >= 33 ? 'WATCH' : 'STABLE';
-  const gateCls   = m3Score >= 50 ? 'orange' : m3Score >= 33 ? 'yellow' : 'green';
+  // Morris-Shin confidence gate + signal precision — read actual zone from engine (via DB components)
+  const m3Score   = ms['fx_defense']?.score ?? 0;
+  const rawGate   = (ms['fx_defense'] as Record<string, unknown> | undefined)?.gateZone as string | undefined ?? null;
+  const gateNet   = (ms['fx_defense'] as Record<string, unknown> | undefined)?.gateNet as number | undefined ?? null;
+  const gateState = rawGate === 'attack'    ? 'ATTACK ZONE'
+                  : rawGate === 'safe'      ? 'SAFE'
+                  : rawGate === 'vulnerable' ? 'VULN. ZONE'
+                  : m3Score >= 50 ? 'VULN. ZONE' : m3Score >= 33 ? 'WATCH' : 'STABLE';
+  const gateCls   = rawGate === 'attack' ? 'red' : rawGate === 'safe' ? 'green' : m3Score >= 50 ? 'orange' : m3Score >= 33 ? 'yellow' : 'green';
+  const gateNetStr = gateNet !== null ? (gateNet > 0 ? '+' + gateNet : String(gateNet)) : '';
   const pe        = ind['ihsg_pe_ratio']?.value ?? null;
   const peDisc    = pe !== null ? ((14.8 - pe) / 14.8 * 100).toFixed(1) : null;
   const precCls   = peDisc !== null && parseFloat(peDisc) > 35 ? 'red' : peDisc !== null && parseFloat(peDisc) > 20 ? 'orange' : 'green';
@@ -3336,6 +3348,18 @@ function renderGameTheory(thesis, snap, dbRecord) {
           <span class="red" style="font-weight:700">SAIR \${snap?.envFlags?.sairDate ?? '2027-05-01'}</span>
           <span style="color:var(--muted);margin-left:4px">T-\${Math.max(0, Math.round((new Date(snap?.envFlags?.sairDate ?? '2027-05-01').getTime() - Date.now()) / 86400000))}d · next stage-gate: free-float exclusions + Standalone stage 2</span>
         </div>
+        \${(function(){
+          const nov30 = new Date('2026-11-30T16:00:00+07:00');
+          const daysLeft = Math.round((nov30.getTime() - Date.now()) / 86400000);
+          const rebUsd = snap?.envFlags?.msciNov30RebalUsdMn ?? 270;
+          if (daysLeft < -7) return '';
+          const cls = daysLeft <= 0 ? 'green' : daysLeft <= 3 ? 'red' : 'orange';
+          const label = daysLeft <= 0 ? 'NOV 30 REBAL ✓ DONE' : 'NOV 30 REBAL T-' + daysLeft + 'd';
+          const detail = daysLeft <= 0
+            ? 'BRPT full exit + BRMS SmCap + 7 removals ($' + rebUsd + 'mn) — executed'
+            : 'BRPT full exit + BRMS SmCap + 7 removals — forced-sell ~$' + rebUsd + 'mn at close';
+          return '<div style="background:rgba(230,162,60,.1);border:1px solid var(--' + cls + ');border-radius:3px;padding:3px 7px;font-size:9px"><span class="' + cls + '" style="font-weight:700">' + label + '</span><span style="color:var(--muted);margin-left:4px">' + detail + '</span></div>';
+        })()}
       </div>
     </div>
 
@@ -3343,8 +3367,8 @@ function renderGameTheory(thesis, snap, dbRecord) {
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:12px">
       <div style="border:1px solid var(--\${gateCls});border-radius:4px;padding:7px 8px">
         <div style="font-size:8px;color:var(--muted);text-transform:uppercase">Confidence Gate</div>
-        <div class="\${gateCls}" style="font-size:12px;font-weight:700;margin-top:3px">\${gateState}</div>
-        <div style="font-size:8px;color:var(--muted);margin-top:2px">M3 FX Defense \${m3Score}/100</div>
+        <div class="\${gateCls}" style="font-size:12px;font-weight:700;margin-top:3px">\${gateState}\${gateNetStr ? ' (DC' + gateNetStr + ')' : ''}</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px">M3 FX Defense \${m3Score}/100 · \${rawGate === 'attack' ? 'attack regardless of coordination' : rawGate === 'safe' ? 'defense dominant — no attack rational' : 'coordination required to attack'}</div>
       </div>
       <div style="border:1px solid var(--\${precCls});border-radius:4px;padding:7px 8px">
         <div style="font-size:8px;color:var(--muted);text-transform:uppercase">Signal Precision</div>
