@@ -682,7 +682,7 @@ function formatOutput(output: FxDefenseEngineOutput): string {
       `|--------|-------|-------|`,
       `| Fiscal constraint (APBN deficit) | ${output.escapeClause.deficitPctGdp?.toFixed(2) ?? 'n/a'}% GDP | ${output.escapeClause.components.fiscalSignal}/40 |`,
       `| SRBI quasi-fiscal drain | ${output.escapeClause.srbiCostTrn?.toFixed(0) ?? 'n/a'}T IDR/yr | ${output.escapeClause.components.srbiSignal}/30 |`,
-      `| IDR deviation from APBN anchor | ${output.escapeClause.idrDevPct.toFixed(1)}% (anchor: 16,500) | ${output.escapeClause.components.idrDeviationSignal}/30 |`,
+      `| IDR deviation from APBN anchor | ${output.escapeClause.idrDevPct.toFixed(1)}% (Lapsem anchor: 17,500; UU orig: 16,500) | ${output.escapeClause.components.idrDeviationSignal}/30 |`,
       `_L=(y*−y)²+λ(e−ē)²: government defends peg while defense cost < escape clause threshold. [Obstfeld 1994/1996]_`,
       ``,
     ].join('\n') : '',

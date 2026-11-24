@@ -81,7 +81,10 @@ Low hedging compliance + ULN growth > GDP growth + IDR weakening
 
 // APBN 2026 macro constants for derived ratios
 const GDP_IDR_TRN = 25_714.2;   // IDR trillion
-const GDP_USD_BN_AT_16500 = (GDP_IDR_TRN * 1e12) / (16_500 * 1e9); // ≈ 1,558 bn USD
+// Lapsem Jun 2026 rate (Rp17,500) used for GDP USD conversion — not UU original 16,500.
+// Using 16,500 overstates GDP_USD by ~6% → understates ULN/GDP stress.
+// Source: Kemenkeu APBN KiTa Nov 2026, Hidayat Amir (Plt. DJA), Nov 13-14 2026.
+const GDP_USD_BN_AT_LAPSEM = (GDP_IDR_TRN * 1e12) / (17_500 * 1e9); // ≈ 1,470 bn USD at Lapsem Rp17,500
 
 const ULN_KPI_TTL_MS = 48 * 3_600_000; // 48h — ULN is quarterly, no need to re-scrape daily
 
@@ -292,7 +295,7 @@ export async function runUlnEngine(): Promise<UlnEngineOutput> {
   // 6. Derived metrics
   let ulnGdpRatio: number | null = null;
   if (ulnTotal !== null) {
-    ulnGdpRatio = parseFloat(((ulnTotal / GDP_USD_BN_AT_16500) * 100).toFixed(1));
+    ulnGdpRatio = parseFloat(((ulnTotal / GDP_USD_BN_AT_LAPSEM) * 100).toFixed(1));
   }
 
   let greenspanGuidotti: number | null = null;

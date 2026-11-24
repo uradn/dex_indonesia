@@ -583,7 +583,7 @@ function formatOutput(output: NarrativeDivergenceOutput): string {
     ``,
     output.flags.length > 0 ? `## Active Divergences\n${output.flags.map((f) => `- ⚠️ ${f}`).join('\n')}` : '## No Critical Divergences Detected',
     ``,
-    `_APBN 2026 assumptions: UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025 (Revenue 3,154T | Spending 3,843T | Deficit 2.68% GDP; post-efisiensi spending ~3,534T). APBN macro: USDIDR 16,500 | ICP $70/bbl | GDP 5.4% | CPI 2.5% | SBN10Y 6.9%._`,
+    `_APBN 2026 UU No. 17/2025: USDIDR 16,500 | ICP $70/bbl | GDP 5.4% | CPI 2.5% | SBN10Y 6.9% | Revenue 3,154T | Spending 3,843T | Deficit 2.68% GDP; post-efisiensi ~3,534T. **Lapsem Jun 2026 revision**: USDIDR 17,500 | ICP $83/bbl | Subsidi+Kompensasi energi Rp338T→Rp500T (sumber: Plt. DJA Hidayat Amir, APBN KiTa Nov 14 2026). Realisasi YTD Nov'26: kurs avg Rp17,529 | ICP avg $94.4/bbl. M6 divergence scored vs UU original (not Lapsem) — Lapsem = acknowledgment, not revised commitment._`,
   ]
     .filter((l) => l !== '')
     .join('\n');

@@ -71,7 +71,7 @@ function parseDndfText(text: string): number | null {
     }
   }
 
-  // IDR trn fallback — convert at approximate USDIDR 16,500
+  // IDR trn fallback — convert at Lapsem Jun 2026 rate Rp17,500 (APBN UU was 16,500; actual YTD avg Rp17,529)
   const idrPatterns: RegExp[] = [
     /DNDF[^\d]{0,40}(?:Rp\.?\s*|IDR\s*)?(\d+(?:[.,]\d+)?)\s*(?:triliun|trln|T)\b/i,
     /forward[^\d]{0,40}(?:Rp\.?\s*|IDR\s*)?(\d+(?:[.,]\d+)?)\s*(?:triliun|trln|T)\b/i,
@@ -81,8 +81,8 @@ function parseDndfText(text: string): number | null {
     if (m?.[1]) {
       const idrTrn = parseFloat(m[1].replace(',', '.'));
       if (!isNaN(idrTrn) && idrTrn > 0 && idrTrn < 1_500) {
-        // Convert IDR trn → USD bn at ~16,500
-        return parseFloat((idrTrn * 1_000_000_000_000 / 16_500 / 1_000_000_000).toFixed(1));
+        // Convert IDR trn → USD bn at Lapsem Rp17,500 (not UU 16,500 — using 16,500 overstates USD amount)
+        return parseFloat((idrTrn * 1_000_000_000_000 / 17_500 / 1_000_000_000).toFixed(1));
       }
     }
   }

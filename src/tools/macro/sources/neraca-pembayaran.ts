@@ -25,7 +25,7 @@ import type { MacroDataPoint } from '../types.js';
 const NOW = () => new Date().toISOString();
 const FRESHNESS_DAYS = 30;
 
-// GDP 2026 APBN constant (UU No.17/2025): Rp 25,714.2T ≈ USD 1,558B at 16,500
+// GDP 2026 APBN constant (UU No.17/2025): Rp 25,714.2T ≈ USD 1,470B at Lapsem Rp17,500 (UU was 16,500 → USD 1,558B; Lapsem Jun 2026)
 // Use approximate USD GDP for % calculation cross-check
 const INDONESIA_GDP_2026_USD_BN = 1400; // conservative estimate at current IDR
 

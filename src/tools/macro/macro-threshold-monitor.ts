@@ -120,9 +120,11 @@ export const macroThresholdMonitor = new DynamicStructuredTool({
 
     // ── Commodity thresholds ───────────────────────────────────────────
     if (checkCommodity && spots.brent !== null) {
-      const APBN_OIL = 70; // APBN 2026 ICP assumption (UU No.17/2025); APBN 2025 was $82
+      const APBN_OIL = 70;    // APBN 2026 ICP assumption UU No.17/2025 (legal benchmark)
+      const LAPSEM_OIL = 83;  // Lapsem Jun 2026 revised ICP assumption (operational benchmark; source: Kemenkeu APBN KiTa Nov 2026)
       const brentDevPct = ((spots.brent - APBN_OIL) / APBN_OIL) * 100;
-      dataLines.push(`Brent: $${spots.brent.toFixed(1)} (APBN: $${APBN_OIL}, dev: ${brentDevPct >= 0 ? '+' : ''}${brentDevPct.toFixed(1)}%)`);
+      const brentDevLapsem = ((spots.brent - LAPSEM_OIL) / LAPSEM_OIL) * 100;
+      dataLines.push(`Brent: $${spots.brent.toFixed(1)} (APBN UU: $${APBN_OIL} dev ${brentDevPct >= 0 ? '+' : ''}${brentDevPct.toFixed(1)}% | Lapsem: $${LAPSEM_OIL} dev ${brentDevLapsem >= 0 ? '+' : ''}${brentDevLapsem.toFixed(1)}%)`);
       if (Math.abs(brentDevPct) >= MACRO_ALERT_THRESHOLDS.BRENT_VS_APBN_DEVIATION) {
         breaches.push({
           indicator: `Brent vs APBN assumption`,

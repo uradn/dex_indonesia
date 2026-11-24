@@ -62,7 +62,7 @@ const LITERS_PER_BARREL = 158.987;
 // formula: factor = 18,102 × 158.987 / (95.5 × 18,190) = 1.657
 const COST_RECOVERY_FACTOR = 1.657;
 
-export const APBN_ICP_ASSUMPTION    = 70;   // USD/bbl — UU No. 17 Tahun 2025
+export const APBN_ICP_ASSUMPTION    = 70;   // USD/bbl — UU No. 17 Tahun 2025 (legal benchmark); Lapsem Jun 2026 revised to $83/bbl
 export const ICP_SAFETY_THRESHOLD   = 100;  // USD/bbl — Bahlil commitment ceiling, Apr 2026
 export const HORMUZ_WATCH_THRESHOLD = 90;   // USD/bbl — Hormuz escalation risk zone
 

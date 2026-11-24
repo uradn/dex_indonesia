@@ -5,7 +5,7 @@
  * vs APBN 2026 annual targets.
  *
  * WHY SUBSIDI RUN RATE MATTERS:
- *   High oil price + weak IDR → subsidi BBM+LPG cost overshoots APBN assumption ($70/bbl, Rp16,500)
+ *   High oil price + weak IDR → subsidi BBM+LPG cost overshoots APBN assumption ($70/bbl, Rp16,500 UU; Lapsem Jun 2026 revised to $83/bbl, Rp17,500)
  *   Overshoot → fiscal pressure → either hike BBM (social unrest) or blow deficit past 3% GDP
  *   M10 gets early warning of subsidy blowout before it appears in Kemenkeu deficit figures.
  *   Pupuk subsidi overshoot = similar dynamic (LNG feedstock price-linked).

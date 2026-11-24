@@ -149,9 +149,40 @@ DOOM LOOP TERRITORY: CAR erosion 3.26pp (threshold >1.5pp)
 
 ### APBN 2026 Baseline
 
-UU No. 17 Tahun 2025 / Perpres No. 118 Tahun 2025:
-- USDIDR: 16,500 | ICP oil: $70/bbl | GDP growth: 5.4% | CPI: 2.5%
-- Revenue: 3,154T | Spending: 3,843T | Deficit: 2.68% GDP
+#### 3-Layer Architecture: UU → Lapsem → Realisasi
+
+| Layer | Kurs (IDR/USD) | ICP (USD/bbl) | Subsidi+Komp Energi | Mekanisme |
+|---|---|---|---|---|
+| **UU No.17/2025** (legal benchmark) | **16,500** | **$70** | Rp338T (pagu awal) | Disahkan DPR 22 Okt 2025 — benchmark legal, tidak berubah tanpa APBN-P |
+| **Lapsem I Jun 2026** (operational benchmark) | **17,500** | **$83** | **Rp500T** _(+48% dari pagu awal)_ | Laporan Semester I ke DPR Jun 2026 — bukan UU baru; tidak ada APBN-P 2026 |
+| **Realisasi YTD** (APBN KiTa Nov 13 2026) | **17,529** avg · **18,154** EOP (12 Nov) | **$94.4** avg (Oct YTD) | Rp415.8T (93% of Rp500T) | Sensitivitas: +Rp6.1T/belanja per Rp100 kurs; +Rp10.3T per $1 ICP |
+
+> **Verbatim** — Plt. Dirjen Strategi Ekonomi & Fiskal Kemenkeu **Hidayat Amir**, konferensi pers APBN KiTa, **14 November 2026**:
+> *"Yang menonjol adalah nilai tukar waktu itu. Dari Rp 16.500 menjadi Rp 17.500 dan juga harga minyak mentah dunia, dari US$ 70 per barel menjadi US$ 83 per barel. Assessment waktu itu karena memang ketika ada kenaikan biasanya akan segera turun."*
+>
+> *"Sebetulnya, kalau kita lihat deviasinya tidak terlalu tinggi."*
+>
+> Sumber: [Kemenkeu APBN KiTa November 2026 — PDF resmi](https://media.kemenkeu.go.id/getmedia/e15f6400-fc1e-4c21-aa7f-903cc971721d/Publikasi-Web-Konpers-APBN-KITA-Nov-2026.pdf?ext=.pdf) · [Tempo (13 Nov)](https://www.tempo.co/ekonomi/asumsi-makro-apbn-2026-meleset-2304894) · [Investor Trust (14 Nov)](https://investortrust.id/macro/122570/kemenkeu-akui-luput-proyeksi-gejolak-perang-di-timur-tengah-dan-gejolak-domestik)
+
+**Timeline revisi:**
+
+| Tanggal | Event | Angka Kunci |
+|---|---|---|
+| **22 Okt 2025** | UU No.17/2025 disahkan DPR | Kurs Rp16,500 · ICP $70 · Subsidi+Komp Rp338T |
+| **28 Feb 2026** | Perang Iran-AS-Israel meletus | Brent $70 → $113 dalam 2 minggu; kurs mulai tertekan |
+| **Jun 2026** | Lapsem I disampaikan ke DPR | Kurs direvisi Rp17,500 · ICP $83 · Subsidi+Komp Rp500T |
+| **3 Nov 2026** | KSSK — Suahasil konfirmasi | Subsidi+Komp YTD Rp333.9T · avg kurs Rp17,508 · ICP avg $93 |
+| **13-14 Nov 2026** | APBN KiTa konpers | Realisasi: kurs avg **Rp17,529** · ICP avg **$94.4** · Subsidi+Komp **Rp415.8T** |
+| **17 Nov 2026** | JISDOR cetak ATH **Rp18,264** | Rekor terlemah sepanjang sejarah modern (melampaui 1998 AFC) |
+| **17-18 Nov 2026** | RDG BI: hike +25bps → 6.00% | IDR defense + imported inflation — kurs MASIH di atas Lapsem Rp17,500 |
+| **24 Nov 2026** | APBN KiTa today | Kurs spot ~Rp18,212 · Brent $88.97 (relief dari Oct $112 peak) |
+
+**Implikasi fiskal gap vs Lapsem (bukan UU — Lapsem = baseline operasional):**
+- Kurs EOP Rp18,154 vs Lapsem Rp17,500 → gap **Rp654** → tambahan belanja **~Rp39.9T** (Rp654/100 × Rp6.1T)
+- ICP $94.4 vs Lapsem $83 → gap **$11.4** → tambahan belanja **~Rp117.4T** ($11.4 × Rp10.3T)
+- **Total stress di atas Lapsem: ~Rp157T** — belum termasuk lifting miss
+
+**UU No.17/2025 lainnya:** GDP growth 5.4% | CPI 2.5% | SBN 10Y 6.9% | Revenue 3,154T | Spending 3,843T | Deficit 2.68% GDP | Post-efisiensi spending ~3,534.7T | GDP 25,714.2T
 
 **Live deviations (Nov 24, 2026):**
 

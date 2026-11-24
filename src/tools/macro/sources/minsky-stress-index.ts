@@ -130,7 +130,7 @@ export async function computeMinskyStressIndex(): Promise<MinskyStressIndex> {
         keyRisk = `Corporate FX: USDIDR ${Math.round(usdIdrVal).toLocaleString('en')} + hedging ${hedging?.toFixed(1) ?? 'unknown'}% → elevated USD debt service cost`;
       } else if (usdIdrVal > 18_000) {
         regime = 'speculative'; score = 7;
-        keyRisk = `Corporate FX: USDIDR ${Math.round(usdIdrVal).toLocaleString('en')} (above BI APBN assumption 16,500 by ${((usdIdrVal / 16_500 - 1) * 100).toFixed(1)}%) → rising FX debt burden`;
+        keyRisk = `Corporate FX: USDIDR ${Math.round(usdIdrVal).toLocaleString('en')} (above Lapsem Jun'26 anchor 17,500 by ${((usdIdrVal / 17_500 - 1) * 100).toFixed(1)}%; UU orig 16,500) → rising FX debt burden`;
       } else {
         regime = 'hedge'; score = 0;
         keyRisk = `Corporate FX: USDIDR ${Math.round(usdIdrVal).toLocaleString('en')} within manageable range`;
