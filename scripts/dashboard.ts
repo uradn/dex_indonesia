@@ -42,6 +42,55 @@ const NEWS_QUERIES: Record<NewsCategory, string> = {
 let newsCache: NewsCache | null = null;
 let newsRefreshing = false;
 
+// ── MSCI rebalancing news watch ──────────────────────────────────────────────
+const MSCI_REBAL_CACHE_PATH = join(import.meta.dir, '../.dexter/cache/msci-rebal-news.json');
+const MSCI_REBAL_CACHE_TTL_MS = 4 * 3_600_000; // 4h
+
+const MSCI_REBAL_QUERIES: Record<string, string> = {
+  BRPT: 'BRPT "Barito Pacific" MSCI rebalancing asing sell IDX November 2026',
+  BRMS: 'BRMS "Bumi Resources Minerals" MSCI rebalancing sell November 2026',
+  AVIA: 'AVIA MSCI Indonesia rebalancing November 2026 small cap',
+  CTRA: 'CTRA Citraland MSCI rebalancing Indonesia November 2026',
+  MTEL: 'MTEL Mitratel MSCI rebalancing Indonesia November 2026',
+  EMTK: 'EMTK Elang Mahkota MSCI Indonesia November 2026',
+  RAJA: 'RAJA Rukun Raharja MSCI Indonesia rebalancing 2026',
+  WIFI: 'WIFI Solusi Sinergi MSCI Indonesia rebalancing 2026',
+  _general: 'MSCI Indonesia rebalancing November 30 2026 IDX foreign sell outflow',
+};
+
+type MsciRebalCache = { updatedAt: string; results: Record<string, NewsHeadline[]> };
+let msciRebalCache: MsciRebalCache | null = null;
+
+function loadMsciRebalCache(): MsciRebalCache | null {
+  if (msciRebalCache) return msciRebalCache;
+  try {
+    const raw = readFileSync(MSCI_REBAL_CACHE_PATH, 'utf8');
+    msciRebalCache = JSON.parse(raw) as MsciRebalCache;
+    return msciRebalCache;
+  } catch { return null; }
+}
+
+async function getMsciRebalNews(code: string): Promise<NewsHeadline[]> {
+  const cached = loadMsciRebalCache();
+  const now = Date.now();
+  const stale = !cached || (now - new Date(cached.updatedAt).getTime()) > MSCI_REBAL_CACHE_TTL_MS;
+  if (!stale && cached!.results[code]) return cached!.results[code];
+
+  const query = MSCI_REBAL_QUERIES[code] ?? MSCI_REBAL_QUERIES._general;
+  const headlines = await fetchExa(query, 14);
+
+  const existing = (stale ? {} : cached!.results) as Record<string, NewsHeadline[]>;
+  existing[code] = headlines;
+  const updated: MsciRebalCache = { updatedAt: new Date().toISOString(), results: existing };
+  try {
+    const dir = dirname(MSCI_REBAL_CACHE_PATH);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    writeFileSync(MSCI_REBAL_CACHE_PATH, JSON.stringify(updated, null, 2));
+  } catch {}
+  msciRebalCache = updated;
+  return headlines;
+}
+
 function loadNewsCache(): NewsCache | null {
   if (newsCache) return newsCache;
   try {
@@ -5125,6 +5174,32 @@ async function loadEmiten() {
         </table>
       </div>\`;
     loadEmitenHistory(code);
+
+    if (msciDropLabel) {
+      const newsEl = document.createElement('div');
+      newsEl.id = 'msci-watch-news';
+      newsEl.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:6px 0">↻ Memuat berita MSCI terkait ' + esc(code) + '…</div>';
+      el.appendChild(newsEl);
+      fetch('/api/ownership/msci-watch?code=' + encodeURIComponent(code))
+        .then(r => r.json())
+        .then(({ headlines, updatedAt, note }) => {
+          if (!headlines?.length) {
+            newsEl.innerHTML = '<div style="color:var(--muted);font-size:10px;padding:4px 0">' + (note ?? 'Tidak ada berita terbaru ditemukan.') + '</div>';
+            return;
+          }
+          const ago = updatedAt ? Math.round((Date.now() - new Date(updatedAt).getTime()) / 60000) + 'min lalu' : '';
+          newsEl.innerHTML = '<div class="card" style="margin-top:8px;padding:10px 12px">'
+            + '<div style="font-size:10px;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between"><span style="font-weight:600;color:var(--orange)">📡 MSCI Watch — ' + esc(code) + '</span><span>' + ago + '</span></div>'
+            + headlines.slice(0, 4).map(h =>
+                '<div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border)">'
+                + '<a href="' + h.url + '" target="_blank" style="color:var(--fg);font-size:11px;font-weight:500;text-decoration:none">' + esc(h.headline) + '</a>'
+                + '<div style="font-size:9px;color:var(--muted);margin-top:2px">' + esc(h.source) + ' · ' + esc(h.date) + '</div>'
+                + '</div>'
+              ).join('')
+            + '</div>';
+        })
+        .catch(() => { newsEl.innerHTML = ''; });
+    }
   } catch (e) { el.innerHTML = \`<div class="empty">Error: \${e.message}</div>\`; }
 }
 
@@ -6013,6 +6088,18 @@ const server = Bun.serve({
 
     if (url.pathname === '/api/scd-result') {
       return Response.json(scdState);
+    }
+
+    if (url.pathname === '/api/ownership/msci-watch') {
+      const code = (url.searchParams.get('code') ?? '').toUpperCase();
+      if (!code) return Response.json({ error: 'code required' }, { status: 400 });
+      if (!process.env.EXASEARCH_API_KEY) return Response.json({ headlines: [], note: 'EXASEARCH_API_KEY not set' });
+      try {
+        const headlines = await getMsciRebalNews(code);
+        return Response.json({ headlines, updatedAt: msciRebalCache?.updatedAt ?? null });
+      } catch (e) {
+        return Response.json({ headlines: [], error: String(e) });
+      }
     }
 
     // ── Ownership routes ──────────────────────────────────────────────────────
