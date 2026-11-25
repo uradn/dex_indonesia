@@ -42,7 +42,11 @@ Catatan penting: BPK **juga memberikan rekomendasi** untuk memperkuat fondasi ta
 
 Sumber: [BPK.go.id, 25 Nov 2026](https://www.bpk.go.id/berita-utama/bpk-gelar-exit-meeting-dan-serahkan-laporan-hasil-pemeriksaan-laporan-keuangan-konsolidasian-bpi-danantara-tahun-2025)
 
-Angka-angka di bawah bersumber dari pernyataan publik pra-rilis. Angka total aset dan laba audited resmi belum dipublikasikan secara terperinci per jam 13:46 WIB.
+**Update 25 Nov 2026 (14:00+ WIB):** BPK menyerahkan LHP ke Rosan langsung pukul **10:00 WIB**. Angka-angka resmi diumumkan Rosan di konferensi pers 13:00–14:00 WIB Wisma Danantara — lihat Bagian 2.1 di bawah.
+
+**Catatan periode:** LK audited mencakup **April–Desember 2025 (9 bulan)**, bukan full year. Danantara berdiri 24 Februari 2025; Rosan: *"Danantara dibentuk Februari, sehingga laporan keuangan ini adalah laporan keuangan sembilan bulan."* Angka 12 bulan yang dikutip media = **annualized/pro forma**, bukan LK audited langsung.
+
+**LK sebagai PDF publik:** **TIDAK diterbitkan.** danantaraindonesia.co.id/investor-relations hanya memuat "Danantara Indonesia Diaries" newsletters — tidak ada annual report PDF atau link unduh LK. LHP BPK tidak dipublikasikan (diserahkan langsung ke Danantara). Publik hanya mendapat angka summary dari press conference dan media.
 
 ### 1.3 Dimensi Hukum: Gugatan Transparansi ke MK (407/PUU-XXIV/2026)
 
@@ -65,6 +69,57 @@ Sumber: [MKRI.id, 10 Nov 2026](https://www.mkri.id/berita/ketiadaan-batas-waktu-
 ---
 
 ## 2. Angka Keuangan BUMN Konsolidasi 2025
+
+### 2.1 Angka Resmi LK Konsolidasi Audited — Rilis 25 November 2026
+
+Sumber: konferensi pers Rosan Roeslani, Wisma Danantara, 25 Nov 2026 (CNBC Indonesia, detikFinance, Reuters).
+
+#### Income Statement
+
+| Metrik | 9 Bulan Aktual (Apr–Des 2025) | 12 Bulan Annualized (Pro Forma) |
+|---|---|---|
+| Pendapatan usaha | **Rp2.385,2T** | Rp3.073,0T |
+| EBITDA | **Rp552,5T** | Rp704,7T |
+| Laba usaha | **Rp390,4T** | Rp520,1T |
+| Laba sebelum pajak | **Rp292,7T** | Rp367,4T |
+| **Laba bersih** | **Rp203,4T** | **Rp259,6T** |
+
+**Catatan kritis:** Angka 12 bulan adalah **pro forma annualized** — bukan laporan audited 12 bulan. Investor perlu memperhatikan perbedaan ini. ROE 8,7% dihitung berbasis pro forma 12 bulan "dengan basis yang lazim digunakan SWF lainnya" (Rosan).
+
+#### Balance Sheet (posisi 31 Desember 2025)
+
+| Pos | Jumlah | Perubahan |
+|---|---|---|
+| **Total Aset** | **Rp11.607T** | +5,0% dari saat dibentuk (Mar 2025) |
+| **Total Ekuitas** | **Rp2.980T** | +5,6% |
+| ROE (12 bulan pro forma) | **8,7%** | vs 8,4% BUMN 2024 era Kemenkeu |
+
+Kutipan Rosan: *"Kami mengapresiasi BPK yang sudah bekerja sama dan memberi opini wajar tanpa pengecualian."*
+
+Kutipan Reuters/NST: *"Sovereign wealth fund Danantara Indonesia recorded a consolidated net profit of 259.6 trillion rupiah (US$14.19 billion) in its first annual financial report for 2025."*
+
+#### Perbandingan Historis (kritis)
+
+| Tahun | Entitas | Laba Bersih | Total Aset | ROE | Catatan |
+|---|---|---|---|---|---|
+| **2024** | BUMN (Kemenkeu) | Rp311,0T | Rp11.007,4T | 8,4% | Full year 12 bulan |
+| **2025** | Danantara (audited 9 bln) | **Rp203,4T** | Rp11.607T | — | Aktual audited |
+| **2025** | Danantara (annualized) | **Rp259,6T** | Rp11.607T | 8,7% | Pro forma, bukan audit |
+
+**Laba turun YoY:** Rp311,0T (2024) → Rp259,6T (2025 annualized) = **−16,5%**. Suara.com: *"Raihan ini turun jika dibandingkan laba bersih BUMN secara konsolidasi pada tahun 2024 sebesar Rp311,0 triliun."*
+
+**Gap estimate vs aktual:** Dony Oskaria menyebut Rp325,5T → koreksi → Rp276T (8 Okt 2026). Aktual annualized: Rp259,6T → **selisih Rp16,4T lebih rendah dari estimate pre-audit**.
+
+#### Angka Komponen dari LKPP 2025 (BPK, Apr 2026)
+
+Pengamat NEXT Indonesia Center Herry Gunawan mengutip LKPP 2025 (sebelum LK konsolidasi terbit):
+- BPI Danantara standalone laba: **Rp145,3T**
+- DAM laba: **Rp149,2T** (berasal dari laba BUMN yang dialirkan)
+- Catatan: dua angka ini tidak dijumlahkan ke Rp259,6T — eliminasi intercompany mencegah double counting.
+
+Sumber: [Katadata, 26 Agu 2026](https://katadata.co.id/finansial/korporasi/6a8ebdc40f8be/danantara-targetkan-laba-rp-360-triliun-apakah-mampu-lampaui-temasek) | [Suara.com, 25 Nov 2026](https://amp.suara.com/bisnis/2026/11/25/134939/danantara-catat-laba-bersih-rp2596-triliun-di-2025-turun-dari-capaian-bumn-2024)
+
+---
 
 ### AUM vs Neraca: Dua Angka Berbeda
 
@@ -224,14 +279,29 @@ Target alokasi aset DIM 2030: Treasury 3–5% | Public investments 35–45% | Pr
 
 **Proyeksi 2026 (dilaporkan ke DPR Komisi XI, 24 Nov 2026):**
 - Net profit: **Rp800B** vs RKAP Rp3.4T → **miss 76.5%**
+- Tanpa dampak pasar: Rp2,8T (ROAE 2,9%) — per Ali Setiawan (Managing Director Treasury DIM)
+- ROAE aktual: **0.8%** (target: 3,5%)
+- Pendapatan total: Rp5,7T dari target Rp9,9T
+- Pendapatan pasar modal: **negatif Rp1,9T** (rugi investasi saham)
+- Portfolio publik + treasury DIM: Rp60,6T (30 Okt 2026), koreksi 8% — vs IHSG turun 39%
 - Rosan: *"terutama karena tekanan pada pasar modal yang terjadi saat ini, sehingga investasi di pasar modal atau investasi publik mengalami penurunan yang cukup besar"*
-- ROAE: **0.8%**
 
-Respons DPR (anggota Komisi XI Harris Turino):
-> *"0,8% bodoh-bodohan saja ya. Kalau kita belikan 100% obligasi negara, return-nya akan jauh lebih besar."*
+Respons DPR (Komisi XI, rapat kerja 24 Nov 2026):
 
-**Proyeksi 2027:** ROAE 4%; net profit Rp5–6T; balance sheet Rp421T.  
+> *"0,8% bodoh-bodohan saja ya. Kalau kita belikan 100% obligasi negara, return-nya akan jauh lebih besar."*  
+> — Harris Turino (DPR Komisi XI)
+
+> *"Ini uang negara. Bukan uang pribadi. Kalau deposito yang tidak pakai keahlian khusus saja bisa dapat 3,2 persen, lantas Danantara yang mengelola aset raksasa hanya dapat 0,8 persen, rakyat pasti bertanya: Ada apa dengan pengelolaan oleh Danantara?"*  
+> — Marwan Jafar (Fraksi PKB, Komisi XI)
+
+DPR menyetujui RKAT DIM 2027 **dengan 9 catatan** — bukan persetujuan tanpa syarat. Marwan: *"Jangan sampai persetujuan ini dianggap sebagai stempel bahwa semua sudah beres."*
+
+Pandu Sjahrir merespons singkat: **"Kami masih kecil."**
+
+**Proyeksi 2027:** ROAE 4%; net profit Rp5–6T; balance sheet **Rp421T**.  
 **Target 2030:** ROAE 5–8%.
+
+Sumber DIM performance: [VIV.co.id, 25 Nov 2026](https://www.viv.co.id/read/264010/dpr-cecar-danantara-roe-cuma-08-persen-kalah-dari-deposito-pandu-sjahrir-kami-masih-kecil) | [rmol.id, 25 Nov 2026](https://rmol.id/read/2026/11/25/729601/pkb-peringatkan-danantara-laba-anjlok-76-persen-jangan-dianggap-biasa)
 
 **IRR per investasi (proyeksi DIM):**
 
@@ -257,6 +327,8 @@ Shortfall ~Rp90–131T/tahun = 2.3–3.4% dari total pendapatan APBN 2026 (Rp3,1
 
 Trigger re-calibrate M10: jika PP pencadangan tidak terbit dalam 12 bulan → permanent shortfall Rp90T/tahun sebagai baseline.
 
+**Update 25 Nov 2026:** Laba aktual audited Rp203,4T (9 bulan) / Rp259,6T (annualized) → lebih rendah dari estimate Dony Okt 2026 (Rp276T). Ini memperkuat argumen: angka-angka pre-audit manajemen Danantara **sistematis overestimate** ~6–16T. M10 sinyal: return ke sovereign dari Danantara lebih kecil dari baseline publik yang beredar. Target Dony 2026 Rp360T kemungkinan tidak tercapai (DIM miss + pasar modal negatif).
+
 ### M8: Banking Linkage (BARU)
 
 DIM parkir **Rp123T+ di Himbara** (Apr 30, 2026): BM Rp56.56T · BNI Rp36T · BRI Rp36T · BTN Rp17.1T · BRIS Rp6T. Ini menciptakan:
@@ -275,19 +347,19 @@ Pemecatan Purbaya sebagai Menkeu (14 Sep 2026, Keppres 97/P/2026) + penunjukan S
 4. **MK case 407/PUU-XXIV/2026** (BARU): Investor + advokat gugat Pasal 3K UU BUMN ke MK — pertama kalinya lembaga peradilan tertinggi diminta tetapkan norma transparansi LK Danantara secara eksplisit. Kasus ini menunjukkan institutional friction mulai masuk jalur hukum, bukan hanya tekanan politik.
 5. **PKS Komisi XI desak:** Habib Idrus Salim Aljufri (25 Nov 2026) minta LK beserta CALK dan opini audit tersedia di situs resmi Danantara + minta kalender publikasi tahunan ditetapkan. ([Fraksi PKS, 25 Nov 2026](https://fraksi.pks.id/2026/11/25/kelola-aset-us1-triliun-habib-idrus-desak-danantara-segera-publikasikan-laporan-keuangan/))
 
-Watch: (1) Putusan MK 407/PUU-XXIV/2026 — jika dikabulkan, Danantara wajib publikasi LK audited max 6 bulan setelah tahun buku berakhir; (2) DPR revisi APBN 2027 memasukkan kembali setoran Danantara.
+Watch: (1) Putusan MK 407/PUU-XXIV/2026 — jika dikabulkan, Danantara wajib publikasi LK audited max 6 bulan setelah tahun buku berakhir; (2) DPR revisi APBN 2027 memasukkan kembali setoran Danantara; (3) 9 catatan DPR ke RKAT DIM 2027 — apakah Danantara menjawab secara tertulis dan apakah hurdle rate serta investment policy document dipublikasikan (tuntutan Marwan Jafar PKB).
 
 ### SCD: Single-Point-of-Failure Risk
 
 | Risiko | Mekanisme | Threshold |
 |---|---|---|
 | Circular dependency | BUMN → dividen ke DAM → DIM invest ke proyek → return ke BUMN | 1 BUMN besar stres → chain terdampak |
-| DIM profit miss 76.5% | RKAP Rp3.4T → realisasi Rp800B; IRR proyek rendah (5–11%) | Jika miss berlanjut → Patriot Bond repayment (kupon 2%; Rp68.7T) sulit |
+| DIM profit miss 76.5% | RKAP Rp3.4T → realisasi Rp800B; pasar modal −Rp1,9T rugi | Jika miss berlanjut → Patriot Bond repayment (kupon 2%; Rp68.7T) sulit |
 | Leverage tersembunyi | Patriot Bonds Rp68.7T + Global Bond US$1.5B → leverage ratio ~2.1× equity | Mark-to-market risk jika portfolio turun; Himbara deposit = likuiditas terakhir |
 | Sovereign backstop | Negara bailout Danantara? | PP pencadangan belum terbit = status backstop tidak jelas |
 | Rp135T impairment | Koreksi akuntansi BUMN sebelumnya (Dony Oskaria, Okt 2026) | Muncul di LK audited sebagai item material → opini BPK bisa berdampak |
 
-**SCD signal (M6 Narrative Divergence update — 25 Nov 2026):** BPK opini **WTP** → opacity signal M6 berkurang (positif). Namun BPK juga menyertakan **rekomendasi** untuk perkuat tata kelola — mengkonfirmasi internal control gaps exist. Net effect M6: sedikit turun tapi tidak hilang. Rilis LK belum disertai angka total aset + laba konsolidasi resmi yang bisa diunduh publik per jam 13:46 WIB — MK case + PKS DPR pressure = governance gap belum sepenuhnya closed.
+**SCD signal (M6 Narrative Divergence update — 25 Nov 2026, final):** BPK opini **WTP** → opacity signal M6 berkurang (positif). BPK juga menyertakan **rekomendasi** → internal control gaps confirmed. LK diterbitkan sebagai angka summary press conference (tidak ada PDF publik) — masih kurang transparan vs Temasek/PIF yang publikasikan annual report lengkap. Net effect M6: **turun moderat** tapi tidak hilang. DPR 9 catatan + ROAE 0,8% miss + laba Rp259,6T turun dari Rp311T (2024) = narrative gap antara klaim manajemen dan realisasi tetap material.
 
 ---
 
@@ -300,6 +372,7 @@ Watch: (1) Putusan MK 407/PUU-XXIV/2026 — jika dikabulkan, Danantara wajib pub
 | CEO / Kepala Badan Pelaksana | **Rosan Roeslani** | Menteri Investasi / Kepala BKPM |
 | COO / Holding Operasional | **Dony Oskaria** | Kepala BP BUMN |
 | CIO / Holding Investasi | **Pandu Patria Sjahrir** | CEO PT DIM |
+| CTO | **Sigit Puji Santosa** | — |
 
 **Catatan:** Rosan Roeslani tetap CEO sepanjang 2025–2026, tidak ada pergantian. Purbaya Yudha Sadewa adalah Menteri Keuangan (bukan pimpinan Danantara) yang dicopot 14 Sep 2026.
 
@@ -349,3 +422,10 @@ Sumber: [danantaraindonesia.co.id/about/our-people/supervisory-board](https://da
 | Laba BUMN 2024 koreksi Rp304T→Rp186T | [demokratis.co.id, 25 Sep 2026](https://demokratis.co.id/bpk-periksa-laporan-keuangan-danantara) | 25 Sep 2026 |
 | Seluruh BUMN rampungkan LK 2025 (Jul 2 press release) | [danantaraindonesia.co.id, 2 Jul 2026](https://www.danantaraindonesia.co.id/id/media-center/press-releases/soe-financial-statements-2025-danantara) | 2 Jul 2026 |
 | PKS Komisi XI desak publikasi LK + kalender tahunan | [Fraksi PKS, 25 Nov 2026](https://fraksi.pks.id/2026/11/25/kelola-aset-us1-triliun-habib-idrus-desak-danantara-segera-publikasikan-laporan-keuangan/) | 25 Nov 2026 |
+| **Laba Rp259,6T (9 bln aktual Rp203,4T); aset Rp11.607T; ekuitas Rp2.980T; ROE 8,7%** | [CNBC Indonesia, 25 Nov 2026](https://www.cnbcindonesia.com/market/20261125133940-17-788341/laporan-keuangan-selesai-danantara-cetak-laba-rp2596-triliun-di-2025) | 25 Nov 2026 |
+| Laba 2025 turun dari BUMN 2024 Rp311T; Rosan: "9 bulan, baru salurkan investasi setelah Okt 2025" | [Suara.com, 25 Nov 2026](https://amp.suara.com/bisnis/2026/11/25/134939/danantara-catat-laba-bersih-rp2596-triliun-di-2025-turun-dari-capaian-bumn-2024) | 25 Nov 2026 |
+| DIM ROAE 0,8% (miss target 3,5%); DPR "bodoh-bodohan"; Pandu: "kami masih kecil" | [VIV.co.id, 25 Nov 2026](https://www.viv.co.id/read/264010/dpr-cecar-danantara-roe-cuma-08-persen-kalah-dari-deposito-pandu-sjahrir-kami-masih-kecil) | 25 Nov 2026 |
+| PKB 9 catatan DPR; RKAT DIM 2027 disetujui bersyarat; laba miss 76% jangan dianggap biasa | [rmol.id, 25 Nov 2026](https://rmol.id/read/2026/11/25/729601/pkb-peringatkan-danantara-laba-anjlok-76-persen-jangan-dianggap-biasa) | 25 Nov 2026 |
+| Reuters: Danantara US$14.19B net profit 2025; total aset Rp11,607T | [NST/Reuters, 25 Nov 2026](https://www.nst.com.my/business/corporate/2026/11/1585523/indonesias-sovereign-fund-danantara-books-us14bil-net-profit) | 25 Nov 2026 |
+| Perbandingan laba Danantara vs era Kemenkeu BUMN; total aset 2024 Rp11.007T | [Tirto.id, 2 Sep 2026](https://tirto.id/membandingkan-laba-danantara-dengan-era-kementerian-bumn-hCdg) | 2 Sep 2026 |
+| BPI Danantara standalone laba Rp145,3T; DAM laba Rp149,2T (dari LKPP 2025); Dony vs Temasek kritik | [Katadata, 26 Agu 2026](https://katadata.co.id/finansial/korporasi/6a8ebdc40f8be/danantara-targetkan-laba-rp-360-triliun-apakah-mampu-lampaui-temasek) | 26 Agu 2026 |
