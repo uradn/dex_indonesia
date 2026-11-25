@@ -397,6 +397,10 @@ RED: M10 fiscal 100 · M12 polrisk 91 · M4 cmdy 79 · M11 dom 77 | ORANGE: M3 F
 🚨 **MORRIS-SHIN CONFIDENCE GATE ESKALASI: VULNERABILITY (DC+14) → ATTACK ZONE (DC+32)** — dominant strategy sekarang attack *regardless of coordination*; komunikasi/SRBI/BI rate tidak lagi cukup untuk deter; hanya perbaikan fundamental (cadev↑ / fiscal credible) yang bisa keluar dari zone ini | SRBI bid-cover 1.49x (di bawah 1.5x) | PMI 54.0 ↑ (Goldilocks) | 4 pangan spike (Nataru) | MSCI_REVERSAL_PROBABILITY_OVERRIDE unset → P(rev) 13% auto
 Thesis #15 hari ke-9: 99.6→192bps / 18,131→20,327 / 7.712→9.11% | T+90=Feb 14 2027 | all KS inactive | 5 reform conditions PENDING
 📋 **DANANTARA LK 2025 AUDITED RILIS** (25 Nov, 13:00 WIB): Total aset **Rp11.607T** · ekuitas **Rp2.980T** · laba bersih 9bln **Rp203,4T** / annualized **Rp259,6T** · ROE **8,7%** · BPK opini **WTP** · M6↑: laba aktual vs pre-audit estimate Rp276T (−Rp16,4T) + LK tanpa PDF publik (opacity gap vs Temasek) · M12↑: DPR 9 catatan Komisi XI; DIM ROAE 0,8% miss 76,5% | Lihat [`docs/Danantara_LK2025_Kontribusi_ke_Negara.md`](docs/Danantara_LK2025_Kontribusi_ke_Negara.md)
+**📅 Nov 25 2026 (16:13 WIB — afternoon check)** | SCD **79% 🔴 RED** ↑ dari 65% | IHSG **5,198** · A/D **0.60** | USDIDR **18,310** | Brent **$88.2** | CDS **103bps** | SBN **7.696%**
+RED: M10 fiscal 100 · M11 dom 100 · M12 polrisk 96 · M4 cmdy 78 | ORANGE: M3 FX 69 (ATTACK ZONE DC+34) · M6 narr 50 | YELLOW: M8 bank 44 · M2 sov 35 | GREEN: M5 flow 26 · M1 bop 25 · M9 mkt 29 · M13 ULN 5 · M7 asean 18
+⚡ SCD naik +14pp dari pagi (65→79); M11 dom 77→100 (7 komoditas spike: beras/cabai/bawang putih/daging sapi/daging ayam/telur/gula — Nataru pressure aktif); M6 narr 47→50 ORANGE | ATTACK ZONE DC+34 → spekulan rational attack regardless of coordination | PHK 90k YTD | 7 pangan spike
+Thesis #15 hari ke-9 TRIGGERED: CDS 103bps→192bps target (+89bps) | USDIDR 18,310→20,327 target (+2,017) | SBN 7.696→9.11% target (+141bps)
 
 - **🤝 FERNANDEZ + PRABOWO DIRECT CALL — MSCI SOFTENING (Nov 23, Bloomberg Investigasi)**
 
