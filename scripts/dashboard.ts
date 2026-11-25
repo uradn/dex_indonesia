@@ -5119,7 +5119,7 @@ async function loadEmiten() {
     const localPct = holders.filter(h => h.local_foreign === 'L').reduce((s, h) => s + h.pct, 0);
     const deltaMap = Object.fromEntries(deltas.map(d => [d.investor_name, d]));
 
-    const msciDropped: Record<string, string> = {
+    const msciDropped = {
       BRPT: 'Standard Index — full exit',
       BRMS: 'Standard → Small Cap downgrade',
       AVIA: 'Small Cap deleted',
