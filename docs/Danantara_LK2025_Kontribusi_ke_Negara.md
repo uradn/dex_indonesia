@@ -30,15 +30,55 @@ Rosan Roeslani mengkonfirmasi rilis Nov 25 pada **23 November 2026**:
 
 - **Periode:** Maret–Desember 2025 (10 bulan — Danantara berdiri 24 Februari 2025)
 - **Auditor grup:** BPK (Anggota VII, Slamet Edy Purnomo)
-- **Auditor komponen PT DAM:** Ernst & Young (EY) — sudah selesai audit DAM
-- **Cakupan:** BPI Danantara + PT DAM + PT DIM + seluruh BUMN (1.074+ entitas)
-- **Metodologi:** Risk-based audit; BPK khusus menyebut akan periksa fraud, penyalahgunaan, kelemahan internal control, dan ketidakpatuhan
+- **Auditor komponen:** Ernst & Young (EY) + KAP lain — mencakup PT DAM, PT DIM, **14 BUMN signifikan** (total aset = **92.13% dari total aset seluruh BUMN**)
+- **Metodologi:** Risk-based audit; BPK periksa fraud, penyalahgunaan, kelemahan internal control, ketidakpatuhan
 
-Angka audited lengkap belum terindeks saat riset ini selesai (pre-13:00 WIB). Angka-angka di bawah bersumber dari pernyataan publik pra-rilis.
+**Opini BPK: Wajar Tanpa Pengecualian (WTP)** — dikonfirmasi resmi via Exit Meeting 25 November 2026.
+
+Kutipan Anggota VII BPK Slamet Edy Purnomo (25 Nov 2026):
+> *"BPK mengapresiasi komitmen dan upaya manajemen BPI Danantara untuk membangun sistem pengendalian dalam menyusun Laporan Keuangan Konsolidasian yang sangat kompleks baik dari sektor usaha maupun jumlah entitas BUMN. Upaya tersebut merupakan langkah penting dalam membangun pelaporan keuangan yang transparan, andal, dan akuntabel sebagai fondasi bagi penguatan tata kelola BPI Danantara."*
+
+Catatan penting: BPK **juga memberikan rekomendasi** untuk memperkuat fondasi tata kelola, transparansi, dan akuntabilitas — mengindikasikan terdapat temuan internal control yang perlu diperbaiki meski tidak sampai mengubah opini ke WDP.
+
+Sumber: [BPK.go.id, 25 Nov 2026](https://www.bpk.go.id/berita-utama/bpk-gelar-exit-meeting-dan-serahkan-laporan-hasil-pemeriksaan-laporan-keuangan-konsolidasian-bpi-danantara-tahun-2025)
+
+Angka-angka di bawah bersumber dari pernyataan publik pra-rilis. Angka total aset dan laba audited resmi belum dipublikasikan secara terperinci per jam 13:46 WIB.
+
+### 1.3 Dimensi Hukum: Gugatan Transparansi ke MK (407/PUU-XXIV/2026)
+
+Mahkamah Konstitusi menerima permohonan uji materiil UU BUMN tentang kewajiban publikasi LK audited Danantara:
+
+| Aspek | Detail |
+|---|---|
+| Nomor perkara | **407/PUU-XXIV/2026** |
+| Pemohon | Eprina Manurung (investor Bank Mandiri) + Matthew Hutasoit (advokat) |
+| Pasal digugat | Pasal 3K UU BUMN (UU 16/2025): "Pemeriksaan pengelolaan dan tanggung jawab keuangan Badan dilakukan oleh Badan Pemeriksa Keuangan" |
+| Argument | Pasal 3K tidak mengatur batas waktu penyampaian LK audited ke publik; BPK sendiri mengakui tidak ada batas waktu |
+| Tuntutan | LK harus dipublikasikan **paling lambat 6 bulan** setelah tahun buku berakhir (mengacu Pasal 43J ayat 1 UU BUMN — Perum) |
+| Sidang | Pertama 10 Nov 2026; perbaikan 23 Nov 2026 |
+| Status | Berlanjut — LK dirilis 25 Nov mungkin memenuhi tuntutan informal, tapi kasus tetap berlanjut untuk menetapkan norma |
+
+BPK sendiri mencatat: *"belum terdapat pengaturan mengenai batas waktu penyampaian laporan keuangan BPI Danantara yang telah diaudit."*
+
+Sumber: [MKRI.id, 10 Nov 2026](https://www.mkri.id/berita/ketiadaan-batas-waktu-penyerahan-dan-pengumuman-hasil-audit-bpi-danantara-26119) | [MKRI.id, 23 Nov 2026](https://www.mkri.id/berita/penyempurnaan-permohonan-uji-penyerahan-dan-pengumuman-hasil-audit-bpi-danantara-26196)
 
 ---
 
 ## 2. Angka Keuangan BUMN Konsolidasi 2025
+
+### AUM vs Neraca: Dua Angka Berbeda
+
+| Konsep | Angka | Sumber |
+|---|---|---|
+| **AUM (Asset Under Management)** — total aset BUMN terkonsolidasi | **>US$1T (~Rp17,960T)** | Presiden Prabowo, Sidang Kabinet Paripurna |
+| **Neraca DIM standalone** (PT Danantara Investasi Manajemen) | Rp140.03T (US$8.06B) | SGX prospektus, Apr 30, 2026 |
+| **Kas parkir DIM di Himbara** | Rp123.03T | SGX prospektus |
+
+AUM >US$1T merupakan agregasi aset semua BUMN — **bukan** balance sheet DIM. Angka total aset konsolidasi resmi post-eliminasi intercompany belum dipublikasikan secara terperinci.
+
+### Konteks Koreksi Laba 2024
+
+Laba BUMN 2024 (sebelum Danantara): dilaporkan Rp304T → dikoreksi menjadi **Rp186T** setelah impairment/penurunan nilai aset mendekati **Rp100T+**. Pola yang sama terjadi di laba 2025: Rp325.5T → koreksi → Rp276T (impairment Rp135T + koreksi pembukuan lama). Sumber: [demokratis.co.id, 25 Sep 2026](https://demokratis.co.id/bpk-periksa-laporan-keuangan-danantara)
 
 ### Laba Konsolidasi
 
@@ -232,8 +272,10 @@ Pemecatan Purbaya sebagai Menkeu (14 Sep 2026, Keppres 97/P/2026) + penunjukan S
 1. **Veto player friction:** Terjadi di tingkat Kabinet tentang kontribusi Danantara ke APBN
 2. **Governance opacity:** DIM profit miss 76.5% + ROAE 0.8% di tahun pertama — tapi tidak ada accountability mechanism yang jelas
 3. **DPR pushback:** Komisi XI mulai mempertanyakan return; ini bisa menjadi political pressure point di RAPBN 2027 pembahasan
+4. **MK case 407/PUU-XXIV/2026** (BARU): Investor + advokat gugat Pasal 3K UU BUMN ke MK — pertama kalinya lembaga peradilan tertinggi diminta tetapkan norma transparansi LK Danantara secara eksplisit. Kasus ini menunjukkan institutional friction mulai masuk jalur hukum, bukan hanya tekanan politik.
+5. **PKS Komisi XI desak:** Habib Idrus Salim Aljufri (25 Nov 2026) minta LK beserta CALK dan opini audit tersedia di situs resmi Danantara + minta kalender publikasi tahunan ditetapkan. ([Fraksi PKS, 25 Nov 2026](https://fraksi.pks.id/2026/11/25/kelola-aset-us1-triliun-habib-idrus-desak-danantara-segera-publikasikan-laporan-keuangan/))
 
-Watch: apakah DPR akan meminta revisi APBN 2027 untuk memasukkan kembali setoran Danantara.
+Watch: (1) Putusan MK 407/PUU-XXIV/2026 — jika dikabulkan, Danantara wajib publikasi LK audited max 6 bulan setelah tahun buku berakhir; (2) DPR revisi APBN 2027 memasukkan kembali setoran Danantara.
 
 ### SCD: Single-Point-of-Failure Risk
 
@@ -245,7 +287,7 @@ Watch: apakah DPR akan meminta revisi APBN 2027 untuk memasukkan kembali setoran
 | Sovereign backstop | Negara bailout Danantara? | PP pencadangan belum terbit = status backstop tidak jelas |
 | Rp135T impairment | Koreksi akuntansi BUMN sebelumnya (Dony Oskaria, Okt 2026) | Muncul di LK audited sebagai item material → opini BPK bisa berdampak |
 
-**SCD signal (tambah ke M6 Narrative Divergence):** Rilis LK audited hari ini (25 Nov 2026) sebagian mengurangi opacity signal M6. Namun jika opini BPK mengandung catatan material atau adverse opinion, M6 score justru naik karena memvalidasi bahwa governance gap lebih besar dari narrative resmi.
+**SCD signal (M6 Narrative Divergence update — 25 Nov 2026):** BPK opini **WTP** → opacity signal M6 berkurang (positif). Namun BPK juga menyertakan **rekomendasi** untuk perkuat tata kelola — mengkonfirmasi internal control gaps exist. Net effect M6: sedikit turun tapi tidak hilang. Rilis LK belum disertai angka total aset + laba konsolidasi resmi yang bisa diunduh publik per jam 13:46 WIB — MK case + PKS DPR pressure = governance gap belum sepenuhnya closed.
 
 ---
 
@@ -302,3 +344,8 @@ Sumber: [danantaraindonesia.co.id/about/our-people/supervisory-board](https://da
 | DIM 39 investasi Rp68.9T | [Kumparan, 24 Nov 2026](https://kumparan.com) | 24 Nov 2026 |
 | DIM profit miss 76.5% (DPR Komisi XI) | [Antara, 24 Nov 2026](https://www.antaranews.com) | 24 Nov 2026 |
 | Analisis polemik Purbaya vs Danantara | [The Jakarta Post](https://www.thejakartapost.com/opinion/2026/09/23/analysis-danantara-finance-ministry-clash-over-soe-dividends) | 22–23 Sep 2026 |
+| **BPK Exit Meeting + LHP serahkan + opini WTP** | [BPK.go.id, 25 Nov 2026](https://www.bpk.go.id/berita-utama/bpk-gelar-exit-meeting-dan-serahkan-laporan-hasil-pemeriksaan-laporan-keuangan-konsolidasian-bpi-danantara-tahun-2025) | 25 Nov 2026 |
+| MK case 407/PUU-XXIV/2026 (gugatan transparansi) | [MKRI.id, 10 Nov 2026](https://www.mkri.id/berita/ketiadaan-batas-waktu-penyerahan-dan-pengumuman-hasil-audit-bpi-danantara-26119) | 10–23 Nov 2026 |
+| Laba BUMN 2024 koreksi Rp304T→Rp186T | [demokratis.co.id, 25 Sep 2026](https://demokratis.co.id/bpk-periksa-laporan-keuangan-danantara) | 25 Sep 2026 |
+| Seluruh BUMN rampungkan LK 2025 (Jul 2 press release) | [danantaraindonesia.co.id, 2 Jul 2026](https://www.danantaraindonesia.co.id/id/media-center/press-releases/soe-financial-statements-2025-danantara) | 2 Jul 2026 |
+| PKS Komisi XI desak publikasi LK + kalender tahunan | [Fraksi PKS, 25 Nov 2026](https://fraksi.pks.id/2026/11/25/kelola-aset-us1-triliun-habib-idrus-desak-danantara-segera-publikasikan-laporan-keuangan/) | 25 Nov 2026 |
