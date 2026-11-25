@@ -3349,8 +3349,8 @@ function renderGameTheory(thesis, snap, dbRecord) {
           const cls = daysLeft <= 0 ? 'green' : daysLeft <= 3 ? 'red' : 'orange';
           const label = daysLeft <= 0 ? 'NOV 30 REBAL ✓ DONE' : 'NOV 30 REBAL T-' + daysLeft + 'd';
           const detail = daysLeft <= 0
-            ? 'BRPT full exit + BRMS SmCap + 7 removals ($' + rebUsd + 'mn) — executed'
-            : 'BRPT full exit + BRMS SmCap + 7 removals — forced-sell ~$' + rebUsd + 'mn at close';
+            ? 'BRPT full exit + BRMS→SmCap + SmCap del: AVIA CTRA MTEL EMTK RAJA WIFI ($' + rebUsd + 'mn) — executed'
+            : 'BRPT full exit + BRMS→SmCap + SmCap del: AVIA CTRA MTEL EMTK RAJA WIFI — forced-sell ~$' + rebUsd + 'mn at close';
           return '<div style="background:rgba(230,162,60,.1);border:1px solid var(--' + cls + ');border-radius:3px;padding:3px 7px;font-size:9px"><span class="' + cls + '" style="font-weight:700">' + label + '</span><span style="color:var(--muted);margin-left:4px">' + detail + '</span></div>';
         })()}
       </div>
@@ -5070,8 +5070,21 @@ async function loadEmiten() {
     const localPct = holders.filter(h => h.local_foreign === 'L').reduce((s, h) => s + h.pct, 0);
     const deltaMap = Object.fromEntries(deltas.map(d => [d.investor_name, d]));
 
+    const msciDropped: Record<string, string> = {
+      BRPT: 'Standard Index — full exit',
+      BRMS: 'Standard → Small Cap downgrade',
+      AVIA: 'Small Cap deleted',
+      CTRA: 'Small Cap deleted',
+      MTEL: 'Small Cap deleted',
+      EMTK: 'Small Cap deleted',
+      RAJA: 'Small Cap deleted',
+      WIFI: 'Small Cap deleted',
+    };
+    const msciDropLabel = msciDropped[code];
+
     el.innerHTML = \`
       <div class="card" style="margin-bottom:12px">
+        \${msciDropLabel ? \`<div style="background:rgba(220,50,50,.12);border:1px solid var(--red);border-radius:4px;padding:5px 10px;font-size:11px;margin-bottom:10px;display:flex;align-items:center;gap:8px"><span style="color:var(--red);font-weight:700">⚠ MSCI REMOVED Nov 30 2026</span><span style="color:var(--muted)">\${msciDropLabel} · effective Dec 1 2026 · forced-sell window active</span></div>\` : ''}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div>
             <span style="font-size:20px;font-weight:700">\${esc(code)}</span>

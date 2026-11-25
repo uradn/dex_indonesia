@@ -293,6 +293,7 @@ DOOM LOOP TERRITORY: CAR erosion 3.26pp (threshold >1.5pp)
 - **⚠️ SRBI TREND ALERT**: Nov 6 = **4.92x** (Rp36.9T/Rp7.5T, solid) → Nov 20 = **1.49x** (Rp59.7T/Rp40T) — bid-cover COLLAPSED 2 minggu pasca rate hike. BI naikkan allotment 5× (sterilisasi agresif); demand tidak ikut. Foreign inflow $1B+ via SRBI Nov 20 (CNBC). Next auction: **~Dec 4-5**.
 - **⚠️ TRANSMISSION UNDERWAY (SSS=100/100)**: political stress **88/100 🔴** transmitting to financial markets (avg 41/100). Gap CLOSING — forced-sell and mandate-exit mechanics EXECUTION PHASE, not forecast. Silent phase over.
 - **✅ MSCI SAIR Nov 12 DONE** — Standalone consultation confirmed; free-float exclusions executed; `MSCI_SAIR_DATE` → `2027-05-08`. Next stage-gate: consultation close **Apr 30 2027** → decision **Jun 30 2027**. P(reversal) auto-formula ~13% base + 5pp Fernandez Nov10 = **~18%** on `/bs`.
+  - **Nov 30 2026 rebalancing** (effective close Nov 30 → Dec 1): **Standard deleted:** BRPT (full exit) + BRMS (downgraded to SmallCap). **Standard remaining (7):** BBCA BBRI BMRI BBNI TLKM ASII UNTR. **SmallCap deleted:** AVIA CTRA MTEL EMTK RAJA WIFI. Net: ~43 → ~35 constituents. **Passive outflow bounded:** Rp1.2T (~$68M) per Mirae Asset + Maybank Sekuritas — BRPT Rp700B + BRMS Rp280B dominant. Distinct from $3–8B Standalone downgrade scenario (Jun 2027). Sumber: [Tempo EN](https://en.tempo.co/read/2123462/msci-dumps-8-indonesian-stocks-in-november-review-heres-the-list) · [Kontan](https://investasi.kontan.co.id/news/ada-potensi-outflow-rp-12-triliun-usai-rebalancing-msci-begini-dampaknya-ke-ihsg) · [Kalderanews](https://www.kalderanews.com/2026/11/rebalancing-msci-november-2026-saham-brpt-dan-brms-resmi-terdepak/)
 - **⚠️ PHK**: 1.100 pekerja at risk 30d window (trend signal); 2 tahun Prabowo-Gibran berlangsung — public discontent spills to streets (ABC News)
 - **⚠️ Gelombang Demo Jakarta Oct 20–29**: (1) **Oct 20** — tuntutan lapangan kerja + karhutla; BBM langka Bali; 2th Prabowo (2) **Oct 28 (Hari Sumpah Pemuda)** — 53 elemen di Bundaran HI, Monas, DPR/MPR, Tugu Tani; BEM UI + Komite Sadar tema *"Tepati atau Pergi"*; three-finger salute; spanduk "Prabowo-Gibran Gagal Total" + "All Eyes on Karhutla" (3) **Oct 29** — 61 titik aksi (Polda Metro Jaya); BEM SI se-Jabodetabek, BEM UNJ, Trisakti, Federasi Serikat Pekerja Global, Gerakan Ojol Bersatu, UMKM; kawasan Monas, DPR/MPR, Istana Negara, kementerian
 - **⚠️ HASHIM DJOJOHADIKUSUMO — INNER CIRCLE IDR WARNING (Oct 29, Rapimnas Kadin 2026)**
@@ -754,6 +755,7 @@ PERTAMAX_GREEN_PRICE_IDR=19150  # RON 95 — naik 2 Sep 2026 dari Rp16.600 (+Rp2
 BI_BUYS_LONG_SBN=false        # Perry Warjiyo statement 10 Jun 2026 — review ulang di era Destry
 MSCI_CLASSIFICATION_STATUS=downgrade_risk # Oct 15 2026 Standalone consultation launched; decision Jun 30 2027
 MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN=1.8  # passive outflow rebalancing Mei 2026
+MSCI_NOV2026_REBALANCING_OUTFLOW_USD_BN=0.07 # Nov 30 2026 rebal: BRPT full exit + BRMS SmCap + AVIA CTRA MTEL EMTK RAJA WIFI; Rp1.2T (~$68M) Mirae+Maybank
 BI_GOVERNOR_VACANT=false      # Destry Damayanti dilantik 2 Sep 2026 (Keppres 92/P/2026)
 ```
 Sistem akan otomatis rekalkulasi subsidy gap, ICP alert, dan foreign flow risk score menggunakan nilai terbaru.
@@ -1516,6 +1518,7 @@ SOLAR_BLEND_RATIO=0.50   # 0.40=B40, 0.45=B45 (de-facto), 0.50=B50 full mandate
 BI_BUYS_LONG_SBN=false                       # Perry Warjiyo statement 10 Jun 2026; review di era Destry
 MSCI_CLASSIFICATION_STATUS=downgrade_risk    # Oct 15 2026 Standalone consultation; decision Jun 30 2027 — 'confirmed' | 'under_review' | 'downgrade_risk'
 MSCI_MAY2026_REBALANCING_OUTFLOW_USD_BN=1.8  # passive outflow rebalancing Mei 2026
+MSCI_NOV2026_REBALANCING_OUTFLOW_USD_BN=0.07 # Nov 30 2026 rebal: BRPT full exit + BRMS SmCap + AVIA CTRA MTEL EMTK RAJA WIFI; Rp1.2T (~$68M) Mirae+Maybank
 BI_GOVERNOR_VACANT=false                     # Destry dilantik 2 Sep 2026 (Keppres 92/P/2026)
 BI_DNDF_OUTSTANDING_BN=8                     # update tahunan dari BI LKT (Mar/Apr setiap tahun)
 BI_HEDGING_COMPLIANCE_PCT=88.5               # update dari SULNI quarterly release
