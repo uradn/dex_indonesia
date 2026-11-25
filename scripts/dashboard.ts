@@ -790,9 +790,9 @@ const HTML = `<!DOCTYPE html>
   .chart-sparse { font-size: 10px; color: var(--muted); margin-top: 4px; font-style: italic; }
   canvas { min-height: 180px; max-height: 180px; }
   .food-grid { width: 100%; border-collapse: collapse; }
-  .food-grid td { padding: 3px 6px 3px 0; font-size: 11px; border-bottom: 1px solid var(--border); }
-  .food-grid td.food-label { color: var(--muted); white-space: nowrap; width: 44%; }
-  .food-grid td.food-val { font-weight: 700; white-space: nowrap; width: 6%; padding-right: 12px; }
+  .food-grid td { padding: 3px 4px 3px 0; font-size: 11px; border-bottom: 1px solid var(--border); }
+  .food-grid td.food-label { color: var(--muted); white-space: nowrap; }
+  .food-grid td.food-val { font-weight: 700; white-space: nowrap; text-align: right; }
   .food-grid tr:last-child td { border-bottom: none; }
   .top-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 11px; }
@@ -1236,17 +1236,10 @@ function renderFood(d) {
     { key: 'pihps_daging_sapi_idr', label: 'Daging Sapi', fmt: v => 'Rp'+fmtK(v)+'/kg' },
     { key: 'pihps_gula_pasir_idr', label: 'Gula Pasir', fmt: v => 'Rp'+fmtK(v)+'/kg' },
   ];
-  const rows = [];
-  for (let i = 0; i < foods.length; i += 2) {
-    const a = foods[i], b = foods[i+1];
-    const va = ind[a.key]?.value, vb = b ? ind[b.key]?.value : null;
-    rows.push('<tr>' +
-      '<td class="food-label">' + a.label + '</td>' +
-      '<td class="food-val">' + (va ? a.fmt(va) : '—') + '</td>' +
-      '<td class="food-label">' + (b ? b.label : '') + '</td>' +
-      '<td class="food-val">' + (b && vb ? b.fmt(vb) : (b ? '—' : '')) + '</td>' +
-    '</tr>');
-  }
+  const rows = foods.map(f => {
+    const v = ind[f.key]?.value;
+    return '<tr><td class="food-label">' + f.label + '</td><td class="food-val">' + (v != null ? f.fmt(v) : '—') + '</td></tr>';
+  });
   return '<tbody>' + rows.join('') + '</tbody>';
 }
 
